@@ -800,11 +800,17 @@
                  </select>
                </div>
              </div>
+             
              <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
                 <button type="submit" id="vSubmitBtn" class="primary" style="flex: 1;">Guardar Periodo</button>
                 <button type="button" id="vCancelBtn" style="flex: 1; display: none;">Cancelar</button>
              </div>
            </form>
+           
+           <!-- Nuevo Bloque: Saldos de Vacaciones (Aislado del form) -->
+           <div id="saldosVacacionesContainer" class="contenedor-saldos-historial" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; width: 100%; margin-top: 1rem;">
+             <!-- Renderizado por JS -->
+           </div>
          </div>
 
          <div class="card">
@@ -923,7 +929,7 @@
     // 1. FIREBASE INITIALIZATION
     // Reemplaza con tus credenciales de Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCJZeUE4k1XHIyxQ4lRmKvlH0eHeAZky4o",
@@ -1102,6 +1108,7 @@
       // Llenar selectores
       const vCollabSelect = document.getElementById('vCollab');
       vCollabSelect.innerHTML = state.collaborators.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      renderSaldosVacaciones();
 
       // Orden por id o jerarquía para mantener estructura
       state.collaborators.sort((a, b) => a.id.localeCompare(b.id));
@@ -1483,10 +1490,10 @@
           `;
         });
 
-        // Weekly Validation Status (Pure Color & LED)
+        // Weekly Validation Status (Pure Color)
         let hoursColor = 'var(--text)';
         if (hasVacationThisWeek) {
-           hoursColor = 'var(--success)'; // Si tiene vacaciones en la semana, no exigimos horas estrictas.
+           hoursColor = 'var(--info)'; // Azul
         } else if (totalHours < collab.hours) {
            hoursColor = hasHolidayAbsence ? 'var(--warning)' : 'var(--danger)';
         } else if (totalHours === collab.hours) {
@@ -1495,17 +1502,12 @@
            hoursColor = 'var(--danger)';
         }
 
-        const ledStyle = isExported 
-            ? 'background: var(--success); box-shadow: 0 0 5px var(--success);' 
-            : 'background: rgba(156, 163, 175, 0.3);';
-
         html += `
           <td style="vertical-align: middle; padding: 0 0.5rem;">
             <div style="display:flex; justify-content:center; align-items:center; gap:0.5rem;">
               <div style="color: ${hoursColor}; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">
                 ${totalHours}h / ${collab.hours}h
               </div>
-              <div style="width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; ${ledStyle}" title="${isExported ? 'Enviado' : 'Pendiente'}"></div>
             </div>
           </td>
         `;
@@ -2125,7 +2127,278 @@
        document.getElementById('vFormTitle').innerText = 'Registrar Vacaciones';
        document.getElementById('vSubmitBtn').innerText = 'Guardar Periodo';
        document.getElementById('vCancelBtn').style.display = 'none';
+       renderSaldosVacaciones();
     });
+
+    document.getElementById('vCollab').addEventListener('change', renderSaldosVacaciones);
+
+    function calcularDiasTomados(collabId, año) {
+        const startRange = new Date(año, 9, 1); // Oct 1, año (0-indexed month 9)
+        const endRange = new Date(año + 1, 8, 30, 23, 59, 59); // Sep 30, año+1
+        
+        let diasTomados = 0;
+        state.vacations.forEach(v => {
+            if (v.colaboradorId === collabId) {
+                let currentD = new Date(v.startDate + "T00:00:00");
+                const endD = new Date(v.endDate + "T00:00:00");
+                while (currentD <= endD) {
+                    if (currentD >= startRange && currentD <= endRange) {
+                        diasTomados++;
+                    }
+                    currentD.setDate(currentD.getDate() + 1);
+                }
+            }
+        });
+        return diasTomados;
+    }
+
+    async function autoSaveSaldos(collabId) {
+       const collab = state.collaborators.find(c => c.id === collabId);
+       if (!collab) return;
+       
+       if (!collab.saldosVacaciones) collab.saldosVacaciones = {};
+       
+       const container = document.getElementById('saldosVacacionesContainer');
+       const years = Array.from(container.querySelectorAll('.saldo-year-row'));
+       
+       years.forEach(row => {
+           const y = row.dataset.year;
+           const tipo = row.querySelector('.saldo-tipo').value;
+           const asignados = parseInt(row.querySelector('.saldo-asignados').value, 10) || 0;
+           const disp = parseInt(row.querySelector('.saldo-disponibles').innerText, 10) || 0;
+           
+           if (!collab.saldosVacaciones[y]) collab.saldosVacaciones[y] = {};
+           collab.saldosVacaciones[y].periodoTipo = tipo;
+           collab.saldosVacaciones[y].diasAsignados = asignados;
+           collab.saldosVacaciones[y].diasDisponibles = disp;
+       });
+       
+       if (!isMockMode) {
+          try {
+             await updateDoc(doc(db, "colaboradores", collabId), { saldosVacaciones: collab.saldosVacaciones });
+          } catch(e) {
+             console.error("Error auto-saving saldos:", e);
+          }
+       }
+    }
+
+    function renderSaldosVacaciones() {
+       const collabId = document.getElementById('vCollab').value;
+       const container = document.getElementById('saldosVacacionesContainer');
+       if (!collabId) {
+          container.innerHTML = '';
+          return;
+       }
+       
+       const collab = state.collaborators.find(c => c.id === collabId);
+       if (!collab) return;
+       
+       let maxYear = new Date().getFullYear();
+       let minYear = maxYear - 3;
+       if (collab.saldosVacaciones) {
+           const savedYears = Object.keys(collab.saldosVacaciones).map(y => parseInt(y, 10));
+           if (savedYears.length > 0) {
+               maxYear = Math.max(maxYear, ...savedYears);
+               const actualMin = Math.min(...savedYears);
+               if (actualMin < minYear) {
+                   minYear = actualMin;
+               }
+           }
+       }
+
+       let html = `
+          <!-- Columna Izquierda: Años -->
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
+                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text);">Gestión de Saldos y Temporadas</div>
+                <div style="display: flex; gap: 4px;">
+                   <button type="button" id="removeYearBtn" title="Eliminar año superior" style="background: var(--danger); color: white; border: none; border-radius: 4px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; line-height: 1;">-</button>
+                   <button type="button" id="addNextYearBtn" title="Agregar año siguiente" style="background: var(--primary); color: white; border: none; border-radius: 4px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; line-height: 1;">+</button>
+                </div>
+             </div>
+             
+             <!-- Contenedor scrolleable de años -->
+             <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto; padding-right: 4px;">
+       `;
+       
+       // Show years from maxYear down to minYear
+       for (let y = maxYear; y >= minYear; y--) {
+          
+          let tipo = 'N/A';
+          let asignados = 0;
+          
+          if (collab.saldosVacaciones && collab.saldosVacaciones[y]) {
+              tipo = collab.saldosVacaciones[y].periodoTipo || 'N/A';
+              asignados = collab.saldosVacaciones[y].diasAsignados || 0;
+          } else if (collab.historialVacaciones && collab.historialVacaciones[y]) {
+              tipo = collab.historialVacaciones[y];
+          }
+          
+          const tomados = calcularDiasTomados(collabId, y);
+          const disponibles = asignados - tomados;
+          
+          let colorCls = '';
+          let fw = '';
+          if (disponibles === 0 && asignados > 0) colorCls = 'var(--success)';
+          else if (disponibles < 0) { colorCls = 'var(--danger)'; fw = 'bold'; }
+          
+          html += `
+             <div class="saldo-year-row" data-year="${y}" style="display: flex; gap: 0.5rem; align-items: center; background: rgba(255,255,255,0.02); padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="width: 35px; font-size: 0.8rem; font-weight: bold; color: var(--text-muted);">${y}</div>
+                <select class="saldo-tipo" style="flex: 1; padding: 2px; font-size: 0.75rem; background: var(--background); color: var(--text); border: 1px solid var(--border); border-radius: 2px;">
+                   <option value="N/A" ${tipo === 'N/A' ? 'selected' : ''}>N/A</option>
+                   <option value="Buena" ${tipo === 'Buena' ? 'selected' : ''}>B (Buena)</option>
+                   <option value="Mala" ${tipo === 'Mala' ? 'selected' : ''}>M (Mala)</option>
+                </select>
+                <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
+                   <label style="font-size: 0.55rem; color: var(--text-muted); margin-bottom: 2px;">Asignados</label>
+                   <input type="number" class="saldo-asignados" value="${asignados}" min="0" style="width: 100%; padding: 2px; font-size: 0.75rem; text-align: center; background: var(--background); color: var(--text); border: 1px solid var(--border); border-radius: 2px;">
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
+                   <label style="font-size: 0.55rem; color: var(--text-muted); margin-bottom: 2px;">Disponibles</label>
+                   <div class="saldo-disponibles" style="font-size: 0.85rem; color: ${colorCls}; font-weight: ${fw};">${disponibles}</div>
+                </div>
+             </div>
+          `;
+       }
+       
+       // Calcular historial automático
+       const historyByYear = {};
+       state.vacations.forEach(v => {
+          if (v.colaboradorId === collabId) {
+             const vStart = new Date(v.startDate + "T00:00:00");
+             const vEnd = new Date(v.endDate + "T00:00:00");
+             
+             let yearOfVacation = vStart.getFullYear();
+             if (vStart.getMonth() < 9) { // 0 to 8 (Jan to Sep)
+                 yearOfVacation -= 1;
+             }
+             
+             if (!historyByYear[yearOfVacation]) {
+                 historyByYear[yearOfVacation] = [];
+             }
+             
+             const diffDays = Math.ceil(Math.abs(vEnd - vStart) / (1000 * 60 * 60 * 24)) + 1;
+             
+             historyByYear[yearOfVacation].push({
+                 start: vStart,
+                 end: vEnd,
+                 days: diffDays
+             });
+          }
+       });
+       
+       let historyHtml = '';
+       const historyYears = Object.keys(historyByYear).sort((a, b) => b - a);
+       
+       if (historyYears.length === 0) {
+           historyHtml = '<div style="font-size: 0.75rem; color: var(--text-muted); font-style: italic;">Sin vacaciones aprobadas registradas.</div>';
+       } else {
+           historyYears.forEach(y => {
+               historyByYear[y].sort((a, b) => a.start - b.start);
+               const periodsStr = historyByYear[y].map(p => {
+                   const sDay = String(p.start.getDate()).padStart(2, '0');
+                   const sMonth = String(p.start.getMonth()+1).padStart(2, '0');
+                   const sYear = String(p.start.getFullYear()).slice(-2);
+                   const sStr = `${sDay}-${sMonth}/${sYear}`;
+                   
+                   const eDay = String(p.end.getDate()).padStart(2, '0');
+                   const eMonth = String(p.end.getMonth()+1).padStart(2, '0');
+                   const eYear = String(p.end.getFullYear()).slice(-2);
+                   const eStr = `${eDay}-${eMonth}/${eYear}`;
+                   
+                   return `${p.days} dias del ${sStr} al ${eStr}`;
+               }).join(' | ');
+               
+               historyHtml += `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;"><strong>${y}:</strong> ${periodsStr}</div>`;
+           });
+       }
+       
+       html += `
+             </div>
+          </div>
+          <!-- Columna Derecha: Historial Automático -->
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; height: 100%; overflow-y: auto; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 0.5rem;">
+             <div style="font-size: 0.75rem; font-weight: 600; color: var(--text); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 4px;">Historial de Vacaciones Aprobadas</div>
+             ${historyHtml}
+          </div>
+       `;
+       
+       container.innerHTML = html;
+       
+       container.querySelectorAll('.saldo-tipo, .saldo-asignados').forEach(el => {
+          el.addEventListener('change', (e) => {
+             const row = e.target.closest('.saldo-year-row');
+             const y = parseInt(row.dataset.year, 10);
+             const asignados = parseInt(row.querySelector('.saldo-asignados').value, 10) || 0;
+             const tomados = calcularDiasTomados(collabId, y);
+             const disp = asignados - tomados;
+             
+             const dispEl = row.querySelector('.saldo-disponibles');
+             dispEl.innerText = disp;
+             
+             dispEl.style.color = '';
+             dispEl.style.fontWeight = '';
+             if (disp === 0 && asignados > 0) dispEl.style.color = 'var(--success)';
+             else if (disp < 0) { dispEl.style.color = 'var(--danger)'; dispEl.style.fontWeight = 'bold'; }
+             
+             autoSaveSaldos(collabId);
+          });
+       });
+       
+       const addNextBtn = document.getElementById('addNextYearBtn');
+       if (addNextBtn) {
+           addNextBtn.addEventListener('click', async () => {
+               const nextYear = maxYear + 1;
+               
+               let tipo1 = (collab.saldosVacaciones && collab.saldosVacaciones[maxYear]) ? collab.saldosVacaciones[maxYear].periodoTipo : 'N/A';
+               let tipo2 = (collab.saldosVacaciones && collab.saldosVacaciones[maxYear - 1]) ? collab.saldosVacaciones[maxYear - 1].periodoTipo : 'N/A';
+               
+               if (tipo1 === 'N/A' && collab.historialVacaciones && collab.historialVacaciones[maxYear]) tipo1 = collab.historialVacaciones[maxYear];
+               if (tipo2 === 'N/A' && collab.historialVacaciones && collab.historialVacaciones[maxYear - 1]) tipo2 = collab.historialVacaciones[maxYear - 1];
+
+               let newTipo = 'Mala';
+               if (tipo1 === 'Mala' && tipo2 === 'Mala') {
+                   newTipo = 'Buena';
+               }
+               
+               if (!collab.saldosVacaciones) collab.saldosVacaciones = {};
+               collab.saldosVacaciones[nextYear] = {
+                   periodoTipo: newTipo,
+                   diasAsignados: 0,
+                   diasDisponibles: 0
+               };
+               
+               if (!isMockMode) {
+                   try {
+                       await updateDoc(doc(db, "colaboradores", collabId), { saldosVacaciones: collab.saldosVacaciones });
+                   } catch(e) {
+                       console.error("Error creating next year:", e);
+                   }
+               }
+               renderSaldosVacaciones();
+           });
+       }
+
+       const removeBtn = document.getElementById('removeYearBtn');
+       if (removeBtn) {
+           removeBtn.addEventListener('click', async () => {
+               if (!confirm(`¿Seguro que deseas eliminar el año ${maxYear}?`)) return;
+               
+               if (collab.saldosVacaciones && collab.saldosVacaciones[maxYear]) {
+                   delete collab.saldosVacaciones[maxYear];
+                   if (!isMockMode) {
+                       try {
+                           await updateDoc(doc(db, "colaboradores", collabId), { saldosVacaciones: collab.saldosVacaciones });
+                       } catch(e) {
+                           console.error("Error deleting year:", e);
+                       }
+                   }
+                   renderSaldosVacaciones();
+               }
+           });
+       }
+    }
 
     document.getElementById('vacationForm').addEventListener('submit', async (e) => {
        e.preventDefault();
