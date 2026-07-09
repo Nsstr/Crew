@@ -438,6 +438,15 @@
     }
 
     /* Heatmap Grid */
+    .heatmap-row {
+       display: grid;
+       grid-template-columns: 45px repeat(24, 1fr);
+       flex: 1;
+       transition: background-color 0.15s ease;
+    }
+    .heatmap-row:not(.heatmap-header-row):hover {
+       background-color: rgba(255, 255, 255, 0.1);
+    }
     .heatmap-header-cell {
        display: flex;
        justify-content: center;
@@ -734,7 +743,7 @@
       </div>
       <!-- BLOQUE DERECHO: MAPA DE CALOR -->
       <div class="top-heatmap-area">
-         <div id="heatmapGrid" style="display: grid; row-gap: 0; column-gap: 0; width: 100%; height: 100%;">
+         <div id="heatmapGrid" style="display: flex; flex-direction: column; width: 100%; height: 100%;">
             <!-- Injected via JS -->
          </div>
       </div>
@@ -1644,14 +1653,13 @@
       const grid = document.getElementById('heatmapGrid');
       if (!grid) return;
       
-      grid.style.gridTemplateColumns = `45px repeat(24, 1fr)`;
-      grid.style.rowGap = '0px';
-      
-      let html = `<div style="border-bottom: 1px solid rgba(255,255,255,0.05);"></div>`; // Empty corner cell
+      let html = `<div class="heatmap-row heatmap-header-row">`;
+      html += `<div style="border-bottom: 1px solid rgba(255,255,255,0.05);"></div>`; // Empty corner cell
       for (let h = 0; h <= 23; h++) {
          const timeLabel = String(h).padStart(2, '0');
          html += `<div class="heatmap-header-cell" style="border-bottom: 1px solid rgba(255,255,255,0.05);">${timeLabel}h</div>`;
       }
+      html += `</div>`;
 
       days.forEach(d => {
          const dStr = formatDate(d);
@@ -1660,6 +1668,7 @@
          const dayLabel = d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' });
          const capitalizedLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
          
+         html += `<div class="heatmap-row" data-date="${dStr}">`;
          html += `<div class="heatmap-row-label">${capitalizedLabel}</div>`;
          
          const hourlyCounts = {};
@@ -1696,6 +1705,7 @@
             
             html += `<div class="heatmap-cell ${heatClass}" title="${h}h: ${count} personas">${count}</div>`;
          }
+         html += `</div>`;
       });
       
       grid.innerHTML = html;
