@@ -347,6 +347,52 @@
       justify-content: space-between;
     }
 
+    /* Context Menu and Cell Modals */
+    .context-menu {
+      position: absolute;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 9999;
+      min-width: 200px;
+      overflow: hidden;
+    }
+    .context-menu-item {
+      padding: 10px 15px;
+      font-size: 0.85rem;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .context-menu-item:hover {
+      background: var(--bg);
+    }
+    .cell-wrapper.has-comment::after {
+       content: "";
+       position: absolute;
+       top: 0;
+       right: 0;
+       width: 0;
+       height: 0;
+       border-style: solid;
+       border-width: 0 8px 8px 0;
+       border-color: transparent var(--danger) transparent transparent;
+       pointer-events: none;
+    }
+    .cell-wrapper.is-fixed::before {
+       content: "";
+       position: absolute;
+       top: 0;
+       left: 0;
+       width: 0;
+       height: 0;
+       border-style: solid;
+       border-width: 8px 8px 0 0;
+       border-color: var(--primary) transparent transparent transparent;
+       pointer-events: none;
+    }
+
     /* Modals/Alerts */
     .toast-container {
       position: fixed;
@@ -865,6 +911,42 @@
 
   <div class="toast-container" id="toastContainer"></div>
 
+  <!-- MENÚ CONTEXTUAL -->
+  <div id="contextMenu" class="context-menu" style="display: none; padding: 12px; width: 300px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 9999; font-family: inherit;">
+      <!-- Bloque 1: Fijar Horario -->
+      <div style="background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
+         <div style="display: flex; align-items: center; gap: 8px;">
+           <label for="cellFixedInput" style="margin: 0; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--text);">Fijar Horario*</label>
+           <input type="checkbox" id="cellFixedInput" style="width: 14px; height: 14px; cursor: pointer; margin-left: auto;">
+         </div>
+         <p id="cellFixedDateText" style="margin: 4px 0 0 0; font-size: 0.7rem; color: var(--text-muted);">*(Solicitado con tiempo)</p>
+      </div>
+
+      <!-- Bloque 2: Llegada Tarde -->
+      <div style="background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
+         <div style="display: flex; align-items: center; gap: 8px;">
+            <label style="margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--text);">Llegada tarde:</label>
+            <input type="text" id="cellTardanzaInput" placeholder="Ej: 24 o 1:05" style="width: 110px; padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.85rem; font-family: inherit; text-align: center;">
+            <input type="checkbox" id="cellTardanzaCheck" style="width: 14px; height: 14px; cursor: pointer; margin-left: auto;">
+         </div>
+         <p style="margin: 4px 0 0 0; font-size: 0.7rem; color: var(--text-muted);">*(Ingresa minutos puros o formato H:MM para Horas y Minutos)</p>
+      </div>
+      
+      <!-- Bloque 3: Comentario Libre & Acciones -->
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+         <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text); margin: 0;">Comentario</label>
+         <div style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+               <textarea id="cellCommentInput" style="width: 100%; height: 60px; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); resize: none; box-sizing: border-box; font-size: 0.85rem; font-family: inherit;"></textarea>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; justify-content: flex-end;">
+               <button id="saveCellDetailsBtn" style="background: var(--success); color: #fff; border: none; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;" title="Guardar">✓</button>
+               <button onclick="window.deleteCellComment()" style="background: var(--danger); color: #fff; border: none; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;" title="Borrar Comentario">X</button>
+            </div>
+         </div>
+      </div>
+  </div>
+
   <!-- MODAL GESTION DOTACION -->
   <div class="modal-overlay" id="configModal">
     <div class="modal-content">
@@ -958,7 +1040,7 @@
     }
 
     // 2. PARSING Y LÓGICA DE TURNOS
-    function parseShift(val) {
+    function parseShift(val, tardanzaMinutosTotales = 0) {
       if (!val) return null;
       val = val.toString().trim().toLowerCase();
       
@@ -968,20 +1050,33 @@
       if (val === 'libre') return { type: 'libre', label: 'LIBRE', class: 'input-libre', hours: 0 };
       if (val === '-') return { type: 'none', label: '', class: '', hours: 0 };
 
-      const match = val.match(/^(\d{1,2})a(\d{1,2})$/);
+      const match = val.match(/^(\d{1,2})(?::(\d{2}))?a(\d{1,2})(?::(\d{2}))?$/);
       if (match) {
-        let start = parseInt(match[1]);
-        let end = parseInt(match[2]);
-        if (start >= 0 && start <= 24 && end >= 0 && end <= 24) {
+        let startH = parseInt(match[1], 10);
+        let startM = match[2] ? parseInt(match[2], 10) : 0;
+        let endH = parseInt(match[3], 10);
+        let endM = match[4] ? parseInt(match[4], 10) : 0;
+        
+        let totalStartMins = startH * 60 + startM + tardanzaMinutosTotales;
+        startH = Math.floor(totalStartMins / 60);
+        startM = totalStartMins % 60;
+        
+        let start = startH + (startM / 60);
+        let end = endH + (endM / 60);
+
+        if (startH >= 0 && startH <= 24 && endH >= 0 && endH <= 24) {
            let hours = end <= start ? (24 - start) + end : end - start;
-           let formattedLabel = `${start}a${end}`;
+           
+           let startStr = startM > 0 ? `${startH}:${String(startM).padStart(2, '0')}` : `${startH}`;
+           let endStr = endM > 0 ? `${endH}:${String(endM).padStart(2, '0')}` : `${endH}`;
+           let formattedLabel = `${startStr}a${endStr}`;
            
            let group = null;
-           if (start >= 4 && start <= 10) group = 'M';
-           else if (start >= 11 && start <= 13) group = 'I';
-           else if (start >= 14 && start <= 19) group = 'T';
-           else if (start >= 20) group = 'N';
-           else if (start < 4) group = 'E';
+           if (startH >= 4 && startH <= 10) group = 'M';
+           else if (startH >= 11 && startH <= 13) group = 'I';
+           else if (startH >= 14 && startH <= 19) group = 'T';
+           else if (startH >= 20) group = 'N';
+           else if (startH < 4) group = 'E';
 
            return { type: 'work', label: formattedLabel, start, end, hours, class: 'input-work', group };
         }
@@ -1017,11 +1112,26 @@
       currentWeekStart: getStartOfWeek(new Date()),
       collaborators: [],
       vacations: [], // { id, collabId, startDate, endDate, weeksCount }
-      planning: {}, // key: `${collabId}_${dateString}`, value: slotKey
+      planning: {}, // key: `${collabId}_${dateString}`, value: slot object or string
       exportedRows: {}, // key: collabId for this week
       holidays: [], // array of date strings 'YYYY-MM-DD'
       monthlySundaysWorked: {}, // key: collabId, value: array of dateStrings (Sundays)
     };
+
+    // Helpers para metadatos de turnos
+    function getPlanningSlot(collabId, dateStr) {
+       const obj = state.planning[`${collabId}_${dateStr}`];
+       if (!obj) return '';
+       if (typeof obj === 'string') return obj;
+       return obj.slot || '';
+    }
+
+    function getPlanningObj(collabId, dateStr) {
+       const obj = state.planning[`${collabId}_${dateStr}`];
+       if (!obj) return null;
+       if (typeof obj === 'string') return { slot: obj };
+       return obj;
+    }
 
     // 4. MOCK DATA PARA DESARROLLO
     const mockCollaborators = [
@@ -1144,7 +1254,7 @@
           const snap = await getDocs(q);
           snap.forEach(doc => {
             const data = doc.data();
-            state.planning[`${data.colaboradorId}_${data.fecha}`] = data.slot;
+            state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
           });
 
           // Fetch Sundays for the month
@@ -1177,8 +1287,8 @@
       const prevDateStr = formatDate(addDays(targetDate, -1));
       const nextDateStr = formatDate(addDays(targetDate, 1));
       
-      const prevSlotKey = state.planning[`${collabId}_${prevDateStr}`];
-      const nextSlotKey = state.planning[`${collabId}_${nextDateStr}`];
+      const prevSlotKey = getPlanningSlot(collabId, prevDateStr);
+      const nextSlotKey = getPlanningSlot(collabId, nextDateStr);
       
       const prevSlot = parseShift(prevSlotKey);
       const nextSlot = parseShift(nextSlotKey);
@@ -1206,7 +1316,7 @@
       // 7.2 Descanso con Franco (>= 35h)
       if (parsedNewSlot.type === 'work' && prevSlot && prevSlot.type === 'franco') {
         const prevPrevDateStr = formatDate(addDays(targetDate, -2));
-        const prevPrevVal = state.planning[`${collabId}_${prevPrevDateStr}`];
+        const prevPrevVal = getPlanningSlot(collabId, prevPrevDateStr);
         const prevPrevSlot = parseShift(prevPrevVal);
         if (prevPrevSlot && prevPrevSlot.type === 'work') {
            let currAbs = getShiftAbsoluteTimes(dateStr, parsedNewSlot);
@@ -1246,7 +1356,7 @@
         days.forEach(dateStr => {
           let hasCoverage = false;
           colIds.forEach(id => {
-            const val = state.planning[`${id}_${dateStr}`];
+            const val = getPlanningSlot(id, dateStr);
             const parsed = parseShift(val);
             if (parsed && parsed.type === 'work') {
               hasCoverage = true;
@@ -1317,7 +1427,7 @@
           const dStr = formatDate(d);
           let francos = 0;
           state.collaborators.forEach(c => {
-             const val = state.planning[`${c.id}_${dStr}`] || '';
+             const val = getPlanningSlot(c.id, dStr);
              const parsed = parseShift(val);
              if (parsed && (parsed.type === 'franco' || parsed.type === 'libre')) {
                 francos++;
@@ -1366,7 +1476,7 @@
         monthName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
         
         let restCount = (state.monthlySundaysWorked[collab.id] || []).filter(date => date !== currentSundayStr).length;
-        const localVal = state.planning[`${collab.id}_${currentSundayStr}`] || '';
+        const localVal = getPlanningSlot(collab.id, currentSundayStr);
         const localParsed = parseShift(localVal);
         if (localParsed && (localParsed.type === 'franco' || localParsed.type === 'libre')) restCount++;
         
@@ -1382,7 +1492,7 @@
 
         let francoCount = 0;
         days.forEach(d => {
-          const val = state.planning[`${collab.id}_${formatDate(d)}`] || '';
+          const val = getPlanningSlot(collab.id, formatDate(d));
           const parsed = parseShift(val);
           if (parsed && parsed.type === 'franco') francoCount++;
         });
@@ -1448,7 +1558,7 @@
              }
           }
 
-          let val = state.planning[`${collab.id}_${dStr}`] || '';
+          let val = getPlanningSlot(collab.id, dStr);
           let parsed = null;
           let inputClass = '';
           let isDisabled = false;
@@ -1463,7 +1573,8 @@
              isDisabled = true;
              francoCount++;
           } else {
-             parsed = parseShift(val);
+             let objForTardanza = getPlanningObj(collab.id, dStr) || {};
+             parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
              if (parsed && parsed.type === 'work') totalHours += parsed.hours;
              
              inputClass = parsed ? parsed.class : '';
@@ -1488,9 +1599,34 @@
              }
           }
 
+          let styleStr = '';
+          if (val.length > 6) styleStr = 'font-size: 0.65rem; letter-spacing: -0.5px;';
+          
+          let titleAttr = '';
+          let wrapperClass = 'cell-wrapper';
+          let obj = getPlanningObj(collab.id, dStr);
+          if (obj) {
+             let hasObservation = obj.comentario || obj.tardanzaMinutosTotales;
+             if (hasObservation) {
+                wrapperClass += ' has-comment';
+                let titleParts = [];
+                if (obj.tardanzaMinutosTotales) titleParts.push(`Tardanza: ${obj.tardanzaTexto || obj.tardanzaMinutosTotales}`);
+                if (obj.comentario) titleParts.push(obj.comentario);
+                titleAttr = `title="${titleParts.join(' | ')}"`;
+             }
+             if (obj.fijado) {
+                wrapperClass += ' is-fixed';
+                if (titleAttr) {
+                   titleAttr = `title="Fijado | ${titleAttr.replace('title="', '').replace('"', '')}"`;
+                } else {
+                   titleAttr = `title="Turno Fijado"`;
+                }
+             }
+          }
+
           html += `
-            <td class="${isHoliday ? 'holiday-col' : ''}">
-              <input type="text" class="cell-input ${inputClass}" data-collab="${collab.id}" data-date="${dStr}" value="${val}" ${isDisabled ? 'disabled' : ''} placeholder="-">
+            <td class="${isHoliday ? 'holiday-col' : ''} ${wrapperClass}" ${titleAttr} style="position: relative;">
+              <input type="text" class="cell-input ${inputClass}" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" value="${val}" ${isDisabled ? 'disabled' : ''} placeholder="-">
             </td>
           `;
         });
@@ -1511,7 +1647,7 @@
           <td style="vertical-align: middle; padding: 0 0.5rem;">
             <div style="display:flex; justify-content:center; align-items:center; gap:0.5rem;">
               <div style="color: ${hoursColor}; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">
-                ${totalHours}h / ${collab.hours}h
+                ${Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1)}h / ${collab.hours}h
               </div>
             </div>
           </td>
@@ -1528,6 +1664,7 @@
       const inputs = Array.from(document.querySelectorAll('.cell-input'));
       inputs.forEach((el, index) => {
         el.addEventListener('blur', handleInputChange);
+        el.addEventListener('contextmenu', handleContextMenu);
         el.addEventListener('focus', e => {
            if (currentRole === 'visitor') {
               requireEditor(e);
@@ -1619,8 +1756,9 @@
           }
 
           if (!isOnVacationToday) {
-             const valToday = state.planning[`${c.id}_${dStr}`];
-             const parsedToday = parseShift(valToday);
+             const objForTardanza = getPlanningObj(c.id, dStr) || {};
+             const valToday = getPlanningSlot(c.id, dStr);
+             const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
              if (parsedToday && parsedToday.group && counts[parsedToday.group] !== undefined) {
                 counts[parsedToday.group]++;
              }
@@ -1675,10 +1813,11 @@
          for (let h = 0; h <= 23; h++) hourlyCounts[h] = 0;
 
          state.collaborators.forEach(c => {
-            const valToday = state.planning[`${c.id}_${dStr}`];
-            const parsedToday = parseShift(valToday);
+            const objForTardanza = getPlanningObj(c.id, dStr) || {};
+            const valToday = getPlanningSlot(c.id, dStr);
+            const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
             
-            const valPrev = state.planning[`${c.id}_${prevDateStr}`];
+            const valPrev = getPlanningSlot(c.id, prevDateStr);
             const parsedPrev = parseShift(valPrev);
 
             for (let h = 0; h <= 23; h++) {
@@ -1720,7 +1859,7 @@
       const rawValue = input.value;
       
       const parsedNew = parseShift(rawValue);
-      const oldValue = state.planning[`${collabId}_${dateStr}`] || '';
+      const oldValue = getPlanningSlot(collabId, dateStr);
 
       if (parsedNew && parsedNew.type === 'error') {
          showToast("Error de Formato", `El turno '${rawValue}' no es válido. Usa '6a14', 'F', 'V', 'E'.`);
@@ -1732,6 +1871,16 @@
       if (finalValue === oldValue) {
          input.value = finalValue; // Limpia el formato de vista
          return; 
+      }
+
+      // Check for fixed shift override
+      const currentObj = getPlanningObj(collabId, dateStr);
+      if (currentObj && currentObj.fijado) {
+         const dateTxt = currentObj.fechaFijado || 'fecha desconocida';
+         if (!confirm(`Este horario fue fijado a petición del colaborador el ${dateTxt}.\n\n¿Estás seguro de que deseas modificarlo?`)) {
+            input.value = oldValue;
+            return;
+         }
       }
 
       const validation = validateTurn(collabId, dateStr, parsedNew);
@@ -1760,11 +1909,14 @@
         }
       }
 
-      // Update local state
+      // Preserve metadata
+      let obj = getPlanningObj(collabId, dateStr) || {};
+      obj.slot = finalValue;
+
       if (finalValue === '') {
         delete state.planning[`${collabId}_${dateStr}`];
       } else {
-        state.planning[`${collabId}_${dateStr}`] = finalValue;
+        state.planning[`${collabId}_${dateStr}`] = obj;
       }
       
       if (oldValue !== finalValue) {
@@ -1774,7 +1926,7 @@
       // Check for multiple Francos in the week
       let francoCount = 0;
       getWeekDays().forEach(d => {
-         const val = state.planning[`${collabId}_${formatDate(d)}`] || '';
+         const val = getPlanningSlot(collabId, formatDate(d));
          const parsed = parseShift(val);
          if (parsed && parsed.type === 'franco') francoCount++;
       });
@@ -1794,7 +1946,7 @@
             colaboradorId: collabId,
             fecha: dateStr,
             slot: finalValue
-          });
+          }, { merge: true });
         } catch(err) {
           console.error("Error guardando:", err);
           showToast("Error de conexión", "No se pudo guardar en la base de datos.");
@@ -2674,6 +2826,156 @@
        });
     };
 
+    let currentContextCell = null;
+    function handleContextMenu(e) {
+       e.preventDefault();
+       if (currentRole === 'visitor') return;
+       currentContextCell = e.target;
+       
+       const collabId = currentContextCell.getAttribute('data-collab');
+       const dateStr = currentContextCell.getAttribute('data-date');
+       const obj = getPlanningObj(collabId, dateStr) || {};
+       
+       document.getElementById('cellCommentInput').value = obj.comentario || '';
+       document.getElementById('cellFixedInput').checked = !!obj.fijado;
+       document.getElementById('cellFixedDateText').textContent = obj.fijado && obj.fechaFijado ? `*(Solicitado con tiempo: ${obj.fechaFijado})` : '*(Solicitado con tiempo)';
+       
+       document.getElementById('cellTardanzaInput').value = obj.tardanzaTexto || '';
+       document.getElementById('cellTardanzaCheck').checked = !!obj.tardanzaConfirmada;
+
+       const ctxMenu = document.getElementById('contextMenu');
+       ctxMenu.style.display = 'block';
+       
+       let topPos = e.pageY;
+       let leftPos = e.pageX;
+       if (leftPos + 450 > window.innerWidth) leftPos = window.innerWidth - 470;
+       if (topPos + 400 > window.innerHeight) topPos = window.innerHeight - 420;
+       if (topPos < 0) topPos = 10;
+       
+       ctxMenu.style.left = leftPos + 'px';
+       ctxMenu.style.top = topPos + 'px';
+    }
+
+    document.addEventListener('click', e => {
+       const ctxMenu = document.getElementById('contextMenu');
+       if (ctxMenu && ctxMenu.style.display === 'block') {
+          if (!ctxMenu.contains(e.target) && e.target !== currentContextCell) {
+             ctxMenu.style.display = 'none';
+          }
+       }
+    });
+
+    window.closeContextMenu = function() {
+       document.getElementById('contextMenu').style.display = 'none';
+    };
+
+    window.deleteCellComment = async function() {
+       document.getElementById('cellCommentInput').value = '';
+       await autoSaveContextMenu();
+       window.closeContextMenu();
+       renderHeatmap();
+    };
+
+    document.getElementById('cellFixedInput').addEventListener('change', async (e) => {
+       if (!currentContextCell) return;
+       const collabId = currentContextCell.getAttribute('data-collab');
+       const dateStr = currentContextCell.getAttribute('data-date');
+       
+       const obj = getPlanningObj(collabId, dateStr) || {};
+       obj.slot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+       
+       const isFixedNow = e.target.checked;
+       if (isFixedNow) {
+          const dt = new Date();
+          const dia = String(dt.getDate()).padStart(2, '0');
+          const mes = String(dt.getMonth() + 1).padStart(2, '0');
+          const anio = dt.getFullYear();
+          obj.fechaFijado = `${dia}/${mes}/${anio}`;
+          document.getElementById('cellFixedDateText').textContent = `*(Solicitado con tiempo el dia ${obj.fechaFijado})`;
+       } else {
+          obj.fechaFijado = null;
+          document.getElementById('cellFixedDateText').textContent = '*(Solicitado con tiempo)';
+       }
+       obj.fijado = isFixedNow;
+       
+       state.planning[`${collabId}_${dateStr}`] = obj;
+       
+       if (!isMockMode) {
+         try {
+           const docId = `${collabId}_${dateStr}`;
+           setDoc(doc(db, "planificacion", docId), {
+             colaboradorId: collabId,
+             fecha: dateStr,
+             slot: obj.slot,
+             fijado: obj.fijado,
+             fechaFijado: obj.fechaFijado
+           }, { merge: true });
+         } catch(err) {
+           console.error("Error auto-guardando fijado:", err);
+         }
+       }
+       renderUI();
+    });
+
+    async function autoSaveContextMenu() {
+       if (!currentContextCell) return;
+       const collabId = currentContextCell.getAttribute('data-collab');
+       const dateStr = currentContextCell.getAttribute('data-date');
+       
+       const obj = getPlanningObj(collabId, dateStr) || {};
+       obj.slot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+       obj.comentario = document.getElementById('cellCommentInput').value.trim();
+       
+       const tardanzaStr = document.getElementById('cellTardanzaInput').value.trim();
+       let tardanzaMins = 0;
+       if (tardanzaStr) {
+          if (tardanzaStr.includes(':')) {
+             let parts = tardanzaStr.split(':');
+             tardanzaMins = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+          } else {
+             tardanzaMins = parseInt(tardanzaStr, 10) || 0;
+          }
+       }
+       obj.tardanzaTexto = tardanzaStr;
+       obj.tardanzaMinutosTotales = tardanzaMins;
+       obj.tardanzaConfirmada = document.getElementById('cellTardanzaCheck').checked;
+       
+       state.planning[`${collabId}_${dateStr}`] = obj;
+       
+       if (!isMockMode) {
+         try {
+           const docId = `${collabId}_${dateStr}`;
+           setDoc(doc(db, "planificacion", docId), {
+             colaboradorId: collabId,
+             fecha: dateStr,
+             slot: obj.slot,
+             comentario: obj.comentario,
+             tardanzaTexto: obj.tardanzaTexto || "",
+             tardanzaMinutosTotales: obj.tardanzaMinutosTotales || 0,
+             tardanzaConfirmada: obj.tardanzaConfirmada || false
+           }, { merge: true });
+         } catch(err) {
+           console.error("Error auto-guardando detalles:", err);
+         }
+       }
+       renderUI();
+    }
+
+    document.getElementById('cellTardanzaInput').addEventListener('blur', autoSaveContextMenu);
+    document.getElementById('cellTardanzaCheck').addEventListener('change', (e) => {
+       if (!e.target.checked) {
+          document.getElementById('cellTardanzaInput').value = '';
+       }
+       autoSaveContextMenu();
+    });
+    document.getElementById('cellCommentInput').addEventListener('blur', autoSaveContextMenu);
+
+    document.getElementById('saveCellDetailsBtn').addEventListener('click', async () => {
+       await autoSaveContextMenu();
+       window.closeContextMenu();
+       renderHeatmap();
+    });
+
     adminLoginBtn.addEventListener('click', () => {
        loginModal.style.display = 'flex';
     });
@@ -2881,14 +3183,15 @@
                    }
                 }
                 
-                let val = state.planning[`${collab.id}_${dStr}`] || '';
+                let val = getPlanningSlot(collab.id, dStr);
                 if (isOnVacation) val = 'VACACIONES';
                 if (!val.trim()) val = '-';
                 if (val === 'VACACIONES') val = 'VAC';
                 const dText = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+                let cellStyle = val.length > 6 ? 'font-size: 0.65rem !important; letter-spacing: -0.5px !important;' : '';
                 
                 htmlStr += `
-                  <td>${dText} - ${val}</td>
+                  <td style="${cellStyle}">${dText} - ${val}</td>
                 `;
              });
              
