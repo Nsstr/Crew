@@ -636,10 +636,14 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
-  <div class="main-app-nav" style="background: var(--surface); padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--border); flex-shrink: 0;">
+  <div class="main-app-nav" style="background: var(--surface); padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
     <div class="app-tabs">
       <button class="app-tab-btn active" id="tabHorarios" onclick="switchTab('horarios')">Grid Semanal</button>
       <button class="app-tab-btn" id="vacationTabBtn" onclick="switchTab('vacaciones')" style="display: none;">Plan Anual Vacaciones</button>
+    </div>
+    <div class="nav-auth-controls" style="display: flex; gap: 0.5rem; height: 26px;">
+      <button id="adminLoginBtn" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">Acceso Admin</button>
+      <button id="logoutBtn" style="display: none; background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">Salir</button>
     </div>
   </div>
 
@@ -723,8 +727,6 @@
           <div style="display: flex; gap: 0.5rem; align-items: stretch; height: 26px;">
             <button id="configBtn" title="Gestión de Dotación" style="display: none; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer;">⚙️</button>
             <button id="pdfBtn" style="display: none; background: #e11d48; color: white; border: none; border-radius: 0.25rem; padding: 0 0.5rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer;" title="Descargar PDF">📄 PDF</button>
-            <button id="adminLoginBtn" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.25rem; flex: 1; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer;">Acceso Admin</button>
-            <button id="logoutBtn" style="display: none; background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 0.25rem; flex: 1; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer;">Salir</button>
           </div>
         </div>
       </div>
