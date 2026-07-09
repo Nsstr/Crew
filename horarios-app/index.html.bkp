@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planificación Semanal Retail</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-hover: #334155;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #0ea5e9;
+      --franco: #8b5cf6;
+      
+      --font-family: 'Inter', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08), transparent 30%),
+                        radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08), transparent 30%);
+      background-attachment: fixed;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.025em;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    button {
+      background-color: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    button:hover {
+      background-color: var(--surface-hover);
+    }
+
+    button.primary {
+      background-color: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    button.primary:hover {
+      background-color: var(--primary-hover);
+    }
+
+    /* Grid Area */
+    .grid-container {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      overflow-x: auto;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+    }
+    
+    th:last-child, td:last-child {
+      border-right: none;
+    }
+
+    th {
+      background-color: rgba(30, 41, 59, 0.9);
+      font-weight: 500;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background-color: rgba(51, 65, 85, 0.3);
+    }
+
+    /* Select Inputs */
+    select {
+      width: 100%;
+      background-color: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem;
+      border-radius: 0.375rem;
+      font-family: inherit;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.2s ease;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.5rem center;
+      background-size: 1em;
+      padding-right: 2rem;
+    }
+
+    select:focus {
+      border-color: var(--primary);
+    }
+    
+    .select-M { border-left: 3px solid var(--info); }
+    .select-I { border-left: 3px solid var(--success); }
+    .select-T { border-left: 3px solid var(--warning); }
+    .select-N { border-left: 3px solid var(--primary); }
+    .select-E { border-left: 3px solid var(--danger); }
+    .select-F { border-left: 3px solid var(--franco); color: var(--franco); }
+    .select-ABS { border-left: 3px solid var(--text-muted); color: var(--text-muted); }
+
+    /* Collaborator Cell */
+    .collab-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 200px;
+    }
+
+    .collab-name {
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .collab-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Abandonment Indicator */
+    .indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      flex-shrink: 0;
+    }
+
+    .indicator.yellow {
+      background-color: var(--warning);
+      box-shadow: 0 0 8px var(--warning);
+    }
+
+    .indicator.red {
+      background-color: var(--danger);
+      box-shadow: 0 0 8px var(--danger);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    
+    /* Export Status */
+    .export-status {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+    }
+    
+    .export-status.sent {
+      background: rgba(16, 185, 129, 0.1);
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    /* Counters Footer */
+    .counters {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      margin-top: 0.5rem;
+    }
+    .counter-row {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Modals/Alerts */
+    .toast-container {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      z-index: 50;
+    }
+
+    .toast {
+      background: var(--surface);
+      border-left: 4px solid var(--danger);
+      padding: 1rem 1.5rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+      transform: translateX(120%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .toast-title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .toast-desc {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    /* Date controls */
+    .date-nav {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--surface);
+      padding: 0.25rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+    }
+    .date-nav button {
+      border: none;
+      background: transparent;
+      padding: 0.5rem;
+    }
+    .date-nav button:hover {
+      background: var(--bg);
+    }
+    
+    .holiday-badge {
+      font-size: 0.65rem;
+      background: var(--danger);
+      color: white;
+      padding: 0.1rem 0.3rem;
+      border-radius: 0.25rem;
+      margin-left: 0.5rem;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+
+    /* Modal Config */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 2rem;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    .modal-header h2 { font-size: 1.25rem; }
+    .close-modal { cursor: pointer; background: transparent; border: none; font-size: 1.5rem; color: var(--text-muted); }
+    .form-group { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+    .form-group input, .form-group select {
+      background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.75rem; border-radius: 0.5rem; font-family: inherit;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--primary); outline: none; }
+    
+    .collab-list {
+      margin-top: 2rem;
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+    }
+    .collab-item {
+      display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg); border-radius: 0.5rem; margin-bottom: 0.5rem;
+    }
+    .collab-actions button { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+    .btn-danger { background: var(--danger); border-color: var(--danger); color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Planificación Semanal <span style="color: var(--primary)">Retail</span></h1>
+      <div class="controls">
+        <div class="date-nav">
+          <button id="prevWeekBtn" title="Semana Anterior">&larr;</button>
+          <span id="weekLabel" style="font-weight: 500; font-size: 0.875rem;">Cargando...</span>
+          <button id="nextWeekBtn" title="Semana Siguiente">&rarr;</button>
+        </div>
+        <button id="configBtn" title="Gestión de Dotación">⚙️</button>
+        <button id="exportBtn" class="primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Exportar y Procesar
+        </button>
+      </div>
+    </header>
+
+    <div class="grid-container">
+      <table id="planningTable">
+        <thead>
+          <tr id="tableHeader">
+            <th>Colaborador</th>
+            <!-- Days injected via JS -->
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <!-- Rows injected via JS -->
+        </tbody>
+        <tfoot id="tableFooter">
+          <!-- Counters injected via JS -->
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- MODAL GESTION DOTACION -->
+  <div class="modal-overlay" id="configModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Gestión de Dotación</h2>
+        <button class="close-modal" id="closeConfigModal">&times;</button>
+      </div>
+      <form id="collabForm">
+        <input type="hidden" id="collabMode" value="add">
+        <div class="form-group">
+          <label>Legajo (ID único)</label>
+          <input type="text" id="cLegajo" required>
+        </div>
+        <div class="form-group">
+          <label>Apellido y Nombre</label>
+          <input type="text" id="cName" required>
+        </div>
+        <div class="form-group">
+          <label>Esquema / Rotación</label>
+          <input type="text" id="cEsquema" placeholder="Ej: 3x1, 1x1, Turno Fijo M, Cortado" required>
+        </div>
+        <div class="form-group">
+          <label>Horas de Contrato</label>
+          <input type="number" id="cHours" required>
+        </div>
+        <div class="form-group">
+          <label>Pasillo Asignado</label>
+          <input type="text" id="cPasillo" required>
+        </div>
+        <button type="submit" class="primary" style="width: 100%; justify-content: center; margin-top: 1rem;">Guardar Colaborador</button>
+      </form>
+      
+      <div class="collab-list" id="collabListContainer">
+        <!-- List injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- FIREBASE & LOGIC -->
+  <script type="module">
+    // 1. FIREBASE INITIALIZATION
+    // Reemplaza con tus credenciales de Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCJZeUE4k1XHIyxQ4lRmKvlH0eHeAZky4o",
+      authDomain: "crew-bb7bb.firebaseapp.com",
+      projectId: "crew-bb7bb",
+      storageBucket: "crew-bb7bb.firebasestorage.app",
+      messagingSenderId: "613900683663",
+      appId: "1:613900683663:web:f825e871a9cbb32f3ba3fa"
+    };
+
+    // Para evitar errores en este prototipo si no hay config real, 
+    // usaremos un flag de mock mode si falla la conexión real.
+    let db;
+    let isMockMode = false;
+    try {
+      const app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+    } catch (e) {
+      console.warn("Firebase no configurado, operando en modo Mock.");
+      isMockMode = true;
+    }
+
+    // 2. CONFIGURACIÓN Y CONSTANTES
+    const SLOTS = {
+      '':  { name: 'Sin asignar', hours: 0, type: 'none', class: '' },
+      'M': { name: 'Mañana (05-10)', start: 5, end: 10, hours: 5, type: 'work', class: 'select-M' },
+      'I': { name: 'Intermedio (11-13)', start: 11, end: 13, hours: 2, type: 'work', class: 'select-I' },
+      'T': { name: 'Tarde (14-19)', start: 14, end: 19, hours: 5, type: 'work', class: 'select-T' },
+      'N': { name: 'Noche (20-00)', start: 20, end: 24, hours: 4, type: 'work', class: 'select-N' },
+      'E': { name: 'Especial (00-04)', start: 0, end: 4, hours: 4, type: 'work', class: 'select-E' },
+      'F': { name: 'Franco', hours: 0, type: 'franco', class: 'select-F' },
+      'ENF':{ name: 'Enfermo', hours: 0, type: 'absence', class: 'select-ABS' },
+      'SUS':{ name: 'Suspendido', hours: 0, type: 'absence', class: 'select-ABS' },
+      'VAC':{ name: 'Vacaciones', hours: 0, type: 'absence', class: 'select-ABS' }
+    };
+
+    // 3. ESTADO DE LA APLICACIÓN (Caché local)
+    const state = {
+      currentWeekStart: getStartOfWeek(new Date()),
+      collaborators: [],
+      planning: {}, // key: `${collabId}_${dateString}`, value: slotKey
+      exportedRows: {}, // key: collabId for this week
+      holidays: [], // array of date strings 'YYYY-MM-DD'
+    };
+
+    // 4. MOCK DATA PARA DESARROLLO
+    const mockCollaborators = [
+      { id: 'C01', name: 'Ana García', hours: 48, pasillo: 'Fideos', esquema: '3x1' },
+      { id: 'C02', name: 'Luis Pérez', hours: 30, pasillo: 'Fideos', esquema: 'Turno Fijo T' },
+      { id: 'C03', name: 'Marta Gómez', hours: 48, pasillo: 'Lácteos', esquema: '1x1' },
+      { id: 'C04', name: 'Juan Díaz', hours: 48, pasillo: 'Lácteos', esquema: '3x1' },
+      { id: 'C05', name: 'Sofía Ruiz', hours: 30, pasillo: 'Limpieza', esquema: 'Cortado' },
+    ];
+
+    // 5. FUNCIONES DE FECHA
+    function getStartOfWeek(date) {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Lunes
+      return new Date(d.setDate(diff));
+    }
+    
+    function formatDate(date) {
+      const d = new Date(date);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function addDays(date, days) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + days);
+      return d;
+    }
+
+    function getWeekDays() {
+      const days = [];
+      let current = new Date(state.currentWeekStart);
+      for(let i=0; i<7; i++) {
+        days.push(new Date(current));
+        current = addDays(current, 1);
+      }
+      return days;
+    }
+
+    // 6. CARGA DE DATOS (Optimizada para plan Spark)
+    async function loadInitialData() {
+      if (isMockMode) {
+        state.collaborators = mockCollaborators;
+        state.holidays = [formatDate(addDays(state.currentWeekStart, 2))]; // Miércoles feriado para demo
+      } else {
+        try {
+          // Leer colaboradores 1 sola vez (Caché)
+          const colSnap = await getDocs(collection(db, "colaboradores"));
+          state.collaborators = colSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          
+          // Leer feriados del mes/año actual (simplificado)
+          const holSnap = await getDocs(collection(db, "feriados"));
+          state.holidays = holSnap.docs.map(d => d.id); // ID = YYYY-MM-DD
+        } catch (e) {
+          console.error("Error cargando Firestore:", e);
+          state.collaborators = mockCollaborators;
+        }
+      }
+      
+      // Orden por id o jerarquía para mantener estructura
+      state.collaborators.sort((a, b) => a.id.localeCompare(b.id));
+      await loadWeekPlanning();
+    }
+
+    async function loadWeekPlanning() {
+      const startStr = formatDate(state.currentWeekStart);
+      const endStr = formatDate(addDays(state.currentWeekStart, 6));
+      
+      state.planning = {};
+      state.exportedRows = {};
+
+      if (isMockMode) {
+        // Generar mock data aleatoria sin romper reglas si es posible
+      } else {
+        try {
+          const q = query(
+            collection(db, "planificacion"), 
+            where("fecha", ">=", startStr),
+            where("fecha", "<=", endStr)
+          );
+          const snap = await getDocs(q);
+          snap.forEach(doc => {
+            const data = doc.data();
+            state.planning[`${data.colaboradorId}_${data.fecha}`] = data.slot;
+            if (data.exportado) {
+              state.exportedRows[data.colaboradorId] = true;
+            }
+          });
+        } catch(e) {
+          console.error("Error leyendo planificación", e);
+        }
+      }
+      renderUI();
+    }
+
+    // 7. MOTOR DE VALIDACIONES
+    function validateTurn(collabId, dateStr, newSlotKey) {
+      if (!newSlotKey || newSlotKey === '') return { valid: true };
+      
+      const newSlot = SLOTS[newSlotKey];
+      const collab = state.collaborators.find(c => c.id === collabId);
+      const targetDate = new Date(dateStr + "T00:00:00");
+      
+      const prevDateStr = formatDate(addDays(targetDate, -1));
+      const nextDateStr = formatDate(addDays(targetDate, 1));
+      
+      const prevSlotKey = state.planning[`${collabId}_${prevDateStr}`];
+      const nextSlotKey = state.planning[`${collabId}_${nextDateStr}`];
+      
+      const prevSlot = prevSlotKey ? SLOTS[prevSlotKey] : null;
+      const nextSlot = nextSlotKey ? SLOTS[nextSlotKey] : null;
+
+      // 7.1 Descanso Diario (>= 12h)
+      if (newSlot.type === 'work' && prevSlot && prevSlot.type === 'work') {
+        const rest = (24 - prevSlot.end) + newSlot.start;
+        if (rest < 12) {
+          return { valid: false, msg: `Descanso insuficiente (${rest}h). Requiere 12h.` };
+        }
+      }
+      // Check forward as well if we are modifying a middle day
+      if (newSlot.type === 'work' && nextSlot && nextSlot.type === 'work') {
+        const rest = (24 - newSlot.end) + nextSlot.start;
+        if (rest < 12) {
+          return { valid: false, msg: `Provoca descanso insuficiente mañana (${rest}h).` };
+        }
+      }
+
+      // 7.2 Descanso con Franco (>= 35h)
+      // Escenario A: Ayer fue Franco, Hoy trabajo. ¿Y antes de ayer?
+      if (newSlot.type === 'work' && prevSlot && prevSlot.type === 'franco') {
+        const prevPrevDateStr = formatDate(addDays(targetDate, -2));
+        const prevPrevKey = state.planning[`${collabId}_${prevPrevDateStr}`];
+        if (prevPrevKey && SLOTS[prevPrevKey].type === 'work') {
+          const s1 = SLOTS[prevPrevKey];
+          const rest = (24 - s1.end) + 24 + newSlot.start;
+          if (rest < 35) {
+            return { valid: false, msg: `Descanso post-franco insuficiente (${rest}h). Requiere 35h.` };
+          }
+        }
+      }
+      
+      // Escenario B: Pongo franco hoy. Afecta si mañana trabajo y ayer trabajé.
+      if (newSlot.type === 'franco' && prevSlot && prevSlot.type === 'work' && nextSlot && nextSlot.type === 'work') {
+         const rest = (24 - prevSlot.end) + 24 + nextSlot.start;
+         if (rest < 35) {
+            return { valid: false, msg: `Este franco genera descanso insuficiente para mañana (${rest}h < 35h).` };
+         }
+      }
+
+      // 7.3 Lógica de Feriados
+      // Impedir franco día antes o después de feriado, salvo que en el feriado asista.
+      if (newSlot.type === 'franco') {
+        const isPrevHoliday = state.holidays.includes(prevDateStr);
+        const isNextHoliday = state.holidays.includes(nextDateStr);
+        
+        if (isPrevHoliday && (!prevSlot || prevSlot.type !== 'work')) {
+           return { valid: false, msg: `No puede tener Franco post-feriado sin asistir al feriado.` };
+        }
+        if (isNextHoliday && (!nextSlot || nextSlot.type !== 'work')) {
+           return { valid: false, msg: `No puede tener Franco pre-feriado sin asistir al feriado.` };
+        }
+      }
+
+      // Si asisto al feriado (hoy es feriado y pongo trabajo), esto regulariza francos adyacentes, es válido.
+      // Si pongo franco en feriado, debo chequear si arruino francos adyacentes:
+      if (state.holidays.includes(dateStr) && newSlot.type !== 'work') {
+         if (prevSlot && prevSlot.type === 'franco') {
+            return { valid: false, msg: `Ayer tiene Franco. Debe asistir al feriado.` };
+         }
+         if (nextSlot && nextSlot.type === 'franco') {
+            return { valid: false, msg: `Mañana tiene Franco. Debe asistir al feriado.` };
+         }
+      }
+
+      return { valid: true };
+    }
+
+    // 8. CÁLCULO DE ABANDONO DE SECTOR
+    function calculateAbandonment() {
+      const days = getWeekDays().map(d => formatDate(d));
+      const pasillos = [...new Set(state.collaborators.map(c => c.pasillo))];
+      
+      const abandonmentMap = {}; // { pasillo: { dateStr: consecutiveDays } }
+      
+      pasillos.forEach(pasillo => {
+        abandonmentMap[pasillo] = {};
+        const colIds = state.collaborators.filter(c => c.pasillo === pasillo).map(c => c.id);
+        let consecutive = 0;
+
+        days.forEach(dateStr => {
+          let hasCoverage = false;
+          colIds.forEach(id => {
+            const slotKey = state.planning[`${id}_${dateStr}`];
+            if (slotKey && SLOTS[slotKey].type === 'work') {
+              hasCoverage = true;
+            }
+          });
+
+          if (!hasCoverage) {
+            consecutive++;
+          } else {
+            consecutive = 0;
+          }
+          abandonmentMap[pasillo][dateStr] = consecutive;
+        });
+      });
+
+      return abandonmentMap;
+    }
+
+    // 9. UI RENDERING
+    function renderUI() {
+      const days = getWeekDays();
+      
+      // Header Date
+      const dOptions = { day: '2-digit', month: 'short' };
+      document.getElementById('weekLabel').textContent = 
+        `${days[0].toLocaleDateString('es-ES', dOptions)} - ${days[6].toLocaleDateString('es-ES', dOptions)}`;
+
+      // Table Headers
+      const trHead = document.getElementById('tableHeader');
+      trHead.innerHTML = `<th>Colaborador</th>`;
+      days.forEach(d => {
+        const dStr = formatDate(d);
+        const isHoliday = state.holidays.includes(dStr);
+        const dayName = d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' });
+        trHead.innerHTML += `<th>${dayName} ${isHoliday ? '<span class="holiday-badge">Feriado</span>' : ''}</th>`;
+      });
+      trHead.innerHTML += `<th>Estado / Horas</th>`;
+
+      // Table Body
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+      
+      const abandonmentMap = calculateAbandonment();
+
+      // Week contains holiday?
+      const weekHasHoliday = days.some(d => state.holidays.includes(formatDate(d)));
+
+      state.collaborators.forEach(collab => {
+        const tr = document.createElement('tr');
+        
+        let totalHours = 0;
+        let cellsHTML = '';
+        
+        // Collab info
+        // Calculamos abandono máximo de la semana para este colaborador (visual global) o por día.
+        // Lo haremos global para la fila.
+        const maxAbandon = Math.max(...days.map(d => abandonmentMap[collab.pasillo][formatDate(d)]));
+        let indClass = '';
+        if (maxAbandon >= 4) indClass = 'red';
+        else if (maxAbandon >= 2) indClass = 'yellow';
+
+        const isExported = state.exportedRows[collab.id];
+        
+        let html = `
+          <td>
+            <div class="collab-cell">
+              <div class="collab-name">
+                <div class="indicator ${indClass}" title="Abandono Sector: ${maxAbandon} días"></div>
+                ${collab.name}
+              </div>
+              <div class="collab-meta">
+                <span>${collab.pasillo} | ${collab.esquema || 'S/E'}</span>
+                <span>${collab.hours}h ref</span>
+              </div>
+            </div>
+          </td>
+        `;
+
+        // Days
+        days.forEach(d => {
+          const dStr = formatDate(d);
+          const val = state.planning[`${collab.id}_${dStr}`] || '';
+          if (SLOTS[val]) totalHours += SLOTS[val].hours;
+          
+          let selectClass = SLOTS[val] ? SLOTS[val].class : '';
+
+          let options = `<option value="">-</option>`;
+          Object.keys(SLOTS).forEach(k => {
+            if (k === '') return;
+            const s = SLOTS[k];
+            options += `<option value="${k}" ${val === k ? 'selected' : ''}>${k} ${s.type==='work' ? '('+s.hours+'h)' : ''}</option>`;
+          });
+
+          html += `
+            <td>
+              <select class="${selectClass}" data-collab="${collab.id}" data-date="${dStr}" ${isExported ? 'disabled' : ''}>
+                ${options}
+              </select>
+            </td>
+          `;
+        });
+
+        // Weekly Validation Status
+        let hoursStatus = '';
+        if (!weekHasHoliday) {
+          if (totalHours < collab.hours) hoursStatus = `<span style="color:var(--warning)">Faltan ${collab.hours - totalHours}h</span>`;
+          else if (totalHours > collab.hours) hoursStatus = `<span style="color:var(--danger)">Sobran ${totalHours - collab.hours}h</span>`;
+          else hoursStatus = `<span style="color:var(--success)">OK</span>`;
+        } else {
+          hoursStatus = `<span style="color:var(--info)" title="Validación omitida por feriado">N/A (Feriado)</span>`;
+        }
+
+        html += `
+          <td>
+            <div style="display:flex; flex-direction:column; gap:0.25rem;">
+              <div style="font-weight:600">${totalHours}h / ${collab.hours}h</div>
+              <div style="font-size:0.75rem">${hoursStatus}</div>
+              ${isExported ? '<div class="export-status sent">Enviado ✔</div>' : '<div class="export-status">Pendiente</div>'}
+            </div>
+          </td>
+        `;
+
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+      });
+
+      // Counters Footer
+      renderCounters(days);
+      
+      // Attach events
+      document.querySelectorAll('select').forEach(el => {
+        el.addEventListener('change', handleSelectChange);
+      });
+    }
+
+    function renderCounters(days) {
+      const tfoot = document.getElementById('tableFooter');
+      let html = `<tr><th>Turnos Asignados</th>`;
+      
+      days.forEach(d => {
+        const dStr = formatDate(d);
+        const counts = { 'M': 0, 'I': 0, 'T': 0, 'N': 0, 'E': 0 };
+        
+        state.collaborators.forEach(c => {
+          const val = state.planning[`${c.id}_${dStr}`];
+          if (counts[val] !== undefined) counts[val]++;
+        });
+
+        html += `
+          <td>
+            <div class="counters">
+              <div class="counter-row"><span>Mañana:</span> <span>${counts['M']}</span></div>
+              <div class="counter-row"><span>Intermedio:</span> <span>${counts['I']}</span></div>
+              <div class="counter-row"><span>Tarde:</span> <span>${counts['T']}</span></div>
+              <div class="counter-row"><span>Noche:</span> <span>${counts['N']}</span></div>
+              <div class="counter-row"><span>Especial:</span> <span>${counts['E']}</span></div>
+            </div>
+          </td>
+        `;
+      });
+      html += `<td></td></tr>`;
+      tfoot.innerHTML = html;
+    }
+
+    // 10. INTERACCION Y GUARDADO
+    async function handleSelectChange(e) {
+      const select = e.target;
+      const collabId = select.getAttribute('data-collab');
+      const dateStr = select.getAttribute('data-date');
+      const newValue = select.value;
+      const oldValue = state.planning[`${collabId}_${dateStr}`] || '';
+
+      const validation = validateTurn(collabId, dateStr, newValue);
+      
+      if (!validation.valid) {
+        showToast("Restricción Violada", validation.msg);
+        select.value = oldValue; // Revert
+        return;
+      }
+
+      // Update local state
+      if (newValue === '') {
+        delete state.planning[`${collabId}_${dateStr}`];
+      } else {
+        state.planning[`${collabId}_${dateStr}`] = newValue;
+      }
+
+      // Re-render UI to update colors and counts
+      renderUI();
+
+      // Async save to Firestore
+      if (!isMockMode) {
+        try {
+          const docId = `${collabId}_${dateStr}`;
+          await setDoc(doc(db, "planificacion", docId), {
+            colaboradorId: collabId,
+            fecha: dateStr,
+            slot: newValue,
+            exportado: false
+          });
+        } catch(err) {
+          console.error("Error guardando:", err);
+          showToast("Error de conexión", "No se pudo guardar en la base de datos.");
+        }
+      }
+    }
+
+    // 11. EXPORTACIÓN Y PROCESAMIENTO
+    async function exportAndProcess() {
+      const days = getWeekDays();
+      const weekHasHoliday = days.some(d => state.holidays.includes(formatDate(d)));
+      
+      let allValid = true;
+      let exportData = "Legajo\tColaborador\tPasillo\tEsquema\tLunes\tMartes\tMiercoles\tJueves\tViernes\tSabado\tDomingo\tHoras\n";
+
+      // 1. Validar horas semanales antes de exportar
+      if (!weekHasHoliday) {
+        for (const collab of state.collaborators) {
+          if (state.exportedRows[collab.id]) continue; // Already exported
+
+          let totalHours = 0;
+          days.forEach(d => {
+            const val = state.planning[`${collab.id}_${formatDate(d)}`];
+            if (val && SLOTS[val]) totalHours += SLOTS[val].hours;
+          });
+
+          if (totalHours !== collab.hours) {
+            showToast("Error de Exportación", `La planificación de ${collab.name} no cumple las ${collab.hours}h semanales.`);
+            allValid = false;
+            break;
+          }
+        }
+      }
+
+      if (!allValid) return;
+
+      // 2. Generar Datos y Marcar en BD
+      const batch = isMockMode ? null : writeBatch(db);
+      
+      state.collaborators.forEach(collab => {
+        let rowData = `${collab.id}\t${collab.name}\t${collab.pasillo}\t${collab.esquema || '-'}\t`;
+        let totalHours = 0;
+
+        days.forEach(d => {
+          const dStr = formatDate(d);
+          const val = state.planning[`${collab.id}_${dStr}`] || '';
+          rowData += `${val}\t`;
+          if (val && SLOTS[val]) totalHours += SLOTS[val].hours;
+          
+          if (!isMockMode && val !== '' && !state.exportedRows[collab.id]) {
+             const docRef = doc(db, "planificacion", `${collab.id}_${dStr}`);
+             batch.update(docRef, { exportado: true });
+          }
+        });
+        
+        rowData += `${totalHours}\n`;
+        exportData += rowData;
+        
+        // Mark local state
+        state.exportedRows[collab.id] = true;
+      });
+
+      if (!isMockMode) {
+        try {
+          await batch.commit();
+        } catch(e) {
+          console.error("Error confirmando exportación:", e);
+          showToast("Error", "No se pudo marcar como procesado en la BD.");
+          return;
+        }
+      }
+
+      // Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(exportData);
+        showToast("Éxito", "Planificación exportada al portapapeles y marcada como procesada.");
+      } catch (err) {
+        // Fallback for browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = exportData;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast("Éxito", "Planificación copiada. Marcada como procesada.");
+      }
+
+      renderUI();
+    }
+
+    // 12. UTILS Y EVENTOS
+    function showToast(title, msg) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast show';
+      toast.innerHTML = `
+        <div class="toast-title">${title}</div>
+        <div class="toast-desc">${msg}</div>
+      `;
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 5000);
+    }
+
+    document.getElementById('prevWeekBtn').addEventListener('click', () => {
+      state.currentWeekStart = addDays(state.currentWeekStart, -7);
+      loadWeekPlanning();
+    });
+
+    document.getElementById('nextWeekBtn').addEventListener('click', () => {
+      state.currentWeekStart = addDays(state.currentWeekStart, 7);
+      loadWeekPlanning();
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', exportAndProcess);
+
+    // 13. GESTION DE DOTACION
+    const configModal = document.getElementById('configModal');
+    const collabForm = document.getElementById('collabForm');
+
+    document.getElementById('configBtn').addEventListener('click', () => {
+      renderConfigModalList();
+      collabForm.reset();
+      document.getElementById('collabMode').value = 'add';
+      document.getElementById('cLegajo').disabled = false;
+      configModal.classList.add('active');
+    });
+
+    document.getElementById('closeConfigModal').addEventListener('click', () => {
+      configModal.classList.remove('active');
+    });
+
+    collabForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const legajo = document.getElementById('cLegajo').value.trim();
+      
+      const newCollab = {
+        id: legajo,
+        name: document.getElementById('cName').value.trim(),
+        esquema: document.getElementById('cEsquema').value.trim(),
+        hours: parseInt(document.getElementById('cHours').value),
+        pasillo: document.getElementById('cPasillo').value.trim()
+      };
+
+      // Guardar en Firebase
+      if (!isMockMode) {
+        try {
+          await setDoc(doc(db, "colaboradores", legajo), newCollab);
+        } catch(err) {
+          console.error("Error al guardar colaborador", err);
+          showToast("Error", "No se pudo guardar en la base de datos.");
+          return;
+        }
+      }
+
+      // Actualizar estado local
+      const idx = state.collaborators.findIndex(c => c.id === legajo);
+      if (idx >= 0) {
+        state.collaborators[idx] = newCollab;
+        showToast("Éxito", "Colaborador actualizado.");
+      } else {
+        state.collaborators.push(newCollab);
+        showToast("Éxito", "Colaborador agregado.");
+      }
+
+      // Ordenar estrictamente por legajo de forma ascendente
+      state.collaborators.sort((a, b) => a.id.localeCompare(b.id));
+      
+      collabForm.reset();
+      document.getElementById('collabMode').value = 'add';
+      document.getElementById('cLegajo').disabled = false;
+      
+      renderConfigModalList();
+      renderUI(); // Renderizar DOM sin recargar
+    });
+
+    function renderConfigModalList() {
+      const container = document.getElementById('collabListContainer');
+      container.innerHTML = '<h3 style="margin-bottom:0.5rem">Colaboradores Actuales</h3>';
+      
+      state.collaborators.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'collab-item';
+        div.innerHTML = `
+          <div>
+            <strong>${c.id}</strong> - ${c.name} <br>
+            <small style="color:var(--text-muted)">${c.pasillo} | ${c.esquema} | ${c.hours}hs</small>
+          </div>
+          <div class="collab-actions">
+            <button type="button" onclick="editCollab('${c.id}')">Editar</button>
+            <button type="button" class="btn-danger" onclick="deleteCollab('${c.id}')">Eliminar</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    // Funciones globales para acceder desde el HTML inyectado
+    window.editCollab = function(id) {
+      const c = state.collaborators.find(x => x.id === id);
+      if (!c) return;
+      document.getElementById('collabMode').value = 'edit';
+      const legInput = document.getElementById('cLegajo');
+      legInput.value = c.id;
+      legInput.disabled = true; // Bloquear edición de ID
+      document.getElementById('cName').value = c.name;
+      document.getElementById('cEsquema').value = c.esquema || '';
+      document.getElementById('cHours').value = c.hours;
+      document.getElementById('cPasillo').value = c.pasillo;
+    }
+
+    window.deleteCollab = async function(id) {
+      if (!confirm('¿Seguro que deseas eliminar al colaborador ' + id + '?')) return;
+      
+      if (!isMockMode) {
+        try {
+          await deleteDoc(doc(db, "colaboradores", id));
+        } catch(err) {
+          console.error("Error al eliminar", err);
+          showToast("Error", "No se pudo eliminar en la base de datos.");
+          return;
+        }
+      }
+
+      state.collaborators = state.collaborators.filter(c => c.id !== id);
+      
+      // Limpiar turnos asociados localmente para que no queden huérfanos en la UI
+      Object.keys(state.planning).forEach(key => {
+        if (key.startsWith(id + '_')) {
+          delete state.planning[key];
+        }
+      });
+      
+      renderConfigModalList();
+      renderUI(); // Renderizar DOM sin recargar
+      showToast("Éxito", "Colaborador eliminado.");
+    }
+
+    // INICIO
+    loadInitialData();
+  </script>
+</body>
+</html>
