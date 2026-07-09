@@ -697,6 +697,7 @@
     <div class="app-tabs">
       <button class="app-tab-btn active" id="tabHorarios" onclick="switchTab('horarios')">Grid Semanal</button>
       <button class="app-tab-btn" id="vacationTabBtn" onclick="switchTab('vacaciones')" style="display: none;">Plan Anual Vacaciones</button>
+      <button class="app-tab-btn" id="metricsTabBtn" onclick="switchTab('metricas')" style="display: none;">Dashboard Métricas</button>
     </div>
     <div class="nav-auth-controls" style="display: flex; gap: 0.5rem; height: 26px;">
       <button id="adminLoginBtn" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">Acceso Admin</button>
@@ -908,6 +909,30 @@
        
      </div>
   </div>
+
+   <!-- SECCIÓN MÉTRICAS Y AUDITORÍA -->
+   <div id="seccionMetricas" class="metrics-container" style="display: none; padding: 20px; background: var(--surface); height: 100%; overflow-y: auto;">
+      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 20px;">
+         <h2 style="margin: 0; color: var(--primary);">Dashboard de Métricas y Auditoría</h2>
+         <select id="metricsYearSelector" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem; outline: none;"></select>
+      </div>
+      <div id="metricsBentoGrid" class="bento-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+         <!-- Cards inyectadas vía JS -->
+      </div>
+   </div>
+
+   <!-- MODAL DE HISTORIAL ANUAL CONSOLIDADO -->
+   <div id="metricsDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; font-family: inherit;">
+      <div style="background: var(--surface); width: 600px; max-width: 90%; max-height: 90%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;">
+         <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--bg);">
+            <h3 id="metricsDetailTitle" style="margin: 0; color: var(--primary); font-size: 1.2rem;">Historial Anual Consolidado</h3>
+            <button onclick="document.getElementById('metricsDetailModal').style.display='none'" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+         </div>
+         <div id="metricsDetailContent" style="padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 20px;">
+            <!-- Contenido inyectado dinámicamente -->
+         </div>
+      </div>
+   </div>
 
   <div class="toast-container" id="toastContainer"></div>
 
@@ -2154,23 +2179,352 @@
       showToast("Éxito", "Colaborador eliminado.");
     }
 
-    // 14. MODULO ANUAL DE VACACIONES
+    // 14. MODULO ANUAL DE VACACIONES Y METRICAS
+    
+    let currentMetricsYear = new Date().getFullYear().toString();
+
+    window.renderMetrics = function() {
+       const container = document.getElementById('metricsBentoGrid');
+       if (!container) return;
+       
+       const yearSelector = document.getElementById('metricsYearSelector');
+       if (yearSelector && yearSelector.options.length === 0) {
+          const yearsSet = new Set();
+          Object.keys(state.planning).forEach(k => {
+             const parts = k.split('_');
+             if (parts.length > 1) {
+                yearsSet.add(parts[1].substring(0, 4));
+             }
+          });
+          const yearsArr = Array.from(yearsSet).sort((a,b)=>b-a);
+          if (yearsArr.length === 0) yearsArr.push(new Date().getFullYear().toString());
+          
+          if (!yearsArr.includes(currentMetricsYear)) currentMetricsYear = yearsArr[0];
+
+          yearsArr.forEach(y => {
+             const opt = document.createElement('option');
+             opt.value = y;
+             opt.text = y;
+             if (y === currentMetricsYear) opt.selected = true;
+             yearSelector.appendChild(opt);
+          });
+
+          yearSelector.addEventListener('change', (e) => {
+             currentMetricsYear = e.target.value;
+             renderMetrics();
+          });
+       }
+
+       container.innerHTML = '';
+       
+       const isAbsence = (text) => {
+          if (!text) return false;
+          const t = text.trim().toLowerCase();
+          if (t === 'e') return true;
+          const longKeywords = ["enfermo", "médico", "medico", "art", "parte", "certificado"];
+          return longKeywords.some(kw => t.includes(kw));
+       };
+
+       const isDayOff = (text) => {
+          if (!text) return false;
+          const t = text.toLowerCase();
+          return t === 'f' || t === 'libre' || t === 'v' || t === 'vacaciones';
+       };
+
+       const metricsData = [];
+
+       state.collaborators.forEach(collab => {
+          let tardanzaTotalMins = 0;
+          let partesPegados = [];
+          let cambiosSolicitados = 0;
+          let feriadosTrabajados = 0;
+          let feriadosLibres = 0;
+
+          // Process all unique dates in planning to calculate metrics
+          const allDates = Object.keys(state.planning)
+              .filter(k => k.startsWith(collab.id + '_'))
+              .map(k => k.split('_')[1])
+              .filter(d => d.startsWith(currentMetricsYear))
+              .sort();
+          
+          allDates.forEach(dateStr => {
+             const docId = `${collab.id}_${dateStr}`;
+             const obj = state.planning[docId];
+             if (!obj) return;
+             
+             // a. Tardanzas
+             if (obj.tardanzaMinutosTotales) {
+                tardanzaTotalMins += obj.tardanzaMinutosTotales;
+             }
+             
+             // c. Cambios Solicitados
+             if (obj.fijado) {
+                cambiosSolicitados++;
+             }
+
+             // b. Partes Pegados
+             const val = obj.slot || '';
+             const isSick = isAbsence(val) || isAbsence(obj.comentario);
+             if (isSick) {
+                // Ensure date object properly reflects the date string natively without timezone offset issues
+                const [year, month, day] = dateStr.split('-');
+                const d = new Date(year, month - 1, day);
+                const prevD = formatDate(addDays(d, -1));
+                const nextD = formatDate(addDays(d, 1));
+                
+                const objPrev = getPlanningObj(collab.id, prevD);
+                const objNext = getPlanningObj(collab.id, nextD);
+                const slotPrev = objPrev ? objPrev.slot : getPlanningSlot(collab.id, prevD);
+                const slotNext = objNext ? objNext.slot : getPlanningSlot(collab.id, nextD);
+                
+                if (isDayOff(slotPrev) || isDayOff(slotNext)) {
+                   partesPegados.push(dateStr);
+                }
+             }
+
+             // d. Asistencia Feriados
+             if (state.holidays.includes(dateStr)) {
+                const parsed = parseShift(val);
+                if (parsed && parsed.type === 'work') {
+                   feriadosTrabajados++;
+                } else if (parsed && ['franco', 'libre', 'absence', 'vacation'].includes(parsed.type)) {
+                   feriadosLibres++;
+                } else if (isDayOff(val) || isAbsence(val) || isAbsence(obj.comentario)) {
+                   feriadosLibres++;
+                }
+             }
+          });
+          
+          metricsData.push({
+             collab,
+             tardanzaTotalMins,
+             partesPegados,
+             cambiosSolicitados,
+             feriadosTrabajados,
+             feriadosLibres
+          });
+       });
+
+       // SORTING: Peores a Mejores (más alertas y tardanzas primero)
+       metricsData.sort((a, b) => {
+          if (b.partesPegados.length !== a.partesPegados.length) {
+             return b.partesPegados.length - a.partesPegados.length;
+          }
+          if (b.tardanzaTotalMins !== a.tardanzaTotalMins) {
+             return b.tardanzaTotalMins - a.tardanzaTotalMins;
+          }
+          return a.collab.name.localeCompare(b.collab.name);
+       });
+
+       metricsData.forEach(data => {
+          const { collab, tardanzaTotalMins, partesPegados, cambiosSolicitados, feriadosTrabajados, feriadosLibres } = data;
+
+          // Crear UI para colaborador
+          const tardanzaHs = (tardanzaTotalMins / 60).toFixed(1);
+          const ratioFeriados = feriadosTrabajados + feriadosLibres > 0 
+             ? Math.round((feriadosTrabajados / (feriadosTrabajados + feriadosLibres)) * 100) 
+             : 0;
+
+          let alertsHtml = partesPegados.map(p => `<div style="font-size: 0.75rem; color: var(--danger); margin-bottom: 2px;">⚠ Parte el ${p.substring(8,10)}/${p.substring(5,7)} pegado a Franco</div>`).join('');
+          
+          const card = document.createElement('div');
+          card.style = `background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;`;
+          card.onmouseover = () => { card.style.transform = 'translateY(-2px)'; card.style.boxShadow = '0 6px 12px rgba(0,0,0,0.3)'; };
+          card.onmouseout = () => { card.style.transform = 'translateY(0)'; card.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)'; };
+          card.onclick = () => openMetricsDetail(collab.id);
+          
+          card.innerHTML = `
+            <div style="font-weight: bold; font-size: 1.1rem; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 4px; display: flex; justify-content: space-between; align-items: baseline;">
+               <span>${collab.name.split('(')[0].trim()}</span>
+               <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">Leg: ${collab.id}</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
+               <div style="background: var(--surface); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+                  <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Tardanza Total</div>
+                  <div style="font-size: 1rem; font-weight: bold; color: ${tardanzaTotalMins > 0 ? 'var(--warning)' : 'var(--success)'};">${tardanzaTotalMins} min <span style="font-size: 0.7rem; font-weight: normal;">(${tardanzaHs}h)</span></div>
+               </div>
+               
+               <div style="background: var(--surface); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+                  <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Turnos Fijados</div>
+                  <div style="font-size: 1rem; font-weight: bold; color: var(--text);">${cambiosSolicitados}</div>
+               </div>
+               
+               <div style="background: var(--surface); padding: 8px; border-radius: 6px; border: 1px solid var(--border); grid-column: span 2;">
+                  <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Presentismo en Feriados</div>
+                  <div style="font-size: 1rem; font-weight: bold; color: var(--text);">${feriadosTrabajados} trab. / ${feriadosLibres} lib. <span style="font-size: 0.8rem; font-weight: normal; color: var(--info);">(${ratioFeriados}%)</span></div>
+               </div>
+            </div>
+            
+            ${partesPegados.length > 0 ? `
+            <div style="margin-top: 4px; background: rgba(225, 29, 72, 0.1); border: 1px solid rgba(225, 29, 72, 0.3); padding: 8px; border-radius: 6px;">
+               <div style="font-size: 0.75rem; font-weight: bold; color: var(--danger); margin-bottom: 4px;">Alertas de Auditoría:</div>
+               ${alertsHtml}
+            </div>` : `
+            <div style="margin-top: 4px; font-size: 0.75rem; color: var(--success); text-align: center; padding: 4px; border: 1px dashed var(--border); border-radius: 6px;">
+               ✓ Sin alertas de ausentismo estratégico
+            </div>
+            `}
+          `;
+          
+          container.appendChild(card);
+       });
+    };
+
+    window.openMetricsDetail = function(collabId) {
+       const collab = state.collaborators.find(c => c.id === collabId);
+       if (!collab) return;
+
+       document.getElementById('metricsDetailTitle').innerHTML = `${collab.name.split('(')[0].trim()} <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: normal;">(Legajo: ${collab.id})</span>`;
+       const content = document.getElementById('metricsDetailContent');
+       content.innerHTML = '';
+
+       const isAbsence = (text) => {
+          if (!text) return false;
+          const t = text.trim().toLowerCase();
+          if (t === 'e') return true;
+          const longKeywords = ["enfermo", "médico", "medico", "art", "parte", "certificado"];
+          return longKeywords.some(kw => t.includes(kw));
+       };
+       const isDayOff = (text) => text && ['f', 'libre', 'v', 'vacaciones'].includes(text.toLowerCase());
+
+       const allDates = Object.keys(state.planning)
+           .filter(k => k.startsWith(collabId + '_'))
+           .map(k => k.split('_')[1])
+           .sort();
+
+       // Agrupar por año y luego por mes
+       const historyData = {};
+
+       allDates.forEach(dateStr => {
+          const docId = `${collabId}_${dateStr}`;
+          const obj = state.planning[docId];
+          if (!obj) return;
+
+          const year = dateStr.substring(0, 4);
+          const month = dateStr.substring(5, 7);
+          
+          if (!historyData[year]) historyData[year] = {};
+          if (!historyData[year][month]) historyData[year][month] = { tardanza: 0, alertas: [], ausencias: 0, feriadosTrab: 0 };
+          
+          const monthData = historyData[year][month];
+
+          if (obj.tardanzaMinutosTotales) monthData.tardanza += obj.tardanzaMinutosTotales;
+
+          const val = obj.slot || '';
+          const isSick = isAbsence(val) || isAbsence(obj.comentario);
+          if (isSick) {
+             monthData.ausencias++;
+
+             const [y, m, dNum] = dateStr.split('-');
+             const d = new Date(y, m - 1, dNum);
+             const prevD = formatDate(addDays(d, -1));
+             const nextD = formatDate(addDays(d, 1));
+             
+             const objPrev = getPlanningObj(collab.id, prevD);
+             const objNext = getPlanningObj(collab.id, nextD);
+             const slotPrev = objPrev ? objPrev.slot : getPlanningSlot(collab.id, prevD);
+             const slotNext = objNext ? objNext.slot : getPlanningSlot(collab.id, nextD);
+             
+             if (isDayOff(slotPrev) || isDayOff(slotNext)) {
+                let msg = '';
+                if (isDayOff(slotPrev) && isDayOff(slotNext)) msg = `previo al ${prevD.substring(8,10)}/${prevD.substring(5,7)} y posterior al ${nextD.substring(8,10)}/${nextD.substring(5,7)}`;
+                else if (isDayOff(slotPrev)) msg = `posterior al Franco del ${prevD.substring(8,10)}/${prevD.substring(5,7)}`;
+                else msg = `previo al Franco del ${nextD.substring(8,10)}/${nextD.substring(5,7)}`;
+                
+                monthData.alertas.push({ date: dateStr, desc: msg });
+             }
+          }
+
+          if (state.holidays.includes(dateStr)) {
+             const parsed = parseShift(val);
+             if (parsed && parsed.type === 'work') monthData.feriadosTrab++;
+          }
+       });
+
+       const sortedYears = Object.keys(historyData).sort((a, b) => b - a);
+
+       if (sortedYears.length === 0) {
+          content.innerHTML = `<p style="color: var(--text-muted); text-align: center; margin-top: 40px;">No hay registros históricos para este colaborador.</p>`;
+       }
+
+       const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+       sortedYears.forEach(year => {
+          let yearTardanza = 0;
+          let yearAlertas = 0;
+
+          const monthsContent = Object.keys(historyData[year]).sort((a,b)=>b-a).map(month => {
+             const md = historyData[year][month];
+             yearTardanza += md.tardanza;
+             yearAlertas += md.alertas.length;
+
+             let alertList = md.alertas.map(a => `<div style="color: var(--danger); font-size: 0.8rem; margin-top: 2px;">• ${a.date.substring(8,10)}/${a.date.substring(5,7)} (${a.desc})</div>`).join('');
+
+             return `
+                <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+                   <h4 style="margin: 0 0 10px 0; color: var(--text); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">${monthNames[parseInt(month)-1]} ${year}</h4>
+                   <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                      <div>
+                         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Enfermedad</div>
+                         <div style="font-size: 1rem; font-weight: bold;">${md.ausencias} ${md.ausencias===1?'día':'días'}</div>
+                      </div>
+                      <div>
+                         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Tardanza</div>
+                         <div style="font-size: 1rem; font-weight: bold; color: ${md.tardanza > 0 ? 'var(--warning)' : 'var(--text)'};">${md.tardanza} min</div>
+                      </div>
+                      <div style="grid-column: span 2;">
+                         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Partes Pegados</div>
+                         <div style="font-size: 1rem; font-weight: bold; color: ${md.alertas.length > 0 ? 'var(--danger)' : 'var(--success)'};">${md.alertas.length} alertas</div>
+                         ${alertList}
+                      </div>
+                      <div>
+                         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Feriados Trab.</div>
+                         <div style="font-size: 1rem; font-weight: bold;">${md.feriadosTrab}</div>
+                      </div>
+                   </div>
+                </div>
+             `;
+          }).join('');
+
+          const yearBlock = document.createElement('div');
+          yearBlock.innerHTML = `
+             <div style="background: rgba(30,41,59,0.5); padding: 10px 15px; border-radius: 6px; border-left: 4px solid var(--primary); margin-bottom: 15px;">
+                <h3 style="margin: 0; color: white;">AÑO CALENDARIO ${year}</h3>
+                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Totales: ${yearTardanza} min de tardanza, ${yearAlertas} alertas de auditoría</p>
+             </div>
+             <div style="padding-left: 10px;">
+                ${monthsContent}
+             </div>
+          `;
+          content.appendChild(yearBlock);
+       });
+
+       document.getElementById('metricsDetailModal').style.display = 'flex';
+    };
+
     window.switchTab = function(tabId) {
       document.querySelectorAll('.app-tab-btn').forEach(b => b.classList.remove('active'));
       
-      const btn = document.getElementById(tabId === 'horarios' ? 'tabHorarios' : 'vacationTabBtn');
+      const btn = document.getElementById(tabId === 'horarios' ? 'tabHorarios' : (tabId === 'vacaciones' ? 'vacationTabBtn' : 'metricsTabBtn'));
       if (btn) btn.classList.add('active');
       
       const seccionHorarios = document.getElementById('seccionHorarios');
       const seccionVacaciones = document.getElementById('seccionVacaciones');
+      const seccionMetricas = document.getElementById('seccionMetricas');
       
+      if (seccionHorarios) seccionHorarios.style.display = 'none';
+      if (seccionVacaciones) seccionVacaciones.style.display = 'none';
+      if (seccionMetricas) seccionMetricas.style.display = 'none';
+
       if (tabId === 'vacaciones') {
-          if (seccionHorarios) seccionHorarios.style.display = 'none';
           if (seccionVacaciones) seccionVacaciones.style.display = 'block';
           renderVacationTable();
+      } else if (tabId === 'metricas') {
+          if (seccionMetricas) seccionMetricas.style.display = 'block';
+          renderMetrics();
       } else if (tabId === 'horarios') {
           if (seccionHorarios) seccionHorarios.style.display = 'block';
-          if (seccionVacaciones) seccionVacaciones.style.display = 'none';
           renderUI();
       }
     };
@@ -2791,6 +3145,7 @@
     
     const loginModal = document.getElementById('loginModal');
     const editorModal = document.getElementById('editorModal');
+    const userRoleText = document.getElementById('userRoleText');
     
     if (sessionStorage.getItem('adminLogged') === 'true') {
        currentRole = 'admin';
@@ -2798,12 +3153,12 @@
        currentRole = 'editor';
     }
 
-    window.checkLogin = function() {
-       adminLoginBtn.style.display = 'inline-flex';
+    function checkLogin() {
        logoutBtn.style.display = 'none';
        configBtn.style.display = 'none';
        pdfBtn.style.display = 'inline-flex'; // Siempre visible
        vacationTabBtn.style.display = 'none';
+       if (metricsTabBtn) metricsTabBtn.style.display = 'none';
        
        if (currentRole === 'admin') {
           adminLoginBtn.style.display = 'none';
@@ -2811,6 +3166,7 @@
           logoutBtn.innerHTML = 'Cerrar Sesión Admin';
           configBtn.style.display = 'inline-flex';
           vacationTabBtn.style.display = 'inline-block';
+          if (metricsTabBtn) metricsTabBtn.style.display = 'inline-block';
        } else if (currentRole === 'editor') {
           adminLoginBtn.style.display = 'none';
           logoutBtn.style.display = 'inline-flex';
