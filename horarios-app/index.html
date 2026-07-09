@@ -2822,7 +2822,20 @@
        }
        
        let htmlStr = `
-          <div style="background: white; color: black; padding: 10px; font-family: Arial, sans-serif; width: 1100px;">
+           <style>
+           .pdf-table-compact td {
+               border: 1px solid #000 !important;
+               text-align: center !important;
+               padding: 2px 4px !important;
+               font-size: 0.75rem !important; /* Tamaño único y legible */
+               font-weight: bold !important;
+               white-space: nowrap !important; /* Fuerza a que todo se mantenga en una sola línea */
+               height: 18px !important; /* Fila súper delgada */
+               background: #fff !important;
+               color: #000 !important;
+           }
+           </style>
+           <div style="background: white; color: black; padding: 10px; font-family: Arial, sans-serif; width: 100%;">
              <div style="text-align: center; margin-bottom: 15px;">
                 <h2 style="margin: 0; font-size: 1.5rem; text-transform: uppercase;">Planilla de Horarios Semanales</h2>
                 <p style="margin: 5px 0 0 0; color: #333; font-size: 0.9rem;">
@@ -2831,28 +2844,21 @@
              </div>
        `;
        
-       weeks.forEach((weekDays, wIndex) => {
+       state.collaborators.forEach(collab => {
           htmlStr += `
-             <div style="margin-bottom: 20px;">
-             <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.75rem; text-align: center;">
-                <thead>
-                   <tr>
-                      <th style="border: 1px solid #000; padding: 4px; background: #fff; width: 120px; font-weight: bold; color: #000;">COLABORADOR</th>
+          <div class="pdf-collaborator-card" style="margin-bottom: 6px; page-break-inside: avoid; border-bottom: 1px dashed #ccc; padding-bottom: 4px;">
+            <div style="background-color: #e6e6e6; color: #000; font-weight: bold; padding: 2px 6px; font-size: 0.8rem; text-transform: uppercase; border: 1px solid #000;">
+              ${collab.id} - ${collab.name.split('(')[0].trim()}
+            </div>
+            <table class="pdf-table-compact" style="width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 2px;">
+              <tbody>
           `;
-          
-          weekDays.forEach(d => {
-             const dayName = d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' });
-             htmlStr += `<th style="border: 1px solid #000; padding: 4px; background: #fff; font-weight: bold; color: #000;">${dayName.toUpperCase()}</th>`;
-          });
-          htmlStr += `</tr></thead><tbody>`;
-          
-          state.collaborators.forEach(collab => {
-             htmlStr += `<tr>
-                <td style="border: 1px solid #000; padding: 4px; text-align: left; font-weight: bold; color: #000; background: #fff; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
-                   ${collab.name.split('(')[0].split('-')[0].trim()}<br>
-                   <span style="font-size: 0.65rem; color: #333; font-weight: normal;">${collab.pasillo}</span>
-                </td>
+
+          weeks.forEach((weekDays, wIndex) => {
+             htmlStr += `
+                 <tr>
              `;
+             
              weekDays.forEach(d => {
                 const dStr = formatDate(d);
                 let isOnVacation = false;
@@ -2869,67 +2875,33 @@
                 if (isOnVacation) val = 'VACACIONES';
                 if (!val.trim()) val = '-';
                 if (val === 'VACACIONES') val = 'VAC';
+                const dText = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
                 
-                htmlStr += `<td style="border: 1px solid #000; padding: 4px; background: #fff; color: #000; font-weight: 500;">${val}</td>`;
+                htmlStr += `
+                  <td>${dText} - ${val}</td>
+                `;
              });
-             htmlStr += `</tr>`;
+             
+             htmlStr += `
+                 </tr>
+             `;
           });
-          
-          htmlStr += `</tbody><tfoot>`;
-          
-          // Fila de Cobertura
-          htmlStr += `<tr><td style="border: 1px solid #000; padding: 4px; font-weight: bold; background: #fff; color: #000;">Cobertura</td>`;
-          weekDays.forEach(d => {
-             const dStr = formatDate(d);
-             const counts = { 'M': 0, 'I': 0, 'T': 0, 'N': 0, 'E': 0 };
-             state.collaborators.forEach(c => {
-                let val = state.planning[`${c.id}_${dStr}`] || '';
-                const targetD = new Date(dStr + "T00:00:00");
-                for (let vac of state.vacations) {
-                   if (vac.colaboradorId === c.id) {
-                      const vacStart = new Date(vac.startDate + "T00:00:00");
-                      const vacEnd = new Date(vac.endDate + "T00:00:00");
-                      if (targetD >= vacStart && targetD <= vacEnd) val = 'VAC';
-                   }
-                }
-                const parsed = parseShift(val);
-                if (parsed && parsed.group && counts[parsed.group] !== undefined) {
-                   counts[parsed.group]++;
-                }
-             });
-             htmlStr += `<td style="border: 1px solid #000; padding: 2px; font-size: 0.6rem; background: #fff; color: #000; font-weight: bold;">
-                M:${counts['M']} I:${counts['I']} T:${counts['T']} N:${counts['N']}
-             </td>`;
-          });
-          htmlStr += `</tr>`;
-          
-          // Fila de Total Francos
-          htmlStr += `<tr><td style="border: 1px solid #000; padding: 4px; font-weight: bold; background: #fff; color: #000;">Total Francos</td>`;
-          weekDays.forEach(d => {
-             const dStr = formatDate(d);
-             let francos = 0;
-             state.collaborators.forEach(c => {
-                let val = state.planning[`${c.id}_${dStr}`] || '';
-                const parsed = parseShift(val);
-                if (parsed && parsed.type === 'franco') {
-                   francos++;
-                }
-             });
-             htmlStr += `<td style="border: 1px solid #000; padding: 4px; font-weight: bold; background: #fff; color: #000;">${francos}</td>`;
-          });
-          htmlStr += `</tr>`;
-          
-          htmlStr += `</tfoot></table></div>`;
+
+          htmlStr += `
+              </tbody>
+            </table>
+          </div>
+          `;
        });
        
        htmlStr += `</div>`;
        
        const opt = {
-          margin:       0.2,
+          margin:       [10, 10, 10, 10], // Márgenes de 10mm en los cuatro lados
           filename:     `Planificacion_${formatDate(startDate)}_al_${formatDate(endDate)}.pdf`,
           image:        { type: 'jpeg', quality: 0.98 },
-          html2canvas:  { scale: 2, useCORS: true, windowWidth: 1200 },
-          jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+          html2canvas:  { scale: 2, useCORS: true },
+          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' } // A4 Horizontal
        };
        
        try {
