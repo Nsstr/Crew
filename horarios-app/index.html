@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
+      color-scheme: dark;
       --bg: #0f172a;
       --surface: #1e293b;
       --surface-hover: #334155;
@@ -534,6 +535,7 @@
       background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.4rem 0.5rem; border-radius: 0.4rem; font-family: inherit; font-size: 0.85rem; width: 100%; box-sizing: border-box; min-width: 0;
     }
     .form-group input:focus, .form-group select:focus { border-color: var(--primary); outline: none; }
+    option { background: var(--bg); color: var(--text); }
     
     .bento-grid {
        display: grid;
@@ -898,13 +900,7 @@
           <label>Pasillo Asignado</label>
           <input type="text" id="cPasillo" required>
         </div>
-        <div class="form-group" style="margin-bottom: 0;">
-          <label style="margin-bottom: 0.25rem; display: block;">Historial de Temporadas</label>
-          <div id="cHistVContainer" style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
-             <!-- Inyectado vía JS -->
-          </div>
-          <button type="button" id="cHistVToggle" style="margin-top: 0.25rem; font-size: 0.75rem; background: transparent; border: 1px solid var(--border); padding: 2px 6px; color: var(--text-muted); cursor: pointer; border-radius: 4px;">Ver años anteriores</button>
-        </div>
+
         <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
            <button type="submit" id="cSubmitBtn" class="primary" style="flex: 1; justify-content: center;">Guardar</button>
            <button type="button" class="btn-danger" id="cDeleteBtn" style="display: none;">Eliminar</button>
@@ -1838,35 +1834,7 @@
 
 
 
-    function initHistorialUI() {
-       const container = document.getElementById('cHistVContainer');
-       if(!container) return;
-       let html = '';
-       const currYear = new Date().getFullYear();
-       for(let i=0; i<6; i++) {
-          const year = currYear - i;
-          const isHidden = i >= 3;
-          html += `
-            <div class="${isHidden ? 'hist-year-collapsed' : 'hist-year-fixed'}" style="flex: 1; min-width: 65px; display: ${isHidden ? 'none' : 'block'};">
-              <label style="font-size: 0.7rem; margin-bottom: 2px;">${year}</label>
-              <select id="cHistV_${year}" data-year="${year}" style="padding: 2px; font-size: 0.8rem; width: 100%;">
-                <option value="N/A">N/A</option>
-                <option value="Mala">M (Mala)</option>
-                <option value="Buena">B (Buena)</option>
-              </select>
-            </div>
-          `;
-       }
-       container.innerHTML = html;
-       
-       document.getElementById('cHistVToggle').addEventListener('click', function() {
-          const collapsed = document.querySelectorAll('.hist-year-collapsed');
-          if (collapsed.length === 0) return;
-          const isHidden = collapsed[0].style.display === 'none';
-          collapsed.forEach(el => el.style.display = isHidden ? 'block' : 'none');
-          this.innerText = isHidden ? 'Ocultar anteriores' : 'Ver años anteriores';
-       });
-    }
+
 
     // 13. GESTION DE DOTACION
     const configModal = document.getElementById('configModal');
@@ -1905,14 +1873,6 @@
       e.preventDefault();
       const legajo = document.getElementById('cLegajo').value.trim();
       
-      const historial = {};
-      const currYear = new Date().getFullYear();
-      for(let i=0; i<6; i++) {
-         const y = currYear - i;
-         const sel = document.getElementById(`cHistV_${y}`);
-         if(sel) historial[y] = sel.value;
-      }
-      
       const newCollab = {
         id: legajo,
         name: document.getElementById('cName').value.trim(),
@@ -1920,7 +1880,6 @@
         hours: parseInt(document.getElementById('cHours').value),
         domingosAcordados: parseInt(document.getElementById('cDoms').value),
         pasillo: document.getElementById('cPasillo').value.trim(),
-        historialVacaciones: historial,
         saldoVacaciones: parseInt(document.getElementById('cSaldoV').value) || 0
       };
 
@@ -1997,15 +1956,7 @@
       document.getElementById('cHours').value = c.hours;
       document.getElementById('cDoms').value = c.domingosAcordados || 0;
       document.getElementById('cPasillo').value = c.pasillo;
-      
-      const currYear = new Date().getFullYear();
-      for(let i=0; i<6; i++) {
-         const y = currYear - i;
-         const sel = document.getElementById(`cHistV_${y}`);
-         if(sel) {
-            sel.value = (c.historialVacaciones && c.historialVacaciones[y]) ? c.historialVacaciones[y] : 'N/A';
-         }
-      }
+
       
       document.getElementById('cSaldoV').value = c.saldoVacaciones || 0;
       
@@ -2296,6 +2247,16 @@
        } else {
            historyYears.forEach(y => {
                historyByYear[y].sort((a, b) => a.start - b.start);
+               
+               let tipoStr = 'N/A';
+               if (collab.saldosVacaciones && collab.saldosVacaciones[y]) {
+                   tipoStr = collab.saldosVacaciones[y].periodoTipo || 'N/A';
+               } else if (collab.historialVacaciones && collab.historialVacaciones[y]) {
+                   tipoStr = collab.historialVacaciones[y] || 'N/A';
+               }
+               if (tipoStr === 'Mala') tipoStr = 'Malas';
+               if (tipoStr === 'Buena') tipoStr = 'Buenas';
+
                const periodsStr = historyByYear[y].map(p => {
                    const sDay = String(p.start.getDate()).padStart(2, '0');
                    const sMonth = String(p.start.getMonth()+1).padStart(2, '0');
@@ -2307,10 +2268,13 @@
                    const eYear = String(p.end.getFullYear()).slice(-2);
                    const eStr = `${eDay}-${eMonth}/${eYear}`;
                    
-                   return `${p.days} dias del ${sStr} al ${eStr}`;
-               }).join(' | ');
+                   return `${p.days} dias: del ${sStr} al ${eStr} |`;
+               }).join('<br>');
                
-               historyHtml += `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;"><strong>${y}:</strong> ${periodsStr}</div>`;
+               historyHtml += `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;">
+                   <strong>${y} | ${tipoStr} |</strong><br>
+                   ${periodsStr}
+               </div>`;
            });
        }
        
@@ -2979,7 +2943,6 @@
     }
 
     // INICIO
-    initHistorialUI();
     loadInitialData();
   </script>
 </body>
