@@ -2299,13 +2299,16 @@
 
              // d. Asistencia Feriados
              if (state.holidays.includes(dateStr)) {
-                const parsed = parseShift(val);
-                if (parsed && parsed.type === 'work') {
-                   feriadosTrabajados++;
-                } else if (parsed && ['franco', 'libre', 'absence', 'vacation'].includes(parsed.type)) {
+                const isFeriadoNoTrabajado = (val.toLowerCase() === 'f' || (obj.comentario && obj.comentario.includes("Feriado No Trabajado")));
+                if (isFeriadoNoTrabajado) {
                    feriadosLibres++;
-                } else if (isDayOff(val) || isAbsence(val) || isAbsence(obj.comentario)) {
-                   feriadosLibres++;
+                } else {
+                   const parsed = parseShift(val);
+                   if (parsed && parsed.type === 'work') {
+                      feriadosTrabajados++;
+                   } else if (isDayOff(val) || isAbsence(val) || isAbsence(obj.comentario) || (parsed && ['franco', 'libre', 'absence', 'vacation'].includes(parsed.type))) {
+                      feriadosLibres++;
+                   }
                 }
              }
           });
@@ -2452,8 +2455,9 @@
           }
 
           if (state.holidays.includes(dateStr)) {
+             const isFeriadoNoTrabajado = (val.toLowerCase() === 'f' || (obj.comentario && obj.comentario.includes("Feriado No Trabajado")));
              const parsed = parseShift(val);
-             if (parsed && parsed.type === 'work') monthData.feriadosTrab++;
+             if (!isFeriadoNoTrabajado && parsed && parsed.type === 'work') monthData.feriadosTrab++;
           }
        });
 

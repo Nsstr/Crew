@@ -34,7 +34,11 @@ function parseShift(cell) {
     }
 
     // 4. Mapeo por Prefijos
-    if (/^(v\b|v\d|vacaciones)/i.test(raw)) {
+    if (/^(x\b|x\d)/i.test(raw)) {
+        result.comentario = "Feriado No Trabajado";
+        result.slot = "f";
+    }
+    else if (/^(v\b|v\d|vacaciones)/i.test(raw)) {
         result.comentario = "Vacaciones";
         result.isVacation = true;
         if (!result.slot) result.slot = "v";
