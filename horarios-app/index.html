@@ -1648,6 +1648,12 @@
           let obj = getPlanningObj(collab.id, dStr);
           if (obj) {
              let hasObservation = obj.comentario || obj.tardanzaMinutosTotales;
+             
+             // Remove redundant comment indicator if the cell is locked for vacations
+             if (isOnVacation || isPreVacationSunday) {
+                 hasObservation = false;
+             }
+
              if (hasObservation) {
                 wrapperClass += ' has-comment';
                 let titleParts = [];
