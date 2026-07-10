@@ -727,8 +727,9 @@
       <h2 style="color: var(--info);">Firma de Edición</h2>
       <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">Para modificar la grilla debes identificarte.</p>
       <form id="editorForm" style="display: flex; flex-direction: column; gap: 1rem;">
-        <input type="text" id="editorNombre" placeholder="Nombre Completo" required style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.75rem; border-radius: 0.5rem; font-size: 1rem; text-align: center; outline: none;">
-        <input type="text" id="editorLegajo" placeholder="Nº de Legajo" required style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.75rem; border-radius: 0.5rem; font-size: 1rem; text-align: center; outline: none;">
+        <input type="text" id="editorLegajo" placeholder="Nº de Legajo" required autocomplete="off" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.75rem; border-radius: 0.5rem; font-size: 1rem; text-align: center; outline: none;">
+        <div id="editorNombreDisplay" style="text-align: center; font-weight: 600; color: var(--info); font-size: 1.1rem; min-height: 1.5rem;"></div>
+        <input type="hidden" id="editorNombre">
         <div style="display: flex; gap: 0.5rem;">
            <button type="button" id="editorCancelBtn" style="flex: 1; justify-content: center; padding: 0.75rem;">Cancelar</button>
            <button type="submit" class="primary" style="flex: 1; justify-content: center; padding: 0.75rem; font-size: 1rem;">Firmar</button>
@@ -3260,6 +3261,7 @@
        pdfBtn.style.display = 'inline-flex'; // Siempre visible
        vacationTabBtn.style.display = 'none';
        if (metricsTabBtn) metricsTabBtn.style.display = 'none';
+       adminLoginBtn.style.display = 'flex'; // Siempre visible por defecto, se oculta si hay login
        
        if (currentRole === 'admin') {
           adminLoginBtn.style.display = 'none';
@@ -3470,6 +3472,39 @@
 
     let pendingEditTarget = null;
     
+    document.getElementById('editorLegajo').addEventListener('input', (e) => {
+       const leg = e.target.value.trim();
+       const nomInput = document.getElementById('editorNombre');
+       const nomDisplay = document.getElementById('editorNombreDisplay');
+       
+       const authorizedEditors = {
+          '10021755': 'Salazar Torres, Carmen Elena',
+          '10021393': 'Bazan, Rodolfo Fabian',
+          '10021701': 'Vargas Chirino, Mauro Javier',
+          '10036476': 'Guidet Fredes, Maria Laura',
+          '10045541': 'Diaz, Daiana Maillen'
+       };
+
+       if (leg) {
+          let editorName = authorizedEditors[leg];
+          if (!editorName) {
+             const collab = state.collaborators.find(c => String(c.id).trim() === leg || String(c.legajo).trim() === leg);
+             if (collab && collab.name) editorName = collab.name;
+          }
+
+          if (editorName) {
+             nomInput.value = editorName;
+             nomDisplay.textContent = editorName;
+          } else {
+             nomInput.value = '';
+             nomDisplay.textContent = 'Legajo no encontrado';
+          }
+       } else {
+          nomInput.value = '';
+          nomDisplay.textContent = '';
+       }
+    });
+
     document.getElementById('editorCancelBtn').addEventListener('click', () => {
        editorModal.style.display = 'none';
        pendingEditTarget = null;
@@ -3479,6 +3514,10 @@
        e.preventDefault();
        const nom = document.getElementById('editorNombre').value.trim();
        const leg = document.getElementById('editorLegajo').value.trim();
+       if (!nom) {
+          showToast('Error', 'Legajo inválido o sin nombre asociado.');
+          return;
+       }
        if (nom && leg) {
           sessionStorage.setItem('editorNombre', nom);
           sessionStorage.setItem('editorLegajo', leg);
