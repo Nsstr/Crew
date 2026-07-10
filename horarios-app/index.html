@@ -762,6 +762,7 @@
       <button id="auditBellBtn" class="audit-bell" title="Log de Auditoría">
         🔔 <span id="auditBadge" class="audit-badge" style="display: none;">0</span>
       </button>
+      <button id="backupDriveBtn" style="display: none; background: transparent; color: var(--success); border: 1px solid var(--success); border-radius: 0.25rem; padding: 0 0.75rem; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;" title="Respaldar todo en Google Sheets">Backup Drive</button>
       <button id="adminLoginBtn" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">Acceso Admin</button>
       <button id="logoutBtn" style="display: none; background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">Salir</button>
     </div>
@@ -3368,9 +3369,13 @@
        const auditBellBtn = document.getElementById('auditBellBtn');
        if (auditBellBtn) auditBellBtn.style.display = 'none';
 
+       const backupDriveBtn = document.getElementById('backupDriveBtn');
+       if (backupDriveBtn) backupDriveBtn.style.display = 'none';
+
        if (currentRole === 'admin') {
           adminLoginBtn.style.display = 'none';
           logoutBtn.style.display = 'inline-flex';
+          if (backupDriveBtn) backupDriveBtn.style.display = 'inline-flex';
           logoutBtn.innerHTML = 'Cerrar Sesión Admin';
           configBtn.style.display = 'inline-flex';
           vacationTabBtn.style.display = 'inline-block';
@@ -3998,6 +4003,104 @@
        } catch (err) {
           console.error("Error al renderizar logs:", err);
           auditListContainer.innerHTML = '<div style="color: var(--danger);">Error al cargar logs.</div>';
+       }
+    }
+
+    // 12. BACKUP GOOGLE SHEETS
+    if (document.getElementById('backupDriveBtn')) {
+       document.getElementById('backupDriveBtn').addEventListener('click', generarBackupSheets);
+    }
+
+    async function generarBackupSheets() {
+       const backupBtn = document.getElementById('backupDriveBtn');
+       const originalText = backupBtn.innerText;
+       
+       const WEB_APP_URL = prompt("Introduce la URL del Web App (Google Apps Script):", localStorage.getItem('backupWebAppUrl') || "");
+       if (!WEB_APP_URL) return;
+       localStorage.setItem('backupWebAppUrl', WEB_APP_URL);
+
+       const SPREADSHEET_ID = prompt("Introduce el ID del archivo Google Sheets destino:", localStorage.getItem('backupSpreadsheetId') || "");
+       if (!SPREADSHEET_ID) return;
+       localStorage.setItem('backupSpreadsheetId', SPREADSHEET_ID);
+
+       backupBtn.innerText = 'Extrayendo...';
+       backupBtn.disabled = true;
+
+       try {
+          // 1. Obtener toda la data de planificacion
+          const planSnap = await getDocs(collection(db, 'planificacion'));
+          
+          const monthMap = {};
+          const datesByMonth = {};
+          
+          planSnap.forEach(docSnap => {
+             const data = docSnap.data();
+             if (!data.fecha || !data.colaboradorId) return;
+             
+             const monthKey = data.fecha.substring(0, 7); // "YYYY-MM"
+             
+             if (!monthMap[monthKey]) {
+                monthMap[monthKey] = {};
+                datesByMonth[monthKey] = new Set();
+             }
+             if (!monthMap[monthKey][data.colaboradorId]) {
+                monthMap[monthKey][data.colaboradorId] = {};
+             }
+             
+             monthMap[monthKey][data.colaboradorId][data.fecha] = data.slot;
+             datesByMonth[monthKey].add(data.fecha);
+          });
+
+          // 2. Construir la estructura para Apps Script
+          const sheets = [];
+          const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+          for (const monthKey of Object.keys(monthMap)) {
+             const [year, monthNum] = monthKey.split('-');
+             const sheetName = monthNames[parseInt(monthNum)-1] + " " + year;
+             
+             const datesArray = Array.from(datesByMonth[monthKey]).sort();
+             const headers = ["Legajo", "Nombre"].concat(datesArray.map(d => {
+                const [y, m, day] = d.split('-');
+                return day + '/' + m;
+             }));
+
+             const matrix = [headers];
+
+             state.collaborators.forEach(collab => {
+                const row = [collab.id, collab.name.split('(')[0].trim()];
+                const collabData = monthMap[monthKey][collab.id] || {};
+                
+                datesArray.forEach(d => {
+                   row.push(collabData[d] || "-");
+                });
+                matrix.push(row);
+             });
+
+             sheets.push({ name: sheetName, data: matrix });
+          }
+
+          backupBtn.innerText = 'Enviando a Drive...';
+
+          // 3. Enviar al Web App
+          const response = await fetch(WEB_APP_URL, {
+             method: 'POST',
+             mode: 'no-cors', // Evita bloqueos CORS en el navegador al hablar con GAS
+             headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // text/plain es mandatorio en no-cors
+             body: JSON.stringify({
+                spreadsheetId: SPREADSHEET_ID,
+                sheets: sheets
+             })
+          });
+
+          showToast("Backup Enviado", "El proceso de respaldo se envió a Google Drive.");
+
+       } catch (error) {
+          console.error(error);
+          alert("Ocurrió un error en el Backup: " + error.message);
+       } finally {
+          backupBtn.innerText = originalText;
+          backupBtn.disabled = false;
        }
     }
 
