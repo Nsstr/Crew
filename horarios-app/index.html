@@ -1571,21 +1571,33 @@
           }
 
           let isPreVacationSunday = false;
-          if (d.getDay() === 0 && !isOnVacation) {
-             const nextMon = addDays(d, 1);
-             const nextTue = addDays(d, 2);
-             for (let vac of state.vacations) {
-                if (vac.colaboradorId === collab.id) {
-                   const vacStart = new Date(vac.startDate + "T00:00:00");
-                   if (vacStart.getTime() === nextMon.getTime()) {
-                      isPreVacationSunday = true; break;
-                   }
-                   if (vacStart.getTime() === nextTue.getTime() && state.holidays.includes(formatDate(nextMon))) {
-                      isPreVacationSunday = true; break;
-                   }
-                }
-             }
-          }
+           if (d.getDay() === 0 && !isOnVacation) {
+              const nextMonStr = formatDate(addDays(d, 1));
+              const nextTueStr = formatDate(addDays(d, 2));
+              
+              // 1. Check official vacations plan (robust string match)
+              for (let vac of state.vacations) {
+                 if (vac.colaboradorId === collab.id) {
+                    if (vac.startDate === nextMonStr) {
+                       isPreVacationSunday = true; break;
+                    }
+                    if (vac.startDate === nextTueStr && state.holidays.includes(nextMonStr)) {
+                       isPreVacationSunday = true; break;
+                    }
+                 }
+              }
+
+              // 2. Fallback: check grid cell directly
+              if (!isPreVacationSunday) {
+                  const valMon = getPlanningSlot(collab.id, nextMonStr).toLowerCase();
+                  const valTue = getPlanningSlot(collab.id, nextTueStr).toLowerCase();
+                  if (valMon === 'v' || valMon === 'vacaciones') {
+                      isPreVacationSunday = true;
+                  } else if ((valTue === 'v' || valTue === 'vacaciones') && state.holidays.includes(nextMonStr)) {
+                      isPreVacationSunday = true;
+                  }
+              }
+           }
 
           let val = getPlanningSlot(collab.id, dStr);
           let parsed = null;
