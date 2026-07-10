@@ -689,6 +689,65 @@
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
     .login-content h2 { margin-bottom: 0.5rem; color: var(--primary); }
+    
+    /* Audit Styles */
+    .audit-bell {
+      position: relative;
+      display: none;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 0.25rem;
+      padding: 0 0.5rem;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .audit-bell:hover { color: var(--text); border-color: rgba(255,255,255,0.4); }
+    .audit-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: #e11d48;
+      color: white;
+      font-size: 0.65rem;
+      font-weight: bold;
+      border-radius: 50%;
+      min-width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      animation: pulse-red 2s infinite;
+    }
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+    }
+    .audit-list {
+      max-height: 400px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      text-align: left;
+    }
+    .audit-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    .audit-item strong { color: var(--primary); }
+    .audit-item .audit-date { color: var(--info); font-weight: bold; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -700,11 +759,29 @@
       <button class="app-tab-btn" id="metricsTabBtn" onclick="switchTab('metricas')" style="display: none;">Dashboard Métricas</button>
     </div>
     <div class="nav-auth-controls" style="display: flex; gap: 0.5rem; height: 26px;">
+      <button id="auditBellBtn" class="audit-bell" title="Log de Auditoría">
+        🔔 <span id="auditBadge" class="audit-badge" style="display: none;">0</span>
+      </button>
       <button id="adminLoginBtn" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">Acceso Admin</button>
       <button id="logoutBtn" style="display: none; background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">Salir</button>
     </div>
   </div>
 
+
+  <!-- AUDITORÍA MODAL -->
+  <div class="login-overlay" id="auditoriaModal" style="display: none; z-index: 9999;">
+    <div class="login-content" style="max-width: 650px; width: 90%;">
+      <h2>Log de Auditoría</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.85rem;">Cambios recientes en la grilla que requieren revisión.</p>
+      <div id="auditListContainer" class="audit-list">
+        <!-- Logs se inyectan aquí -->
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+         <button type="button" id="auditHistoryToggleBtn" style="padding: 0.5rem 1rem; background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 0.25rem; cursor: pointer;">Ver Historial Completo</button>
+         <button type="button" id="auditCloseBtn" style="padding: 0.5rem 1rem;">Cerrar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- LOGIN MODAL (Para Admin) -->
   <div class="login-overlay" id="loginModal" style="display: none;">
@@ -1077,7 +1154,7 @@
       if (val === 'f') return { type: 'franco', label: 'F', class: 'input-franco', hours: 0 };
       if (val === 'v') return { type: 'vacation', label: 'V', class: 'input-absence', hours: 0 };
       if (val === 'e') return { type: 'absence', label: 'E', class: 'input-absence', hours: 0 };
-      if (val === 'libre') return { type: 'libre', label: 'LIBRE', class: 'input-libre', hours: 0 };
+      if (val === 'libre' || val === 'l') return { type: 'libre', label: 'LIBRE', class: 'input-libre', hours: 0 };
       if (val === '-') return { type: 'none', label: '', class: '', hours: 0 };
 
       const match = val.match(/^(\d{1,2})(?::(\d{2}))?a(\d{1,2})(?::(\d{2}))?$/);
@@ -1691,12 +1768,34 @@
            hoursColor = 'var(--danger)';
         }
 
+        let extraHoursHtml = '';
+        if (collab.hours < 48 && totalHours > collab.hours) {
+           const extraHours = Number.isInteger(totalHours - collab.hours) ? (totalHours - collab.hours) : (totalHours - collab.hours).toFixed(1);
+           const totalStr = Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1);
+           
+           let extraColor = '';
+           if (totalHours <= 31) {
+              extraColor = '#eab308'; // Amarillo
+           } else if (totalHours === 32) {
+              extraColor = 'var(--success)'; // Verde
+           } else {
+              extraColor = 'var(--danger)'; // Rojo
+           }
+
+           extraHoursHtml = `
+             <div style="color: ${extraColor}; font-size: 0.68rem; font-weight: 700; text-align: center; line-height: 1.1; margin-top: 2px; letter-spacing: -0.2px; white-space: nowrap;">
+               +${extraHours}h (T: ${totalStr}h)
+             </div>
+           `;
+        }
+
         html += `
           <td style="vertical-align: middle; padding: 0 0.5rem;">
-            <div style="display:flex; justify-content:center; align-items:center; gap:0.5rem;">
+            <div style="display:flex; flex-direction:column; justify-content:center; align-items:center;">
               <div style="color: ${hoursColor}; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">
                 ${Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1)}h / ${collab.hours}h
               </div>
+              ${extraHoursHtml}
             </div>
           </td>
         `;
@@ -1969,6 +2068,9 @@
       
       if (oldValue !== finalValue) {
          logAudit('Modificar Turno', collabId, dateStr, oldValue, finalValue);
+         if (typeof window.registrarLogActividad === 'function') {
+            window.registrarLogActividad(collabId, dateStr, oldValue, finalValue);
+         }
       }
 
       // Check for multiple Francos in the week
@@ -3263,6 +3365,9 @@
        if (metricsTabBtn) metricsTabBtn.style.display = 'none';
        adminLoginBtn.style.display = 'flex'; // Siempre visible por defecto, se oculta si hay login
        
+       const auditBellBtn = document.getElementById('auditBellBtn');
+       if (auditBellBtn) auditBellBtn.style.display = 'none';
+
        if (currentRole === 'admin') {
           adminLoginBtn.style.display = 'none';
           logoutBtn.style.display = 'inline-flex';
@@ -3270,6 +3375,12 @@
           configBtn.style.display = 'inline-flex';
           vacationTabBtn.style.display = 'inline-block';
           if (metricsTabBtn) metricsTabBtn.style.display = 'inline-block';
+          if (auditBellBtn) {
+             auditBellBtn.style.display = 'flex';
+             if (typeof window.checkAuditLogs === 'function') {
+                window.checkAuditLogs();
+             }
+          }
        } else if (currentRole === 'editor') {
           adminLoginBtn.style.display = 'none';
           logoutBtn.style.display = 'inline-flex';
@@ -3382,8 +3493,19 @@
        const dateStr = currentContextCell.getAttribute('data-date');
        
        const obj = getPlanningObj(collabId, dateStr) || {};
+       const oldSlot = obj.slot || currentContextCell.value;
+       const oldComment = obj.comentario || "";
+       
        obj.slot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
        obj.comentario = document.getElementById('cellCommentInput').value.trim();
+       
+       if (oldSlot !== obj.slot || oldComment !== obj.comentario) {
+          if (typeof window.registrarLogActividad === 'function') {
+             const oldStr = oldSlot + (oldComment ? ` (${oldComment})` : '');
+             const newStr = obj.slot + (obj.comentario ? ` (${obj.comentario})` : '');
+             window.registrarLogActividad(collabId, dateStr, oldStr, newStr);
+          }
+       }
        
        const tardanzaStr = document.getElementById('cellTardanzaInput').value.trim();
        let tardanzaMins = 0;
@@ -3720,6 +3842,162 @@
        } catch(e) {
            console.error("PDF error:", e);
            showToast("Error", "Falló la generación del PDF.");
+       }
+    }
+
+    // -- LOGS DE ACTIVIDAD (Auditoría de Turnos) --
+    window.registrarLogActividad = async function(collabId, targetDate, oldValue, newValue) {
+       if (isMockMode) return;
+       if (currentRole === 'admin') return; 
+
+       try {
+          let execLegajo = "Desconocido";
+          let execNombre = "Desconocido";
+          if (currentRole === 'editor') {
+             execLegajo = sessionStorage.getItem('editorLegajo') || "";
+             execNombre = sessionStorage.getItem('editorNombre') || "";
+          }
+
+          const collab = state.collaborators.find(c => String(c.id) === String(collabId));
+          const collabNombre = collab ? collab.name : "Desconocido";
+
+          const logRef = doc(collection(db, "logs_actividad"));
+          await setDoc(logRef, {
+             fechaCambio: new Date().toISOString(),
+             ejecutorLegajo: execLegajo,
+             ejecutorNombre: execNombre,
+             colaboradorAfectado: collabId + " " + collabNombre,
+             fechaTurno: targetDate,
+             estadoAnterior: oldValue || "",
+             estadoNuevo: newValue || "",
+             revisadoAdmin: false
+          });
+       } catch (err) {
+          console.error("Error guardando log de actividad:", err);
+       }
+    };
+
+    window.checkAuditLogs = async function() {
+       if (currentRole !== 'admin') return;
+       try {
+          const q = query(collection(db, "logs_actividad"), where("revisadoAdmin", "==", false));
+          const snapshot = await getDocs(q);
+          const auditBadge = document.getElementById('auditBadge');
+          
+          const docs = snapshot.docs.filter(doc => doc.data().ejecutorLegajo !== "10045875");
+          
+          if (docs.length > 0) {
+             auditBadge.style.display = 'flex';
+             auditBadge.textContent = docs.length;
+          } else {
+             auditBadge.style.display = 'none';
+          }
+       } catch (err) {
+          console.error("Error al consultar logs:", err);
+       }
+    };
+
+    const auditBellBtn = document.getElementById('auditBellBtn');
+    const auditoriaModal = document.getElementById('auditoriaModal');
+    const auditCloseBtn = document.getElementById('auditCloseBtn');
+    const auditListContainer = document.getElementById('auditListContainer');
+    const auditHistoryToggleBtn = document.getElementById('auditHistoryToggleBtn');
+    let showingReviewedLogs = false;
+
+    if (auditHistoryToggleBtn) {
+       auditHistoryToggleBtn.addEventListener('click', async () => {
+          showingReviewedLogs = !showingReviewedLogs;
+          auditHistoryToggleBtn.innerText = showingReviewedLogs ? 'Ver Solo Pendientes' : 'Ver Historial Completo';
+          await renderAuditLogs();
+       });
+    }
+
+    if (auditBellBtn) {
+       auditBellBtn.addEventListener('click', async () => {
+          auditoriaModal.style.display = 'flex';
+          showingReviewedLogs = false;
+          if (auditHistoryToggleBtn) auditHistoryToggleBtn.innerText = 'Ver Historial Completo';
+          await renderAuditLogs();
+       });
+    }
+
+    if (auditCloseBtn) {
+       auditCloseBtn.addEventListener('click', () => {
+          auditoriaModal.style.display = 'none';
+       });
+    }
+
+    async function renderAuditLogs() {
+       auditListContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted);">Cargando logs...</div>';
+       try {
+          let q;
+          if (showingReviewedLogs) {
+             q = query(collection(db, "logs_actividad")); // Trae todos para ordenarlos por fecha
+          } else {
+             q = query(collection(db, "logs_actividad"), where("revisadoAdmin", "==", false));
+          }
+          
+          const snapshot = await getDocs(q);
+          let docs = snapshot.docs.filter(doc => doc.data().ejecutorLegajo !== "10045875");
+          
+          // Ordenar por fecha descendente (más recientes primero)
+          docs.sort((a, b) => {
+             return new Date(b.data().fechaCambio) - new Date(a.data().fechaCambio);
+          });
+          
+          if (docs.length === 0) {
+             auditListContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 1rem;">No hay cambios para mostrar.</div>';
+             return;
+          }
+
+          auditListContainer.innerHTML = '';
+          docs.forEach(docSnap => {
+             const data = docSnap.data();
+             const div = document.createElement('div');
+             div.className = 'audit-item';
+             if (data.revisadoAdmin) {
+                div.style.opacity = '0.7';
+                div.style.background = 'rgba(255,255,255,0.05)';
+             }
+             
+             let dateParts = data.fechaTurno.split('-');
+             let dateFormatted = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : data.fechaTurno;
+             
+             let actionHtml = '';
+             if (!data.revisadoAdmin) {
+                actionHtml = `<button class="mark-reviewed-btn" data-id="${docSnap.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: var(--success); color: white; border: none; border-radius: 0.25rem; cursor: pointer;">Marcar como Revisado</button>`;
+             } else {
+                actionHtml = `<span style="color: var(--success); font-size: 0.8rem; font-weight: bold;">✓ Revisado</span>`;
+             }
+
+             // Formatear timestamp de cuando se hizo
+             let horaCambio = new Date(data.fechaCambio).toLocaleString();
+
+             div.innerHTML = `
+               <div>
+                  <strong>${data.ejecutorLegajo} ${data.ejecutorNombre}</strong> cambió el <span class="audit-date">${dateFormatted}</span> de 
+                  <span class="audit-action">${data.estadoAnterior || '(vacío)'}</span> a <span class="audit-action">${data.estadoNuevo || '(vacío)'}</span> 
+                  <br><span style="color: var(--text-muted); font-size: 0.75rem;">Afectado: ${data.colaboradorAfectado} | Editado: ${horaCambio}</span>
+               </div>
+               ${actionHtml}
+             `;
+             auditListContainer.appendChild(div);
+          });
+          
+          document.querySelectorAll('.mark-reviewed-btn').forEach(btn => {
+             btn.addEventListener('click', async (e) => {
+                const id = e.target.getAttribute('data-id');
+                e.target.innerText = 'Guardando...';
+                e.target.disabled = true;
+                e.target.style.background = 'var(--text-muted)';
+                await updateDoc(doc(db, "logs_actividad", id), { revisadoAdmin: true });
+                await window.checkAuditLogs();
+                await renderAuditLogs();
+             });
+          });
+       } catch (err) {
+          console.error("Error al renderizar logs:", err);
+          auditListContainer.innerHTML = '<div style="color: var(--danger);">Error al cargar logs.</div>';
        }
     }
 
