@@ -926,6 +926,11 @@
                <label>Colaborador</label>
                <select id="vCollab" required style="width: 100%;"></select>
              </div>
+             <div class="form-group" style="margin:0;">
+               <label>Imputar al Año (Descuento de Saldo)</label>
+               <select id="vImputacion" required style="width: 100%;">
+               </select>
+             </div>
              <div style="display: flex; gap: 1rem;">
                <div class="form-group" style="margin:0; flex: 1;">
                  <label>Inicio (Lunes)</label>
@@ -1091,8 +1096,8 @@
             </select>
           </div>
           <div class="form-group" style="flex: 1; margin-bottom: 0;">
-            <label>Saldo Vacs</label>
-            <input type="number" id="cSaldoV" value="0" required>
+            <label>Fecha Alta</label>
+            <input type="date" id="cFechaAlta" required>
           </div>
         </div>
         <div class="form-group">
@@ -1331,6 +1336,17 @@
       // Llenar selectores
       const vCollabSelect = document.getElementById('vCollab');
       vCollabSelect.innerHTML = state.collaborators.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      
+      const vImputacion = document.getElementById('vImputacion');
+      if (vImputacion) {
+          const currentY = new Date().getFullYear();
+          let impHtml = '<option value="">Automático (Por Fecha)</option>';
+          for (let y = currentY - 2; y <= currentY + 4; y++) {
+              impHtml += `<option value="${y}">${y}</option>`;
+          }
+          vImputacion.innerHTML = impHtml;
+      }
+      
       renderSaldosVacaciones();
 
       // Orden por id o jerarquía para mantener estructura
@@ -2197,6 +2213,8 @@
       e.preventDefault();
       const legajo = document.getElementById('cLegajo').value.trim();
       
+      const existingCollab = state.collaborators.find(c => c.id === legajo) || {};
+      
       const newCollab = {
         id: legajo,
         name: document.getElementById('cName').value.trim(),
@@ -2204,13 +2222,13 @@
         hours: parseInt(document.getElementById('cHours').value),
         domingosAcordados: parseInt(document.getElementById('cDoms').value),
         pasillo: document.getElementById('cPasillo').value.trim(),
-        saldoVacaciones: parseInt(document.getElementById('cSaldoV').value) || 0
+        fechaAlta: document.getElementById('cFechaAlta').value
       };
 
       // Guardar en Firebase
       if (!isMockMode) {
         try {
-          await setDoc(doc(db, "colaboradores", legajo), newCollab);
+          await setDoc(doc(db, "colaboradores", legajo), newCollab, { merge: true });
           logAudit(document.getElementById('collabMode').value === 'edit' ? 'Editar Colaborador' : 'Crear Colaborador', legajo, "N/A", "", newCollab.name);
         } catch(err) {
           console.error("Error al guardar colaborador", err);
@@ -2219,13 +2237,14 @@
         }
       }
 
-      // Actualizar estado local
+      // Actualizar estado local (preservando historialVacaciones, saldoVacaciones, etc)
+      const mergedCollab = { ...existingCollab, ...newCollab };
       const idx = state.collaborators.findIndex(c => c.id === legajo);
       if (idx >= 0) {
-        state.collaborators[idx] = newCollab;
+        state.collaborators[idx] = mergedCollab;
         showToast("Éxito", "Colaborador actualizado.");
       } else {
-        state.collaborators.push(newCollab);
+        state.collaborators.push(mergedCollab);
         showToast("Éxito", "Colaborador agregado.");
       }
 
@@ -2280,9 +2299,8 @@
       document.getElementById('cHours').value = c.hours;
       document.getElementById('cDoms').value = c.domingosAcordados || 0;
       document.getElementById('cPasillo').value = c.pasillo;
+      document.getElementById('cFechaAlta').value = c.fechaAlta || '';
 
-      
-      document.getElementById('cSaldoV').value = c.saldoVacaciones || 0;
       
       document.getElementById('cCancelBtn').style.display = 'block';
       document.getElementById('cDeleteBtn').style.display = 'block';
@@ -2787,6 +2805,11 @@
        document.getElementById('vCollab').value = v.colaboradorId;
        document.getElementById('vStartDate').value = v.startDate;
        document.getElementById('vWeeks').value = v.weeksCount;
+       if (v.imputacionAnio) {
+           document.getElementById('vImputacion').value = v.imputacionAnio;
+       } else {
+           document.getElementById('vImputacion').value = "";
+       }
        
        document.getElementById('vFormTitle').innerText = 'Editar Vacaciones';
        document.getElementById('vSubmitBtn').innerText = 'Actualizar Periodo';
@@ -2796,6 +2819,7 @@
     document.getElementById('vCancelBtn').addEventListener('click', () => {
        document.getElementById('vacationForm').reset();
        document.getElementById('vEditId').value = '';
+       document.getElementById('vImputacion').value = '';
        document.getElementById('vFormTitle').innerText = 'Registrar Vacaciones';
        document.getElementById('vSubmitBtn').innerText = 'Guardar Periodo';
        document.getElementById('vCancelBtn').style.display = 'none';
@@ -2804,20 +2828,37 @@
 
     document.getElementById('vCollab').addEventListener('change', renderSaldosVacaciones);
 
+    document.getElementById('vStartDate').addEventListener('change', (e) => {
+        if (!e.target.value) return;
+        const vStart = new Date(e.target.value + "T00:00:00");
+        let yearOfVacation = vStart.getFullYear();
+        if (vStart.getMonth() < 9) {
+            yearOfVacation -= 1;
+        }
+        const vImputacion = document.getElementById('vImputacion');
+        if (vImputacion && vImputacion.value === "") {
+            vImputacion.value = yearOfVacation;
+        }
+    });
+
     function calcularDiasTomados(collabId, año) {
-        const startRange = new Date(año, 9, 1); // Oct 1, año (0-indexed month 9)
-        const endRange = new Date(año + 1, 8, 30, 23, 59, 59); // Sep 30, año+1
-        
         let diasTomados = 0;
         state.vacations.forEach(v => {
             if (v.colaboradorId === collabId) {
-                let currentD = new Date(v.startDate + "T00:00:00");
-                const endD = new Date(v.endDate + "T00:00:00");
-                while (currentD <= endD) {
-                    if (currentD >= startRange && currentD <= endRange) {
-                        diasTomados++;
+                const vStart = new Date(v.startDate + "T00:00:00");
+                const vEnd = new Date(v.endDate + "T00:00:00");
+                
+                let yearOfVacation = v.imputacionAnio;
+                if (!yearOfVacation) {
+                    yearOfVacation = vStart.getFullYear();
+                    if (vStart.getMonth() < 9) {
+                        yearOfVacation -= 1;
                     }
-                    currentD.setDate(currentD.getDate() + 1);
+                }
+                
+                if (yearOfVacation === año) {
+                    const diffDays = Math.ceil(Math.abs(vEnd - vStart) / (1000 * 60 * 60 * 24)) + 1;
+                    diasTomados += diffDays;
                 }
             }
         });
@@ -2898,12 +2939,17 @@
           
           let tipo = 'N/A';
           let asignados = 0;
+          let calculatedLawDays = calcularDiasVacacionesLey(collab.fechaAlta, y);
           
           if (collab.saldosVacaciones && collab.saldosVacaciones[y]) {
               tipo = collab.saldosVacaciones[y].periodoTipo || 'N/A';
-              asignados = collab.saldosVacaciones[y].diasAsignados || 0;
-          } else if (collab.historialVacaciones && collab.historialVacaciones[y]) {
-              tipo = collab.historialVacaciones[y];
+              asignados = collab.saldosVacaciones[y].diasAsignados;
+              if (asignados === undefined || isNaN(asignados)) asignados = calculatedLawDays;
+          } else {
+              if (collab.historialVacaciones && collab.historialVacaciones[y]) {
+                  tipo = collab.historialVacaciones[y];
+              }
+              asignados = calculatedLawDays;
           }
           
           const tomados = calcularDiasTomados(collabId, y);
@@ -2924,7 +2970,7 @@
                 </select>
                 <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
                    <label style="font-size: 0.55rem; color: var(--text-muted); margin-bottom: 2px;">Asignados</label>
-                   <input type="number" class="saldo-asignados" value="${asignados}" min="0" style="width: 100%; padding: 2px; font-size: 0.75rem; text-align: center; background: var(--background); color: var(--text); border: 1px solid var(--border); border-radius: 2px;">
+                   <input type="number" class="saldo-asignados" data-law-days="${calculatedLawDays}" value="${asignados}" min="0" style="width: 100%; padding: 2px; font-size: 0.75rem; text-align: center; background: var(--background); color: var(--text); border: 1px solid var(--border); border-radius: 2px;">
                 </div>
                 <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
                    <label style="font-size: 0.55rem; color: var(--text-muted); margin-bottom: 2px;">Disponibles</label>
@@ -2941,9 +2987,12 @@
              const vStart = new Date(v.startDate + "T00:00:00");
              const vEnd = new Date(v.endDate + "T00:00:00");
              
-             let yearOfVacation = vStart.getFullYear();
-             if (vStart.getMonth() < 9) { // 0 to 8 (Jan to Sep)
-                 yearOfVacation -= 1;
+             let yearOfVacation = v.imputacionAnio;
+             if (!yearOfVacation) {
+                 yearOfVacation = vStart.getFullYear();
+                 if (vStart.getMonth() < 9) {
+                     yearOfVacation -= 1;
+                 }
              }
              
              if (!historyByYear[yearOfVacation]) {
@@ -3015,17 +3064,34 @@
           el.addEventListener('change', (e) => {
              const row = e.target.closest('.saldo-year-row');
              const y = parseInt(row.dataset.year, 10);
-             const asignados = parseInt(row.querySelector('.saldo-asignados').value, 10) || 0;
+             const asignadosInput = row.querySelector('.saldo-asignados');
+             const asignados = parseInt(asignadosInput.value, 10) || 0;
+             
+             if (e.target.classList.contains('saldo-asignados')) {
+                 const lawDays = parseInt(asignadosInput.dataset.lawDays, 10);
+                 if (lawDays > 0 && asignados !== lawDays) {
+                     const confirmed = confirm(`Atención: Estás modificando los días de vacaciones calculados por Ley. El valor original era de ${lawDays} días.\n\n¿Deseas confirmar el cambio manual?`);
+                     if (!confirmed) {
+                         asignadosInput.value = lawDays; // revert
+                         return; // do not save
+                     } else {
+                         // Send audit log!
+                         if (typeof logAudit === 'function') {
+                             logAudit('Modificación manual días vacaciones', collabId, `${lawDays} días (Ley)`, `${asignados} días (Manual)`, collab.name);
+                         }
+                     }
+                 }
+             }
+
              const tomados = calcularDiasTomados(collabId, y);
-             const disp = asignados - tomados;
+             const disponibles = asignados - tomados;
              
              const dispEl = row.querySelector('.saldo-disponibles');
-             dispEl.innerText = disp;
+             dispEl.innerText = disponibles;
              
-             dispEl.style.color = '';
-             dispEl.style.fontWeight = '';
-             if (disp === 0 && asignados > 0) dispEl.style.color = 'var(--success)';
-             else if (disp < 0) { dispEl.style.color = 'var(--danger)'; dispEl.style.fontWeight = 'bold'; }
+             if (disponibles === 0 && asignados > 0) { dispEl.style.color = 'var(--success)'; dispEl.style.fontWeight = 'normal'; }
+             else if (disponibles < 0) { dispEl.style.color = 'var(--danger)'; dispEl.style.fontWeight = 'bold'; }
+             else { dispEl.style.color = 'var(--text)'; dispEl.style.fontWeight = 'normal'; }
              
              autoSaveSaldos(collabId);
           });
@@ -3048,10 +3114,11 @@
                }
                
                if (!collab.saldosVacaciones) collab.saldosVacaciones = {};
+               const lawDays = calcularDiasVacacionesLey(collab.fechaAlta, nextYear);
                collab.saldosVacaciones[nextYear] = {
                    periodoTipo: newTipo,
-                   diasAsignados: 0,
-                   diasDisponibles: 0
+                   diasAsignados: lawDays,
+                   diasDisponibles: lawDays
                };
                
                if (!isMockMode) {
@@ -3163,6 +3230,8 @@
        }
        
        const newVacId = `${collabId}_${startDateStr}`;
+       const impVal = document.getElementById('vImputacion').value;
+       
        const newVac = {
           id: newVacId,
           colaboradorId: collabId,
@@ -3170,6 +3239,9 @@
           endDate: endDateStr,
           weeksCount: weeks
        };
+       if (impVal) {
+           newVac.imputacionAnio = parseInt(impVal, 10);
+       }
        
        if (!isMockMode) {
           try {
@@ -4104,8 +4176,68 @@
        }
     }
 
+    // LEY DE CONTRATO DE TRABAJO (AR)
+    function calcularDiasVacacionesLey(fechaAlta, añoDestino) {
+        if (!fechaAlta) return 0;
+        const [yyyy, mm, dd] = fechaAlta.split('-');
+        const fechaIngreso = new Date(yyyy, mm - 1, dd);
+        const fechaCorte = new Date(añoDestino, 11, 31);
+        
+        if (fechaIngreso > fechaCorte) return 0;
+        
+        let antiguedad = añoDestino - fechaIngreso.getFullYear();
+        if (fechaCorte.getMonth() < fechaIngreso.getMonth() || 
+            (fechaCorte.getMonth() === fechaIngreso.getMonth() && fechaCorte.getDate() < fechaIngreso.getDate())) {
+            antiguedad--;
+        }
+        
+        const diffMs = fechaCorte - fechaIngreso;
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        
+        if (diffDays < 180) {
+            return Math.floor(diffDays / 20);
+        }
+        
+        if (antiguedad < 5) return 14;
+        if (antiguedad < 10) return 21;
+        if (antiguedad < 20) return 28;
+        return 35;
+    }
+
+    // INICIO MIGRACION FECHAS
+    async function migrateFechas() {
+       if (isMockMode) return;
+       if (localStorage.getItem('fechasMigradasV1')) return;
+       
+       const dates = {
+           "10047984": "2025-06-17",
+           "10047985": "2025-06-17",
+           "10047483": "2025-05-05",
+           "10047482": "2025-05-05",
+           "10044768": "2021-03-01",
+           "10036547": "2012-08-13",
+           "10036544": "2012-08-13",
+           "10036484": "2012-08-01",
+           "10036330": "2012-08-13",
+           "10036542": "2012-08-13",
+           "10036541": "2012-08-13",
+           "10023038": "2007-08-17"
+       };
+       
+       console.log("Iniciando migración de fechas de alta...");
+       for (let id in dates) {
+           try {
+               await updateDoc(doc(db, "colaboradores", id), { fechaAlta: dates[id] }, { merge: true });
+           } catch(e) { console.error("Fallo al migrar " + id, e) }
+       }
+       localStorage.setItem('fechasMigradasV1', 'true');
+       console.log('Fechas migradas exitosamente.');
+    }
+
     // INICIO
-    loadInitialData();
+    migrateFechas().then(() => {
+        loadInitialData();
+    });
   </script>
 </body>
 </html>
