@@ -785,6 +785,10 @@
           <div style="display: flex; gap: 0.5rem; align-items: stretch; height: 26px;">
             <button id="configBtn" title="Gestión de Dotación" style="display: none; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer;">⚙️</button>
             <button id="pdfBtn" style="display: none; background: #e11d48; color: white; border: none; border-radius: 0.25rem; padding: 0 0.5rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer;" title="Descargar PDF">📄 PDF</button>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="date" id="selectorAlmanaque" style="opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer;" title="Ir a fecha">
+              <button style="background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: none;" title="Seleccionar fecha">📅</button>
+            </div>
           </div>
         </div>
       </div>
@@ -2017,6 +2021,17 @@
     document.getElementById('nextDayBtn').addEventListener('click', () => {
       state.currentWeekStart = addDays(state.currentWeekStart, 1);
       loadWeekPlanning();
+    });
+
+    document.getElementById('selectorAlmanaque').addEventListener('change', (e) => {
+      if (e.target.value) {
+        const parts = e.target.value.split('-');
+        if (parts.length === 3) {
+           const selectedDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+           state.currentWeekStart = getStartOfWeek(selectedDate);
+           loadWeekPlanning();
+        }
+      }
     });
 
 
