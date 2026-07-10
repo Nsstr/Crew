@@ -2325,15 +2325,18 @@
 
              // d. Asistencia Feriados
              if (state.holidays.includes(dateStr)) {
-                const isFeriadoNoTrabajado = (val.toLowerCase() === 'f' || (obj.comentario && obj.comentario.includes("Feriado No Trabajado")));
-                if (isFeriadoNoTrabajado) {
-                   feriadosLibres++;
-                } else {
-                   const parsed = parseShift(val);
-                   if (parsed && parsed.type === 'work') {
-                      feriadosTrabajados++;
-                   } else if (isDayOff(val) || isAbsence(val) || isAbsence(obj.comentario) || (parsed && ['franco', 'libre', 'absence', 'vacation'].includes(parsed.type))) {
+                const isClosed = dateStr.endsWith("-01-01") || dateStr.endsWith("-05-01") || dateStr.endsWith("-12-25");
+                if (!isClosed) {
+                   const isFeriadoNoTrabajado = (val.toLowerCase() === 'f' || (obj.comentario && obj.comentario.includes("Feriado No Trabajado")));
+                   if (isFeriadoNoTrabajado) {
                       feriadosLibres++;
+                   } else {
+                      const parsed = parseShift(val);
+                      if (parsed && parsed.type === 'work') {
+                         feriadosTrabajados++;
+                      } else if (isDayOff(val) || isAbsence(val) || isAbsence(obj.comentario) || (parsed && ['franco', 'libre', 'absence', 'vacation'].includes(parsed.type))) {
+                         feriadosLibres++;
+                      }
                    }
                 }
              }
@@ -2513,9 +2516,12 @@
           }
 
           if (state.holidays.includes(dateStr)) {
-             const isFeriadoNoTrabajado = (val.toLowerCase() === 'f' || (obj.comentario && obj.comentario.includes("Feriado No Trabajado")));
-             const parsed = parseShift(val);
-             if (!isFeriadoNoTrabajado && parsed && parsed.type === 'work') monthData.feriadosTrab++;
+             const isClosed = dateStr.endsWith("-01-01") || dateStr.endsWith("-05-01") || dateStr.endsWith("-12-25");
+             if (!isClosed) {
+                 const isFeriadoNoTrabajado = (val.toLowerCase() === 'f' || (obj.comentario && obj.comentario.includes("Feriado No Trabajado")));
+                 const parsed = parseShift(val);
+                 if (!isFeriadoNoTrabajado && parsed && parsed.type === 'work') monthData.feriadosTrab++;
+             }
           }
        });
 
