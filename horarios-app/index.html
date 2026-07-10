@@ -2198,21 +2198,14 @@
     
     let currentMetricsYear = new Date().getFullYear().toString();
 
-    window.renderMetrics = function() {
+    window.renderMetrics = async function() {
        const container = document.getElementById('metricsBentoGrid');
        if (!container) return;
        
        const yearSelector = document.getElementById('metricsYearSelector');
        if (yearSelector && yearSelector.options.length === 0) {
-          const yearsSet = new Set();
-          Object.keys(state.planning).forEach(k => {
-             const parts = k.split('_');
-             if (parts.length > 1) {
-                yearsSet.add(parts[1].substring(0, 4));
-             }
-          });
-          const yearsArr = Array.from(yearsSet).sort((a,b)=>b-a);
-          if (yearsArr.length === 0) yearsArr.push(new Date().getFullYear().toString());
+          const cy = new Date().getFullYear();
+          const yearsArr = [(cy-2).toString(), (cy-1).toString(), cy.toString(), (cy+1).toString()].sort((a,b)=>b-a);
           
           if (!yearsArr.includes(currentMetricsYear)) currentMetricsYear = yearsArr[0];
 
@@ -2228,6 +2221,39 @@
              currentMetricsYear = e.target.value;
              renderMetrics();
           });
+       }
+
+       container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px; width: 100%;">Cargando métricas anuales de ${currentMetricsYear}...</div>`;
+
+       // 1. Fetch holidays dynamically for currentMetricsYear
+       try {
+           const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${currentMetricsYear}/AR`);
+           if (res.ok) {
+               const data = await res.json();
+               state.holidays = data.map(h => h.date);
+           }
+       } catch(e) {
+           console.error("Feriados error:", e);
+           state.holidays = [
+             `${currentMetricsYear}-01-01`, `${currentMetricsYear}-02-12`, `${currentMetricsYear}-02-13`, `${currentMetricsYear}-03-24`, 
+             `${currentMetricsYear}-03-29`, `${currentMetricsYear}-04-02`, `${currentMetricsYear}-05-01`, `${currentMetricsYear}-05-25`, 
+             `${currentMetricsYear}-06-20`, `${currentMetricsYear}-07-09`, `${currentMetricsYear}-12-08`, `${currentMetricsYear}-12-25`
+           ];
+       }
+
+       // 2. Fetch full year from Firestore
+       try {
+           if (!isMockMode) {
+               const q = query(collection(db, "planificacion"), 
+                   where("fecha", ">=", `${currentMetricsYear}-01-01`), 
+                   where("fecha", "<=", `${currentMetricsYear}-12-31`));
+               const snap = await getDocs(q);
+               snap.forEach(doc => {
+                   state.planning[doc.id] = doc.data();
+               });
+           }
+       } catch(e) {
+           console.error("Firestore metrics fetch error:", e);
        }
 
        container.innerHTML = '';
@@ -2389,13 +2415,26 @@
        });
     };
 
-    window.openMetricsDetail = function(collabId) {
+    window.openMetricsDetail = async function(collabId) {
        const collab = state.collaborators.find(c => c.id === collabId);
        if (!collab) return;
 
        document.getElementById('metricsDetailTitle').innerHTML = `${collab.name.split('(')[0].trim()} <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: normal;">(Legajo: ${collab.id})</span>`;
        const content = document.getElementById('metricsDetailContent');
-       content.innerHTML = '';
+       content.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px; width: 100%;">Cargando historial completo...</div>`;
+
+       // Fetch employee full history from Firestore
+       try {
+           if (!isMockMode) {
+               const q = query(collection(db, "planificacion"), where("colaboradorId", "==", collabId));
+               const snap = await getDocs(q);
+               snap.forEach(doc => {
+                   state.planning[doc.id] = doc.data();
+               });
+           }
+       } catch(e) {
+           console.error("Firestore history fetch error:", e);
+       }
 
        const isAbsence = (text) => {
           if (!text) return false;
@@ -2410,6 +2449,25 @@
            .filter(k => k.startsWith(collabId + '_'))
            .map(k => k.split('_')[1])
            .sort();
+
+       // Fetch holidays for all unique years in history
+       const uniqueYears = Array.from(new Set(allDates.map(d => d.substring(0, 4))));
+       const holidayFetches = uniqueYears.map(async y => {
+           try {
+               const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${y}/AR`);
+               if (res.ok) {
+                   const data = await res.json();
+                   data.forEach(h => {
+                       if (!state.holidays.includes(h.date)) state.holidays.push(h.date);
+                   });
+               }
+           } catch(e) {
+               console.error(`Feriados error ${y}:`, e);
+           }
+       });
+       await Promise.all(holidayFetches);
+
+       content.innerHTML = '';
 
        // Agrupar por año y luego por mes
        const historyData = {};
