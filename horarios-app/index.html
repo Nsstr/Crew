@@ -519,7 +519,7 @@
     /* Heatmap Grid */
     .heatmap-row {
        display: grid;
-       grid-template-columns: 45px repeat(24, 1fr);
+       grid-template-columns: 65px repeat(24, 1fr);
        flex: 1;
        transition: background-color 0.15s ease;
     }
@@ -542,7 +542,8 @@
        font-weight: bold;
        font-size: 0.6rem;
        color: var(--text-muted);
-       padding-right: 0.25rem;
+       padding-right: 0.5rem;
+       white-space: nowrap;
        justify-content: flex-end;
        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
@@ -1553,9 +1554,13 @@
       days.forEach(d => {
         const dStr = formatDate(d);
         const isHoliday = state.holidays.includes(dStr);
-        const dayName = d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' });
+        const weekDaysArr = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+        const monthsArr = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+        const dayNumStr = String(d.getDate()).padStart(2, '0');
+        const dayName = `${weekDaysArr[d.getDay()]} ${dayNumStr} ${monthsArr[d.getMonth()]}`;
+        
         const thClass = isHoliday ? 'holiday-col' : '';
-        trHead.innerHTML += `<th class="${thClass}">${dayName} ${isHoliday ? '<span class="holiday-badge">Feriado</span>' : ''}</th>`;
+        trHead.innerHTML += `<th class="${thClass}" style="text-align: center;">${dayName} ${isHoliday ? '<span class="holiday-badge">Feriado</span>' : ''}</th>`;
       });
       let uniqueMondaysCount = new Set(days.map(d => formatDate(getStartOfWeek(d)))).size;
       let finalColWidth = Math.max(80, uniqueMondaysCount * 75);
@@ -2073,9 +2078,13 @@
 
       days.forEach(d => {
          const dStr = formatDate(d);
+         const weekDaysArr = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+         const monthsArr = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+         const dayNumStr = String(d.getDate()).padStart(2, '0');
+         const dayLabel = `${weekDaysArr[d.getDay()]} ${dayNumStr} ${monthsArr[d.getMonth()]}`;
+
          const prevDateStr = formatDate(addDays(d, -1));
          
-         const dayLabel = d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' });
          const capitalizedLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
          
          html += `<div class="heatmap-row" data-date="${dStr}">`;
