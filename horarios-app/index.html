@@ -206,6 +206,14 @@
     tr:hover td {
       background-color: rgba(51, 65, 85, 0.3);
     }
+    
+    /* View Range Adjustments */
+    .vista-14d .cell-input { font-size: 0.7rem; padding: 0 0.1rem; }
+    .vista-21d .cell-input { font-size: 0.65rem; padding: 0; }
+    .vista-14d th { font-size: 0.65rem; }
+    .vista-21d th { font-size: 0.6rem; letter-spacing: -0.5px; padding: 0 0.1rem; }
+    .vista-14d .fila-total-francos td { font-size: 0.75rem; }
+    .vista-21d .fila-total-francos td { font-size: 0.7rem; }
 
     /* Cell Inputs */
     .cell-input {
@@ -868,6 +876,11 @@
               <input type="date" id="selectorAlmanaque" style="opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer;" title="Ir a fecha">
               <button style="background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: none;" title="Seleccionar fecha">📅</button>
             </div>
+            <select id="viewRangeSelector" style="background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); padding: 0 0.25rem; height: 26px; font-size: 0.75rem; cursor: pointer; outline: none;" title="Rango de Vista">
+              <option value="7">7 Días</option>
+              <option value="14">14 Días</option>
+              <option value="21">21 Días</option>
+            </select>
           </div>
         </div>
       </div>
@@ -1222,6 +1235,7 @@
 
     // 3. ESTADO DE LA APLICACIÓN (Caché local)
     const state = {
+      viewRange: 7,
       currentWeekStart: getStartOfWeek(new Date()),
       collaborators: [],
       vacations: [], // { id, collabId, startDate, endDate, weeksCount }
@@ -1277,7 +1291,8 @@
     function getWeekDays() {
       const days = [];
       let current = new Date(state.currentWeekStart);
-      for(let i=0; i<7; i++) {
+      const range = state.viewRange || 7;
+      for(let i=0; i<range; i++) {
         days.push(new Date(current));
         current = addDays(current, 1);
       }
@@ -1424,7 +1439,7 @@
          if (currAbs && prevAbs) {
             let restMs = currAbs.start - prevAbs.end;
             let restH = restMs / 3600000;
-            if (restH < 12) return { valid: false, msg: `Descanso insuficiente (${restH}h). Requiere 12h.` };
+            if (restH < 12) return { valid: false, type: 'legal', req: '12hs', actual: restH.toFixed(1) };
          }
       }
       if (parsedNewSlot.type === 'work' && nextSlot && nextSlot.type === 'work') {
@@ -1433,7 +1448,7 @@
          if (currAbs && nextAbs) {
             let restMs = nextAbs.start - currAbs.end;
             let restH = restMs / 3600000;
-            if (restH < 12) return { valid: false, msg: `Provoca descanso insuficiente mañana (${restH}h).` };
+            if (restH < 12) return { valid: false, type: 'legal', req: '12hs', actual: restH.toFixed(1) };
          }
       }
 
@@ -1447,7 +1462,7 @@
            let prevPrevAbs = getShiftAbsoluteTimes(prevPrevDateStr, prevPrevSlot);
            let restMs = currAbs.start - prevPrevAbs.end;
            let restH = restMs / 3600000;
-           if (restH < 35) return { valid: false, msg: `Descanso post-franco insuficiente (${restH}h). Requiere 35h.` };
+           if (restH < 35) return { valid: false, type: 'legal', req: '35hs', actual: restH.toFixed(1) };
         }
       }
       
@@ -1456,7 +1471,7 @@
          let nextAbs = getShiftAbsoluteTimes(nextDateStr, nextSlot);
          let restMs = nextAbs.start - prevAbs.end;
          let restH = restMs / 3600000;
-         if (restH < 35) return { valid: false, msg: `Este franco genera descanso insuficiente para mañana (${restH}h < 35h).` };
+         if (restH < 35) return { valid: false, type: 'legal', req: '35hs', actual: restH.toFixed(1) };
       }
 
       // 7.3 Lógica de Feriados: Las validaciones de francos adyacentes a feriados ahora son puramente visuales.
@@ -1515,7 +1530,7 @@
       // Header Date
       const dOptions = { day: '2-digit', month: 'short' };
       document.getElementById('weekLabel').textContent = 
-        `${days[0].toLocaleDateString('es-ES', dOptions)} - ${days[6].toLocaleDateString('es-ES', dOptions)}`;
+        `${days[0].toLocaleDateString('es-ES', dOptions)} - ${days[days.length - 1].toLocaleDateString('es-ES', dOptions)}`;
 
       // Table Headers
       const trHead = document.getElementById('tableHeader');
@@ -1614,11 +1629,14 @@
            domClass = 'success'; // cumplió la cuota de francos dominicales
         }
 
-        let francoCount = 0;
-        days.forEach(d => {
+        let francoCountByWeek = {};
+        days.forEach((d, i) => {
+          const w = Math.floor(i / 7);
           const val = getPlanningSlot(collab.id, formatDate(d));
           const parsed = parseShift(val);
-          if (parsed && parsed.type === 'franco') francoCount++;
+          if (parsed && parsed.type === 'franco') {
+             francoCountByWeek[w] = (francoCountByWeek[w] || 0) + 1;
+          }
         });
 
         const cleanName = collab.name.split('(')[0].split('-')[0].trim();
@@ -1647,7 +1665,8 @@
         let hasVacationThisWeek = false;
         
         // Days
-        days.forEach(d => {
+        days.forEach((d, dayIndex) => {
+          const weekIdx = Math.floor(dayIndex / 7);
           const dStr = formatDate(d);
           const isHoliday = state.holidays.includes(dStr);
           
@@ -1707,7 +1726,7 @@
              val = 'FRANCO';
              inputClass = 'input-franco-locked';
              isDisabled = true;
-             francoCount++;
+             francoCountByWeek[weekIdx] = (francoCountByWeek[weekIdx] || 0) + 1;
           } else {
              let objForTardanza = getPlanningObj(collab.id, dStr) || {};
              parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
@@ -1730,7 +1749,7 @@
                 }
              }
              
-             if (francoCount > 1 && parsed && parsed.type === 'franco') {
+             if (francoCountByWeek[weekIdx] > 1 && parsed && parsed.type === 'franco') {
                 inputClass += ' franco-error';
              }
           }
@@ -2050,7 +2069,11 @@
       const validation = validateTurn(collabId, dateStr, parsedNew);
       
       if (!validation.valid) {
-        showToast("Restricción Violada", validation.msg);
+        if (validation.type === 'legal') {
+           showToast("ERROR CRÍTICO DE LEY", `No se puede asignar este horario.<br>El colaborador no cumple con las ${validation.req} de descanso obligatorio por Ley. (Descanso calculado: ${validation.actual} horas)`);
+        } else {
+           showToast("Restricción Violada", validation.msg);
+        }
         input.value = oldValue;
         input.classList.add('input-error');
         return;
@@ -2090,17 +2113,20 @@
          }
       }
 
-      // Check for multiple Francos in the week
+      // Check for multiple Francos in the real calendar week
+      const targetDateObj = new Date(dateStr + "T00:00:00");
+      const weekStart = getStartOfWeek(targetDateObj);
       let francoCount = 0;
-      getWeekDays().forEach(d => {
+      for (let i = 0; i < 7; i++) {
+         const d = addDays(weekStart, i);
          const val = getPlanningSlot(collabId, formatDate(d));
          const parsed = parseShift(val);
          if (parsed && parsed.type === 'franco') francoCount++;
-      });
+      }
       
       if (francoCount > 1) {
          const collabName = state.collaborators.find(c => c.id === collabId)?.name || "el colaborador";
-         showToast("Error de Planificación", `El colaborador ${collabName} tiene más de un Franco asignado en esta semana. Usa 'Libre' para días extra.`);
+         showToast("Error de Planificación", `El colaborador ${collabName} tiene más de un Franco asignado en esta semana calendario. Usa 'Libre' para días extra.`);
       }
 
       renderHeatmap(); // Update heat map in real time
@@ -2140,6 +2166,14 @@
         setTimeout(() => toast.remove(), 300);
       }, 5000);
     }
+
+    document.getElementById('viewRangeSelector').addEventListener('change', (e) => {
+       state.viewRange = parseInt(e.target.value, 10);
+       document.body.classList.remove('vista-7d', 'vista-14d', 'vista-21d');
+       document.body.classList.add(`vista-${state.viewRange}d`);
+       renderUI();
+       renderHeatmap();
+    });
 
     document.getElementById('prevDayBtn').addEventListener('click', () => {
       state.currentWeekStart = addDays(state.currentWeekStart, -1);
@@ -3569,6 +3603,26 @@
        const collabId = currentContextCell.getAttribute('data-collab');
        const dateStr = currentContextCell.getAttribute('data-date');
        
+       const tardanzaStr = document.getElementById('cellTardanzaInput').value.trim();
+       let tardanzaMins = 0;
+       if (tardanzaStr) {
+          if (tardanzaStr.includes(':')) {
+             let parts = tardanzaStr.split(':');
+             tardanzaMins = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+          } else {
+             tardanzaMins = parseInt(tardanzaStr, 10) || 0;
+          }
+       }
+       
+       const slotValue = getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+       const parsedWithNewTardanza = parseShift(slotValue, tardanzaMins);
+       
+       const validation = validateTurn(collabId, dateStr, parsedWithNewTardanza);
+       if (!validation.valid && validation.type === 'legal') {
+          showToast("ERROR CRÍTICO DE LEY", `No se puede asignar esta modificación.<br>El colaborador no cumple con las ${validation.req} de descanso obligatorio por Ley. (Descanso calculado: ${validation.actual} horas)`);
+          return false;
+       }
+
        const obj = getPlanningObj(collabId, dateStr) || {};
        const oldSlot = obj.slot || currentContextCell.value;
        const oldComment = obj.comentario || "";
@@ -3584,16 +3638,6 @@
           }
        }
        
-       const tardanzaStr = document.getElementById('cellTardanzaInput').value.trim();
-       let tardanzaMins = 0;
-       if (tardanzaStr) {
-          if (tardanzaStr.includes(':')) {
-             let parts = tardanzaStr.split(':');
-             tardanzaMins = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
-          } else {
-             tardanzaMins = parseInt(tardanzaStr, 10) || 0;
-          }
-       }
        obj.tardanzaTexto = tardanzaStr;
        obj.tardanzaMinutosTotales = tardanzaMins;
        obj.tardanzaConfirmada = document.getElementById('cellTardanzaCheck').checked;
@@ -3629,9 +3673,11 @@
     document.getElementById('cellCommentInput').addEventListener('blur', autoSaveContextMenu);
 
     document.getElementById('saveCellDetailsBtn').addEventListener('click', async () => {
-       await autoSaveContextMenu();
-       window.closeContextMenu();
-       renderHeatmap();
+       const saved = await autoSaveContextMenu();
+       if (saved !== false) {
+           window.closeContextMenu();
+           renderHeatmap();
+       }
     });
 
     adminLoginBtn.addEventListener('click', () => {
@@ -4086,14 +4132,8 @@
     async function generarBackupSheets() {
        const backupBtn = document.getElementById('backupDriveBtn');
        const originalText = backupBtn.innerText;
-       
-       const WEB_APP_URL = prompt("Introduce la URL del Web App (Google Apps Script):", localStorage.getItem('backupWebAppUrl') || "");
-       if (!WEB_APP_URL) return;
-       localStorage.setItem('backupWebAppUrl', WEB_APP_URL);
-
-       const SPREADSHEET_ID = prompt("Introduce el ID del archivo Google Sheets destino:", localStorage.getItem('backupSpreadsheetId') || "");
-       if (!SPREADSHEET_ID) return;
-       localStorage.setItem('backupSpreadsheetId', SPREADSHEET_ID);
+       const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxQ-HYUql7hIe7DUSzRjjQjiFSAxDFrLpXrhMPhKwqmB53DTV_b7BVmIP_QO79QHeWw/exec";
+       const SPREADSHEET_ID = "1X3T8JIQ6APN8Gc3z7vVxz3rCEoiRRgSAUY4HIljm604";
 
        backupBtn.innerText = 'Extrayendo...';
        backupBtn.disabled = true;
