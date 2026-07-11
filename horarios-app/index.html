@@ -208,6 +208,8 @@
     }
     
     /* View Range Adjustments */
+    .vista-14d { --col-right-width: 170px; }
+    .vista-21d { --col-right-width: 250px; }
     .vista-14d .cell-input { font-size: 0.7rem; padding: 0 0.1rem; }
     .vista-21d .cell-input { font-size: 0.65rem; padding: 0; }
     .vista-14d th { font-size: 0.65rem; }
@@ -1595,7 +1597,7 @@
       state.collaborators.forEach(collab => {
         const tr = document.createElement('tr');
         
-        let totalHours = 0;
+        
         let cellsHTML = '';
         
         // Collab info
@@ -1661,8 +1663,9 @@
           </td>
         `;
 
-        let hasHolidayAbsence = false;
-        let hasVacationThisWeek = false;
+        let hasHolidayAbsenceByWeek = {};
+        let hasVacationThisWeekByWeek = {};
+        let totalHoursByWeek = {};
         
         // Days
         days.forEach((d, dayIndex) => {
@@ -1678,7 +1681,7 @@
                 const vacEnd = new Date(vac.endDate + "T00:00:00");
                 if (targetD >= vacStart && targetD <= vacEnd) {
                    isOnVacation = true;
-                   hasVacationThisWeek = true;
+                   hasVacationThisWeekByWeek[weekIdx] = true;
                    break;
                 }
              }
@@ -1730,14 +1733,16 @@
           } else {
              let objForTardanza = getPlanningObj(collab.id, dStr) || {};
              parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
-             if (parsed && parsed.type === 'work') totalHours += parsed.hours;
+             if (parsed && parsed.type === 'work') {
+                totalHoursByWeek[weekIdx] = (totalHoursByWeek[weekIdx] || 0) + parsed.hours;
+             }
              
              inputClass = parsed ? parsed.class : '';
              
              if (isHoliday && parsed && ['franco', 'libre', 'absence'].includes(parsed.type)) {
                 inputClass += ' input-holiday-absence';
                 if (['franco', 'libre'].includes(parsed.type)) {
-                   hasHolidayAbsence = true;
+                   hasHolidayAbsenceByWeek[weekIdx] = true;
                 }
              }
              
@@ -1793,45 +1798,61 @@
         });
 
         // Weekly Validation Status (Pure Color)
-        let hoursColor = 'var(--text)';
-        if (hasVacationThisWeek) {
-           hoursColor = 'var(--info)'; // Azul
-        } else if (totalHours < collab.hours) {
-           hoursColor = hasHolidayAbsence ? 'var(--warning)' : 'var(--danger)';
-        } else if (totalHours === collab.hours) {
-           hoursColor = 'var(--success)';
-        } else {
-           hoursColor = 'var(--danger)';
-        }
-
-        let extraHoursHtml = '';
-        if (collab.hours < 48 && totalHours > collab.hours) {
-           const extraHours = Number.isInteger(totalHours - collab.hours) ? (totalHours - collab.hours) : (totalHours - collab.hours).toFixed(1);
-           const totalStr = Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1);
+        let blocksHtml = [];
+        const numWeeks = state.viewRange / 7;
+        for (let w = 0; w < numWeeks; w++) {
+           let tHours = totalHoursByWeek[w] || 0;
+           let hVacation = hasVacationThisWeekByWeek[w] || false;
+           let hHoliday = hasHolidayAbsenceByWeek[w] || false;
            
-           let extraColor = '';
-           if (totalHours <= 31) {
-              extraColor = '#eab308'; // Amarillo
-           } else if (totalHours === 32) {
-              extraColor = 'var(--success)'; // Verde
+           let hoursColor = 'var(--text)';
+           if (hVacation) {
+              hoursColor = 'var(--info)'; // Azul
+           } else if (tHours < collab.hours) {
+              hoursColor = hHoliday ? 'var(--warning)' : 'var(--danger)';
+           } else if (tHours === collab.hours) {
+              hoursColor = 'var(--success)';
            } else {
-              extraColor = 'var(--danger)'; // Rojo
+              hoursColor = 'var(--danger)';
            }
 
-           extraHoursHtml = `
-             <div style="color: ${extraColor}; font-size: 0.68rem; font-weight: 700; text-align: center; line-height: 1.1; margin-top: 2px; letter-spacing: -0.2px; white-space: nowrap;">
-               +${extraHours}h (T: ${totalStr}h)
+           let extraHoursHtml = '';
+           if (collab.hours < 48 && tHours > collab.hours) {
+              const extraHours = Number.isInteger(tHours - collab.hours) ? (tHours - collab.hours) : (tHours - collab.hours).toFixed(1);
+              const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
+              
+              let extraColor = '';
+              if (tHours <= 31) {
+                 extraColor = '#eab308'; // Amarillo
+              } else if (tHours === 32) {
+                 extraColor = 'var(--success)'; // Verde
+              } else {
+                 extraColor = 'var(--danger)'; // Rojo
+              }
+
+              extraHoursHtml = `
+                <div style="color: ${extraColor}; font-size: 0.68rem; font-weight: 700; text-align: center; line-height: 1.1; margin-top: 2px; letter-spacing: -0.2px; white-space: nowrap;">
+                  +${extraHours}h (T: ${totalStr}h)
+                </div>
+              `;
+           }
+           
+           const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
+           
+           blocksHtml.push(`
+             <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-width: 65px; padding: 0 0.2rem;">
+               <div style="color: ${hoursColor}; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">
+                 ${totalStr}h / ${collab.hours}h
+               </div>
+               ${extraHoursHtml}
              </div>
-           `;
+           `);
         }
 
         html += `
-          <td style="vertical-align: middle; padding: 0 0.5rem;">
-            <div style="display:flex; flex-direction:column; justify-content:center; align-items:center;">
-              <div style="color: ${hoursColor}; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">
-                ${Number.isInteger(totalHours) ? totalHours : totalHours.toFixed(1)}h / ${collab.hours}h
-              </div>
-              ${extraHoursHtml}
+          <td class="col-estado" style="vertical-align: middle; padding: 0; min-width: 100px;">
+            <div style="display:flex; flex-direction:row; justify-content:center; align-items:center; height: 100%;">
+              ${blocksHtml.join('<div style="width: 1px; height: 32px; background: var(--border); margin: 0 4px; opacity: 0.5;"></div>')}
             </div>
           </td>
         `;
