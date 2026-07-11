@@ -210,11 +210,35 @@
     .vista-14d { --col-right-width: 170px; }
     .vista-21d { --col-right-width: 250px; }
     .vista-14d .cell-input { font-size: 0.7rem; padding: 0 0.1rem; }
-    .vista-21d .cell-input { font-size: 0.65rem; padding: 0; }
+    .vista-21d .cell-input { font-size: 0.65rem; padding: 0; text-align: center; }
     .vista-14d th { font-size: 0.65rem; }
     .vista-21d th { font-size: 0.6rem; letter-spacing: -0.5px; padding: 0 0.1rem; }
+    .vista-21d td { padding: 0; }
     .vista-14d .fila-total-francos td { font-size: 0.75rem; }
     .vista-21d .fila-total-francos td { font-size: 0.7rem; }
+    
+    .vacation-tag {
+       position: absolute;
+       left: 4px;
+       top: 50%;
+       transform: translateY(-50%);
+       font-size: 0.65rem;
+       font-weight: 700;
+       color: var(--info);
+       pointer-events: none;
+       z-index: 1;
+    }
+    .vista-21d .vacation-tag {
+       font-size: 0.5rem;
+       top: 1px;
+       left: 1px;
+       transform: none;
+       background: transparent;
+       padding: 0;
+    }
+    
+    .cell-input.vacation-active { padding-left: 18px; }
+    .vista-21d .cell-input.vacation-active { padding-left: 0; }
 
     /* Cell Inputs */
     .cell-input {
@@ -897,17 +921,7 @@
        <div id="tab-horarios" class="container" style="padding: 0; display: flex; flex-direction: column;">
           <div class="grid-container">
       <table id="planningTable">
-        <colgroup>
-          <col style="width: var(--col-left-width, 260px);">
-          <col style="width: auto;">
-          <col style="width: auto;">
-          <col style="width: auto;">
-          <col style="width: auto;">
-          <col style="width: auto;">
-          <col style="width: auto;">
-          <col style="width: auto;">
-          <col style="width: var(--col-right-width, 80px);">
-        </colgroup>
+
         <thead>
           <tr id="tableHeader">
             <th>Colaborador</th>
@@ -1543,6 +1557,10 @@
         const thClass = isHoliday ? 'holiday-col' : '';
         trHead.innerHTML += `<th class="${thClass}">${dayName} ${isHoliday ? '<span class="holiday-badge">Feriado</span>' : ''}</th>`;
       });
+      let uniqueMondaysCount = new Set(days.map(d => formatDate(getStartOfWeek(d)))).size;
+      let finalColWidth = Math.max(80, uniqueMondaysCount * 75);
+      document.getElementById('planningTable').style.setProperty('--col-right-width', `${finalColWidth}px`);
+      
       trHead.innerHTML += `<th>Estado / Horas</th>`;
 
       // Table Body
@@ -1630,16 +1648,6 @@
            domClass = 'success'; // cumplió la cuota de francos dominicales
         }
 
-        let francoCountByWeek = {};
-        days.forEach((d, i) => {
-          const w = Math.floor(i / 7);
-          const val = getPlanningSlot(collab.id, formatDate(d));
-          const parsed = parseShift(val);
-          if (parsed && parsed.type === 'franco') {
-             francoCountByWeek[w] = (francoCountByWeek[w] || 0) + 1;
-          }
-        });
-
         const cleanName = collab.name.split('(')[0].split('-')[0].trim();
 
         let html = `
@@ -1665,10 +1673,76 @@
         let hasHolidayAbsenceByWeek = {};
         let hasVacationThisWeekByWeek = {};
         let totalHoursByWeek = {};
+        let francoCountByWeek = {};
+        
+        let uniqueMondays = [];
+        days.forEach(d => {
+            const m = formatDate(getStartOfWeek(d));
+            if (!uniqueMondays.includes(m)) uniqueMondays.push(m);
+        });
+
+        uniqueMondays.forEach(mondayStr => {
+            francoCountByWeek[mondayStr] = 0;
+            totalHoursByWeek[mondayStr] = 0;
+            hasHolidayAbsenceByWeek[mondayStr] = false;
+            hasVacationThisWeekByWeek[mondayStr] = false;
+
+            let currentD = new Date(mondayStr + "T00:00:00");
+            for (let i = 0; i < 7; i++) {
+                const dStr = formatDate(currentD);
+                const isHoliday = state.holidays.includes(dStr);
+                
+                let isOnVacation = false;
+                for (let vac of state.vacations) {
+                   if (vac.colaboradorId === collab.id) {
+                      const vacStart = new Date(vac.startDate + "T00:00:00");
+                      const vacEnd = new Date(vac.endDate + "T00:00:00");
+                      if (currentD >= vacStart && currentD <= vacEnd) {
+                         isOnVacation = true;
+                         hasVacationThisWeekByWeek[mondayStr] = true;
+                         break;
+                      }
+                   }
+                }
+
+                let isPreVacationSunday = false;
+                if (currentD.getDay() === 0 && !isOnVacation) {
+                   const nextMonStr = formatDate(addDays(currentD, 1));
+                   const nextTueStr = formatDate(addDays(currentD, 2));
+                   for (let vac of state.vacations) {
+                      if (vac.colaboradorId === collab.id) {
+                         if (vac.startDate === nextMonStr) { isPreVacationSunday = true; break; }
+                         if (vac.startDate === nextTueStr && state.holidays.includes(nextMonStr)) { isPreVacationSunday = true; break; }
+                      }
+                   }
+                   if (!isPreVacationSunday) {
+                       const valMon = getPlanningSlot(collab.id, nextMonStr).toLowerCase();
+                       const valTue = getPlanningSlot(collab.id, nextTueStr).toLowerCase();
+                       if (valMon === 'v' || valMon === 'vacaciones') isPreVacationSunday = true;
+                       else if ((valTue === 'v' || valTue === 'vacaciones') && state.holidays.includes(nextMonStr)) isPreVacationSunday = true;
+                   }
+                }
+
+                let val = getPlanningSlot(collab.id, dStr);
+                if (isPreVacationSunday) {
+                   francoCountByWeek[mondayStr]++;
+                } else {
+                   const objForTardanza = getPlanningObj(collab.id, dStr) || {};
+                   const parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
+                   if (parsed) {
+                       if (parsed.type === 'work') totalHoursByWeek[mondayStr] += parsed.hours;
+                       if (parsed.type === 'franco') francoCountByWeek[mondayStr]++;
+                       if (isHoliday && ['franco', 'libre'].includes(parsed.type)) hasHolidayAbsenceByWeek[mondayStr] = true;
+                   }
+                }
+                
+                currentD = addDays(currentD, 1);
+            }
+        });
         
         // Days
         days.forEach((d, dayIndex) => {
-          const weekIdx = Math.floor(dayIndex / 7);
+          const mondayStr = formatDate(getStartOfWeek(d));
           const dStr = formatDate(d);
           const isHoliday = state.holidays.includes(dStr);
           
@@ -1680,7 +1754,6 @@
                 const vacEnd = new Date(vac.endDate + "T00:00:00");
                 if (targetD >= vacStart && targetD <= vacEnd) {
                    isOnVacation = true;
-                   hasVacationThisWeekByWeek[weekIdx] = true;
                    break;
                 }
              }
@@ -1720,29 +1793,20 @@
           let inputClass = '';
           let isDisabled = false;
 
-          if (isOnVacation) {
-             val = 'VACACIONES';
-             inputClass = 'input-vacation-locked';
-             isDisabled = true;
-          } else if (isPreVacationSunday) {
+          let vacationTagHtml = '';
+
+          if (isPreVacationSunday) {
              val = 'FRANCO';
              inputClass = 'input-franco-locked';
              isDisabled = true;
-             francoCountByWeek[weekIdx] = (francoCountByWeek[weekIdx] || 0) + 1;
           } else {
              let objForTardanza = getPlanningObj(collab.id, dStr) || {};
              parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
-             if (parsed && parsed.type === 'work') {
-                totalHoursByWeek[weekIdx] = (totalHoursByWeek[weekIdx] || 0) + parsed.hours;
-             }
              
              inputClass = parsed ? parsed.class : '';
              
              if (isHoliday && parsed && ['franco', 'libre', 'absence'].includes(parsed.type)) {
                 inputClass += ' input-holiday-absence';
-                if (['franco', 'libre'].includes(parsed.type)) {
-                   hasHolidayAbsenceByWeek[weekIdx] = true;
-                }
              }
              
              if (!isHoliday && parsed && parsed.type === 'franco') {
@@ -1753,8 +1817,13 @@
                 }
              }
              
-             if (francoCountByWeek[weekIdx] > 1 && parsed && parsed.type === 'franco') {
+             if (francoCountByWeek[mondayStr] > 1 && parsed && parsed.type === 'franco') {
                 inputClass += ' franco-error';
+             }
+
+             if (isOnVacation) {
+                vacationTagHtml = `<div class="vacation-tag">[V]</div>`;
+                inputClass += ' vacation-active';
              }
           }
 
@@ -1790,7 +1859,8 @@
           }
 
           html += `
-            <td class="${isHoliday ? 'holiday-col' : ''} ${wrapperClass}" ${titleAttr} style="position: relative;">
+            <td class="${isHoliday ? 'holiday-col' : ''} ${wrapperClass}" ${titleAttr} style="position: relative; ${isOnVacation ? 'background-color: rgba(14, 165, 233, 0.08);' : ''}">
+              ${vacationTagHtml}
               <input type="text" class="cell-input ${inputClass}" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" value="${val}" ${isDisabled ? 'disabled' : ''} placeholder="-">
             </td>
           `;
@@ -1798,11 +1868,10 @@
 
         // Weekly Validation Status (Pure Color)
         let blocksHtml = [];
-        const numWeeks = state.viewRange / 7;
-        for (let w = 0; w < numWeeks; w++) {
-           let tHours = totalHoursByWeek[w] || 0;
-           let hVacation = hasVacationThisWeekByWeek[w] || false;
-           let hHoliday = hasHolidayAbsenceByWeek[w] || false;
+        uniqueMondays.forEach((mondayStr, i) => {
+           let tHours = totalHoursByWeek[mondayStr] || 0;
+           let hVacation = hasVacationThisWeekByWeek[mondayStr] || false;
+           let hHoliday = hasHolidayAbsenceByWeek[mondayStr] || false;
            
            let hoursColor = 'var(--text)';
            if (hVacation) {
@@ -1816,7 +1885,7 @@
            }
 
            let extraHoursHtml = '';
-           if (collab.hours < 48 && tHours > collab.hours) {
+           if (tHours > collab.hours) {
               const extraHours = Number.isInteger(tHours - collab.hours) ? (tHours - collab.hours) : (tHours - collab.hours).toFixed(1);
               const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
               
@@ -1838,15 +1907,15 @@
            
            const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
            
-           blocksHtml.push(`
-             <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-width: 65px; padding: 0 0.2rem;">
+             blocksHtml.push(`
+             <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-width: 65px; padding: 0 0.2rem; flex: 1; ${i > 0 ? 'border-left: 1px solid rgba(255,255,255,0.1);' : ''}">
                <div style="color: ${hoursColor}; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">
                  ${totalStr}h / ${collab.hours}h
                </div>
                ${extraHoursHtml}
              </div>
            `);
-        }
+        });
 
         html += `
           <td class="col-estado" style="vertical-align: middle; padding: 0; min-width: 100px;">
@@ -1971,7 +2040,7 @@
         html += `
           <td>
             <div style="display: flex; justify-content: center; font-size: 0.65rem; line-height: 1.2;">
-               <div style="display: flex; gap: 0.35rem; justify-content: center; color: var(--text-muted); white-space: nowrap;">
+               <div style="display: flex; flex-wrap: wrap; gap: 0.15rem 0.35rem; justify-content: center; color: var(--text-muted);">
                   <div>M:<strong style="color: var(--text); margin-left:2px;">${counts['M']}</strong></div>
                   <div>I:<strong style="color: var(--text); margin-left:2px;">${counts['I']}</strong></div>
                   <div>T:<strong style="color: var(--text); margin-left:2px;">${counts['T']}</strong></div>
@@ -2020,18 +2089,31 @@
             const valToday = getPlanningSlot(c.id, dStr);
             const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
             
+            const targetDToday = new Date(dStr + "T00:00:00");
+            const targetDPrev = new Date(prevDateStr + "T00:00:00");
+            let isOnVacationToday = false;
+            let isOnVacationPrev = false;
+            for (let vac of state.vacations) {
+               if (vac.colaboradorId === c.id) {
+                  const vacStart = new Date(vac.startDate + "T00:00:00");
+                  const vacEnd = new Date(vac.endDate + "T00:00:00");
+                  if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
+                  if (targetDPrev >= vacStart && targetDPrev <= vacEnd) isOnVacationPrev = true;
+               }
+            }
+
             const valPrev = getPlanningSlot(c.id, prevDateStr);
             const parsedPrev = parseShift(valPrev);
 
             for (let h = 0; h <= 23; h++) {
-               if (parsedToday && parsedToday.type === 'work') {
+               if (!isOnVacationToday && parsedToday && parsedToday.type === 'work') {
                   if (parsedToday.end <= parsedToday.start) {
                      if (h >= parsedToday.start) hourlyCounts[h]++;
                   } else {
                      if (h >= parsedToday.start && h < parsedToday.end) hourlyCounts[h]++;
                   }
                }
-               if (parsedPrev && parsedPrev.type === 'work') {
+               if (!isOnVacationPrev && parsedPrev && parsedPrev.type === 'work') {
                   if (parsedPrev.end <= parsedPrev.start) {
                      if (h < parsedPrev.end) hourlyCounts[h]++;
                   }
@@ -2397,9 +2479,27 @@
        if (!container) return;
        
        const yearSelector = document.getElementById('metricsYearSelector');
-       if (yearSelector && yearSelector.options.length === 0) {
-          const cy = new Date().getFullYear();
-          const yearsArr = [(cy-2).toString(), (cy-1).toString(), cy.toString(), (cy+1).toString()].sort((a,b)=>b-a);
+       if (yearSelector) {
+          yearSelector.innerHTML = ''; // Resetear opciones
+          
+          let uniqueYears = new Set();
+          const cy = new Date().getFullYear().toString();
+          uniqueYears.add(cy); // Garantizar al menos el año actual
+          
+          if (state.planning) {
+              Object.keys(state.planning).forEach(key => {
+                  const parts = key.split('_');
+                  if (parts.length > 1) {
+                      const dateStr = parts[1];
+                      if (dateStr) {
+                          const year = dateStr.split('-')[0];
+                          if (year && year.length === 4) uniqueYears.add(year);
+                      }
+                  }
+              });
+          }
+          
+          const yearsArr = Array.from(uniqueYears).sort((a,b) => b - a);
           
           if (!yearsArr.includes(currentMetricsYear)) currentMetricsYear = yearsArr[0];
 
@@ -2411,10 +2511,10 @@
              yearSelector.appendChild(opt);
           });
 
-          yearSelector.addEventListener('change', (e) => {
+          yearSelector.onchange = (e) => {
              currentMetricsYear = e.target.value;
              renderMetrics();
-          });
+          };
        }
 
        container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px; width: 100%;">Cargando métricas anuales de ${currentMetricsYear}...</div>`;
@@ -2522,7 +2622,18 @@
                 const isClosed = dateStr.endsWith("-01-01") || dateStr.endsWith("-05-01") || dateStr.endsWith("-12-25");
                 if (!isClosed) {
                    const isFeriadoNoTrabajado = (val.toLowerCase() === 'f' || (obj.comentario && obj.comentario.includes("Feriado No Trabajado")));
-                   if (isFeriadoNoTrabajado) {
+                   
+                   let isOnVacation = false;
+                   const targetD = new Date(dateStr + "T00:00:00");
+                   for (let vac of state.vacations) {
+                      if (vac.colaboradorId === collab.id) {
+                         const vacStart = new Date(vac.startDate + "T00:00:00");
+                         const vacEnd = new Date(vac.endDate + "T00:00:00");
+                         if (targetD >= vacStart && targetD <= vacEnd) { isOnVacation = true; break; }
+                      }
+                   }
+
+                   if (isFeriadoNoTrabajado || isOnVacation) {
                       feriadosLibres++;
                    } else {
                       const parsed = parseShift(val);
@@ -2713,8 +2824,19 @@
              const isClosed = dateStr.endsWith("-01-01") || dateStr.endsWith("-05-01") || dateStr.endsWith("-12-25");
              if (!isClosed) {
                  const isFeriadoNoTrabajado = (val.toLowerCase() === 'f' || (obj.comentario && obj.comentario.includes("Feriado No Trabajado")));
+                 
+                 let isOnVacation = false;
+                 const targetD = new Date(dateStr + "T00:00:00");
+                 for (let vac of state.vacations) {
+                    if (vac.colaboradorId === collab.id) {
+                       const vacStart = new Date(vac.startDate + "T00:00:00");
+                       const vacEnd = new Date(vac.endDate + "T00:00:00");
+                       if (targetD >= vacStart && targetD <= vacEnd) { isOnVacation = true; break; }
+                    }
+                 }
+
                  const parsed = parseShift(val);
-                 if (!isFeriadoNoTrabajado && parsed && parsed.type === 'work') monthData.feriadosTrab++;
+                 if (!isFeriadoNoTrabajado && !isOnVacation && parsed && parsed.type === 'work') monthData.feriadosTrab++;
              }
           }
        });
