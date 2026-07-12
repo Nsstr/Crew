@@ -1180,18 +1180,14 @@
             <button id="prevDayBtn" title="Día Anterior">&larr;</button>
             <div style="position: relative; flex: 1; display: flex; align-items: center; justify-content: center;">
               <span id="weekLabel" style="font-weight: 600; font-size: 0.85rem; text-align: center; color: white; width: 100%;">Cargando...</span>
-              <input type="date" id="mobile-datepicker-trigger" style="position: absolute; opacity: 0; width: 100%; height: 100%; top: 0; left: 0; cursor: pointer; z-index: 5;">
+              <input type="date" id="desktop-datepicker-trigger" onclick="this.showPicker && this.showPicker()" style="position: absolute; opacity: 0; width: 100%; height: 100%; top: 0; left: 0; cursor: pointer; z-index: 10;">
             </div>
             <button id="nextDayBtn" title="Día Siguiente">&rarr;</button>
             <button id="nextWeekBtn" title="Semana Siguiente">&gt;</button>
           </div>
           <div style="display: flex; gap: 0.5rem; align-items: stretch; height: 26px;">
             <button id="configBtn" title="Gestión de Dotación" style="display: none; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer;">⚙️</button>
-            <button id="pdfBtn" style="display: none; background: #e11d48; color: white; border: none; border-radius: 0.25rem; padding: 0 0.5rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer;" title="Descargar PDF">📄 PDF</button>
-            <div style="position: relative; display: flex; align-items: center;">
-              <input type="date" id="selectorAlmanaque" style="opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer;" title="Ir a fecha">
-              <button style="background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: none;" title="Seleccionar fecha">📅</button>
-            </div>
+            <button id="pdfBtn" title="Exportar a PDF" style="display: none; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer;">📄</button>
           </div>
         </div>
       </div>
@@ -2722,17 +2718,6 @@
       loadWeekPlanning();
     });
 
-    document.getElementById('selectorAlmanaque').addEventListener('change', (e) => {
-      if (e.target.value) {
-        const parts = e.target.value.split('-');
-        if (parts.length === 3) {
-           const selectedDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-           state.currentWeekStart = getStartOfWeek(selectedDate);
-           loadWeekPlanning();
-        }
-      }
-    });
-
 
 
 
@@ -4117,6 +4102,7 @@
     const logoutBtn = document.getElementById('logoutBtn');
     const configBtn = document.getElementById('configBtn');
     const pdfBtn = document.getElementById('pdfBtn');
+    // Actualiza la UI basada en el rol
     const vacationTabBtn = document.getElementById('vacationTabBtn');
     
     const loginModal = document.getElementById('loginModal');
@@ -4132,7 +4118,7 @@
     function checkLogin() {
        logoutBtn.style.display = 'none';
        configBtn.style.display = 'none';
-       pdfBtn.style.display = 'inline-flex'; // Siempre visible
+       if (pdfBtn) pdfBtn.style.display = 'inline-flex';
        vacationTabBtn.style.display = 'none';
        if (metricsTabBtn) metricsTabBtn.style.display = 'none';
        adminLoginBtn.style.display = 'flex'; // Siempre visible por defecto, se oculta si hay login
@@ -4479,9 +4465,11 @@
     const pdfCustomDates = document.getElementById('pdfCustomDates');
     const pdfRadios = document.getElementsByName('pdfRange');
 
-    document.getElementById('pdfBtn').addEventListener('click', () => {
-       pdfModal.style.display = 'flex';
-    });
+    if (document.getElementById('pdfBtn')) {
+        document.getElementById('pdfBtn').addEventListener('click', () => {
+           pdfModal.style.display = 'flex';
+        });
+    }
 
     document.getElementById('pdfCancelBtn').addEventListener('click', () => {
        pdfModal.style.display = 'none';
@@ -5055,39 +5043,39 @@
        }
     });
 
-    // 3. Salto a fecha específica desde el almanaque móvil
-    const datepickerTrigger = document.getElementById('mobile-datepicker-trigger');
-    if (datepickerTrigger) {
-        datepickerTrigger.addEventListener('change', async (e) => {
-            const selectedDateStr = e.target.value;
-            if (!selectedDateStr) return;
+    // 3. Salto a fecha específica desde el almanaque (Móvil y Escritorio)
+    const mobileDatepickerTrigger = document.getElementById('mobile-datepicker-trigger');
+    const desktopDatepickerTrigger = document.getElementById('desktop-datepicker-trigger');
+    
+    function attachDatepickerJump(triggerEl) {
+        if (!triggerEl) return;
+        triggerEl.addEventListener('change', async (e) => {
+            if (!e.target.value) return;
+            const parts = e.target.value.split('-');
+            const selectedDate = new Date(Date.UTC(parts[0], parts[1]-1, parts[2], 12, 0, 0));
             
-            const selectedDate = new Date(selectedDateStr + "T00:00:00");
-            const currentStart = state.currentWeekStart;
-            
-            // Calculamos la diferencia en días desde el lunes inicial que rige la tabla
+            const currentStart = getStartOfWeek(state.currentWeekStart);
             const diffMs = selectedDate - currentStart;
             const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
             
             const colWidth = window.innerWidth <= 768 ? 75 : 120;
             
             if (diffDays >= 0 && diffDays < (state.viewRange || 7)) {
-                // Si la fecha ya está renderizada dentro del flujo actual del scroll infinito
                 gridContainer.scrollLeft = diffDays * colWidth;
             } else {
-                // Si la fecha está en el pasado o muy en el futuro (fuera del rango pre-cargado)
-                // En lugar de cargar todo el hueco intermedio y quemar cuota, repintamos la vista base
                 state.currentWeekStart = getStartOfWeek(selectedDate);
                 state.viewRange = 14;
                 await loadWeekPlanning(false);
                 
-                // Calculamos qué día de la semana es (Lun=0, Dom=6) para hacer el salto limpio
                 const targetDayIndex = selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1;
                 gridContainer.scrollLeft = targetDayIndex * colWidth;
             }
-            e.target.value = ''; // Resetear el input para permitir volver a elegir la misma fecha
+            e.target.value = ''; 
         });
     }
+    
+    attachDatepickerJump(mobileDatepickerTrigger);
+    attachDatepickerJump(desktopDatepickerTrigger);
 
     // INICIO
     migrateFechas().then(() => {
