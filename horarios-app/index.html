@@ -1433,7 +1433,7 @@
     // 1. FIREBASE INITIALIZATION
     // Reemplaza con tus credenciales de Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCJZeUE4k1XHIyxQ4lRmKvlH0eHeAZky4o",
@@ -1450,15 +1450,10 @@
     let isMockMode = false;
     try {
       const app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-      enableIndexedDbPersistence(db).catch((err) => {
-        if (err.code == 'failed-precondition') {
-          console.warn('Persistencia: Varias pestañas abiertas.');
-        } else if (err.code == 'unimplemented') {
-          console.warn('Persistencia: Navegador no soporta indexedDB.');
-        } else {
-          console.error('Error de persistencia offline:', err);
-        }
+            db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        })
       });
     } catch (e) {
       console.warn("Firebase no configurado, operando en modo Mock.");
