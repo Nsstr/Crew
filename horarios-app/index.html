@@ -599,15 +599,63 @@
     @media (max-width: 768px) {
        .modal-content { grid-template-columns: 1fr; overflow-y: auto; }
        
-       /* 1. Synchronized Horizontal Scroll (Sticky Col) */
+       /* 1. Bottom Toolbar & Heatmap Restructure */
+       .top-layout-container {
+         display: block !important;
+       }
        .top-controls-sidebar {
-         position: sticky;
+         position: static;
+         width: 0; height: 0; padding: 0 !important; border: none !important; overflow: visible;
+       }
+       #header-controls-horarios {
+         position: fixed;
+         bottom: 0;
          left: 0;
-         z-index: 10;
-         background: var(--surface) !important;
+         width: 100%;
+         background: var(--surface);
+         z-index: 100;
+         padding: 12px;
+         display: flex;
+         flex-direction: row !important;
+         justify-content: space-around;
+         align-items: center;
+         border-top: 1px solid var(--border);
+         box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
+       }
+       .date-nav {
+         display: flex;
+         width: 100%;
+         justify-content: space-between;
+         align-items: center;
+       }
+       .date-nav button {
+         padding: 0.75rem 1.5rem;
+         font-size: 1.25rem;
+         background: var(--primary) !important;
+         color: white !important;
+         border: none;
+         border-radius: 0.5rem;
+         -webkit-tap-highlight-color: transparent;
+       }
+       .date-nav button:hover,
+       .date-nav button:focus,
+       .date-nav button:active {
+         color: white !important;
+         background: var(--primary-hover) !important;
+         outline: none !important;
+       }
+       .date-nav #weekLabel {
+         font-size: 1.1rem;
+       }
+       #header-controls-horarios > div:not(.date-nav) {
+         display: none !important;
        }
        .top-heatmap-area {
-         overflow-x: hidden;
+         overflow-x: auto !important;
+         width: 100%;
+       }
+       #app-grid-container {
+         margin-bottom: 80px;
        }
        table#planningTable th:first-child, 
        table#planningTable td:first-child {
@@ -4653,15 +4701,6 @@
     // INICIO
     migrateFechas().then(() => {
         loadInitialData();
-        
-        // Mobile UI Scroll Sync
-        const gridContainer = document.querySelector('.grid-container');
-        const topHeatmapArea = document.querySelector('.top-heatmap-area');
-        if (gridContainer && topHeatmapArea) {
-           gridContainer.addEventListener('scroll', () => {
-              topHeatmapArea.scrollLeft = gridContainer.scrollLeft;
-           }, {passive: true});
-        }
     });
   </script>
 </body>
