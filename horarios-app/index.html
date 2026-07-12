@@ -1402,8 +1402,14 @@
 
     async function loadWeekPlanning() {
       const range = state.viewRange || 7;
-      const startStr = formatDate(state.currentWeekStart);
-      const endStr = formatDate(addDays(state.currentWeekStart, range - 1));
+      
+      // Calculate true bounding weeks to ensure full data for partial viewports
+      const realStartD = getStartOfWeek(state.currentWeekStart);
+      const realEndD = addDays(getStartOfWeek(addDays(state.currentWeekStart, range - 1)), 6);
+      
+      const startStr = formatDate(realStartD);
+      const endStr = formatDate(realEndD);
+      
       const currentSunday = addDays(state.currentWeekStart, 6);
       const monthSundays = getSundaysOfMonth(currentSunday);
       
