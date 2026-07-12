@@ -598,6 +598,78 @@
     }
     @media (max-width: 768px) {
        .modal-content { grid-template-columns: 1fr; overflow-y: auto; }
+       
+       /* 1. Synchronized Horizontal Scroll (Sticky Col) */
+       .top-controls-sidebar {
+         position: sticky;
+         left: 0;
+         z-index: 10;
+         background: var(--surface) !important;
+       }
+       .top-heatmap-area {
+         overflow-x: hidden;
+       }
+       table#planningTable th:first-child, 
+       table#planningTable td:first-child {
+         position: sticky;
+         left: 0;
+         z-index: 10;
+         background: var(--surface) !important;
+         min-width: 110px !important;
+         max-width: 110px !important;
+         width: 110px !important;
+         white-space: nowrap;
+         overflow: hidden;
+         text-overflow: ellipsis;
+       }
+       table#planningTable td:first-child {
+         z-index: 11;
+       }
+       table#planningTable th:first-child {
+         z-index: 12;
+       }
+
+       /* Day columns fixed width */
+       table#planningTable th:not(:first-child):not(:last-child),
+       table#planningTable td:not(:first-child):not(:last-child) {
+         min-width: 75px !important;
+         width: 75px !important;
+         max-width: 75px !important;
+         text-align: center;
+       }
+       
+       table#planningTable th:not(:first-child):not(:last-child) {
+         font-size: 0.7rem !important;
+         white-space: nowrap;
+         padding: 4px 2px !important;
+       }
+
+       /* 3. Extreme Minimalism */
+       .collab-meta, .indicator, .holiday-badge, .dom-badge {
+         display: none !important;
+       }
+       .cell-input {
+         font-size: 0.8rem !important;
+         text-align: center;
+         padding: 0 !important;
+       }
+       /* Clean Bottom Sheet Menu */
+       #contextMenu {
+         position: fixed !important;
+         top: auto !important;
+         bottom: 0 !important;
+         left: 0 !important;
+         width: 100% !important;
+         border-radius: 1.5rem 1.5rem 0 0 !important;
+         box-shadow: 0 -4px 20px rgba(0,0,0,0.5) !important;
+         padding: 1.5rem 1rem 2rem 1rem !important;
+         animation: slideUp 0.3s ease-out forwards;
+       }
+    }
+    
+    @keyframes slideUp {
+       from { transform: translateY(100%); }
+       to { transform: translateY(0); }
     }
     .modal-left {
        display: flex; flex-direction: column;
@@ -1978,6 +2050,26 @@
       inputs.forEach((el, index) => {
         el.addEventListener('blur', handleInputChange);
         el.addEventListener('contextmenu', handleContextMenu);
+        
+        let touchTimer;
+        el.addEventListener('touchstart', e => {
+           if (currentRole === 'visitor') return;
+           touchTimer = setTimeout(() => {
+              const touch = e.touches[0];
+              const mockEvent = {
+                 preventDefault: () => {},
+                 target: e.target,
+                 pageX: touch.pageX,
+                 pageY: touch.pageY
+              };
+              handleContextMenu(mockEvent);
+           }, 500);
+        }, {passive: true});
+        
+        el.addEventListener('touchmove', () => clearTimeout(touchTimer), {passive: true});
+        el.addEventListener('touchend', () => clearTimeout(touchTimer));
+        el.addEventListener('touchcancel', () => clearTimeout(touchTimer));
+
         el.addEventListener('focus', e => {
            if (currentRole === 'visitor') {
               requireEditor(e);
@@ -4561,6 +4653,15 @@
     // INICIO
     migrateFechas().then(() => {
         loadInitialData();
+        
+        // Mobile UI Scroll Sync
+        const gridContainer = document.querySelector('.grid-container');
+        const topHeatmapArea = document.querySelector('.top-heatmap-area');
+        if (gridContainer && topHeatmapArea) {
+           gridContainer.addEventListener('scroll', () => {
+              topHeatmapArea.scrollLeft = gridContainer.scrollLeft;
+           }, {passive: true});
+        }
     });
   </script>
 </body>
