@@ -713,6 +713,114 @@
          padding: 1.5rem 1rem 2rem 1rem !important;
          animation: slideUp 0.3s ease-out forwards;
        }
+
+       /* Vacaciones Mobile Layout Strict Flow */
+       #seccionVacaciones {
+         padding: 16px !important;
+         overflow-y: auto !important;
+       }
+       .vacation-grid {
+         display: flex !important;
+         flex-direction: column !important;
+         gap: 24px !important;
+         width: 100% !important;
+         box-sizing: border-box !important;
+         height: auto !important;
+         overflow: visible !important;
+       }
+       .vacation-grid .col-izquierda,
+       .vacation-grid .col-derecha,
+       .vacation-grid .col-izquierda > div:first-child {
+         display: contents !important;
+       }
+       
+       /* Order */
+       .vacation-grid .col-derecha > .card {
+         order: 1; /* Calendario */
+       }
+       .vacation-grid .col-izquierda > .card {
+         order: 2; /* Vacaciones Aprobadas */
+       }
+       .vacation-grid .col-izquierda > div:first-child > .card:nth-child(1) {
+         order: 3; /* Registrar */
+       }
+       .vacation-grid .col-izquierda > div:first-child > .card:nth-child(2) {
+         order: 4; /* Saldos */
+       }
+       .vacation-grid .col-izquierda > div:first-child > .card:nth-child(3) {
+         order: 5; /* Historial */
+         max-height: none !important;
+       }
+       
+       .vacation-grid .card {
+         width: 100% !important;
+         max-width: 100% !important;
+         height: auto !important;
+         flex: none !important;
+       }
+       
+       .vac-cal-container {
+         grid-template-columns: repeat(2, 1fr) !important;
+         gap: 0.5rem !important;
+         overflow-y: auto !important;
+         max-height: none !important;
+       }
+       .vac-cal-grid {
+         grid-template-columns: repeat(7, 18px) !important;
+         gap: 2px !important;
+       }
+       .vac-cal-cell {
+         width: 18px !important;
+         height: 18px !important;
+         font-size: 0.6rem !important;
+       }
+       .vac-cal-header {
+         font-size: 0.75rem !important;
+       }
+       
+       /* Fix Header Buttons */
+       .main-app-nav {
+         flex-direction: column !important;
+         height: auto !important;
+         padding: 8px !important;
+         gap: 8px !important;
+         align-items: center !important;
+         position: relative !important;
+         z-index: 9999 !important;
+       }
+       .app-tabs {
+         justify-content: center;
+         flex-wrap: wrap;
+       }
+       .nav-auth-controls {
+         height: auto !important;
+         flex-wrap: wrap;
+         justify-content: center;
+         gap: 6px !important;
+         position: relative !important;
+         z-index: 10000 !important;
+         visibility: visible !important;
+         display: flex !important;
+       }
+       #logoutBtn, #adminLoginBtn, #backupDriveBtn {
+         font-size: 0.65rem !important;
+         padding: 4px 6px !important;
+         white-space: nowrap !important;
+         line-height: 1.2 !important;
+         height: auto !important;
+       }
+       
+       /* Fix touch horizontal scroll */
+       .grid-container {
+         width: 100% !important;
+         max-width: 100vw !important;
+         overflow-x: auto !important;
+         -webkit-overflow-scrolling: touch !important;
+         display: block !important;
+       }
+       body, html, #seccionHorarios {
+         overflow-x: hidden !important;
+       }
     }
     
     @keyframes slideUp {
