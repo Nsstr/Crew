@@ -425,6 +425,8 @@
        border-color: var(--primary) transparent transparent transparent;
        pointer-events: none;
     }
+    
+    .mobile-hours-tag { display: none; }
 
     /* Modals/Alerts */
     .toast-container {
@@ -657,6 +659,18 @@
        #app-grid-container {
          margin-bottom: 80px;
        }
+       table#planningTable th.col-estado,
+       table#planningTable td.col-estado {
+         display: none !important;
+       }
+       
+       .mobile-hours-tag {
+         display: block !important;
+         font-size: 0.65rem;
+         font-weight: bold;
+         margin-top: 2px;
+       }
+       
        table#planningTable th:first-child, 
        table#planningTable td:first-child {
          position: sticky;
@@ -1130,11 +1144,6 @@
               <input type="date" id="selectorAlmanaque" style="opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer;" title="Ir a fecha">
               <button style="background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: none;" title="Seleccionar fecha">📅</button>
             </div>
-            <select id="viewRangeSelector" style="background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); padding: 0 0.25rem; height: 26px; font-size: 0.75rem; cursor: pointer; outline: none;" title="Rango de Vista">
-              <option value="7">7 Días</option>
-              <option value="14">14 Días</option>
-              <option value="21">21 Días</option>
-            </select>
           </div>
         </div>
       </div>
@@ -1645,21 +1654,28 @@
       await loadWeekPlanning();
     }
 
-    async function loadWeekPlanning() {
+    async function loadWeekPlanning(append = false) {
       const range = state.viewRange || 7;
       
       // Calculate true bounding weeks to ensure full data for partial viewports
       const realStartD = getStartOfWeek(state.currentWeekStart);
       const realEndD = addDays(getStartOfWeek(addDays(state.currentWeekStart, range - 1)), 6);
       
-      const startStr = formatDate(realStartD);
+      let fetchStartD = realStartD;
+      
+      if (append) {
+         // Si estamos inyectando una semana, solo traemos los últimos 7 días del rango
+         fetchStartD = addDays(realEndD, -6);
+      } else {
+         state.planning = {};
+         state.monthlySundaysWorked = {};
+      }
+      
+      const startStr = formatDate(fetchStartD);
       const endStr = formatDate(realEndD);
       
-      const currentSunday = addDays(state.currentWeekStart, 6);
+      const currentSunday = addDays(fetchStartD, 6);
       const monthSundays = getSundaysOfMonth(currentSunday);
-      
-      state.planning = {};
-      state.monthlySundaysWorked = {};
 
       if (isMockMode) {
         // Generar mock data aleatoria sin romper reglas si es posible
@@ -1795,6 +1811,92 @@
     }
 
     // 9. UI RENDERING
+    function updateDynamicHours() {
+      const allDays = getWeekDays();
+      const startIndex = window.currentHeatmapStartIndex || 0;
+      const visibleDays = allDays.slice(startIndex, startIndex + 7);
+      
+      state.collaborators.forEach(collab => {
+          let tHours = 0;
+          let hVacation = false;
+          let hHoliday = false;
+          let domingosFaltantes = false; // simplificado
+          
+          visibleDays.forEach(d => {
+             const dStr = formatDate(d);
+             const val = getPlanningSlot(collab.id, dStr);
+             const objForTardanza = getPlanningObj(collab.id, dStr) || {};
+             const parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
+             const isHoliday = state.holidays.includes(dStr);
+             
+             // Check vacations
+             const targetD = new Date(dStr + "T00:00:00");
+             for (let vac of state.vacations) {
+                if (vac.colaboradorId === collab.id) {
+                   const vacStart = new Date(vac.startDate + "T00:00:00");
+                   const vacEnd = new Date(vac.endDate + "T00:00:00");
+                   if (targetD >= vacStart && targetD <= vacEnd) {
+                      hVacation = true;
+                      break;
+                   }
+                }
+             }
+             
+             if (parsed) {
+                 if (parsed.type === 'work' && !hVacation) {
+                     tHours += parsed.hours;
+                 }
+                 if (isHoliday && ['franco', 'libre'].includes(parsed.type)) {
+                     hHoliday = true;
+                 }
+             }
+          });
+          
+          let hoursColor = 'var(--text)';
+          if (hVacation) hoursColor = 'var(--info)';
+          else if (tHours < collab.hours) hoursColor = hHoliday ? 'var(--warning)' : 'var(--danger)';
+          else if (tHours === collab.hours) hoursColor = 'var(--success)';
+          else hoursColor = 'var(--danger)';
+          
+          let extraHoursHtml = '';
+          if (tHours > collab.hours) {
+             const extraHours = Number.isInteger(tHours - collab.hours) ? (tHours - collab.hours) : (tHours - collab.hours).toFixed(1);
+             const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
+             let extraColor = (tHours <= 31) ? '#eab308' : (tHours === 32 ? 'var(--success)' : 'var(--danger)');
+             
+             extraHoursHtml = `
+               <div style="color: ${extraColor}; font-size: 0.68rem; font-weight: 700; text-align: center; line-height: 1.1; margin-top: 2px; letter-spacing: -0.2px; white-space: nowrap;">
+                 +${extraHours}h (T: ${totalStr}h)
+               </div>
+             `;
+          }
+          
+          const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
+          
+          // Template para Desktop (Completo)
+          const desktopHtml = `
+             <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-width: 65px; padding: 0 0.2rem; flex: 1;">
+               <div style="color: ${hoursColor}; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">
+                 ${totalStr}h / ${collab.hours}h
+               </div>
+               ${extraHoursHtml}
+             </div>
+          `;
+          
+          // Template para Móvil (Tag Compacto sin salto de línea en lo posible)
+          const extraTag = tHours > collab.hours ? `<span style="color:${tHours <= 31 ? '#eab308' : (tHours === 32 ? 'var(--success)' : 'var(--danger)')}; margin-left: 4px;">+${Number.isInteger(tHours - collab.hours) ? (tHours - collab.hours) : (tHours - collab.hours).toFixed(1)}h</span>` : '';
+          const mobileHtml = `
+             <span style="color: ${hoursColor};">${totalStr}h / ${collab.hours}h</span>${extraTag}
+          `;
+          
+          const mobileContainer = document.getElementById(`mobile-hours-${collab.id}`);
+          if (mobileContainer) mobileContainer.innerHTML = mobileHtml;
+          
+          const desktopContainer = document.getElementById(`desktop-hours-${collab.id}`);
+          if (desktopContainer) desktopContainer.innerHTML = desktopHtml;
+      });
+    }
+
     function renderUI() {
       // 1. Guardar Estado Antes del Render
       const activeEl = document.activeElement;
@@ -1926,6 +2028,7 @@
                 <div class="indicator ${indClass}" title="Abandono Sector: ${maxAbandon} días"></div>
                 ${cleanName}
               </div>
+              <div class="mobile-hours-tag" id="mobile-hours-${collab.id}"></div>
               <div class="collab-meta" style="justify-content: flex-start; gap: 0.35rem; align-items: center;">
                 <span>${collab.id}</span>
                 <span style="opacity: 0.3">|</span>
@@ -2135,61 +2238,9 @@
           `;
         });
 
-        // Weekly Validation Status (Pure Color)
-        let blocksHtml = [];
-        uniqueMondays.forEach((mondayStr, i) => {
-           let tHours = totalHoursByWeek[mondayStr] || 0;
-           let hVacation = hasVacationThisWeekByWeek[mondayStr] || false;
-           let hHoliday = hasHolidayAbsenceByWeek[mondayStr] || false;
-           
-           let hoursColor = 'var(--text)';
-           if (hVacation) {
-              hoursColor = 'var(--info)'; // Azul
-           } else if (tHours < collab.hours) {
-              hoursColor = hHoliday ? 'var(--warning)' : 'var(--danger)';
-           } else if (tHours === collab.hours) {
-              hoursColor = 'var(--success)';
-           } else {
-              hoursColor = 'var(--danger)';
-           }
-
-           let extraHoursHtml = '';
-           if (tHours > collab.hours) {
-              const extraHours = Number.isInteger(tHours - collab.hours) ? (tHours - collab.hours) : (tHours - collab.hours).toFixed(1);
-              const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
-              
-              let extraColor = '';
-              if (tHours <= 31) {
-                 extraColor = '#eab308'; // Amarillo
-              } else if (tHours === 32) {
-                 extraColor = 'var(--success)'; // Verde
-              } else {
-                 extraColor = 'var(--danger)'; // Rojo
-              }
-
-              extraHoursHtml = `
-                <div style="color: ${extraColor}; font-size: 0.68rem; font-weight: 700; text-align: center; line-height: 1.1; margin-top: 2px; letter-spacing: -0.2px; white-space: nowrap;">
-                  +${extraHours}h (T: ${totalStr}h)
-                </div>
-              `;
-           }
-           
-           const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
-           
-             blocksHtml.push(`
-             <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-width: 65px; padding: 0 0.2rem; flex: 1; ${i > 0 ? 'border-left: 1px solid rgba(255,255,255,0.1);' : ''}">
-               <div style="color: ${hoursColor}; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">
-                 ${totalStr}h / ${collab.hours}h
-               </div>
-               ${extraHoursHtml}
-             </div>
-           `);
-        });
-
         html += `
           <td class="col-estado" style="vertical-align: middle; padding: 0; min-width: 100px;">
-            <div style="display:flex; flex-direction:row; justify-content:center; align-items:center; height: 100%;">
-              ${blocksHtml.join('<div style="width: 1px; height: 32px; background: var(--border); margin: 0 4px; opacity: 0.5;"></div>')}
+            <div id="desktop-hours-${collab.id}" style="display:flex; flex-direction:row; justify-content:center; align-items:center; height: 100%;">
             </div>
           </td>
         `;
@@ -2270,6 +2321,7 @@
       });
 
       renderHeatmap();
+      updateDynamicHours(); // Llama a la actualización de horas inicial
 
       // 3. Restaurar Estado Después del Render
       if (focusCollab && focusDate) {
@@ -2348,7 +2400,9 @@
     }
 
     function renderHeatmap() {
-      const days = getWeekDays();
+      const allDays = getWeekDays();
+      const startIndex = window.currentHeatmapStartIndex || 0;
+      const days = allDays.slice(startIndex, startIndex + 7);
       const grid = document.getElementById('heatmapGrid');
       if (!grid) return;
       
@@ -2562,12 +2616,6 @@
       }, 5000);
     }
 
-    document.getElementById('viewRangeSelector').addEventListener('change', (e) => {
-       state.viewRange = parseInt(e.target.value, 10);
-       document.body.classList.remove('vista-7d', 'vista-14d', 'vista-21d');
-       document.body.classList.add(`vista-${state.viewRange}d`);
-       loadWeekPlanning();
-    });
 
     document.getElementById('prevDayBtn').addEventListener('click', () => {
       state.currentWeekStart = addDays(state.currentWeekStart, -1);
@@ -4805,6 +4853,52 @@
        localStorage.setItem('fechasMigradasV1', 'true');
        console.log('Fechas migradas exitosamente.');
     }
+    // SCROLL INFINITO & WHEEL
+    const gridContainer = document.querySelector('.grid-container');
+    let isFetchingNextWeek = false;
+
+    // 1. Wheel event para scroll horizontal en escritorio
+    gridContainer.addEventListener('wheel', (e) => {
+       if (e.deltaY !== 0) {
+         e.preventDefault();
+         gridContainer.scrollLeft += e.deltaY;
+       }
+    }, { passive: false });
+
+    // 2. Scroll event para lazy loading y sincronización del mapa de calor
+    gridContainer.addEventListener('scroll', async (e) => {
+       // A. Sincronización dinámica del Mapa de Calor Superior (espejo del viewport)
+       const colWidth = 75; 
+       let startIndex = Math.floor(gridContainer.scrollLeft / colWidth);
+       if (startIndex < 0) startIndex = 0;
+       
+       if (startIndex !== window.currentHeatmapStartIndex) {
+           window.currentHeatmapStartIndex = startIndex;
+           renderHeatmap(); // Renderiza solo los 7 días correspondientes al frame actual
+           updateDynamicHours(); // Actualiza etiquetas de horas flotantes (Móvil y Escritorio)
+       }
+
+       // B. Lazy Loading de las siguientes semanas
+       if (isFetchingNextWeek) return;
+       // Disparar cuando falten 200px para el final
+       if (gridContainer.scrollLeft + gridContainer.clientWidth >= gridContainer.scrollWidth - 200) {
+          isFetchingNextWeek = true;
+          
+          const currentScroll = gridContainer.scrollLeft;
+          const heatmapArea = document.querySelector('.top-heatmap-area');
+          const currentHeatmapScroll = heatmapArea ? heatmapArea.scrollLeft : 0;
+          
+          state.viewRange = (state.viewRange || 7) + 7;
+          
+          await loadWeekPlanning(true); // append = true
+          
+          // Restauramos de forma sincrónica el scroll para que no haya saltos
+          gridContainer.scrollLeft = currentScroll;
+          if (heatmapArea) heatmapArea.scrollLeft = currentHeatmapScroll;
+          
+          isFetchingNextWeek = false;
+       }
+    });
 
     // INICIO
     migrateFechas().then(() => {
