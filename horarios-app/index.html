@@ -122,7 +122,12 @@
       border-top: none;
       flex: 1;
       overflow-y: auto;
-      overflow-x: hidden;
+      width: 100% !important;
+      max-width: 100vw !important;
+      overflow-x: auto !important;
+      display: block !important;
+      position: relative;
+      scroll-behavior: smooth;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
     }
     
@@ -158,20 +163,41 @@
 
     
     table#planningTable {
-      width: 100%;
+      width: max-content !important;
+      min-width: max-content !important;
       border-collapse: collapse;
-      table-layout: fixed;
+      table-layout: auto !important;
+    }
+    
+    table#planningTable th:not(:first-child):not(:last-child),
+    table#planningTable td:not(:first-child):not(:last-child) {
+      min-width: 120px !important;
+      width: 120px !important;
+      max-width: 120px !important;
+      text-align: center;
     }
     table#planningTable th:first-child, table#planningTable td:first-child {
-      width: var(--col-left-width);
+      width: var(--col-left-width) !important;
+      min-width: var(--col-left-width) !important;
+      max-width: var(--col-left-width) !important;
+      position: sticky;
+      left: 0;
+      z-index: 20;
+      background-color: #1a1e29 !important;
       border-right: 1px solid var(--border);
     }
     table#planningTable th:last-child, table#planningTable td:last-child {
-      width: var(--col-right-width);
+      width: 100px !important;
+      min-width: 100px !important;
+      max-width: 100px !important;
+      position: sticky;
+      right: 0;
+      z-index: 20;
+      background-color: #1a1e29 !important;
+      border-left: 1px solid var(--border);
     }
 
     table {
-      width: 100%;
       border-collapse: collapse;
       text-align: left;
     }
@@ -1539,7 +1565,7 @@
 
     // 3. ESTADO DE LA APLICACIÓN (Caché local)
     const state = {
-      viewRange: 7,
+      viewRange: 14,
       currentWeekStart: getStartOfWeek(new Date()),
       collaborators: [],
       vacations: [], // { id, collabId, startDate, endDate, weeksCount }
@@ -1837,13 +1863,36 @@
     function updateDynamicHours() {
       const allDays = getWeekDays();
       const startIndex = window.currentHeatmapStartIndex || 0;
-      const visibleDays = allDays.slice(startIndex, startIndex + 7);
+      
+      // 1. Identificar el día central del viewport
+      const centerIndex = Math.min(startIndex + 3, allDays.length - 1);
+      const centerDay = allDays[centerIndex] || allDays[0];
+      
+      if (!centerDay) return;
+      
+      // 2. Obtener el Lunes de esa semana calendario (Para las Horas)
+      const weekStart = getStartOfWeek(centerDay);
+      const visibleDays = [];
+      for (let i = 0; i < 7; i++) {
+         visibleDays.push(addDays(weekStart, i));
+      }
+      
+      // 3. Obtener el mes calendario estricto (Para los Domingos)
+      const activeYear = centerDay.getFullYear();
+      const activeMonth = centerDay.getMonth();
+      const daysInMonth = new Date(activeYear, activeMonth + 1, 0).getDate();
+      
+      const monthDays = [];
+      for(let i = 1; i <= daysInMonth; i++) {
+          monthDays.push(new Date(activeYear, activeMonth, i));
+      }
+      let monthName = centerDay.toLocaleString('es-ES', { month: 'long' });
+      monthName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
       
       state.collaborators.forEach(collab => {
           let tHours = 0;
           let hVacation = false;
           let hHoliday = false;
-          let domingosFaltantes = false; // simplificado
           
           visibleDays.forEach(d => {
              const dStr = formatDate(d);
@@ -1917,6 +1966,35 @@
           
           const desktopContainer = document.getElementById(`desktop-hours-${collab.id}`);
           if (desktopContainer) desktopContainer.innerHTML = desktopHtml;
+          
+          // Actualización de Domingos Mensuales
+          let restCount = 0;
+          monthDays.forEach(d => {
+             if (d.getDay() === 0) { // Es domingo
+                 const dStr = formatDate(d);
+                 const val = getPlanningSlot(collab.id, dStr);
+                 const parsed = parseShift(val);
+                 if (parsed && (parsed.type === 'franco' || parsed.type === 'libre')) {
+                     restCount++;
+                 }
+             }
+          });
+          
+          let domClass = '';
+          const limit = collab.domingosAcordados || 0;
+          if (limit === 0) {
+             domClass = ''; // neutro
+          } else if (restCount < limit) {
+             domClass = 'danger'; // faltan francos dominicales
+          } else if (restCount >= limit) {
+             domClass = 'success'; // cumplió la cuota de francos dominicales
+          }
+          
+          const domBadge = document.getElementById(`dom-badge-${collab.id}`);
+          if (domBadge) {
+             domBadge.className = `dom-badge ${domClass}`;
+             domBadge.innerText = `Dom ${monthName}: ${restCount}/${limit}`;
+          }
       });
     }
 
@@ -1948,12 +2026,9 @@
         const dayNumStr = String(d.getDate()).padStart(2, '0');
         const dayName = `${weekDaysArr[d.getDay()]} ${dayNumStr} ${monthsArr[d.getMonth()]}`;
         
-        const thClass = isHoliday ? 'holiday-col' : '';
+        const thClass = isHoliday ? 'holiday-col day-column' : 'day-column';
         trHead.innerHTML += `<th class="${thClass}" style="text-align: center;">${dayName} ${isHoliday ? '<span class="holiday-badge">Feriado</span>' : ''}</th>`;
       });
-      let uniqueMondaysCount = new Set(days.map(d => formatDate(getStartOfWeek(d)))).size;
-      let finalColWidth = Math.max(80, uniqueMondaysCount * 75);
-      document.getElementById('planningTable').style.setProperty('--col-right-width', `${finalColWidth}px`);
       
       trHead.innerHTML += `<th>Estado / Horas</th>`;
 
@@ -2021,27 +2096,8 @@
 
         const isExported = state.exportedRows[collab.id];
         
-        // Sunday Tracking (Francos Dominicales)
-        const currentSundayDate = addDays(state.currentWeekStart, 6);
-        const currentSundayStr = formatDate(currentSundayDate);
-        let monthName = currentSundayDate.toLocaleString('es-ES', { month: 'long' });
-        monthName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+        // Sunday Tracking (Francos Dominicales) - Lógica ahora delegada a updateDynamicHours
         
-        let restCount = (state.monthlySundaysWorked[collab.id] || []).filter(date => date !== currentSundayStr).length;
-        const localVal = getPlanningSlot(collab.id, currentSundayStr);
-        const localParsed = parseShift(localVal);
-        if (localParsed && (localParsed.type === 'franco' || localParsed.type === 'libre')) restCount++;
-        
-        let domClass = '';
-        const limit = collab.domingosAcordados || 0;
-        if (limit === 0) {
-           domClass = ''; // neutro
-        } else if (restCount < limit) {
-           domClass = 'danger'; // faltan francos dominicales
-        } else if (restCount >= limit) {
-           domClass = 'success'; // cumplió la cuota de francos dominicales
-        }
-
         const cleanName = collab.name.split('(')[0].split('-')[0].trim();
 
         let html = `
@@ -2059,7 +2115,7 @@
                 <span style="opacity: 0.3">|</span>
                 <span>${collab.hours}h</span>
                 <span style="opacity: 0.3">|</span>
-                <span class="dom-badge ${domClass}" style="padding: 0 0.2rem; font-size: 0.6rem;" title="Francos Dominicales">Dom ${monthName}: ${restCount}/${limit}</span>
+                <span id="dom-badge-${collab.id}" class="dom-badge" style="padding: 0 0.2rem; font-size: 0.6rem;" title="Francos Dominicales"></span>
               </div>
             </div>
           </td>
@@ -2254,7 +2310,7 @@
           }
           
           let isSkeleton = state.skeletonStartStr && dStr >= state.skeletonStartStr;
-          let finalWrapperClass = wrapperClass + (isSkeleton ? ' skeleton-cell' : '');
+          let finalWrapperClass = wrapperClass + (isSkeleton ? ' skeleton-cell' : '') + ' day-cell';
           let finalInputClass = inputClass + (isSkeleton ? ' skeleton-input' : '');
 
           html += `
@@ -4889,15 +4945,47 @@
     // 1. Wheel event para scroll horizontal en escritorio
     gridContainer.addEventListener('wheel', (e) => {
        if (e.deltaY !== 0) {
-         e.preventDefault();
-         gridContainer.scrollLeft += e.deltaY;
+         e.preventDefault(); // CRÍTICO: Evita que el navegador intente hacer scroll vertical
+         gridContainer.scrollLeft += e.deltaY * 1.2; // Traduce el movimiento vertical a horizontal
        }
     }, { passive: false });
+
+    // 1b. Mouse Drag-to-Scroll (Arrastrar con el click en PC)
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+
+    gridContainer.addEventListener('mousedown', (e) => {
+        // Ignorar si hace click en un input
+        if (e.target.tagName.toLowerCase() === 'input') return;
+        isDown = true;
+        gridContainer.style.cursor = 'grabbing';
+        startX = e.pageX - gridContainer.offsetLeft;
+        scrollLeft = gridContainer.scrollLeft;
+    });
+    
+    gridContainer.addEventListener('mouseleave', () => {
+        isDown = false;
+        gridContainer.style.cursor = '';
+    });
+    
+    gridContainer.addEventListener('mouseup', () => {
+        isDown = false;
+        gridContainer.style.cursor = '';
+    });
+    
+    gridContainer.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault(); // Previene selección de texto
+        const x = e.pageX - gridContainer.offsetLeft;
+        const walk = (x - startX) * 1.5; // Multiplicador de velocidad de arrastre
+        gridContainer.scrollLeft = scrollLeft - walk;
+    });
 
     // 2. Scroll event para lazy loading y sincronización del mapa de calor
     gridContainer.addEventListener('scroll', async (e) => {
        // A. Sincronización dinámica del Mapa de Calor Superior (espejo del viewport)
-       const colWidth = 75; 
+       const colWidth = window.innerWidth <= 768 ? 75 : 120; 
        let startIndex = Math.floor(gridContainer.scrollLeft / colWidth);
        if (startIndex < 0) startIndex = 0;
        
@@ -4907,8 +4995,9 @@
            updateDynamicHours(); // Actualiza etiquetas de horas flotantes (Móvil y Escritorio)
        }
 
-       // B. Lazy Loading de las siguientes semanas (Prefetch)
+       // B. Lazy Loading de las siguientes semanas (Prefetch Hacia Adelante)
        if (isFetchingNextWeek) return;
+       
        // Disparar cuando el scroll horizontal pase el 60% del ancho actual
        if (gridContainer.scrollLeft > (gridContainer.scrollWidth - gridContainer.clientWidth) * 0.6) {
           isFetchingNextWeek = true;
@@ -4936,6 +5025,34 @@
           
           isFetchingNextWeek = false;
        }
+       
+       // C. Lazy Loading de las semanas anteriores (Prepend Hacia Atrás)
+       else if (gridContainer.scrollLeft <= 100) {
+          isFetchingNextWeek = true; // Usamos el mismo candado para evitar cargas duplicadas
+          
+          const currentScroll = gridContainer.scrollLeft;
+          const heatmapArea = document.querySelector('.top-heatmap-area');
+          const currentHeatmapScroll = heatmapArea ? heatmapArea.scrollLeft : 0;
+          
+          // Restar 7 días al inicio y sumar 7 días al rango total
+          state.currentWeekStart = addDays(state.currentWeekStart, -7);
+          state.viewRange = (state.viewRange || 7) + 7;
+          
+          // El ancho de los días insertados a la izquierda
+          const shiftWidth = (window.innerWidth <= 768 ? 75 : 120) * 7;
+          
+          // Fetch sincrono (se podría optimizar con esqueleto si es lento)
+          await loadWeekPlanning(false); 
+          
+          // Restaurar el scroll compensando el ancho de los 7 días inyectados
+          gridContainer.scrollLeft = currentScroll + shiftWidth;
+          if (heatmapArea) heatmapArea.scrollLeft = currentHeatmapScroll + shiftWidth;
+          
+          // Actualizar índice actual para no romper el heatmap
+          window.currentHeatmapStartIndex = (window.currentHeatmapStartIndex || 0) + 7;
+          
+          isFetchingNextWeek = false;
+       }
     });
 
     // 3. Salto a fecha específica desde el almanaque móvil
@@ -4952,19 +5069,21 @@
             const diffMs = selectedDate - currentStart;
             const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
             
+            const colWidth = window.innerWidth <= 768 ? 75 : 120;
+            
             if (diffDays >= 0 && diffDays < (state.viewRange || 7)) {
                 // Si la fecha ya está renderizada dentro del flujo actual del scroll infinito
-                gridContainer.scrollLeft = diffDays * 75;
+                gridContainer.scrollLeft = diffDays * colWidth;
             } else {
                 // Si la fecha está en el pasado o muy en el futuro (fuera del rango pre-cargado)
                 // En lugar de cargar todo el hueco intermedio y quemar cuota, repintamos la vista base
                 state.currentWeekStart = getStartOfWeek(selectedDate);
-                state.viewRange = 7;
+                state.viewRange = 14;
                 await loadWeekPlanning(false);
                 
                 // Calculamos qué día de la semana es (Lun=0, Dom=6) para hacer el salto limpio
                 const targetDayIndex = selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1;
-                gridContainer.scrollLeft = targetDayIndex * 75;
+                gridContainer.scrollLeft = targetDayIndex * colWidth;
             }
             e.target.value = ''; // Resetear el input para permitir volver a elegir la misma fecha
         });
