@@ -689,10 +689,10 @@
     }
     
     /* Vacation Calendar Grid */
-    .vac-cal-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; overflow-y: visible; }
-    .vac-cal-month { margin-bottom: 0; padding: 0; }
-    .vac-cal-header { font-weight: 700; font-size: 0.85rem; margin-bottom: 0.15rem; border-bottom: 1px solid var(--border); padding-bottom: 0.15rem; text-align: center; }
-    .vac-cal-grid { display: grid; grid-template-columns: repeat(7, 24px); gap: 4px; justify-content: center; margin-top: 0.5rem; }
+    .vac-cal-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; overflow: hidden; align-content: start; }
+    .vac-cal-month { margin-bottom: 0; padding: 0; display: flex; flex-direction: column; }
+    .vac-cal-header { font-weight: 700; font-size: 0.85rem; margin-bottom: 0.2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.2rem; text-align: center; color: var(--text); }
+    .vac-cal-grid { display: grid; grid-template-columns: repeat(7, 22px); gap: 4px; justify-content: center; margin-top: 0.3rem; }
     .vac-cal-day-header { text-align: center; font-size: 0.65rem; color: var(--text-muted); font-weight: bold; margin-bottom: 2px; }
     .vac-cal-cell { height: 20px; width: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.65rem; font-weight: bold; cursor: default; transition: opacity 0.2s; position: relative; border: 1px solid rgba(255,255,255,0.05); margin: 0 auto; }
     .vac-cal-cell:hover { opacity: 0.8; }
@@ -943,97 +943,114 @@
   </div> <!-- Fin de seccionHorarios -->
 
   <!-- SECCION VACACIONES -->
-  <div id="seccionVacaciones" class="vacation-container" style="display: none; padding: 20px; background: var(--surface);">
-     <div class="vacation-grid">
-       <!-- LEFT COLUMN: Form & List -->
-       <div>
-         <div class="card" style="margin-bottom: 1rem;">
-           <h3 id="vFormTitle">Registrar Vacaciones</h3>
-           <form id="vacationForm" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
-             <input type="hidden" id="vEditId" value="">
-             <div class="form-group" style="margin:0;">
-               <label>Colaborador</label>
-               <select id="vCollab" required style="width: 100%;"></select>
-             </div>
-             <div class="form-group" style="margin:0;">
-               <label>Imputar al Año (Descuento de Saldo)</label>
-               <select id="vImputacion" required style="width: 100%;">
-               </select>
-             </div>
-             <div style="display: flex; gap: 1rem;">
-               <div class="form-group" style="margin:0; flex: 1;">
-                 <label>Inicio (Lunes)</label>
-                 <input type="date" id="vStartDate" required style="width: 100%;">
-               </div>
-               <div class="form-group" style="margin:0; flex: 1;">
-                 <label>Duración</label>
-                 <select id="vWeeks" required style="width: 100%;">
-                   <option value="1">1 Sem (7 d)</option>
-                   <option value="2">2 Sem (14 d)</option>
-                   <option value="3">3 Sem (21 d)</option>
-                   <option value="4">4 Sem (28 d)</option>
-                 </select>
-               </div>
+  <div id="seccionVacaciones" class="vacation-container" style="display: none; padding: 8px 20px 20px 20px; background: var(--surface); flex-direction: column; flex: 1; overflow: hidden; box-sizing: border-box;">
+     <div class="vacation-grid" style="flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 480px; grid-template-rows: minmax(0, 1fr); gap: 24px; align-items: stretch; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden; min-height: 0;">
+       
+       <!-- LADO IZQUIERDO: Formulario, Historial, Saldos y Tabla Aprobadas -->
+       <div class="col-izquierda" style="display: flex; flex-direction: column; gap: 24px; height: 100%; min-width: 0; min-height: 0;">
+          
+          <!-- FILA SUPERIOR: 3 Columnas (Registrar, Saldos, Historial) -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+             <!-- Bloque 1: Registrar -->
+             <div class="card" style="display: flex; flex-direction: column; padding: 16px;">
+               <h3 id="vFormTitle" style="margin-top: 0; font-size: 1.1rem; color: #fff;">Registrar Vacaciones</h3>
+               <form id="vacationForm" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; flex: 1;">
+                  <input type="hidden" id="vEditId" value="">
+                  <div class="form-group" style="margin:0;">
+                      <label style="font-size: 0.8rem; color: var(--text-muted);">Colaborador</label>
+                      <select id="vCollab" required style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border);"></select>
+                   </div>
+                   <div class="form-group" style="margin:0;">
+                      <label style="font-size: 0.8rem; color: var(--text-muted);">Imputar al Año (Descuento de Saldo)</label>
+                      <select id="vImputacion" required style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border);"></select>
+                   </div>
+                   <div class="form-group" style="margin:0;">
+                      <label style="font-size: 0.8rem; color: var(--text-muted);">Duración</label>
+                      <select id="vWeeks" required style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border);">
+                         <option value="1">1 Sem (7 d)</option>
+                         <option value="2">2 Sem (14 d)</option>
+                         <option value="3">3 Sem (21 d)</option>
+                         <option value="4">4 Sem (28 d)</option>
+                      </select>
+                   </div>
+                   <div class="form-group" style="margin:0;">
+                      <label style="font-size: 0.8rem; color: var(--text-muted);">Inicio (Lunes)</label>
+                      <input type="date" id="vStartDate" required style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border);">
+                   </div>
+               </form>
              </div>
              
-             <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                <button type="submit" id="vSubmitBtn" class="primary" style="flex: 1;">Guardar Periodo</button>
-                <button type="button" id="vCancelBtn" style="flex: 1; display: none;">Cancelar</button>
-             </div>
-           </form>
-           
-           <!-- Nuevo Bloque: Saldos de Vacaciones (Aislado del form) -->
-           <div id="saldosVacacionesContainer" class="contenedor-saldos-historial" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; width: 100%; margin-top: 1rem;">
-             <!-- Renderizado por JS -->
-           </div>
-         </div>
-
-         <div class="card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-               <h3>Vacaciones Aprobadas</h3>
-               <div style="display: flex; gap: 0.5rem; align-items: center;">
-                  <label for="vFilterYear" style="font-size: 0.75rem; font-weight: bold; color: var(--text-muted);">Período:</label>
-                  <select id="vFilterYear" style="padding: 0.2rem; font-size: 0.75rem; border-radius: 4px; background: var(--bg); color: var(--text); border: 1px solid var(--border);" onchange="renderVacationTable()">
-                     <option value="Todos">Todos</option>
-                  </select>
-                  <button type="button" id="vExportExcelBtn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; display: flex; align-items: center; gap: 4px;" class="primary" onclick="exportVacationsCSV()">
-                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                     Exportar Excel RRHH
-                  </button>
+             <!-- Bloque 2: Saldos -->
+             <div class="card" style="display: flex; flex-direction: column; padding: 16px;">
+               <div id="saldosVacacionesContainer" style="flex: 1; display: flex; flex-direction: column;">
+                  <!-- JS renders Saldos here -->
                </div>
-            </div>
-            <div style="overflow-x: auto; max-height: 250px; overflow-y: auto;">
-              <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.85rem;">
-                <thead style="position: sticky; top: 0; background: var(--surface); z-index: 2;">
-                  <tr style="border-bottom: 1px solid var(--border);">
-                    <th style="padding: 0.5rem;">Colaborador</th>
-                    <th style="padding: 0.5rem;">Inicio</th>
-                    <th style="padding: 0.5rem;">Semanas</th>
-                    <th style="padding: 0.5rem;">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="vacationTableBody">
-                  <!-- Rows inyectadas via JS -->
-                </tbody>
-              </table>
-           </div>
-         </div>
+               <!-- Botón Guardar encapsulado bajo Gestión de Saldos -->
+               <div style="margin-top: 16px; display: flex; gap: 8px;">
+                  <button type="submit" form="vacationForm" id="vSubmitBtn" class="primary" style="flex: 1; padding: 10px; font-weight: bold; border-radius: 6px;">Guardar Periodo</button>
+                  <button type="button" id="vCancelBtn" style="flex: 1; padding: 10px; border-radius: 6px; display: none;">Cancelar</button>
+               </div>
+             </div>
+
+             <!-- Bloque 3: Historial -->
+             <div class="card" style="display: flex; flex-direction: column; max-height: 400px; padding: 16px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 1rem; color: #fff;">Historial de Vacaciones Aprobadas</h3>
+                <div id="historialVacacionesContainer" style="overflow-y: auto; flex: 1; padding-right: 4px; min-height: 0;">
+                  <!-- JS renders Historial here -->
+                </div>
+             </div>
+          </div>
+
+          <!-- FILA INFERIOR: Tabla Vacaciones Aprobadas -->
+          <div class="card" style="flex: 1; display: flex; flex-direction: column; padding: 16px; min-height: 0;">
+             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">Vacaciones Aprobadas</h3>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                   <!-- Filtro y Exportar -->
+                   <div style="display: flex; align-items: center; gap: 6px;">
+                      <label for="vFilterYear" style="font-size: 0.85rem; color: var(--text-muted);">Período:</label>
+                      <select id="vFilterYear" style="padding: 4px 8px; font-size: 0.85rem; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border);" onchange="renderVacationTable()">
+                         <option value="Todos">Todos</option>
+                      </select>
+                   </div>
+                   <button type="button" id="vExportExcelBtn" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; display: flex; align-items: center; gap: 6px;" class="primary" onclick="exportVacationsCSV()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                      Exportar Excel RRHH
+                   </button>
+                </div>
+             </div>
+             <div style="overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0;">
+               <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.85rem; table-layout: fixed;">
+                 <thead style="position: sticky; top: 0; background: var(--surface); z-index: 2;">
+                   <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                     <th style="padding: 6px 8px; font-weight: normal; width: 40%;">Colaborador</th>
+                     <th style="padding: 6px 8px; font-weight: normal; width: 25%;">Inicio</th>
+                     <th style="padding: 6px 8px; font-weight: normal; width: 15%;">Semanas</th>
+                     <th style="padding: 6px 8px; font-weight: normal; width: 20%;">Acciones</th>
+                   </tr>
+                 </thead>
+                 <tbody id="vacationTableBody">
+                   <!-- Rows inyectadas via JS -->
+                 </tbody>
+               </table>
+             </div>
+          </div>
        </div>
        
-       <!-- RIGHT COLUMN: Visual Calendar -->
-       <div>
-         <div class="card">
-           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-              <h3>Calendario de Superposición</h3>
-              <div style="display: flex; gap: 0.5rem;">
-                 <button type="button" id="vCalPrevMonth" style="padding: 2px 8px;">&lt;</button>
-                 <button type="button" id="vCalNextMonth" style="padding: 2px 8px;">&gt;</button>
-              </div>
-           </div>
-           <div id="vacationCalendarContainer" class="vac-cal-container">
-             <!-- Inyectado via JS -->
-           </div>
-         </div>
+       <!-- LADO DERECHO: Calendario -->
+       <div class="col-derecha" style="display: flex; flex-direction: column; height: 100%;">
+          <div class="card" style="flex: 1; display: flex; flex-direction: column; padding: 16px;">
+            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 16px; position: relative;">
+               <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">Calendario de Superposición</h3>
+               <div style="display: flex; gap: 4px; position: absolute; right: 0;">
+                  <button type="button" id="vCalPrevMonth" style="padding: 4px 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer;">&lt;</button>
+                  <button type="button" id="vCalNextMonth" style="padding: 4px 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer;">&gt;</button>
+               </div>
+            </div>
+            <div id="vacationCalendarContainer" class="vac-cal-container" style="flex: 1; overflow: hidden; min-height: 0;">
+              <!-- JS -->
+            </div>
+          </div>
        </div>
        
      </div>
@@ -2944,7 +2961,7 @@
       if (seccionMetricas) seccionMetricas.style.display = 'none';
 
       if (tabId === 'vacaciones') {
-          if (seccionVacaciones) seccionVacaciones.style.display = 'block';
+          if (seccionVacaciones) seccionVacaciones.style.display = 'flex';
           renderVacationTable();
       } else if (tabId === 'metricas') {
           if (seccionMetricas) seccionMetricas.style.display = 'block';
@@ -3030,12 +3047,15 @@
 
     let isVFilterPopulated = false;
 
-    function renderVacationTable() {
+    window.renderVacationTable = function renderVacationTable() {
        const tbody = document.getElementById('vacationTableBody');
+       if (!tbody) return;
        tbody.innerHTML = '';
        
        const filterSelect = document.getElementById('vFilterYear');
-       if (filterSelect && !isVFilterPopulated) {
+       const currentSelection = filterSelect ? filterSelect.value : 'Todos';
+       
+       if (filterSelect) {
            const years = [...new Set(state.vacations.map(v => getVacationYear(v)))].sort((a,b) => b - a);
            let currentYear = new Date().getFullYear();
            let optionsHtml = '<option value="Todos">Todos</option>';
@@ -3044,12 +3064,16 @@
            });
            filterSelect.innerHTML = optionsHtml;
            
-           if (years.includes(currentYear)) {
-               filterSelect.value = currentYear.toString();
-           } else if (years.length > 0) {
-               filterSelect.value = years.includes(currentYear + 1) ? (currentYear + 1).toString() : years[0].toString();
+           if (!isVFilterPopulated) {
+               if (years.includes(currentYear)) {
+                   filterSelect.value = currentYear.toString();
+               } else if (years.length > 0) {
+                   filterSelect.value = years.includes(currentYear + 1) ? (currentYear + 1).toString() : years[0].toString();
+               }
+               isVFilterPopulated = true;
+           } else {
+               filterSelect.value = currentSelection;
            }
-           isVFilterPopulated = true;
        }
        
        const selectedYear = filterSelect ? filterSelect.value : 'Todos';
@@ -3067,16 +3091,15 @@
           tr.style.borderBottom = "1px solid var(--border)";
           const formatDDMMYYYY = (d) => d ? d.split('-').reverse().join('-') : d;
           tr.innerHTML = `
-            <td style="padding: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <td style="padding: 6px 8px; display: flex; align-items: center; gap: 0.5rem;">
                <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${color};"></span>
                <span><strong>${v.colaboradorId}</strong> - ${cName}</span>
             </td>
-            <td style="padding: 0.5rem;">${formatDDMMYYYY(v.startDate)}</td>
-            <td style="padding: 0.5rem;">${formatDDMMYYYY(v.endDate)}</td>
-            <td style="padding: 0.5rem;">${v.weeksCount} Semana(s)</td>
-            <td style="padding: 0.5rem;">
-               <button type="button" style="padding: 0.2rem 0.5rem; margin-right: 0.25rem;" onclick="editVacation('${v.id}')">Editar</button>
-               <button type="button" class="btn-danger" style="padding: 0.2rem 0.5rem;" onclick="deleteVacation('${v.id}')">Eliminar</button>
+            <td style="padding: 6px 8px;">${formatDDMMYYYY(v.startDate)}</td>
+            <td style="padding: 6px 8px;">${v.weeksCount} Sem.</td>
+            <td style="padding: 6px 8px;">
+               <button type="button" style="padding: 2px 6px; font-size: 0.75rem; margin-right: 4px; border-radius: 4px;" onclick="editVacation('${v.id}')">Editar</button>
+               <button type="button" class="btn-danger" style="padding: 2px 6px; font-size: 0.75rem; border-radius: 4px;" onclick="deleteVacation('${v.id}')">Eliminar</button>
             </td>
           `;
           tbody.appendChild(tr);
@@ -3340,16 +3363,16 @@
        html += `
              </div>
           </div>
-          <!-- Columna Derecha: Historial Automático -->
-          <div style="display: flex; flex-direction: column; gap: 0.5rem; height: 100%; overflow-y: auto; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 0.5rem;">
-             <div style="font-size: 0.75rem; font-weight: 600; color: var(--text); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 4px;">Historial de Vacaciones Aprobadas</div>
-             ${historyHtml}
-          </div>
        `;
        
-       container.innerHTML = html;
+       if (container) container.innerHTML = html;
        
-       container.querySelectorAll('.saldo-tipo, .saldo-asignados').forEach(el => {
+       const containerHistorial = document.getElementById('historialVacacionesContainer');
+       if (containerHistorial) {
+           containerHistorial.innerHTML = historyHtml;
+       }
+       
+       if (container) container.querySelectorAll('.saldo-tipo, .saldo-asignados').forEach(el => {
           el.addEventListener('change', (e) => {
              const row = e.target.closest('.saldo-year-row');
              const y = parseInt(row.dataset.year, 10);
