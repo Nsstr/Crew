@@ -1401,8 +1401,9 @@
     }
 
     async function loadWeekPlanning() {
+      const range = state.viewRange || 7;
       const startStr = formatDate(state.currentWeekStart);
-      const endStr = formatDate(addDays(state.currentWeekStart, 6));
+      const endStr = formatDate(addDays(state.currentWeekStart, range - 1));
       const currentSunday = addDays(state.currentWeekStart, 6);
       const monthSundays = getSundaysOfMonth(currentSunday);
       
@@ -2294,8 +2295,7 @@
        state.viewRange = parseInt(e.target.value, 10);
        document.body.classList.remove('vista-7d', 'vista-14d', 'vista-21d');
        document.body.classList.add(`vista-${state.viewRange}d`);
-       renderUI();
-       renderHeatmap();
+       loadWeekPlanning();
     });
 
     document.getElementById('prevDayBtn').addEventListener('click', () => {
