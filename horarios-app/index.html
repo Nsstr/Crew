@@ -118,12 +118,10 @@
 
     .grid-container {
       background: rgba(30, 41, 59, 0.7);
-      backdrop-filter: blur(12px);
-      border-top: none;
-      flex: 1;
-      width: 100%;
-      overflow-x: auto;
+      width: 100% !important;
+      overflow-x: auto !important;
       overflow-y: hidden;
+      display: block !important;
       position: relative;
       scroll-behavior: smooth;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
@@ -161,8 +159,9 @@
 
     
     table#planningTable {
-      width: 100%;
-      table-layout: fixed;
+      width: 100% !important;
+      max-width: 100% !important;
+      table-layout: fixed !important;
       border-collapse: collapse;
     }
     
