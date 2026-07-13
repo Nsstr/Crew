@@ -1793,34 +1793,24 @@
     // 8. CÁLCULO DE ABANDONO DE SECTOR
     function calculateAbandonment() {
       const days = getWeekDays().map(d => formatDate(d));
-      const pasillos = [...new Set(state.collaborators.map(c => c.pasillo))];
-      
-      const abandonmentMap = {}; // { pasillo: { dateStr: consecutiveDays } }
-      
-      pasillos.forEach(pasillo => {
-        abandonmentMap[pasillo] = {};
-        const colIds = state.collaborators.filter(c => c.pasillo === pasillo).map(c => c.id);
-        let consecutive = 0;
+      const abandonmentMap = {}; // { collabId: maxConsecutiveGaps }
+
+      state.collaborators.forEach(collab => {
+        let consecutiveGaps = 0;
+        let maxGaps = 0;
 
         days.forEach(dateStr => {
-          let hasCoverage = false;
-          colIds.forEach(id => {
-            const val = getPlanningSlot(id, dateStr);
-            const parsed = parseShift(val);
-            if (parsed && parsed.type === 'work') {
-              hasCoverage = true;
-            }
-          });
-
-          if (!hasCoverage) {
-            consecutive++;
+          const val = getPlanningSlot(collab.id, dateStr);
+          // Si la celda está completamente vacía, no tiene turno ni "F" (Franco) ni "LIBRE"
+          if (!val || val.trim() === '' || val === '-') {
+            consecutiveGaps++;
+            if (consecutiveGaps > maxGaps) maxGaps = consecutiveGaps;
           } else {
-            consecutive = 0;
+            consecutiveGaps = 0;
           }
-          abandonmentMap[pasillo][dateStr] = consecutive;
         });
+        abandonmentMap[collab.id] = maxGaps;
       });
-
       return abandonmentMap;
     }
 
@@ -2052,12 +2042,10 @@
         let cellsHTML = '';
         
         // Collab info
-        // Calculamos abandono máximo de la semana para este colaborador (visual global) o por día.
-        // Lo haremos global para la fila.
-        const maxAbandon = Math.max(...days.map(d => abandonmentMap[collab.pasillo][formatDate(d)]));
-        let indClass = '';
-        if (maxAbandon >= 4) indClass = 'red';
-        else if (maxAbandon >= 2) indClass = 'yellow';
+        const maxAbandon = abandonmentMap[collab.id] || 0;
+        let indClass = 'green';
+        if (maxAbandon >= 3) indClass = 'red';
+        else if (maxAbandon >= 1) indClass = 'yellow';
 
         const isExported = state.exportedRows[collab.id];
         
@@ -2069,7 +2057,7 @@
           <td>
             <div class="collab-cell">
               <div class="collab-name">
-                <div class="indicator ${indClass}" title="Abandono Sector: ${maxAbandon} días"></div>
+                <div class="indicator ${indClass}" title="Baches: ${maxAbandon} días"></div>
                 ${cleanName}
               </div>
               <div class="mobile-hours-tag" id="mobile-hours-${collab.id}"></div>
