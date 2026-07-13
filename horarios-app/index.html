@@ -1059,6 +1059,23 @@
     }
     .audit-item strong { color: var(--primary); }
     .audit-item .audit-date { color: var(--info); font-weight: bold; }
+
+    /* 1. Fondo sutilmente diferenciado para la Semana 2 (Columnas de la 9 a la 15) */
+    table#planningTable th:nth-child(n+9):nth-child(-n+15),
+    table#planningTable td:nth-child(n+9):nth-child(-n+15) {
+      background-color: rgba(255, 255, 255, 0.02) !important;
+    }
+
+    /* 2. Línea divisoria rígida pero sutil a la izquierda del segundo Lunes (Columna 9) */
+    table#planningTable th:nth-child(9),
+    table#planningTable td:nth-child(9) {
+      border-left: 2px solid rgba(255, 255, 255, 0.15) !important;
+    }
+
+    /* 3. Mantener el color de los feriados intacto si caen en la segunda semana */
+    table#planningTable td:nth-child(n+9):nth-child(-n+15).holiday-col {
+      background-color: rgba(239, 68, 68, 0.15) !important;
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
