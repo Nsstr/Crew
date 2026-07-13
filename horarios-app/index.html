@@ -129,8 +129,7 @@
     
     /* New Grid Alignment Classes */
     .aligned-grid-row {
-      display: grid;
-      grid-template-columns: var(--col-left-width) repeat(7, minmax(0, 1fr)) var(--col-right-width);
+      display: block !important;
       width: 100%;
     }
     
@@ -159,8 +158,8 @@
 
     
     table#planningTable {
-      width: 100% !important;
-      max-width: 100% !important;
+      width: auto !important;
+      min-width: 100% !important;
       table-layout: fixed !important;
       border-collapse: collapse;
     }
@@ -1455,6 +1454,7 @@
 
   <!-- FIREBASE & LOGIC -->
   <script type="module">
+    console.log("¡ESTOY EDITANDO ESTE ARCHIVO REAL! ->", window.location.href);
     // 1. FIREBASE INITIALIZATION
     // Reemplaza con tus credenciales de Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
