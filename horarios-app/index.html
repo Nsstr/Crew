@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1926,83 +1926,6 @@
           const w2Container = document.getElementById(`desktop-hours-w2-${collab.id}`);
           if (w2Container) w2Container.innerHTML = renderBox(w2Hours, w2Vac, collab.hours);
 
-          let tHours = 0;
-          let hVacation = false;
-          let hHoliday = false;
-          
-          visibleDays.forEach(d => {
-             const dStr = formatDate(d);
-             const val = getPlanningSlot(collab.id, dStr);
-             const objForTardanza = getPlanningObj(collab.id, dStr) || {};
-             const parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
-             const isHoliday = state.holidays.includes(dStr);
-             
-             // Check vacations
-             const targetD = new Date(dStr + "T00:00:00");
-             for (let vac of state.vacations) {
-                if (vac.colaboradorId === collab.id) {
-                   const vacStart = new Date(vac.startDate + "T00:00:00");
-                   const vacEnd = new Date(vac.endDate + "T00:00:00");
-                   if (targetD >= vacStart && targetD <= vacEnd) {
-                      hVacation = true;
-                      break;
-                   }
-                }
-             }
-             
-             if (parsed) {
-                 if (parsed.type === 'work' && !hVacation) {
-                     tHours += parsed.hours;
-                 }
-                 if (isHoliday && ['franco', 'libre'].includes(parsed.type)) {
-                     hHoliday = true;
-                 }
-             }
-          });
-          
-          let hoursColor = 'var(--text)';
-          if (hVacation) hoursColor = 'var(--info)';
-          else if (tHours < collab.hours) hoursColor = hHoliday ? 'var(--warning)' : 'var(--danger)';
-          else if (tHours === collab.hours) hoursColor = 'var(--success)';
-          else hoursColor = 'var(--danger)';
-          
-          let extraHoursHtml = '';
-          if (tHours > collab.hours) {
-             const extraHours = Number.isInteger(tHours - collab.hours) ? (tHours - collab.hours) : (tHours - collab.hours).toFixed(1);
-             const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
-             let extraColor = (tHours <= 31) ? '#eab308' : (tHours === 32 ? 'var(--success)' : 'var(--danger)');
-             
-             extraHoursHtml = `
-               <div style="color: ${extraColor}; font-size: 0.68rem; font-weight: 700; text-align: center; line-height: 1.1; margin-top: 2px; letter-spacing: -0.2px; white-space: nowrap;">
-                 +${extraHours}h (T: ${totalStr}h)
-               </div>
-             `;
-          }
-          
-          const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
-          
-          // Template para Desktop (Completo)
-          const desktopHtml = `
-             <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-width: 65px; padding: 0 0.2rem; flex: 1;">
-               <div style="color: ${hoursColor}; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">
-                 ${totalStr}h / ${collab.hours}h
-               </div>
-               ${extraHoursHtml}
-             </div>
-          `;
-          
-          // Template para Móvil (Tag Compacto sin salto de línea en lo posible)
-          const extraTag = tHours > collab.hours ? `<span style="color:${tHours <= 31 ? '#eab308' : (tHours === 32 ? 'var(--success)' : 'var(--danger)')}; margin-left: 4px;">+${Number.isInteger(tHours - collab.hours) ? (tHours - collab.hours) : (tHours - collab.hours).toFixed(1)}h</span>` : '';
-          const mobileHtml = `
-             <span style="color: ${hoursColor};">${totalStr}h / ${collab.hours}h</span>${extraTag}
-          `;
-          
-          const mobileContainer = document.getElementById(`mobile-hours-${collab.id}`);
-          if (mobileContainer) mobileContainer.innerHTML = mobileHtml;
-          
-          const desktopContainer = document.getElementById(`desktop-hours-${collab.id}`);
-          if (desktopContainer) desktopContainer.innerHTML = desktopHtml;
-          
           // Actualización de Domingos Mensuales
           let restCount = 0;
           monthDays.forEach(d => {
@@ -2066,7 +1989,7 @@
         trHead.innerHTML += `<th class="${thClass}" style="text-align: center;">${dayName} ${isHoliday ? '<span class="holiday-badge">Feriado</span>' : ''}</th>`;
       });
       
-      trHead.innerHTML += `<th>Estado / Horas</th>`;
+
 
       // Table Body
       const tbody = document.getElementById('tableBody');
@@ -2107,8 +2030,6 @@
           francoRow.appendChild(numCell);
       });
   
-      const emptyCell = document.createElement('td');
-      francoRow.appendChild(emptyCell);
       tbody.appendChild(francoRow);
       
       const abandonmentMap = calculateAbandonment();
@@ -2359,12 +2280,7 @@
           `;
         });
 
-        html += `
-          <td class="col-estado" style="vertical-align: middle; padding: 0; min-width: 100px;">
-            <div id="desktop-hours-${collab.id}" style="display:flex; flex-direction:row; justify-content:center; align-items:center; height: 100%;">
-            </div>
-          </td>
-        `;
+
 
         tr.innerHTML = html;
         tbody.appendChild(tr);
