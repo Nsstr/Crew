@@ -170,8 +170,8 @@
       table-layout: fixed !important;
     }
     
-    table#planningTable th:not(:first-child):not(:last-child),
-    table#planningTable td:not(:first-child):not(:last-child) {
+    table#planningTable th:not(:first-child),
+    table#planningTable td:not(:first-child) {
       min-width: 120px !important;
       width: 120px !important;
       max-width: 120px !important;
@@ -189,16 +189,7 @@
       border-right: 2px solid var(--border) !important;
       box-shadow: 2px 0 5px rgba(0,0,0,0.5);
     }
-    table#planningTable th:last-child, table#planningTable td:last-child {
-      width: 100px !important;
-      min-width: 100px !important;
-      max-width: 100px !important;
-      position: sticky;
-      right: 0;
-      z-index: 20;
-      background-color: #1a1e29 !important;
-      border-left: 1px solid var(--border);
-    }
+
 
     table {
       border-collapse: collapse;
