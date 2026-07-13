@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -163,10 +163,11 @@
 
     
     table#planningTable {
-      width: max-content !important;
-      min-width: max-content !important;
-      border-collapse: collapse;
-      table-layout: auto !important;
+      width: 100% !important;
+      min-width: 100% !important;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: fixed !important;
     }
     
     table#planningTable th:not(:first-child):not(:last-child),
@@ -174,6 +175,7 @@
       min-width: 120px !important;
       width: 120px !important;
       max-width: 120px !important;
+      scroll-snap-align: start;
       text-align: center;
     }
     table#planningTable th:first-child, table#planningTable td:first-child {
@@ -184,7 +186,8 @@
       left: 0;
       z-index: 20;
       background-color: #1a1e29 !important;
-      border-right: 1px solid var(--border);
+      border-right: 2px solid var(--border) !important;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.5);
     }
     table#planningTable th:last-child, table#planningTable td:last-child {
       width: 100px !important;
@@ -1070,6 +1073,7 @@
     .audit-item strong { color: var(--primary); }
     .audit-item .audit-date { color: var(--info); font-weight: bold; }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
   <div class="main-app-nav" style="background: var(--surface); padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
@@ -1136,6 +1140,39 @@
     </div>
   </div>
 
+  <!-- PDF MODAL -->
+  <div class="login-overlay" id="pdfModal" style="display: none;">
+    <div class="login-content">
+      <h2>Exportar PDF</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">Selecciona el periodo a exportar (Máx. 21 días).</p>
+      <form id="pdfForm" style="display: flex; flex-direction: column; gap: 1rem; text-align: left;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <input type="radio" name="pdfRange" value="current" checked>
+          <span>Semana Actual (En pantalla)</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <input type="radio" name="pdfRange" value="custom">
+          <span>Rango Personalizado</span>
+        </label>
+        
+        <div id="pdfCustomDates" style="display: none; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+           <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+              <label style="font-size: 0.8rem; color: var(--text-muted);">Desde (Lunes)</label>
+              <input type="date" id="pdfDateStart" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; border-radius: 0.25rem;">
+           </div>
+           <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">La exportación incluirá automáticamente 3 semanas (21 días) a partir de la fecha seleccionada.</p>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+           <button type="button" id="pdfCancelBtn" style="flex: 1; justify-content: center; padding: 0.75rem;">Cancelar</button>
+           <button type="submit" class="primary" style="flex: 1; justify-content: center; padding: 0.75rem; font-size: 1rem;">Generar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="pdfRenderContainer" style="position: absolute; left: -9999px; top: 0; background: white; color: black; padding: 20px; font-family: sans-serif; width: 1100px;"></div>
+
   <div id="seccionHorarios" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
     <div class="top-layout-container" id="topLayout">
       <!-- BLOQUE IZQUIERDO -->
@@ -1153,6 +1190,7 @@
           </div>
           <div style="display: flex; gap: 0.5rem; align-items: stretch; height: 26px;">
             <button id="configBtn" title="Gestión de Dotación" style="display: none; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer;">⚙️</button>
+            <button id="pdfBtn" title="Exportar a PDF" style="display: none; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer;">📄</button>
           </div>
         </div>
       </div>
@@ -1433,7 +1471,7 @@
     // 1. FIREBASE INITIALIZATION
     // Reemplaza con tus credenciales de Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCJZeUE4k1XHIyxQ4lRmKvlH0eHeAZky4o",
@@ -1450,11 +1488,7 @@
     let isMockMode = false;
     try {
       const app = initializeApp(firebaseConfig);
-            db = initializeFirestore(app, {
-        localCache: persistentLocalCache({
-          tabManager: persistentMultipleTabManager()
-        })
-      });
+      db = getFirestore(app);
     } catch (e) {
       console.warn("Firebase no configurado, operando en modo Mock.");
       isMockMode = true;
@@ -1793,24 +1827,34 @@
     // 8. CÁLCULO DE ABANDONO DE SECTOR
     function calculateAbandonment() {
       const days = getWeekDays().map(d => formatDate(d));
-      const abandonmentMap = {}; // { collabId: maxConsecutiveGaps }
-
-      state.collaborators.forEach(collab => {
-        let consecutiveGaps = 0;
-        let maxGaps = 0;
+      const pasillos = [...new Set(state.collaborators.map(c => c.pasillo))];
+      
+      const abandonmentMap = {}; // { pasillo: { dateStr: consecutiveDays } }
+      
+      pasillos.forEach(pasillo => {
+        abandonmentMap[pasillo] = {};
+        const colIds = state.collaborators.filter(c => c.pasillo === pasillo).map(c => c.id);
+        let consecutive = 0;
 
         days.forEach(dateStr => {
-          const val = getPlanningSlot(collab.id, dateStr);
-          // Si la celda está completamente vacía, no tiene turno ni "F" (Franco) ni "LIBRE"
-          if (!val || val.trim() === '' || val === '-') {
-            consecutiveGaps++;
-            if (consecutiveGaps > maxGaps) maxGaps = consecutiveGaps;
+          let hasCoverage = false;
+          colIds.forEach(id => {
+            const val = getPlanningSlot(id, dateStr);
+            const parsed = parseShift(val);
+            if (parsed && parsed.type === 'work') {
+              hasCoverage = true;
+            }
+          });
+
+          if (!hasCoverage) {
+            consecutive++;
           } else {
-            consecutiveGaps = 0;
+            consecutive = 0;
           }
+          abandonmentMap[pasillo][dateStr] = consecutive;
         });
-        abandonmentMap[collab.id] = maxGaps;
       });
+
       return abandonmentMap;
     }
 
@@ -1845,6 +1889,43 @@
       monthName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
       
       state.collaborators.forEach(collab => {
+          let w1Hours = 0, w2Hours = 0;
+          let w1Vac = false, w2Vac = false;
+          
+          allDays.forEach((d, i) => {
+             const dStr = formatDate(d);
+             const val = getPlanningSlot(collab.id, dStr);
+             const obj = getPlanningObj(collab.id, dStr) || {};
+             const parsed = parseShift(val, obj.tardanzaMinutosTotales || 0);
+             
+             let isVac = state.vacations.some(vac => vac.colaboradorId === collab.id && dStr >= vac.startDate && dStr <= vac.endDate);
+             if (i < 7) {
+                 if (isVac) w1Vac = true;
+                 if (parsed && parsed.type === 'work' && !w1Vac) w1Hours += parsed.hours;
+             } else {
+                 if (isVac) w2Vac = true;
+                 if (parsed && parsed.type === 'work' && !w2Vac) w2Hours += parsed.hours;
+             }
+          });
+          
+          const renderBox = (hours, isVac, metaStr) => {
+              if (isVac) return `<div class="hour-box" style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.65em; font-weight: bold; border: 1px solid var(--info); color: var(--info);" title="Vacaciones">V</div>`;
+              let color = 'var(--danger)';
+              let borderStyle = '1px solid';
+              const meta = parseFloat(metaStr) || 48;
+              if (hours === meta) { color = 'var(--success)'; borderStyle = '2px solid'; }
+              else if (hours > meta) color = (hours <= 31) ? '#eab308' : (hours === 32 ? 'var(--success)' : 'var(--danger)');
+              
+              const text = Number.isInteger(hours) ? hours : hours.toFixed(1);
+              return `<div class="hour-box" style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.65em; font-weight: bold; border: ${borderStyle} ${color}; color: ${color};" title="Meta: ${meta}h">${text}</div>`;
+          };
+
+          const w1Container = document.getElementById(`desktop-hours-w1-${collab.id}`);
+          if (w1Container) w1Container.innerHTML = renderBox(w1Hours, w1Vac, collab.hours);
+          
+          const w2Container = document.getElementById(`desktop-hours-w2-${collab.id}`);
+          if (w2Container) w2Container.innerHTML = renderBox(w2Hours, w2Vac, collab.hours);
+
           let tHours = 0;
           let hVacation = false;
           let hHoliday = false;
@@ -2042,10 +2123,12 @@
         let cellsHTML = '';
         
         // Collab info
-        const maxAbandon = abandonmentMap[collab.id] || 0;
-        let indClass = 'green';
-        if (maxAbandon >= 3) indClass = 'red';
-        else if (maxAbandon >= 1) indClass = 'yellow';
+        // Calculamos abandono máximo de la semana para este colaborador (visual global) o por día.
+        // Lo haremos global para la fila.
+        const maxAbandon = Math.max(...days.map(d => abandonmentMap[collab.pasillo][formatDate(d)]));
+        let indClass = '';
+        if (maxAbandon >= 4) indClass = 'red';
+        else if (maxAbandon >= 2) indClass = 'yellow';
 
         const isExported = state.exportedRows[collab.id];
         
@@ -2054,21 +2137,23 @@
         const cleanName = collab.name.split('(')[0].split('-')[0].trim();
 
         let html = `
-          <td>
-            <div class="collab-cell">
-              <div class="collab-name">
-                <div class="indicator ${indClass}" title="Baches: ${maxAbandon} días"></div>
-                ${cleanName}
+          <td class="collab-cell" style="width: 260px; min-width: 260px; padding: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; height: 100%; padding: 2px 12px; box-sizing: border-box;">
+              <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                <div style="font-weight: bold; font-size: 0.75em; color: #fff; display: flex; align-items: center;">
+                  <div class="indicator ${indClass}" title="Abandono Sector: ${maxAbandon} días" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; position: relative;"></div>
+                  ${collab.id} ${cleanName}
+                </div>
+                <div class="mobile-hours-tag" id="mobile-hours-${collab.id}"></div>
+                <div class="collab-meta" style="font-size: 0.7em; display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; color: var(--text-muted);">
+                  <span>${collab.pasillo}</span>
+                  <span style="opacity: 0.3">|</span>
+                  <span id="dom-badge-${collab.id}" class="dom-badge" style="padding: 0 0.2rem; font-size: 0.7em;" title="Francos Dominicales"></span>
+                </div>
               </div>
-              <div class="mobile-hours-tag" id="mobile-hours-${collab.id}"></div>
-              <div class="collab-meta" style="justify-content: flex-start; gap: 0.35rem; align-items: center;">
-                <span>${collab.id}</span>
-                <span style="opacity: 0.3">|</span>
-                <span>${collab.pasillo}</span>
-                <span style="opacity: 0.3">|</span>
-                <span>${collab.hours}h</span>
-                <span style="opacity: 0.3">|</span>
-                <span id="dom-badge-${collab.id}" class="dom-badge" style="padding: 0 0.2rem; font-size: 0.6rem;" title="Francos Dominicales"></span>
+              <div id="desktop-hours-${collab.id}-left" style="display: flex; gap: 4px; padding-left: 8px;">
+                 <div id="desktop-hours-w1-${collab.id}"></div>
+                 <div id="desktop-hours-w2-${collab.id}"></div>
               </div>
             </div>
           </td>
@@ -4058,6 +4143,7 @@
     const adminLoginBtn = document.getElementById('adminLoginBtn');
     const logoutBtn = document.getElementById('logoutBtn');
     const configBtn = document.getElementById('configBtn');
+    const pdfBtn = document.getElementById('pdfBtn');
     // Actualiza la UI basada en el rol
     const vacationTabBtn = document.getElementById('vacationTabBtn');
     
@@ -4074,6 +4160,7 @@
     function checkLogin() {
        logoutBtn.style.display = 'none';
        configBtn.style.display = 'none';
+       if (pdfBtn) pdfBtn.style.display = 'inline-flex';
        vacationTabBtn.style.display = 'none';
        if (metricsTabBtn) metricsTabBtn.style.display = 'none';
        adminLoginBtn.style.display = 'flex'; // Siempre visible por defecto, se oculta si hay login
@@ -4413,6 +4500,168 @@
           console.error("Error al guardar log de auditoría:", err);
        }
     };
+
+    // -- EXPORTAR PDF AVANZADO --
+    const pdfModal = document.getElementById('pdfModal');
+    const pdfForm = document.getElementById('pdfForm');
+    const pdfCustomDates = document.getElementById('pdfCustomDates');
+    const pdfRadios = document.getElementsByName('pdfRange');
+
+    if (document.getElementById('pdfBtn')) {
+        document.getElementById('pdfBtn').addEventListener('click', () => {
+           pdfModal.style.display = 'flex';
+        });
+    }
+
+    document.getElementById('pdfCancelBtn').addEventListener('click', () => {
+       pdfModal.style.display = 'none';
+    });
+
+    pdfRadios.forEach(radio => {
+       radio.addEventListener('change', (e) => {
+          if (e.target.value === 'custom') {
+             pdfCustomDates.style.display = 'flex';
+          } else {
+             pdfCustomDates.style.display = 'none';
+          }
+       });
+    });
+
+    pdfForm.addEventListener('submit', async (e) => {
+       e.preventDefault();
+       const rangeType = document.querySelector('input[name="pdfRange"]:checked').value;
+       
+       let startD = new Date(state.currentWeekStart);
+       let endD = addDays(startD, 6); // Semana actual
+       
+       if (rangeType === 'custom') {
+          const valStart = document.getElementById('pdfDateStart').value;
+          if (!valStart) {
+             showToast("Error", "Debes seleccionar la fecha de inicio.");
+             return;
+          }
+          startD = new Date(valStart + "T00:00:00");
+          // Asegurar que sea lunes, opcionalmente, pero el usuario elige.
+          endD = addDays(startD, 20); // 21 días total
+       }
+       
+       pdfModal.style.display = 'none';
+       showToast("Generando PDF", "El documento se está preparando...", 3000);
+       
+       try {
+          await buildAndDownloadPDF(startD, endD);
+       } catch (err) {
+          console.error("Error al generar PDF:", err);
+          showToast("Error", "Hubo un problema al generar el PDF.");
+       }
+    });
+
+    async function buildAndDownloadPDF(startDate, endDate) {
+       const totalDays = [];
+       let curr = new Date(startDate);
+       while (curr <= endDate) {
+          totalDays.push(new Date(curr));
+          curr = addDays(curr, 1);
+       }
+       
+       const weeks = [];
+       for (let i = 0; i < totalDays.length; i += 7) {
+          weeks.push(totalDays.slice(i, i + 7));
+       }
+       
+       let htmlStr = `
+           <style>
+           .pdf-table-compact td {
+               border: 1px solid #000 !important;
+               text-align: center !important;
+               padding: 2px 4px !important;
+               font-size: 0.75rem !important; /* Tamaño único y legible */
+               font-weight: bold !important;
+               white-space: nowrap !important; /* Fuerza a que todo se mantenga en una sola línea */
+               height: 18px !important; /* Fila súper delgada */
+               background: #fff !important;
+               color: #000 !important;
+           }
+           </style>
+           <div style="background: white; color: black; padding: 10px; font-family: Arial, sans-serif; width: 100%;">
+             <div style="text-align: center; margin-bottom: 15px;">
+                <h2 style="margin: 0; font-size: 1.5rem; text-transform: uppercase;">Planilla de Horarios Semanales</h2>
+                <p style="margin: 5px 0 0 0; color: #333; font-size: 0.9rem;">
+                   Periodo: ${startDate.toLocaleDateString('es-ES')} al ${endDate.toLocaleDateString('es-ES')}
+                </p>
+             </div>
+       `;
+       
+       state.collaborators.forEach(collab => {
+          htmlStr += `
+          <div class="pdf-collaborator-card" style="margin-bottom: 6px; page-break-inside: avoid; border-bottom: 1px dashed #ccc; padding-bottom: 4px;">
+            <div style="background-color: #e6e6e6; color: #000; font-weight: bold; padding: 2px 6px; font-size: 0.8rem; text-transform: uppercase; border: 1px solid #000;">
+              ${collab.id} - ${collab.name.split('(')[0].trim()}
+            </div>
+            <table class="pdf-table-compact" style="width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 2px;">
+              <tbody>
+          `;
+
+          weeks.forEach((weekDays, wIndex) => {
+             htmlStr += `
+                 <tr>
+             `;
+             
+             weekDays.forEach(d => {
+                const dStr = formatDate(d);
+                let isOnVacation = false;
+                const targetD = new Date(dStr + "T00:00:00");
+                for (let vac of state.vacations) {
+                   if (vac.colaboradorId === collab.id) {
+                      const vacStart = new Date(vac.startDate + "T00:00:00");
+                      const vacEnd = new Date(vac.endDate + "T00:00:00");
+                      if (targetD >= vacStart && targetD <= vacEnd) isOnVacation = true;
+                   }
+                }
+                
+                let val = getPlanningSlot(collab.id, dStr);
+                if (isOnVacation) val = 'VACACIONES';
+                if (!val.trim()) val = '-';
+                if (val === 'VACACIONES') val = 'VAC';
+                const dText = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+                let cellStyle = val.length > 6 ? 'font-size: 0.65rem !important; letter-spacing: -0.5px !important;' : '';
+                
+                htmlStr += `
+                  <td style="${cellStyle}">${dText} - ${val}</td>
+                `;
+             });
+             
+             htmlStr += `
+                 </tr>
+             `;
+          });
+
+          htmlStr += `
+              </tbody>
+            </table>
+          </div>
+          `;
+       });
+       
+       htmlStr += `</div>`;
+       
+       const opt = {
+          margin:       [10, 10, 10, 10], // Márgenes de 10mm en los cuatro lados
+          filename:     `Planificacion_${formatDate(startDate)}_al_${formatDate(endDate)}.pdf`,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true },
+          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' } // A4 Horizontal
+       };
+       
+       try {
+           const worker = html2pdf().set(opt).from(htmlStr);
+           await worker.save();
+           showToast("PDF Generado", "La descarga ha finalizado.");
+       } catch(e) {
+           console.error("PDF error:", e);
+           showToast("Error", "Falló la generación del PDF.");
+       }
+    }
 
     // -- LOGS DE ACTIVIDAD (Auditoría de Turnos) --
     window.registrarLogActividad = async function(collabId, targetDate, oldValue, newValue) {
@@ -4847,14 +5096,22 @@
             const parts = e.target.value.split('-');
             const selectedDate = new Date(Date.UTC(parts[0], parts[1]-1, parts[2], 12, 0, 0));
             
-            state.currentWeekStart = getStartOfWeek(selectedDate);
-            state.viewRange = 7;
-            await loadWeekPlanning(false);
+            const currentStart = getStartOfWeek(state.currentWeekStart);
+            const diffMs = selectedDate - currentStart;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
             
-            gridContainer.scrollLeft = 0;
-            const heatmapArea = document.querySelector('.top-heatmap-area');
-            if (heatmapArea) heatmapArea.scrollLeft = 0;
+            const colWidth = window.innerWidth <= 768 ? 75 : 120;
             
+            if (diffDays >= 0 && diffDays < (state.viewRange || 7)) {
+                gridContainer.scrollLeft = diffDays * colWidth;
+            } else {
+                state.currentWeekStart = getStartOfWeek(selectedDate);
+                state.viewRange = 14;
+                await loadWeekPlanning(false);
+                
+                const targetDayIndex = selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1;
+                gridContainer.scrollLeft = targetDayIndex * colWidth;
+            }
             e.target.value = ''; 
         });
     }
