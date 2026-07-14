@@ -64,6 +64,8 @@ export function initPermissionsModule(deps) {
 export async function loadAllPermisosInvitados() {
   if (_isMockMode || !_db) return;
   try {
+    // 2. LECTURA EN APERTURA: Limpiamos la caché primero para forzar la actualización con los datos reales
+    _state.permisosInvitado = {};
     const snap = await _getDocs(_collection(_db, 'permisos_invitados'));
     snap.forEach(d => {
       _state.permisosInvitado[d.id] = d.data();
@@ -121,7 +123,10 @@ export function checkAccess(permiso) {
 // 3. ACTUALIZACIÓN DE PERMISOS EN FIREBASE
 // =============================================================================
 
-export async function updatePermission(legajo, permiso, valor) {
+export async function updatePermission(legajoRaw, permiso, valor) {
+  const legajo = String(legajoRaw).trim(); // DEBUG: 4. Asegurar string exacto
+
+  // Actualizar caché local
   if (!_state.permisosInvitado[legajo]) {
     _state.permisosInvitado[legajo] = { activo: false, permisos: {} };
   }
@@ -136,18 +141,23 @@ export async function updatePermission(legajo, permiso, valor) {
   }
 
   if (_isMockMode || !_db) {
-    console.log('[Permisos MOCK] updatePermission(' + legajo + ', ' + permiso + ', ' + valor + ')');
+    console.log(`[Permisos MOCK] updatePermission(${legajo}, ${permiso}, ${valor})`);
     return;
   }
 
+  // DEBUG: 1. Escritura robusta en Firebase
   try {
-    const ref = _doc(_db, 'permisos_invitados', legajo);
+    const docRef = _doc(_db, 'permisos_invitados', legajo);
+    // Usamos merge: true y notación de punto para campos anidados
     const updateData = permiso === 'activo'
       ? { activo: valor }
-      : { ['permisos.' + permiso]: valor };
-    await _setDoc(ref, updateData, { merge: true });
-  } catch (err) {
-    console.error('[Permisos] Error guardando permiso:', err);
+      : { [`permisos.${permiso}`]: valor };
+      
+    await _setDoc(docRef, updateData, { merge: true });
+    console.log(`Permiso '${permiso}' guardado para legajo ${legajo}: ${valor}`);
+  } catch (e) {
+    console.error("Error al guardar permiso:", e);
+    alert("Error al guardar en Firebase, revisá la consola.");
     _showToast('Error', 'No se pudo guardar el permiso en la base de datos.');
   }
 }
@@ -277,8 +287,10 @@ export async function renderGestionInvitados(container) {
       ? 'background:rgba(59,130,246,0.07);'
       : 'opacity:0.52;';
 
+    // DEBUG: 3. Estado del checkbox
     const permisosCells = PERMISO_KEYS_LOCAL.map(key => {
-      const chk = perms[key] ? 'checked' : '';
+      const isChecked = perms[key] === true;
+      const chk = isChecked ? 'checked' : '';
       const dis = activo ? '' : 'disabled';
       return '<td style="text-align:center;padding:0.45rem 0.25rem;">' +
         '<input type="checkbox" class="perm-checkbox"' +
