@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -2030,12 +2030,13 @@
              
              let isVac = state.vacations.some(vac => vac.colaboradorId === collab.id && dStr >= vac.startDate && dStr <= vac.endDate);
              
-             // SEMANA 1 REAL: Índices del 1 al 7 (ignora el domingo de margen index 0)
+             // El día 0 es el margen, así que empezamos a contar desde el índice 1
+             // SEMANA 1: Índices del 1 al 7 (son 7 días exactos)
              if (i >= 1 && i <= 7) {
                  if (isVac) w1Vac = true;
                  if (parsed && parsed.type === 'work' && !w1Vac) w1Hours += parsed.hours;
              } 
-             // SEMANA 2 REAL: Índices del 8 al 14 (ignora el lunes de margen index 15)
+             // SEMANA 2: Índices del 8 al 14 (son 7 días exactos)
              else if (i >= 8 && i <= 14) {
                  if (isVac) w2Vac = true;
                  if (parsed && parsed.type === 'work' && !w2Vac) w2Hours += parsed.hours;
@@ -2620,7 +2621,8 @@
     function renderHeatmap() {
       const allDays = getWeekDays();
       const startIndex = window.currentHeatmapStartIndex || 0;
-      const days = allDays.slice(startIndex, startIndex + 7);
+      // Saltamos el día de margen y tomamos los 7 días reales de la semana
+      const days = allDays.slice(startIndex + 1, startIndex + 8);
       const grid = document.getElementById('heatmapGrid');
       if (!grid) return;
       
