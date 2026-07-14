@@ -75,9 +75,10 @@ export async function loadAllPermisosInvitados() {
   }
 }
 
-export async function loadPermisosInvitado(legajo) {
+export async function loadPermisosInvitado(legajoRaw) {
   if (_isMockMode || !_db) return null;
   try {
+    const legajo = String(legajoRaw).trim();
     const ref  = _doc(_db, 'permisos_invitados', legajo);
     const snap = await _getDoc(ref);
     if (snap.exists()) {

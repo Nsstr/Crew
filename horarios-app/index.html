@@ -1899,6 +1899,11 @@
       // Orden por id o jerarquía para mantener estructura
       state.collaborators.sort((a, b) => a.id.localeCompare(b.id));
       
+      // 1. CARGA AL ABRIR LA SESIÓN: Recuperar permisos si entra como invitado por localStorage/sessionStorage
+      if (currentRole === 'invitado' && currentInvitadoLegajo) {
+         await loadPermisosInvitado(currentInvitadoLegajo);
+      }
+
       checkLogin(); // Verificar login luego de cargar la BD
 
       await loadWeekPlanning();
