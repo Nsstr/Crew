@@ -1,1522 +1,4 @@
-﻿<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Planificación Semanal Retail</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg: #0f172a;
-      --surface: #1e293b;
-      --surface-hover: #334155;
-      --col-left-width: 260px;
-      --col-right-width: 80px;
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --border: #334155;
-      
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --info: #0ea5e9;
-      --franco: #8b5cf6;
-      
-      --font-family: 'Inter', sans-serif;
-    }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    
-    html {
-      font-size: 16px;
-    }
-
-    body {
-      font-family: var(--font-family);
-      background-color: var(--bg);
-      color: var(--text);
-      height: 100vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      margin: 0;
-      background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08), transparent 30%),
-                        radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08), transparent 30%);
-      background-attachment: fixed;
-    }
-
-    .container {
-      width: 100% !important;
-      max-width: 100% !important;
-      margin: 0 !important;
-      padding: 0.25rem 0.5rem;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* Header */
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    h1 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      letter-spacing: -0.025em;
-    }
-
-    .controls {
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-    }
-
-    button {
-      background-color: var(--surface);
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 0.25rem 0.6rem;
-      border-radius: 0.25rem;
-      font-family: inherit;
-      font-size: 0.75rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    button:hover {
-      background-color: var(--surface-hover);
-    }
-
-    button.primary {
-      background-color: var(--primary);
-      border-color: var(--primary);
-      color: white;
-    }
-
-    button.primary:hover {
-      background-color: var(--primary-hover);
-    }
-
-    .grid-container {
-      background: rgba(30, 41, 59, 0.7);
-      width: 100% !important;
-      overflow-x: auto !important;
-      overflow-y: hidden;
-      display: block !important;
-      position: relative;
-      scroll-behavior: smooth;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-    }
-    
-    /* New Grid Alignment Classes */
-    .aligned-grid-row {
-      display: block !important;
-      width: 100%;
-    }
-    
-    .top-layout-container {
-      display: grid;
-      grid-template-columns: var(--col-left-width) 1fr;
-      align-items: stretch;
-      gap: 0;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      flex-shrink: 0;
-    }
-    .top-controls-sidebar {
-      display: flex;
-      flex-direction: column;
-      padding: 0.2rem 0.5rem;
-      gap: 0.25rem;
-      justify-content: space-evenly;
-      border-right: 1px solid var(--border);
-    }
-    .top-heatmap-area {
-      display: flex;
-      flex-direction: column;
-      justify-content: stretch;
-    }
-
-    
-    table#planningTable {
-      width: auto !important;
-      min-width: 100% !important;
-      table-layout: fixed !important;
-      border-collapse: collapse;
-    }
-    
-    table#planningTable th:not(:first-child),
-    table#planningTable td:not(:first-child),
-    th.day-column, td.day-cell {
-      width: 72px !important;
-      min-width: 72px !important;
-      max-width: 72px !important;
-      scroll-snap-align: start;
-      text-align: center;
-    }
-    table#planningTable th:first-child, table#planningTable td:first-child {
-      width: var(--col-left-width) !important;
-      min-width: var(--col-left-width) !important;
-      max-width: var(--col-left-width) !important;
-      position: sticky;
-      left: 0;
-      z-index: 20;
-      background-color: #1a1e29 !important;
-      border-right: 2px solid var(--border) !important;
-      box-shadow: 2px 0 5px rgba(0,0,0,0.5);
-    }
-
-
-    table {
-      border-collapse: collapse;
-      text-align: left;
-    }
-
-    th, td {
-      padding: 0.1rem 0.2rem;
-      border-bottom: 1px solid var(--border);
-      border-right: 1px solid var(--border);
-    }
-    
-    th:last-child, td:last-child {
-      border-right: none;
-    }
-
-    th {
-      background-color: rgba(30, 41, 59, 0.9);
-      font-weight: 500;
-      font-size: 0.85em;
-      color: var(--text-muted);
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      padding: 0 0.25rem;
-      height: 20px;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    tr:hover td {
-      background-color: rgba(51, 65, 85, 0.3);
-    }
-    
-    /* View Range Adjustments */
-    .vista-14d { --col-right-width: 170px; }
-    .vista-21d { --col-right-width: 250px; }
-    .vista-14d .cell-input { font-size: 0.7rem; padding: 0 0.1rem; }
-    .vista-21d .cell-input { font-size: 0.65rem; padding: 0; text-align: center; }
-    .vista-14d th { font-size: 0.65rem; }
-    .vista-21d th { font-size: 0.6rem; letter-spacing: -0.5px; padding: 0 0.1rem; }
-    .vista-21d td { padding: 0; }
-    .vista-14d .fila-total-francos td { font-size: 0.75rem; }
-    .vista-21d .fila-total-francos td { font-size: 0.7rem; }
-    
-    .vacation-tag {
-       position: absolute;
-       left: 4px;
-       top: 50%;
-       transform: translateY(-50%);
-       font-size: 0.65rem;
-       font-weight: 700;
-       color: var(--info);
-       pointer-events: none;
-       z-index: 1;
-    }
-    .vista-21d .vacation-tag {
-       font-size: 0.5rem;
-       top: 1px;
-       left: 1px;
-       transform: none;
-       background: transparent;
-       padding: 0;
-    }
-    
-    .cell-input.vacation-active { padding-left: 18px; }
-    .vista-21d .cell-input.vacation-active { padding-left: 0; }
-
-    /* Cell Inputs */
-    .cell-input {
-      width: 100%;
-      height: 20px;
-      font-size: 0.75rem;
-      background-color: var(--bg);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 0.25rem;
-      text-align: center;
-      font-weight: 600;
-      font-size: 0.75rem;
-      outline: none;
-      transition: all 0.2s;
-    }
-
-    .cell-input:focus {
-      border-color: var(--primary);
-    }
-    
-    .input-work { border-left: 3px solid var(--info); }
-    .input-franco { border-left: 3px solid var(--franco); color: var(--franco); }
-    .input-absence { border-left: 3px solid var(--text-muted); color: var(--text-muted); }
-    .input-libre { border-left: 3px solid #64748b; color: #64748b; }
-    .input-error { border: 1px solid var(--danger); background-color: rgba(239, 68, 68, 0.1); color: var(--danger); font-weight: bold; }
-    
-    .vacation-error {
-      background-color: rgba(239, 68, 68, 0.2) !important;
-      border: 2px solid var(--danger) !important;
-    }
-    .vacation-warning {
-      border: 2px solid var(--warning) !important;
-      background-color: rgba(245, 158, 11, 0.1) !important;
-    }
-
-
-    .holiday-col {
-      background-color: rgba(239, 68, 68, 0.1) !important;
-    }
-    
-    .input-holiday-absence {
-      background-color: rgba(239, 68, 68, 0.4) !important;
-      border: 1px solid var(--danger) !important;
-      color: var(--text) !important;
-    }
-
-    .franco-warning {
-      background-color: rgba(245, 158, 11, 0.2) !important;
-      border: 1px solid var(--warning) !important;
-      color: var(--warning) !important;
-    }
-
-    .franco-error {
-      background-color: rgba(239, 68, 68, 0.2) !important;
-      border: 2px solid var(--danger) !important;
-      color: var(--danger) !important;
-      font-weight: bold;
-    }
-
-    /* Collaborator Cell */
-    .collab-cell {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 200px;
-    }
-    .collab-name {
-      font-weight: 500;
-      font-size: 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-    .collab-meta {
-      font-size: 0.65rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-      color: var(--text-muted);
-    }
-
-    /* Abandonment Indicator */
-    .indicator {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background-color: var(--success);
-      box-shadow: 0 0 8px var(--success);
-      flex-shrink: 0;
-    }
-
-    .indicator.yellow {
-      background-color: var(--warning);
-      box-shadow: 0 0 8px var(--warning);
-    }
-
-    .indicator.red {
-      background-color: var(--danger);
-      box-shadow: 0 0 8px var(--danger);
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-      70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-    }
-    
-    /* Export Status */
-    .export-status {
-      font-size: 0.75rem;
-      padding: 0.25rem 0.5rem;
-      border-radius: 1rem;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      text-align: center;
-      color: var(--text-muted);
-    }
-    
-    .export-status.sent {
-      background: rgba(16, 185, 129, 0.1);
-      border-color: var(--success);
-      color: var(--success);
-    }
-
-    /* Counters Footer */
-    .counters {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-      margin-top: 0.5rem;
-    }
-    .counter-row {
-      display: flex;
-      justify-content: space-between;
-    }
-
-    /* Context Menu and Cell Modals */
-    .context-menu {
-      position: absolute;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      z-index: 9999;
-      min-width: 200px;
-      overflow: hidden;
-    }
-    .context-menu-item {
-      padding: 10px 15px;
-      font-size: 0.85rem;
-      color: var(--text);
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .context-menu-item:hover {
-      background: var(--bg);
-    }
-    .cell-wrapper.has-comment::after {
-       content: "";
-       position: absolute;
-       top: 0;
-       right: 0;
-       width: 0;
-       height: 0;
-       border-style: solid;
-       border-width: 0 8px 8px 0;
-       border-color: transparent var(--danger) transparent transparent;
-       pointer-events: none;
-    }
-    .cell-wrapper.is-fixed::before {
-       content: "";
-       position: absolute;
-       top: 0;
-       left: 0;
-       width: 0;
-       height: 0;
-       border-style: solid;
-       border-width: 8px 8px 0 0;
-       border-color: var(--primary) transparent transparent transparent;
-       pointer-events: none;
-    }
-    
-    .mobile-hours-tag { display: none; }
-
-    /* Modals/Alerts */
-    .toast-container {
-      position: fixed;
-      bottom: 2rem;
-      right: 2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      z-index: 50;
-    }
-
-    .toast {
-      background: var(--surface);
-      border-left: 4px solid var(--danger);
-      padding: 1rem 1.5rem;
-      border-radius: 0.5rem;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-      transform: translateX(120%);
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .toast.show {
-      transform: translateX(0);
-    }
-
-    .toast-title {
-      font-weight: 600;
-      margin-bottom: 0.25rem;
-    }
-
-    .toast-desc {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-    }
-
-    /* Date controls */
-    .date-nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.25rem;
-      background: rgba(15, 23, 42, 0.6);
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.5rem;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .date-nav button {
-      border: none;
-      background: transparent;
-      padding: 0.2rem;
-      color: white;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    .date-nav button:hover {
-      color: var(--primary);
-    }
-    
-    .holiday-badge {
-      font-size: 0.55rem;
-      background: var(--danger);
-      color: white;
-      padding: 0.1rem 0.2rem;
-      border-radius: 0.25rem;
-      margin-left: 0.5rem;
-      text-transform: uppercase;
-      font-weight: bold;
-    }
-
-    .dom-badge {
-      font-size: 0.55rem;
-      padding: 0.1rem 0.25rem;
-      border-radius: 0.25rem;
-      background: var(--surface-hover);
-      color: var(--text-muted);
-      border: 1px solid var(--border);
-      font-weight: bold;
-      white-space: nowrap;
-    }
-    .dom-badge.success {
-      background: rgba(16, 185, 129, 0.1);
-      color: var(--success);
-      border-color: var(--success);
-    }
-    .dom-badge.danger {
-      background: rgba(239, 68, 68, 0.1);
-      color: var(--danger);
-      border-color: var(--danger);
-    }
-
-    /* Heatmap Grid */
-    .heatmap-row {
-       display: grid;
-       grid-template-columns: 65px repeat(24, 1fr);
-       flex: 1;
-       transition: background-color 0.15s ease;
-    }
-    .heatmap-row:not(.heatmap-header-row):hover {
-       background-color: rgba(255, 255, 255, 0.1);
-    }
-    .heatmap-header-cell {
-       display: flex;
-       justify-content: center;
-       align-items: center;
-       font-size: 0.6rem;
-       color: var(--text-muted);
-       font-weight: bold;
-       padding-bottom: 2px;
-    }
-    
-    .heatmap-row-label {
-       display: flex;
-       align-items: center;
-       font-weight: bold;
-       font-size: 0.6rem;
-       color: var(--text-muted);
-       padding-right: 0.5rem;
-       white-space: nowrap;
-       justify-content: flex-end;
-       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .heatmap-cell {
-       height: 100%;
-       min-height: 12px;
-       border-radius: 0;
-       display: flex;
-       justify-content: center;
-       align-items: center;
-       font-size: 0.55rem;
-       font-weight: bold;
-       color: rgba(255, 255, 255, 0.9);
-       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-       border-right: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .heat-danger { background-color: var(--danger); }
-    .heat-warning { background-color: var(--warning); color: #1e293b; }
-    .heat-success { background-color: var(--success); }
-
-    /* Modal Config */
-    .modal-overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(15, 23, 42, 0.8);
-      backdrop-filter: blur(4px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-    }
-    .modal-overlay.active {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    .modal-content {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 1rem;
-      padding: 2rem;
-      width: 100%;
-      max-width: 1200px;
-      max-height: 90vh;
-      display: grid;
-      grid-template-columns: 350px 1fr;
-      gap: 1.5rem;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-    }
-    @media (max-width: 768px) {
-       .modal-content { grid-template-columns: 1fr; overflow-y: auto; }
-       
-       /* 1. Bottom Toolbar & Heatmap Restructure */
-       .top-layout-container {
-         display: block !important;
-       }
-       .top-controls-sidebar {
-         position: static;
-         width: 0; height: 0; padding: 0 !important; border: none !important; overflow: visible;
-       }
-       #header-controls-horarios {
-         position: fixed;
-         bottom: 0;
-         left: 0;
-         width: 100%;
-         background: var(--surface);
-         z-index: 100;
-         padding: 12px;
-         display: flex;
-         flex-direction: row !important;
-         justify-content: space-around;
-         align-items: center;
-         border-top: 1px solid var(--border);
-         box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
-       }
-       .date-nav {
-         display: flex;
-         width: 100%;
-         justify-content: space-between;
-         align-items: center;
-       }
-       .date-nav button {
-         padding: 0.75rem 1.5rem;
-         font-size: 1.25rem;
-         background: var(--primary) !important;
-         color: white !important;
-         border: none;
-         border-radius: 0.5rem;
-         -webkit-tap-highlight-color: transparent;
-       }
-       .date-nav button:hover,
-       .date-nav button:focus,
-       .date-nav button:active {
-         color: white !important;
-         background: var(--primary-hover) !important;
-         outline: none !important;
-       }
-       .date-nav #weekLabel {
-         font-size: 1.1rem;
-       }
-       #header-controls-horarios > div:not(.date-nav) {
-         display: none !important;
-       }
-       .top-heatmap-area {
-         overflow-x: auto !important;
-         width: 100%;
-       }
-       #app-grid-container {
-         margin-bottom: 80px;
-       }
-       
-       @keyframes pulse-skeleton {
-         0% { background-color: rgba(255, 255, 255, 0.02); }
-         50% { background-color: rgba(255, 255, 255, 0.08); }
-         100% { background-color: rgba(255, 255, 255, 0.02); }
-       }
-       .skeleton-cell {
-         animation: pulse-skeleton 1.5s infinite ease-in-out !important;
-         background-color: rgba(255, 255, 255, 0.05) !important;
-         pointer-events: none !important;
-       }
-       .skeleton-input {
-         opacity: 0 !important;
-       }
-       .skeleton-cell::before, .skeleton-cell::after {
-         display: none !important;
-       }
-       
-       table#planningTable th.col-estado,
-       table#planningTable td.col-estado {
-         display: none !important;
-       }
-       
-       .mobile-hours-tag {
-         display: block !important;
-         font-size: 0.65rem;
-         font-weight: bold;
-         margin-top: 2px;
-       }
-       
-       table#planningTable th:first-child, 
-       table#planningTable td:first-child {
-         position: sticky;
-         left: 0;
-         z-index: 10;
-         background: var(--surface) !important;
-         min-width: 110px !important;
-         max-width: 110px !important;
-         width: 110px !important;
-         white-space: nowrap;
-         overflow: hidden;
-         text-overflow: ellipsis;
-       }
-       table#planningTable td:first-child {
-         z-index: 11;
-       }
-       table#planningTable th:first-child {
-         z-index: 12;
-       }
-
-       /* Day columns fixed width */
-       table#planningTable th:not(:first-child):not(:last-child),
-       table#planningTable td:not(:first-child):not(:last-child) {
-         min-width: 75px !important;
-         width: 75px !important;
-         max-width: 75px !important;
-         text-align: center;
-       }
-       
-       table#planningTable th:not(:first-child):not(:last-child) {
-         font-size: 0.7rem !important;
-         white-space: nowrap;
-         padding: 4px 2px !important;
-       }
-
-       /* 3. Extreme Minimalism */
-       .collab-meta, .indicator, .holiday-badge, .dom-badge {
-         display: none !important;
-       }
-       .cell-input {
-         font-size: 0.8rem !important;
-         text-align: center;
-         padding: 0 !important;
-       }
-       /* Clean Bottom Sheet Menu */
-       #contextMenu {
-         position: fixed !important;
-         top: auto !important;
-         bottom: 0 !important;
-         left: 0 !important;
-         width: 100% !important;
-         border-radius: 1.5rem 1.5rem 0 0 !important;
-         box-shadow: 0 -4px 20px rgba(0,0,0,0.5) !important;
-         padding: 1.5rem 1rem 2rem 1rem !important;
-         animation: slideUp 0.3s ease-out forwards;
-       }
-
-       /* Vacaciones Mobile Layout Strict Flow */
-       #seccionVacaciones {
-         padding: 16px !important;
-         overflow-y: auto !important;
-       }
-       .vacation-grid {
-         display: flex !important;
-         flex-direction: column !important;
-         gap: 24px !important;
-         width: 100% !important;
-         box-sizing: border-box !important;
-         height: auto !important;
-         overflow: visible !important;
-       }
-       .vacation-grid .col-izquierda,
-       .vacation-grid .col-derecha,
-       .vacation-grid .col-izquierda > div:first-child {
-         display: contents !important;
-       }
-       
-       /* Order */
-       .vacation-grid .col-derecha > .card {
-         order: 1; /* Calendario */
-       }
-       .vacation-grid .col-izquierda > .card {
-         order: 2; /* Vacaciones Aprobadas */
-       }
-       .vacation-grid .col-izquierda > div:first-child > .card:nth-child(1) {
-         order: 3; /* Registrar */
-       }
-       .vacation-grid .col-izquierda > div:first-child > .card:nth-child(2) {
-         order: 4; /* Saldos */
-       }
-       .vacation-grid .col-izquierda > div:first-child > .card:nth-child(3) {
-         order: 5; /* Historial */
-         max-height: none !important;
-       }
-       
-       .vacation-grid .card {
-         width: 100% !important;
-         max-width: 100% !important;
-         height: auto !important;
-         flex: none !important;
-       }
-       
-       .vac-cal-container {
-         grid-template-columns: repeat(2, 1fr) !important;
-         gap: 0.5rem !important;
-         overflow-y: auto !important;
-         max-height: none !important;
-       }
-       .vac-cal-grid {
-         grid-template-columns: repeat(7, 18px) !important;
-         gap: 2px !important;
-       }
-       .vac-cal-cell {
-         width: 18px !important;
-         height: 18px !important;
-         font-size: 0.6rem !important;
-       }
-       .vac-cal-header {
-         font-size: 0.75rem !important;
-       }
-       
-       /* Fix Header Buttons */
-       .main-app-nav {
-         flex-direction: column !important;
-         height: auto !important;
-         padding: 8px !important;
-         gap: 8px !important;
-         align-items: center !important;
-         position: relative !important;
-         z-index: 9999 !important;
-       }
-       .app-tabs {
-         justify-content: center;
-         flex-wrap: wrap;
-       }
-       .nav-auth-controls {
-         height: auto !important;
-         flex-wrap: wrap;
-         justify-content: center;
-         gap: 6px !important;
-         position: relative !important;
-         z-index: 10000 !important;
-         visibility: visible !important;
-         display: flex !important;
-       }
-       #logoutBtn, #adminLoginBtn, #backupDriveBtn {
-         font-size: 0.65rem !important;
-         padding: 4px 6px !important;
-         white-space: nowrap !important;
-         line-height: 1.2 !important;
-         height: auto !important;
-       }
-       
-       /* Fix touch horizontal scroll */
-       .grid-container {
-         width: 100% !important;
-         max-width: 100vw !important;
-         overflow-x: auto !important;
-         -webkit-overflow-scrolling: touch !important;
-         display: block !important;
-       }
-       body, html, #seccionHorarios {
-         overflow-x: hidden !important;
-       }
-    }
-    
-    @keyframes slideUp {
-       from { transform: translateY(100%); }
-       to { transform: translateY(0); }
-    }
-    .modal-left {
-       display: flex; flex-direction: column;
-       max-height: calc(90vh - 3rem); overflow-y: auto;
-       padding-right: 0.5rem;
-    }
-    .modal-right {
-       display: flex; flex-direction: column;
-       max-height: calc(90vh - 3rem); overflow-y: auto;
-       padding-left: 0.5rem;
-       border-left: 1px solid var(--border);
-    }
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
-    .modal-header h2 { font-size: 1.15rem; }
-    .close-modal { cursor: pointer; background: transparent; border: none; font-size: 1.5rem; color: var(--text-muted); }
-    .form-group { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.5rem; min-width: 0; }
-    .form-group label { font-size: 0.8rem; }
-    .form-group input, .form-group select {
-      background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.4rem 0.5rem; border-radius: 0.4rem; font-family: inherit; font-size: 0.85rem; width: 100%; box-sizing: border-box; min-width: 0;
-    }
-    .form-group input:focus, .form-group select:focus { border-color: var(--primary); outline: none; }
-    option { background: var(--bg); color: var(--text); }
-    
-    .bento-grid {
-       display: grid;
-       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-       gap: 0.75rem;
-    }
-    
-    .bento-card {
-       background: rgba(30, 41, 59, 0.5);
-       border: 1px solid rgba(255, 255, 255, 0.1);
-       border-radius: 0.5rem;
-       padding: 0.75rem;
-       cursor: pointer;
-       transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-       position: relative;
-    }
-    .bento-card:hover {
-       transform: translateY(-2px);
-       border-color: var(--primary);
-       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-    .bento-badge {
-       display: inline-block;
-       font-size: 0.55rem;
-       padding: 0.1rem 0.3rem;
-       border-radius: 0.25rem;
-       font-weight: bold;
-       margin-top: 0.25rem;
-       border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .btn-danger { background: var(--danger); border-color: var(--danger); color: white; }
-    .btn-danger:hover { background: #b91c1c; }
-
-    /* Tabs and Header Integration */
-    .app-header { display: none; } /* Replaced by top-layout-container */
-    .app-tabs { display: flex; gap: 0.75rem; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 0.25rem; }
-    .app-tab-btn { background: transparent; border: none; color: var(--text-muted); font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0.15rem 0.25rem; border-bottom: 2px solid transparent; transition: color 0.2s, border-color 0.2s; border-radius: 2px 2px 0 0; }
-    .app-tab-btn:hover { color: var(--text); }
-    .app-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
-    .tab-pane { display: none; }
-    .tab-pane.active { display: block; }
-    
-    .input-vacation-locked { background: rgba(56, 189, 248, 0.1) !important; color: var(--primary) !important; font-weight: 700; cursor: not-allowed; text-align: center; }
-    .input-franco-locked { background: rgba(239, 68, 68, 0.1) !important; color: var(--danger) !important; font-weight: 700; cursor: not-allowed; text-align: center; }
-
-    .vacation-container {
-        position: absolute;
-        top: 50px; /* Justo debajo del header fijo */
-        left: 0;
-        width: 100%;
-        height: calc(100vh - 50px);
-        background: var(--surface); /* Fondo sólido */
-        z-index: 100; /* Asegurar que flote sobre todo */
-        overflow-y: auto;
-        padding: 20px;
-    }
-
-    /* Vacation Split Layout */
-    .vacation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
-    @media (max-width: 1024px) {
-       .vacation-grid { grid-template-columns: 1fr; }
-    }
-    
-    /* Vacation Calendar Grid */
-    .vac-cal-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; overflow: hidden; align-content: start; }
-    .vac-cal-month { margin-bottom: 0; padding: 0; display: flex; flex-direction: column; }
-    .vac-cal-header { font-weight: 700; font-size: 0.85rem; margin-bottom: 0.2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.2rem; text-align: center; color: var(--text); }
-    .vac-cal-grid { display: grid; grid-template-columns: repeat(7, 22px); gap: 4px; justify-content: center; margin-top: 0.3rem; }
-    .vac-cal-day-header { text-align: center; font-size: 0.65rem; color: var(--text-muted); font-weight: bold; margin-bottom: 2px; }
-    .vac-cal-cell { height: 20px; width: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.65rem; font-weight: bold; cursor: default; transition: opacity 0.2s; position: relative; border: 1px solid rgba(255,255,255,0.05); margin: 0 auto; }
-    .vac-cal-cell:hover { opacity: 0.8; }
-    .vac-cal-cell.empty { background: transparent; border-color: transparent; }
-    .vac-cal-cell.density-0 { background: var(--bg); color: var(--text-muted); }
-    .vac-cal-cell.density-1 { background: rgba(56, 189, 248, 0.2); color: #38bdf8; } /* Azul tenue */
-    .vac-cal-cell.density-2 { background: rgba(251, 146, 60, 0.2); color: #fb923c; } /* Naranja intermedio */
-    .vac-cal-cell.density-3 { background: var(--danger); color: #fff; } /* Rojo intenso para >=3 */
-    .vac-cal-cell.week-danger { background: var(--danger) !important; color: #fff !important; } /* Alerta semanal */
-    .vac-cal-cell.holiday { border-bottom: 3px solid var(--danger) !important; color: var(--danger); }
-    
-    /* Login Modal */
-    .login-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(15, 23, 42, 0.98);
-      backdrop-filter: blur(8px);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 9999;
-    }
-    .login-content {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 1rem;
-      padding: 2.5rem;
-      width: 100%;
-      max-width: 400px;
-      text-align: center;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    }
-    .login-content h2 { margin-bottom: 0.5rem; color: var(--primary); }
-    
-    /* Audit Styles */
-    .audit-bell {
-      position: relative;
-      display: none;
-      background: transparent;
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 0.25rem;
-      padding: 0 0.5rem;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: var(--text-muted);
-      transition: all 0.2s;
-    }
-    .audit-bell:hover { color: var(--text); border-color: rgba(255,255,255,0.4); }
-    .audit-badge {
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      background: #e11d48;
-      color: white;
-      font-size: 0.65rem;
-      font-weight: bold;
-      border-radius: 50%;
-      min-width: 16px;
-      height: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 4px;
-      animation: pulse-red 2s infinite;
-    }
-    @keyframes pulse-red {
-      0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); }
-      70% { box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
-    }
-    .audit-list {
-      max-height: 400px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      text-align: left;
-    }
-    .audit-item {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      padding: 0.75rem;
-      border-radius: 0.5rem;
-      font-size: 0.85rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-    }
-    .audit-item strong { color: var(--primary); }
-    .audit-item .audit-date { color: var(--info); font-weight: bold; }
-
-    /* Afecta a los encabezados de la segunda semana */
-    table#planningTable th:nth-child(n+9):nth-child(-n+15) {
-      background-color: rgba(255, 255, 255, 0.04) !important;
-    }
-
-    /* Afecta directamente al fondo de los inputs de la segunda semana */
-    table#planningTable td:nth-child(n+9):nth-child(-n+15) .cell-input {
-      background-color: rgba(255, 255, 255, 0.03) !important;
-    }
-
-    /* Línea divisoria vertical exacta en el Lunes de la segunda semana */
-    table#planningTable th:nth-child(10),
-    table#planningTable td:nth-child(10) {
-      border-left: 3px solid rgba(255, 255, 255, 0.25) !important;
-    }
-
-    /* 3. Mantener el color de los feriados intacto si caen en la segunda semana */
-    table#planningTable td:nth-child(n+9):nth-child(-n+15).holiday-col {
-      background-color: rgba(239, 68, 68, 0.15) !important;
-    }
-
-    /* Compactar días para que quepan los 16 días con los márgenes */
-    table#planningTable th:not(:first-child),
-    table#planningTable td:not(:first-child),
-    th.day-column, td.day-cell {
-      width: 70px !important;
-      min-width: 70px !important;
-      max-width: 70px !important;
-    }
-
-    /* Asegurar que el scroll no se meta debajo del bloque fijo de colaboradores */
-    table#planningTable th:first-child, 
-    table#planningTable td:first-child {
-      position: sticky !important;
-      left: 0 !important;
-      z-index: 30 !important;
-      width: 260px !important;
-      min-width: 260px !important;
-      max-width: 260px !important;
-      background-color: #1a1e29 !important;
-    }
-
-    /* Bajar opacidad al 70% a las cabeceras de los días de margen */
-    table#planningTable th:nth-child(2),
-    table#planningTable th:nth-child(17) {
-      opacity: 0.3 !important;
-    }
-
-    /* Bajar opacidad al 70% a los inputs de los días de margen */
-    table#planningTable td:nth-child(2) .cell-input,
-    table#planningTable td:nth-child(17) .cell-input {
-      opacity: 0.3 !important;
-    }
-
-    /* Si el cursor se posa sobre ellos, recuperan el 100% de brillo para editar cómodo */
-    table#planningTable td:nth-child(2) .cell-input:focus,
-    table#planningTable td:nth-child(17) .cell-input:focus,
-    table#planningTable td:nth-child(2) .cell-input:hover,
-    table#planningTable td:nth-child(17) .cell-input:hover {
-      opacity: 1 !important;
-    }
-  </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-</head>
-<body>
-  <div class="main-app-nav" style="background: var(--surface); padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
-    <div class="app-tabs">
-      <button class="app-tab-btn active" id="tabHorarios" onclick="switchTab('horarios')">Grid Semanal</button>
-      <button class="app-tab-btn" id="vacationTabBtn" onclick="switchTab('vacaciones')" style="display: none;">Plan Anual Vacaciones</button>
-      <button class="app-tab-btn" id="metricsTabBtn" onclick="switchTab('metricas')" style="display: none;">Dashboard Métricas</button>
-    </div>
-    <div class="nav-auth-controls" style="display: flex; gap: 0.5rem; height: 26px;">
-      <button id="auditBellBtn" class="audit-bell" title="Log de Auditoría">
-        🔔 <span id="auditBadge" class="audit-badge" style="display: none;">0</span>
-      </button>
-      <button id="backupDriveBtn" style="display: none; background: transparent; color: var(--success); border: 1px solid var(--success); border-radius: 0.25rem; padding: 0 0.75rem; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;" title="Respaldar todo en Google Sheets">Backup Drive</button>
-      <button id="adminLoginBtn" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">Acceso Admin</button>
-      <button id="logoutBtn" style="display: none; background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">Salir</button>
-    </div>
-  </div>
-
-
-  <!-- AUDITORÍA MODAL -->
-  <div class="login-overlay" id="auditoriaModal" style="display: none; z-index: 9999;">
-    <div class="login-content" style="max-width: 650px; width: 90%;">
-      <h2>Log de Auditoría</h2>
-      <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.85rem;">Cambios recientes en la grilla que requieren revisión.</p>
-      <div id="auditListContainer" class="audit-list">
-        <!-- Logs se inyectan aquí -->
-      </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
-         <button type="button" id="auditHistoryToggleBtn" style="padding: 0.5rem 1rem; background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 0.25rem; cursor: pointer;">Ver Historial Completo</button>
-         <button type="button" id="auditCloseBtn" style="padding: 0.5rem 1rem;">Cerrar</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- LOGIN MODAL (Para Admin) -->
-  <div class="login-overlay" id="loginModal" style="display: none;">
-    <div class="login-content">
-      <h2>Acceso Administrador</h2>
-      <form id="loginForm" style="display: flex; flex-direction: column; gap: 1rem;">
-        <input type="text" id="loginLegajo" placeholder="Nº de Legajo" required style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.75rem; border-radius: 0.5rem; font-size: 1rem; text-align: center; outline: none;">
-        <input type="password" id="loginPass" placeholder="Contraseña" required style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.75rem; border-radius: 0.5rem; font-size: 1rem; text-align: center; outline: none;">
-        <div style="display: flex; gap: 0.5rem;">
-           <button type="button" id="loginCancelBtn" style="flex: 1; justify-content: center; padding: 0.75rem;">Cancelar</button>
-           <button type="submit" class="primary" style="flex: 1; justify-content: center; padding: 0.75rem; font-size: 1rem;">Ingresar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- EDITOR MODAL (On Demand) -->
-  <div class="login-overlay" id="editorModal" style="display: none;">
-    <div class="login-content">
-      <h2 style="color: var(--info);">Firma de Edición</h2>
-      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">Para modificar la grilla debes identificarte.</p>
-      <form id="editorForm" style="display: flex; flex-direction: column; gap: 1rem;">
-        <input type="text" id="editorLegajo" placeholder="Nº de Legajo" required autocomplete="off" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.75rem; border-radius: 0.5rem; font-size: 1rem; text-align: center; outline: none;">
-        <div id="editorNombreDisplay" style="text-align: center; font-weight: 600; color: var(--info); font-size: 1.1rem; min-height: 1.5rem;"></div>
-        <input type="hidden" id="editorNombre">
-        <div style="display: flex; gap: 0.5rem;">
-           <button type="button" id="editorCancelBtn" style="flex: 1; justify-content: center; padding: 0.75rem;">Cancelar</button>
-           <button type="submit" class="primary" style="flex: 1; justify-content: center; padding: 0.75rem; font-size: 1rem;">Firmar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- PDF MODAL -->
-  <div class="login-overlay" id="pdfModal" style="display: none;">
-    <div class="login-content">
-      <h2>Exportar PDF</h2>
-      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">Selecciona el periodo a exportar (Máx. 21 días).</p>
-      <form id="pdfForm" style="display: flex; flex-direction: column; gap: 1rem; text-align: left;">
-        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-          <input type="radio" name="pdfRange" value="current" checked>
-          <span>Semana Actual (En pantalla)</span>
-        </label>
-        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-          <input type="radio" name="pdfRange" value="custom">
-          <span>Rango Personalizado</span>
-        </label>
-        
-        <div id="pdfCustomDates" style="display: none; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
-           <div style="display: flex; flex-direction: column; gap: 0.2rem;">
-              <label style="font-size: 0.8rem; color: var(--text-muted);">Desde (Lunes)</label>
-              <input type="date" id="pdfDateStart" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; border-radius: 0.25rem;">
-           </div>
-           <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">La exportación incluirá automáticamente 3 semanas (21 días) a partir de la fecha seleccionada.</p>
-        </div>
-
-        <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-           <button type="button" id="pdfCancelBtn" style="flex: 1; justify-content: center; padding: 0.75rem;">Cancelar</button>
-           <button type="submit" class="primary" style="flex: 1; justify-content: center; padding: 0.75rem; font-size: 1rem;">Generar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div id="pdfRenderContainer" style="position: absolute; left: -9999px; top: 0; background: white; color: black; padding: 20px; font-family: sans-serif; width: 1100px;"></div>
-
-  <div id="seccionHorarios" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
-    <div class="top-layout-container" id="topLayout">
-      <!-- BLOQUE IZQUIERDO -->
-      <div class="top-controls-sidebar">
-        <div id="header-controls-horarios" class="controls" style="display: flex; flex-direction: column; gap: 0.25rem;">
-          <div class="date-nav">
-            <button id="prevWeekBtn" title="Semana Anterior">&lt;</button>
-            <button id="prevDayBtn" title="Día Anterior">&larr;</button>
-            <div style="position: relative; flex: 1; display: flex; align-items: center; justify-content: center;">
-              <span id="weekLabel" style="font-weight: 600; font-size: 0.85rem; text-align: center; color: white; width: 100%;">Cargando...</span>
-              <input type="date" id="desktop-datepicker-trigger" onclick="this.showPicker && this.showPicker()" style="position: absolute; opacity: 0; width: 100%; height: 100%; top: 0; left: 0; cursor: pointer; z-index: 10;">
-            </div>
-            <button id="nextDayBtn" title="Día Siguiente">&rarr;</button>
-            <button id="nextWeekBtn" title="Semana Siguiente">&gt;</button>
-          </div>
-          <div style="display: flex; gap: 0.5rem; align-items: stretch; height: 26px;">
-            <button id="configBtn" title="Gestión de Dotación" style="display: none; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer;">⚙️</button>
-            <button id="pdfBtn" title="Exportar a PDF" style="display: none; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); width: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer;">📄</button>
-          </div>
-        </div>
-      </div>
-      <!-- BLOQUE DERECHO: MAPA DE CALOR -->
-      <div class="top-heatmap-area">
-         <div id="heatmapGrid" style="display: flex; flex-direction: column; width: 100%; height: 100%;">
-            <!-- Injected via JS -->
-         </div>
-      </div>
-    </div>
-    
-    <div id="app-grid-container" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
-       <div id="tab-horarios" class="container" style="padding: 0; display: flex; flex-direction: column;">
-          <div class="grid-container">
-      <table id="planningTable">
-
-        <thead>
-          <tr id="tableHeader">
-            <th>Colaborador</th>
-            <!-- Days injected via JS -->
-            <th>Estado</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody">
-          <!-- Rows injected via JS -->
-        </tbody>
-        <tfoot id="tableFooter">
-          <!-- Counters injected via JS -->
-        </tfoot>
-      </table>
-    </div>
-  </div>
-  </div>
-  </div> <!-- Fin de seccionHorarios -->
-
-  <!-- SECCION VACACIONES -->
-  <div id="seccionVacaciones" class="vacation-container" style="display: none; padding: 8px 20px 20px 20px; background: var(--surface); flex-direction: column; flex: 1; overflow: hidden; box-sizing: border-box;">
-     <div class="vacation-grid" style="flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 480px; grid-template-rows: minmax(0, 1fr); gap: 24px; align-items: stretch; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden; min-height: 0;">
-       
-       <!-- LADO IZQUIERDO: Formulario, Historial, Saldos y Tabla Aprobadas -->
-       <div class="col-izquierda" style="display: flex; flex-direction: column; gap: 24px; height: 100%; min-width: 0; min-height: 0;">
-          
-          <!-- FILA SUPERIOR: 3 Columnas (Registrar, Saldos, Historial) -->
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-             <!-- Bloque 1: Registrar -->
-             <div class="card" style="display: flex; flex-direction: column; padding: 16px;">
-               <h3 id="vFormTitle" style="margin-top: 0; font-size: 1.1rem; color: #fff;">Registrar Vacaciones</h3>
-               <form id="vacationForm" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; flex: 1;">
-                  <input type="hidden" id="vEditId" value="">
-                  <div class="form-group" style="margin:0;">
-                      <label style="font-size: 0.8rem; color: var(--text-muted);">Colaborador</label>
-                      <select id="vCollab" required style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border);"></select>
-                   </div>
-                   <div class="form-group" style="margin:0;">
-                      <label style="font-size: 0.8rem; color: var(--text-muted);">Imputar al Año (Descuento de Saldo)</label>
-                      <select id="vImputacion" required style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border);"></select>
-                   </div>
-                   <div class="form-group" style="margin:0;">
-                      <label style="font-size: 0.8rem; color: var(--text-muted);">Duración</label>
-                      <select id="vWeeks" required style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border);">
-                         <option value="1">1 Sem (7 d)</option>
-                         <option value="2">2 Sem (14 d)</option>
-                         <option value="3">3 Sem (21 d)</option>
-                         <option value="4">4 Sem (28 d)</option>
-                      </select>
-                   </div>
-                   <div class="form-group" style="margin:0;">
-                      <label style="font-size: 0.8rem; color: var(--text-muted);">Inicio (Lunes)</label>
-                      <input type="date" id="vStartDate" required style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border);">
-                   </div>
-               </form>
-             </div>
-             
-             <!-- Bloque 2: Saldos -->
-             <div class="card" style="display: flex; flex-direction: column; padding: 16px;">
-               <div id="saldosVacacionesContainer" style="flex: 1; display: flex; flex-direction: column;">
-                  <!-- JS renders Saldos here -->
-               </div>
-               <!-- Botón Guardar encapsulado bajo Gestión de Saldos -->
-               <div style="margin-top: 16px; display: flex; gap: 8px;">
-                  <button type="submit" form="vacationForm" id="vSubmitBtn" class="primary" style="flex: 1; padding: 10px; font-weight: bold; border-radius: 6px;">Guardar Periodo</button>
-                  <button type="button" id="vCancelBtn" style="flex: 1; padding: 10px; border-radius: 6px; display: none;">Cancelar</button>
-               </div>
-             </div>
-
-             <!-- Bloque 3: Historial -->
-             <div class="card" style="display: flex; flex-direction: column; max-height: 400px; padding: 16px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 1rem; color: #fff;">Historial de Vacaciones Aprobadas</h3>
-                <div id="historialVacacionesContainer" style="overflow-y: auto; flex: 1; padding-right: 4px; min-height: 0;">
-                  <!-- JS renders Historial here -->
-                </div>
-             </div>
-          </div>
-
-          <!-- FILA INFERIOR: Tabla Vacaciones Aprobadas -->
-          <div class="card" style="flex: 1; display: flex; flex-direction: column; padding: 16px; min-height: 0;">
-             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">Vacaciones Aprobadas</h3>
-                <div style="display: flex; gap: 12px; align-items: center;">
-                   <!-- Filtro y Exportar -->
-                   <div style="display: flex; align-items: center; gap: 6px;">
-                      <label for="vFilterYear" style="font-size: 0.85rem; color: var(--text-muted);">Período:</label>
-                      <select id="vFilterYear" style="padding: 4px 8px; font-size: 0.85rem; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border);" onchange="renderVacationTable()">
-                         <option value="Todos">Todos</option>
-                      </select>
-                   </div>
-                   <button type="button" id="vExportExcelBtn" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; display: flex; align-items: center; gap: 6px;" class="primary" onclick="exportVacationsCSV()">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                      Exportar Excel RRHH
-                   </button>
-                </div>
-             </div>
-             <div style="overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0;">
-               <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.85rem; table-layout: fixed;">
-                 <thead style="position: sticky; top: 0; background: var(--surface); z-index: 2;">
-                   <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
-                     <th style="padding: 6px 8px; font-weight: normal; width: 40%;">Colaborador</th>
-                     <th style="padding: 6px 8px; font-weight: normal; width: 25%;">Inicio</th>
-                     <th style="padding: 6px 8px; font-weight: normal; width: 15%;">Semanas</th>
-                     <th style="padding: 6px 8px; font-weight: normal; width: 20%;">Acciones</th>
-                   </tr>
-                 </thead>
-                 <tbody id="vacationTableBody">
-                   <!-- Rows inyectadas via JS -->
-                 </tbody>
-               </table>
-             </div>
-          </div>
-       </div>
-       
-       <!-- LADO DERECHO: Calendario -->
-       <div class="col-derecha" style="display: flex; flex-direction: column; height: 100%;">
-          <div class="card" style="flex: 1; display: flex; flex-direction: column; padding: 16px;">
-            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 16px; position: relative;">
-               <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">Calendario de Superposición</h3>
-               <div style="display: flex; gap: 4px; position: absolute; right: 0;">
-                  <button type="button" id="vCalPrevMonth" style="padding: 4px 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer;">&lt;</button>
-                  <button type="button" id="vCalNextMonth" style="padding: 4px 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer;">&gt;</button>
-               </div>
-            </div>
-            <div id="vacationCalendarContainer" class="vac-cal-container" style="flex: 1; overflow: hidden; min-height: 0;">
-              <!-- JS -->
-            </div>
-          </div>
-       </div>
-       
-     </div>
-  </div>
-
-   <!-- SECCIÓN MÉTRICAS Y AUDITORÍA -->
-   <div id="seccionMetricas" class="metrics-container" style="display: none; padding: 20px; background: var(--surface); height: 100%; overflow-y: auto;">
-      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 20px;">
-         <h2 style="margin: 0; color: var(--primary);">Dashboard de Métricas y Auditoría</h2>
-         <select id="metricsYearSelector" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem; outline: none;"></select>
-      </div>
-      <div id="metricsBentoGrid" class="bento-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
-         <!-- Cards inyectadas vía JS -->
-      </div>
-   </div>
-
-   <!-- MODAL DE HISTORIAL ANUAL CONSOLIDADO -->
-   <div id="metricsDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; font-family: inherit;">
-      <div style="background: var(--surface); width: 600px; max-width: 90%; max-height: 90%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;">
-         <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--bg);">
-            <h3 id="metricsDetailTitle" style="margin: 0; color: var(--primary); font-size: 1.2rem;">Historial Anual Consolidado</h3>
-            <button onclick="document.getElementById('metricsDetailModal').style.display='none'" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
-         </div>
-         <div id="metricsDetailContent" style="padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 20px;">
-            <!-- Contenido inyectado dinámicamente -->
-         </div>
-      </div>
-   </div>
-
-  <div class="toast-container" id="toastContainer"></div>
-
-  <!-- MENÚ CONTEXTUAL -->
-  <div id="contextMenu" class="context-menu" style="display: none; padding: 12px; width: 300px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 9999; font-family: inherit;">
-      <!-- Bloque 1: Fijar Horario -->
-      <div style="background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
-         <div style="display: flex; align-items: center; gap: 8px;">
-           <label for="cellFixedInput" style="margin: 0; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--text);">Fijar Horario*</label>
-           <input type="checkbox" id="cellFixedInput" style="width: 14px; height: 14px; cursor: pointer; margin-left: auto;">
-         </div>
-         <p id="cellFixedDateText" style="margin: 4px 0 0 0; font-size: 0.7rem; color: var(--text-muted);">*(Solicitado con tiempo)</p>
-      </div>
-
-      <!-- Bloque 2: Llegada Tarde -->
-      <div style="background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
-         <div style="display: flex; align-items: center; gap: 8px;">
-            <label style="margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--text);">Llegada tarde:</label>
-            <input type="text" id="cellTardanzaInput" placeholder="Ej: 24 o 1:05" style="width: 110px; padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.85rem; font-family: inherit; text-align: center;">
-            <input type="checkbox" id="cellTardanzaCheck" style="width: 14px; height: 14px; cursor: pointer; margin-left: auto;">
-         </div>
-         <p style="margin: 4px 0 0 0; font-size: 0.7rem; color: var(--text-muted);">*(Ingresa minutos puros o formato H:MM para Horas y Minutos)</p>
-      </div>
-      
-      <!-- Bloque 3: Comentario Libre & Acciones -->
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-         <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text); margin: 0;">Comentario</label>
-         <div style="display: flex; gap: 10px;">
-            <div style="flex: 1;">
-               <textarea id="cellCommentInput" style="width: 100%; height: 60px; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); resize: none; box-sizing: border-box; font-size: 0.85rem; font-family: inherit;"></textarea>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 6px; justify-content: flex-end;">
-               <button id="saveCellDetailsBtn" style="background: var(--success); color: #fff; border: none; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;" title="Guardar">✓</button>
-               <button onclick="window.deleteCellComment()" style="background: var(--danger); color: #fff; border: none; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;" title="Borrar Comentario">X</button>
-            </div>
-         </div>
-      </div>
-  </div>
-
-  <!-- MODAL GESTION DOTACION -->
-  <div class="modal-overlay" id="configModal">
-    <div class="modal-content">
-      <div class="modal-left">
-        <div class="modal-header">
-          <h2>Gestión de Dotación</h2>
-          <button class="close-modal" id="closeConfigModal" title="Cerrar modal">&times;</button>
-        </div>
-        <form id="collabForm">
-          <input type="hidden" id="collabMode" value="add">
-        <div class="form-group">
-          <label>Legajo (ID único)</label>
-          <input type="text" id="cLegajo" required>
-        </div>
-        <div class="form-group">
-          <label>Apellido y Nombre</label>
-          <input type="text" id="cName" required>
-        </div>
-        <div class="form-group">
-          <label>Esquema / Rotación</label>
-          <input type="text" id="cEsquema" placeholder="Ej: 3x1" required>
-        </div>
-        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-          <div class="form-group" style="flex: 1; margin-bottom: 0;">
-            <label>Horas</label>
-            <input type="number" id="cHours" required>
-          </div>
-          <div class="form-group" style="flex: 1; margin-bottom: 0;">
-            <label>Doms/Mes</label>
-            <select id="cDoms" required>
-              <option value="0">0</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-            </select>
-          </div>
-          <div class="form-group" style="flex: 1; margin-bottom: 0;">
-            <label>Fecha Alta</label>
-            <input type="date" id="cFechaAlta" required>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Pasillo Asignado</label>
-          <input type="text" id="cPasillo" required>
-        </div>
-
-        <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-           <button type="submit" id="cSubmitBtn" class="primary" style="flex: 1; justify-content: center;">Guardar</button>
-           <button type="button" class="btn-danger" id="cDeleteBtn" style="display: none;">Eliminar</button>
-           <button type="button" id="cCancelBtn" style="display: none;">Cancelar</button>
-        </div>
-      </form>
-      </div>
-      
-      <div class="modal-right">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-           <h3 style="margin: 0; color: var(--primary);">Directorio de Equipo</h3>
-        </div>
-        <div class="bento-grid" id="collabListContainer">
-          <!-- List injected via JS -->
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- FIREBASE & LOGIC -->
-  <script type="module">
-    console.log("¡ESTOY EDITANDO ESTE ARCHIVO REAL! ->", window.location.href);
     // 1. FIREBASE INITIALIZATION
     // Reemplaza con tus credenciales de Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -1668,11 +150,9 @@
 
     function getWeekDays() {
       const days = [];
-      // Restamos 1 día al lunes de inicio para incluir el domingo anterior de margen
-      let current = addDays(state.currentWeekStart, -1); 
-      
-      // Forzamos el visor estricto a 16 días en pantalla
-      for(let i=0; i<16; i++) {
+      let current = new Date(state.currentWeekStart);
+      const range = state.viewRange || 7;
+      for(let i=0; i<range; i++) {
         days.push(new Date(current));
         current = addDays(current, 1);
       }
@@ -1754,63 +234,61 @@
 
     async function loadWeekPlanning(append = false) {
       const range = state.viewRange || 7;
+      
+      // Calculate true bounding weeks to ensure full data for partial viewports
       const realStartD = getStartOfWeek(state.currentWeekStart);
       const realEndD = addDays(getStartOfWeek(addDays(state.currentWeekStart, range - 1)), 6);
       
-      state.planning = state.planning || {};
-      state.monthlySundaysWorked = state.monthlySundaysWorked || {};
+      let fetchStartD = realStartD;
       
-      // Forzar el estado de carga estructural inmediatamente
-      state.skeletonStartStr = formatDate(realStartD);
-      renderUI(); 
-
-      // Mapeamos los meses del rango para traer ambos si la quincena está partida
-      const yearStart = realStartD.getFullYear();
-      const monthStart = String(realStartD.getMonth() + 1).padStart(2, '0');
-      const yearEnd = realEndD.getFullYear();
-      const monthEnd = String(realEndD.getMonth() + 1).padStart(2, '0');
+      if (append) {
+         // Si estamos inyectando una semana, solo traemos los últimos 7 días del rango
+         fetchStartD = addDays(realEndD, -6);
+      } else {
+         state.planning = {};
+         state.monthlySundaysWorked = {};
+      }
+      
+      const startStr = formatDate(fetchStartD);
+      const endStr = formatDate(realEndD);
+      
+      const currentSunday = addDays(fetchStartD, 6);
+      const monthSundays = getSundaysOfMonth(currentSunday);
 
       if (isMockMode) {
-        state.skeletonStartStr = null;
-        renderUI();
+        // Generar mock data aleatoria sin romper reglas si es posible
       } else {
         try {
-          // Consulta 1: Trae el mes de inicio de la quincena
-          const q1 = query(
+          const q = query(
             collection(db, "planificacion"), 
-            where("fecha", ">=", `${yearStart}-${monthStart}-01`),
-            where("fecha", "<=", `${yearStart}-${monthStart}-31`)
+            where("fecha", ">=", startStr),
+            where("fecha", "<=", endStr)
           );
-          const snap1 = await getDocs(q1);
-          snap1.forEach(doc => {
+          const snap = await getDocs(q);
+          snap.forEach(doc => {
             const data = doc.data();
             state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
           });
 
-          // Consulta 2: Si la quincena pisa el mes siguiente, lo descarga en paralelo
-          if (monthStart !== monthEnd) {
-             const q2 = query(
-               collection(db, "planificacion"), 
-               where("fecha", ">=", `${yearEnd}-${monthEnd}-01`),
-               where("fecha", "<=", `${yearEnd}-${monthEnd}-31`)
-             );
-             const snap2 = await getDocs(q2);
-             snap2.forEach(doc => {
-               const data = doc.data();
-               state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
-             });
+          // Fetch Sundays for the month
+          if (monthSundays.length > 0) {
+            const qDoms = query(collection(db, "planificacion"), where("fecha", "in", monthSundays));
+            const snapDoms = await getDocs(qDoms);
+            snapDoms.forEach(doc => {
+              const data = doc.data();
+              const parsed = parseShift(data.slot);
+              if (parsed && (parsed.type === 'franco' || parsed.type === 'libre')) {
+                if (!state.monthlySundaysWorked[data.colaboradorId]) state.monthlySundaysWorked[data.colaboradorId] = [];
+                state.monthlySundaysWorked[data.colaboradorId].push(data.fecha);
+              }
+            });
           }
-
-          // Apagar el esqueleto de carga RECIÉN cuando todos los datos están en memoria
-          state.skeletonStartStr = null;
-          renderUI(); 
-          
         } catch(e) {
-          console.error("Error en la carga asrincrónica de datos:", e);
-          state.skeletonStartStr = null;
-          renderUI();
+          console.error("Error leyendo planificación", e);
         }
       }
+      state.skeletonStartStr = null;
+      renderUI();
     }
 
     // 7. MOTOR DE VALIDACIONES ABSOLUTAS
@@ -1952,14 +430,10 @@
              const parsed = parseShift(val, obj.tardanzaMinutosTotales || 0);
              
              let isVac = state.vacations.some(vac => vac.colaboradorId === collab.id && dStr >= vac.startDate && dStr <= vac.endDate);
-             
-             // SEMANA 1 REAL: Índices del 1 al 7 (ignora el domingo de margen index 0)
-             if (i >= 1 && i <= 7) {
+             if (i < 7) {
                  if (isVac) w1Vac = true;
                  if (parsed && parsed.type === 'work' && !w1Vac) w1Hours += parsed.hours;
-             } 
-             // SEMANA 2 REAL: Índices del 8 al 14 (ignora el lunes de margen index 15)
-             else if (i >= 8 && i <= 14) {
+             } else {
                  if (isVac) w2Vac = true;
                  if (parsed && parsed.type === 'work' && !w2Vac) w2Hours += parsed.hours;
              }
@@ -1983,41 +457,110 @@
           const w2Container = document.getElementById(`desktop-hours-w2-${collab.id}`);
           if (w2Container) w2Container.innerHTML = renderBox(w2Hours, w2Vac, collab.hours);
 
-          // Actualización de Domingos Mensuales Basada en Memoria Global
+          let tHours = 0;
+          let hVacation = false;
+          let hHoliday = false;
+          
+          visibleDays.forEach(d => {
+             const dStr = formatDate(d);
+             const val = getPlanningSlot(collab.id, dStr);
+             const objForTardanza = getPlanningObj(collab.id, dStr) || {};
+             const parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
+             const isHoliday = state.holidays.includes(dStr);
+             
+             // Check vacations
+             const targetD = new Date(dStr + "T00:00:00");
+             for (let vac of state.vacations) {
+                if (vac.colaboradorId === collab.id) {
+                   const vacStart = new Date(vac.startDate + "T00:00:00");
+                   const vacEnd = new Date(vac.endDate + "T00:00:00");
+                   if (targetD >= vacStart && targetD <= vacEnd) {
+                      hVacation = true;
+                      break;
+                   }
+                }
+             }
+             
+             if (parsed) {
+                 if (parsed.type === 'work' && !hVacation) {
+                     tHours += parsed.hours;
+                 }
+                 if (isHoliday && ['franco', 'libre'].includes(parsed.type)) {
+                     hHoliday = true;
+                 }
+             }
+          });
+          
+          let hoursColor = 'var(--text)';
+          if (hVacation) hoursColor = 'var(--info)';
+          else if (tHours < collab.hours) hoursColor = hHoliday ? 'var(--warning)' : 'var(--danger)';
+          else if (tHours === collab.hours) hoursColor = 'var(--success)';
+          else hoursColor = 'var(--danger)';
+          
+          let extraHoursHtml = '';
+          if (tHours > collab.hours) {
+             const extraHours = Number.isInteger(tHours - collab.hours) ? (tHours - collab.hours) : (tHours - collab.hours).toFixed(1);
+             const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
+             let extraColor = (tHours <= 31) ? '#eab308' : (tHours === 32 ? 'var(--success)' : 'var(--danger)');
+             
+             extraHoursHtml = `
+               <div style="color: ${extraColor}; font-size: 0.68rem; font-weight: 700; text-align: center; line-height: 1.1; margin-top: 2px; letter-spacing: -0.2px; white-space: nowrap;">
+                 +${extraHours}h (T: ${totalStr}h)
+               </div>
+             `;
+          }
+          
+          const totalStr = Number.isInteger(tHours) ? tHours : tHours.toFixed(1);
+          
+          // Template para Desktop (Completo)
+          const desktopHtml = `
+             <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-width: 65px; padding: 0 0.2rem; flex: 1;">
+               <div style="color: ${hoursColor}; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">
+                 ${totalStr}h / ${collab.hours}h
+               </div>
+               ${extraHoursHtml}
+             </div>
+          `;
+          
+          // Template para Móvil (Tag Compacto sin salto de línea en lo posible)
+          const extraTag = tHours > collab.hours ? `<span style="color:${tHours <= 31 ? '#eab308' : (tHours === 32 ? 'var(--success)' : 'var(--danger)')}; margin-left: 4px;">+${Number.isInteger(tHours - collab.hours) ? (tHours - collab.hours) : (tHours - collab.hours).toFixed(1)}h</span>` : '';
+          const mobileHtml = `
+             <span style="color: ${hoursColor};">${totalStr}h / ${collab.hours}h</span>${extraTag}
+          `;
+          
+          const mobileContainer = document.getElementById(`mobile-hours-${collab.id}`);
+          if (mobileContainer) mobileContainer.innerHTML = mobileHtml;
+          
+          const desktopContainer = document.getElementById(`desktop-hours-${collab.id}`);
+          if (desktopContainer) desktopContainer.innerHTML = desktopHtml;
+          
+          // Actualización de Domingos Mensuales
           let restCount = 0;
           monthDays.forEach(d => {
-             if (d.getDay() === 0) { // Es domingo estricto
+             if (d.getDay() === 0) { // Es domingo
                  const dStr = formatDate(d);
-                 
-                 // Buscamos de forma directa en el estado de planificación acumulado de la base de datos
-                 const objPlan = state.planning[`${collab.id}_${dStr}`];
-                 let valToday = '';
-                 if (objPlan) {
-                     valToday = typeof objPlan === 'string' ? objPlan.toLowerCase() : (objPlan.slot || '').toLowerCase();
-                 }
-                 
-                 if (valToday === 'f' || valToday === 'libre') {
+                 const val = getPlanningSlot(collab.id, dStr);
+                 const parsed = parseShift(val);
+                 if (parsed && (parsed.type === 'franco' || parsed.type === 'libre')) {
                      restCount++;
                  }
              }
           });
           
-          // Semáforo Corregido: El límite es un techo estricto
           let domClass = '';
           const limit = collab.domingosAcordados || 0;
-          
-          if (restCount > limit) {
-              domClass = 'danger';  // ROJO: Se pasó de los domingos asignados (Alerta)
+          if (limit === 0) {
+             domClass = ''; // neutro
           } else if (restCount < limit) {
-              domClass = 'success'; // VERDE: Todavía tiene domingos disponibles en el mes
-          } else {
-              domClass = '';        // NEUTRO/GRIS: Cumplió la cuota exacta (Equilibrio)
+             domClass = 'danger'; // faltan francos dominicales
+          } else if (restCount >= limit) {
+             domClass = 'success'; // cumplió la cuota de francos dominicales
           }
           
           const domBadge = document.getElementById(`dom-badge-${collab.id}`);
           if (domBadge) {
-              domBadge.className = `dom-badge ${domClass}`;
-              domBadge.innerText = `Dom ${monthName}: ${restCount}/${limit}`;
+             domBadge.className = `dom-badge ${domClass}`;
+             domBadge.innerText = `Dom ${monthName}: ${restCount}/${limit}`;
           }
       });
     }
@@ -2054,7 +597,7 @@
         trHead.innerHTML += `<th class="${thClass}" style="text-align: center;">${dayName} ${isHoliday ? '<span class="holiday-badge">Feriado</span>' : ''}</th>`;
       });
       
-
+      trHead.innerHTML += `<th>Estado / Horas</th>`;
 
       // Table Body
       const tbody = document.getElementById('tableBody');
@@ -2095,6 +638,8 @@
           francoRow.appendChild(numCell);
       });
   
+      const emptyCell = document.createElement('td');
+      francoRow.appendChild(emptyCell);
       tbody.appendChild(francoRow);
       
       const abandonmentMap = calculateAbandonment();
@@ -2335,26 +880,6 @@
           
           let isSkeleton = state.skeletonStartStr && dStr >= state.skeletonStartStr;
           let finalWrapperClass = wrapperClass + (isSkeleton ? ' skeleton-cell' : '') + ' day-cell';
-          
-          // Validar descanso diario de 12 horas para turnos ya cargados
-          let hasRestError = false;
-          if (parsed && parsed.type === 'work') {
-             const prevDateStr = formatDate(addDays(d, -1));
-             const prevSlotKey = getPlanningSlot(collab.id, prevDateStr);
-             const prevSlot = parseShift(prevSlotKey);
-             if (prevSlot && prevSlot.type === 'work') {
-                let currAbs = getShiftAbsoluteTimes(dStr, parsed);
-                let prevAbs = getShiftAbsoluteTimes(prevDateStr, prevSlot);
-                if (currAbs && prevAbs && (currAbs.start - prevAbs.end) / 3600000 < 12) {
-                   hasRestError = true;
-                }
-             }
-          }
-          
-          if (hasRestError) {
-             inputClass += ' franco-error'; // Aplica el estilo rojo fuerte nativo
-          }
-
           let finalInputClass = inputClass + (isSkeleton ? ' skeleton-input' : '');
 
           html += `
@@ -2365,7 +890,12 @@
           `;
         });
 
-
+        html += `
+          <td class="col-estado" style="vertical-align: middle; padding: 0; min-width: 100px;">
+            <div id="desktop-hours-${collab.id}" style="display:flex; flex-direction:row; justify-content:center; align-items:center; height: 100%;">
+            </div>
+          </td>
+        `;
 
         tr.innerHTML = html;
         tbody.appendChild(tr);
@@ -2418,8 +948,8 @@
              
              let nextIndex = null;
              if (e.key === 'Tab') nextIndex = e.shiftKey ? index - 1 : index + 1;
-             else if (e.key === 'ArrowUp') nextIndex = index - 16;   /* Sube recto en la grilla de 16 columnas */
-             else if (e.key === 'ArrowDown') nextIndex = index + 16; /* Baja recto en la grilla de 16 columnas */
+             else if (e.key === 'ArrowUp') nextIndex = index - 7;
+             else if (e.key === 'ArrowDown') nextIndex = index + 7;
              else if (e.key === 'ArrowLeft') nextIndex = index - 1;
              else if (e.key === 'ArrowRight') nextIndex = index + 1;
 
@@ -2427,7 +957,11 @@
              if (nextNode) {
                 const targetCollab = nextNode.getAttribute('data-collab');
                 const targetDate = nextNode.getAttribute('data-date');
+                
+                // Forzar el blur y el posible re-render síncrono ANTES de saltar
                 el.blur();
+                
+                // Buscar el nodo en el DOM actualizado (reconstruido)
                 const freshNode = document.querySelector(`.cell-input[data-collab="${targetCollab}"][data-date="${targetDate}"]`);
                 if (freshNode) {
                    freshNode.focus();
@@ -5120,6 +3654,4 @@
     migrateFechas().then(() => {
         loadInitialData();
     });
-  </script>
-</body>
-</html>
+  
