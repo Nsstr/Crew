@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -2342,17 +2342,17 @@
              
              let nextIndex = null;
              if (e.key === 'Tab') nextIndex = e.shiftKey ? index - 1 : index + 1;
-             else if (e.key === 'ArrowUp') nextIndex = index - 7;
-             else if (e.key === 'ArrowDown') nextIndex = index + 7;
-             else if (e.key === 'ArrowLeft') nextIndex = index - 1;
-             else if (e.key === 'ArrowRight') nextIndex = index + 1;
+             else if (e.key === 'ArrowUp') nextIndex = index - 14;   /* Sube en línea recta vertical al colaborador anterior */
+             else if (e.key === 'ArrowDown') nextIndex = index + 14; /* Baja en línea recta vertical al siguiente colaborador */
+             else if (e.key === 'ArrowLeft') nextIndex = index - 1;  /* Se mueve al día anterior */
+             else if (e.key === 'ArrowRight') nextIndex = index + 1; /* Se mueve al día siguiente */
 
              const nextNode = inputs[nextIndex];
              if (nextNode) {
                 const targetCollab = nextNode.getAttribute('data-collab');
                 const targetDate = nextNode.getAttribute('data-date');
                 
-                // Forzar el blur y el posible re-render síncrono ANTES de saltar
+                // Forzar el blur y el re-render síncrono ANTES de saltar
                 el.blur();
                 
                 // Buscar el nodo en el DOM actualizado (reconstruido)
