@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1133,6 +1133,35 @@
       min-width: 350px !important;
       max-width: 350px !important;
     }
+
+    /* Achicar el contenedor principal de la fila del colaborador */
+    .collab-cell {
+      padding: 0 !important;
+    }
+
+    /* Reducir el padding de los elementos dentro de la celda de colaboradores */
+    .collab-cell > div {
+      padding: 1px 4px !important; 
+      gap: 2px !important;
+    }
+
+    /* Compactar la altura de las filas de la tabla */
+    table#planningTable td, table#planningTable th {
+      padding: 0 !important;
+      height: 32px !important;
+    }
+
+    /* Reducir márgenes en la información interna del colaborador */
+    .collab-meta {
+      gap: 2px !important;
+      margin-top: 0 !important;
+    }
+
+    /* Compactar el bloque de horas extras para que no ocupe tanto alto */
+    .hour-box {
+      height: 18px !important;
+      width: 22px !important;
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -2034,9 +2063,9 @@
               
               // Reserva de espacio fija: el div de Xtr siempre existe, se oculta solo si horasExtras es 0
               return `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; height: 38px;">
-                  <div class="hour-box" style="width: 24px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.65em; font-weight: bold; border: ${borderStyle} ${color}; color: ${color};" title="Meta: ${meta}h">${text}</div>
-                  <div style="font-size: 0.50rem; font-weight: bold; color: var(--danger); margin-top: 1px; visibility: ${horasExtras > 0 ? 'visible' : 'hidden'};">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 32px;">
+                  <div class="hour-box" style="width: 22px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.60em; font-weight: bold; border: ${borderStyle} ${color}; color: ${color};" title="Meta: ${meta}h">${text}</div>
+                  <div style="font-size: 0.6rem; font-weight: bold; color: var(--danger); visibility: ${horasExtras > 0 ? 'visible' : 'hidden'};">
                     Xtr: ${horasExtras > 0 ? (Number.isInteger(horasExtras) ? horasExtras : horasExtras.toFixed(1)) : '0'}h
                   </div>
                 </div>
