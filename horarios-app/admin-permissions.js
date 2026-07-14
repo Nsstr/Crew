@@ -196,6 +196,8 @@ export function syncPermissionsUI() {
   const role   = _getCurrentRole();
   const legajo = _getCurrentLegajo();
 
+  console.log("Sincronizando UI para legajo:", legajo, "Permisos:", _state.permisosInvitado[legajo]);
+
   const backupBtn   = document.getElementById('backupDriveBtn');
   const bellBtn     = document.getElementById('auditBellBtn');
 
@@ -259,7 +261,6 @@ export async function renderGestionInvitados(container) {
       '</div>' +
     '</div>';
 
-  // Cargar permisos actuales desde Firebase para los 5 invitados fijos
   await loadAllPermisosInvitados();
 
   const wrapper = container.querySelector('#invitadosTableWrapper');
@@ -280,7 +281,6 @@ export async function renderGestionInvitados(container) {
     PERMISOS_META_LOCAL[key].icon + '<br>' + PERMISOS_META_LOCAL[key].label + '</th>'
   ).join('');
 
-  // ── Iterar la lista FIJA de los 5 invitados autorizados ──────────────────
   let rows = '';
   Object.entries(INVITADOS_AUTORIZADOS).forEach(([leg, nombre]) => {
     const entry  = _state.permisosInvitado?.[leg];
@@ -291,7 +291,6 @@ export async function renderGestionInvitados(container) {
       ? 'background:rgba(59,130,246,0.07);'
       : 'opacity:0.52;';
 
-    // DEBUG: 3. Estado del checkbox
     const permisosCells = PERMISO_KEYS_LOCAL.map(key => {
       const isChecked = perms[key] === true;
       const chk = isChecked ? 'checked' : '';
@@ -329,9 +328,9 @@ export async function renderGestionInvitados(container) {
     '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">' +
     '<thead>' +
     '<tr style="border-bottom:2px solid var(--border);">' +
-    '<th style="padding:0.5rem 0.6rem;text-align:left;font-size:0.68rem;color:var(--text-muted);font-weight:600;">LEGAJO</th>' +
-    '<th style="padding:0.5rem 0.6rem;text-align:left;font-size:0.68rem;color:var(--text-muted);font-weight:600;">NOMBRE</th>' +
-    '<th style="padding:0.5rem 0.6rem;text-align:center;font-size:0.68rem;color:var(--text-muted);font-weight:600;">ESTADO</th>' +
+    '<th style="text-align:left;padding:0.5rem 0.6rem;width:80px;font-size:0.62rem;text-transform:uppercase;color:var(--text-muted);">Legajo</th>' +
+    '<th style="text-align:left;padding:0.5rem 0.6rem;width:180px;font-size:0.62rem;text-transform:uppercase;color:var(--text-muted);">Nombre</th>' +
+    '<th style="text-align:center;padding:0.5rem 0.6rem;width:100px;font-size:0.62rem;text-transform:uppercase;color:var(--text-muted);">Estado</th>' +
     headerCells +
     '</tr>' +
     '</thead>' +
