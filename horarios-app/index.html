@@ -1713,56 +1713,41 @@
     async function loadWeekPlanning(append = false) {
       const range = state.viewRange || 7;
       
-      // Calculate true bounding weeks to ensure full data for partial viewports
       const realStartD = getStartOfWeek(state.currentWeekStart);
       const realEndD = addDays(getStartOfWeek(addDays(state.currentWeekStart, range - 1)), 6);
       
-      let fetchStartD = realStartD;
+      // Asegurar que el objeto exista y no se borre
+      state.planning = state.planning || {};
+      state.monthlySundaysWorked = state.monthlySundaysWorked || {};
       
-      if (append) {
-         // Si estamos inyectando una semana, solo traemos los últimos 7 días del rango
-         fetchStartD = addDays(realEndD, -6);
-      } else {
-         state.planning = {};
-         state.monthlySundaysWorked = {};
-      }
+      // Extraemos el año y mes de la fecha actual para descargar el mes completo
+      const currentYear = state.currentWeekStart.getFullYear();
+      const currentMonth = String(state.currentWeekStart.getMonth() + 1).padStart(2, '0');
       
-      const startStr = formatDate(fetchStartD);
-      const endStr = formatDate(realEndD);
-      
-      const currentSunday = addDays(fetchStartD, 6);
-      const monthSundays = getSundaysOfMonth(currentSunday);
+      // Definimos el rango estricto del mes completo (desde el día 1 al 31)
+      const fetchStartD = `${currentYear}-${currentMonth}-01`;
+      const fetchEndD = `${currentYear}-${currentMonth}-31`;
 
       if (isMockMode) {
-        // Generar mock data aleatoria sin romper reglas si es posible
+        // Mock
       } else {
         try {
+          // Query definitiva: Trae absolutamente todo el mes de la base de datos
           const q = query(
             collection(db, "planificacion"), 
-            where("fecha", ">=", startStr),
-            where("fecha", "<=", endStr)
+            where("fecha", ">=", fetchStartD),
+            where("fecha", "<=", fetchEndD)
           );
+          
           const snap = await getDocs(q);
           snap.forEach(doc => {
             const data = doc.data();
+            // Guardamos todo el mes en la memoria local
             state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
           });
-
-          // Fetch Sundays for the month
-          if (monthSundays.length > 0) {
-            const qDoms = query(collection(db, "planificacion"), where("fecha", "in", monthSundays));
-            const snapDoms = await getDocs(qDoms);
-            snapDoms.forEach(doc => {
-              const data = doc.data();
-              const parsed = parseShift(data.slot);
-              if (parsed && (parsed.type === 'franco' || parsed.type === 'libre')) {
-                if (!state.monthlySundaysWorked[data.colaboradorId]) state.monthlySundaysWorked[data.colaboradorId] = [];
-                state.monthlySundaysWorked[data.colaboradorId].push(data.fecha);
-              }
-            });
-          }
+          
         } catch(e) {
-          console.error("Error leyendo planificación", e);
+          console.error("Error leyendo planificación completa del mes:", e);
         }
       }
       state.skeletonStartStr = null;
@@ -1935,14 +1920,20 @@
           const w2Container = document.getElementById(`desktop-hours-w2-${collab.id}`);
           if (w2Container) w2Container.innerHTML = renderBox(w2Hours, w2Vac, collab.hours);
 
-          // Actualización de Domingos Mensuales
+          // Actualización de Domingos Mensuales Basada en Memoria Global
           let restCount = 0;
           monthDays.forEach(d => {
-             if (d.getDay() === 0) { // Es domingo
+             if (d.getDay() === 0) { // Es domingo estricto
                  const dStr = formatDate(d);
-                 const val = getPlanningSlot(collab.id, dStr);
-                 const parsed = parseShift(val);
-                 if (parsed && (parsed.type === 'franco' || parsed.type === 'libre')) {
+                 
+                 // Buscamos de forma directa en el estado de planificación acumulado de la base de datos
+                 const objPlan = state.planning[`${collab.id}_${dStr}`];
+                 let valToday = '';
+                 if (objPlan) {
+                     valToday = typeof objPlan === 'string' ? objPlan.toLowerCase() : (objPlan.slot || '').toLowerCase();
+                 }
+                 
+                 if (valToday === 'f' || valToday === 'libre') {
                      restCount++;
                  }
              }
@@ -1951,17 +1942,17 @@
           let domClass = '';
           const limit = collab.domingosAcordados || 0;
           if (limit === 0) {
-             domClass = ''; // neutro
+              domClass = ''; 
           } else if (restCount < limit) {
-             domClass = 'danger'; // faltan francos dominicales
+              domClass = 'danger'; 
           } else if (restCount >= limit) {
-             domClass = 'success'; // cumplió la cuota de francos dominicales
+              domClass = 'success'; 
           }
           
           const domBadge = document.getElementById(`dom-badge-${collab.id}`);
           if (domBadge) {
-             domBadge.className = `dom-badge ${domClass}`;
-             domBadge.innerText = `Dom ${monthName}: ${restCount}/${limit}`;
+              domBadge.className = `dom-badge ${domClass}`;
+              domBadge.innerText = `Dom ${monthName}: ${restCount}/${limit}`;
           }
       });
     }
