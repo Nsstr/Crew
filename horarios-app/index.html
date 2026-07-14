@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1669,7 +1669,7 @@
     // Reemplaza con tus credenciales de Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { initPermissionsModule, checkAccess, applyUIRestrictions, renderGestionInvitados, loadPermisosInvitado, crearInvitado, INVITADOS_AUTORIZADOS } from "./admin-permissions.js";
+    import { initPermissionsModule, checkAccess, syncPermissionsUI, renderGestionInvitados, loadPermisosInvitado, crearInvitado, INVITADOS_AUTORIZADOS } from "./admin-permissions.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCJZeUE4k1XHIyxQ4lRmKvlH0eHeAZky4o",
@@ -4446,7 +4446,7 @@
        });
 
        // Aplicar restricciones de UI según permisos del usuario activo
-       applyUIRestrictions();
+       syncPermissionsUI();
     };
 
     let currentContextCell = null;
@@ -4750,6 +4750,7 @@
           sessionStorage.setItem('invitadoNombre', nom);
           currentRole = 'invitado';
           currentInvitadoLegajo = leg;
+          state.currentInvitadoLegajo = leg;
           loginModal.style.display = 'none';
           checkLogin();
           showToast('Bienvenido/a', nom);
@@ -4780,6 +4781,7 @@
        sessionStorage.removeItem('invitadoNombre');
        currentRole = 'visitor';
        currentInvitadoLegajo = null;
+       state.currentInvitadoLegajo = null;
        checkLogin();
        switchTab('horarios');
        renderUI();

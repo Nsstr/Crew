@@ -155,6 +155,10 @@ export async function updatePermission(legajoRaw, permiso, valor) {
       
     await _setDoc(docRef, updateData, { merge: true });
     console.log(`Permiso '${permiso}' guardado para legajo ${legajo}: ${valor}`);
+    
+    // 2. LLAMADA POST-GUARDADO: Sincronizar UI instantáneamente
+    syncPermissionsUI();
+    
   } catch (e) {
     console.error("Error al guardar permiso:", e);
     alert("Error al guardar en Firebase, revisá la consola.");
@@ -185,10 +189,10 @@ export async function crearInvitado(legajo) {
 }
 
 // =============================================================================
-// 4. RESTRICCIONES DE UI — applyUIRestrictions()
+// 4. RESTRICCIONES DE UI — syncPermissionsUI()
 // =============================================================================
 
-export function applyUIRestrictions() {
+export function syncPermissionsUI() {
   const role   = _getCurrentRole();
   const legajo = _getCurrentLegajo();
 
