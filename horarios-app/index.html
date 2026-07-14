@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1162,6 +1162,50 @@
       height: 18px !important;
       width: 22px !important;
     }
+
+    @media print {
+        /* 1. Añadimos márgenes generales a la página impresa */
+        @page { margin: 1.5cm; }
+
+        /* Ocultar botones, menús y fondo oscuro */
+        body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
+        .main-app-nav, #sugeridosHeader, .sugeridos-actions, button, input[type="date"] { display: none !important; }
+        #seccionSugeridos { height: auto !important; overflow: visible !important; padding: 0 !important; }
+        
+        #print-container {
+            padding: 40px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        /* 2. Configurar tabla para PDF y no pegada al borde */
+        table { width: 100% !important; border-collapse: collapse; table-layout: fixed; margin: 0 auto; margin-top: 10px; }
+        
+        /* 3. Ajuste de anchos para optimizar el espacio */
+        th:nth-child(1), td:nth-child(1) { width: 30%; } /* Colaborador */
+        th:nth-child(2), td:nth-child(2) { width: 15%; text-align: center; } /* Turno */
+        th:nth-child(3), td:nth-child(3) { width: 55%; } /* Comentario */
+
+        /* 4. Regla crítica para la celda del comentario y padding interno */
+        td, th { 
+            border: 1px solid #ccc !important; 
+            padding: 10px !important; 
+            word-wrap: break-word; 
+            overflow-wrap: break-word; 
+            color: black !important; 
+            background: white !important; 
+            vertical-align: top; 
+        }
+        th { border-bottom: 2px solid #aaa !important; }
+        
+        /* 5. Asegurar expansión total del área de texto */
+        .print-only-text { display: block !important; }
+        textarea { display: none !important; }
+        
+        /* 6. Evitar cortes de página en medio de una fila */
+        tr { page-break-inside: avoid; }
+        .page-break { page-break-after: always; }
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -1169,6 +1213,7 @@
   <div class="main-app-nav" style="background: var(--surface); padding: 0.25rem 0.5rem; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
     <div class="app-tabs">
       <button class="app-tab-btn active" id="tabHorarios" onclick="switchTab('horarios')">Grid Semanal</button>
+      <button class="app-tab-btn" id="suggestedTabBtn" onclick="switchTab('sugeridos')">Sugeridos</button>
       <button class="app-tab-btn" id="vacationTabBtn" onclick="switchTab('vacaciones')" style="display: none;">Plan Anual Vacaciones</button>
       <button class="app-tab-btn" id="metricsTabBtn" onclick="switchTab('metricas')" style="display: none;">Dashboard Métricas</button>
     </div>
@@ -1438,6 +1483,33 @@
       </div>
       <div id="metricsBentoGrid" class="bento-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
          <!-- Cards inyectadas vía JS -->
+      </div>
+   </div>
+
+   <!-- SECCION SUGERIDOS -->
+   <div id="seccionSugeridos" class="sugeridos-container" style="display: none; padding: 20px; background: var(--bg); height: 100%; overflow-y: auto; flex-direction: column;">
+      <div id="sugeridosHeader" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+         <div style="display: flex; align-items: center; gap: 1rem;">
+            <h2 style="margin: 0; color: var(--primary);">Vista Sugeridos</h2>
+            <input type="date" id="suggestedDateFilter" style="background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; outline: none; font-family: inherit;">
+         </div>
+         <div style="display: flex; gap: 0.5rem;" class="sugeridos-actions">
+            <button id="pdfSugeridosBtn" style="background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 600;">Generar PDF</button>
+         </div>
+      </div>
+      <div style="flex: 1; overflow: auto; border: 1px solid var(--border); border-radius: 8px;">
+         <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+               <tr>
+                  <th style="padding: 12px; background: var(--surface); border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 1;">Colaborador</th>
+                  <th style="padding: 12px; background: var(--surface); border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 1; width: 150px; text-align: center;">Turno</th>
+                  <th style="padding: 12px; background: var(--surface); border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 1;">Comentario</th>
+               </tr>
+            </thead>
+            <tbody id="sugeridosTableBody">
+               <!-- Inyectado vía JS -->
+            </tbody>
+         </table>
       </div>
    </div>
 
@@ -3458,16 +3530,23 @@
     window.switchTab = function(tabId) {
       document.querySelectorAll('.app-tab-btn').forEach(b => b.classList.remove('active'));
       
-      const btn = document.getElementById(tabId === 'horarios' ? 'tabHorarios' : (tabId === 'vacaciones' ? 'vacationTabBtn' : 'metricsTabBtn'));
+      let btnId = 'tabHorarios';
+      if (tabId === 'vacaciones') btnId = 'vacationTabBtn';
+      else if (tabId === 'metricas') btnId = 'metricsTabBtn';
+      else if (tabId === 'sugeridos') btnId = 'suggestedTabBtn';
+      
+      const btn = document.getElementById(btnId);
       if (btn) btn.classList.add('active');
       
       const seccionHorarios = document.getElementById('seccionHorarios');
       const seccionVacaciones = document.getElementById('seccionVacaciones');
       const seccionMetricas = document.getElementById('seccionMetricas');
+      const seccionSugeridos = document.getElementById('seccionSugeridos');
       
       if (seccionHorarios) seccionHorarios.style.display = 'none';
       if (seccionVacaciones) seccionVacaciones.style.display = 'none';
       if (seccionMetricas) seccionMetricas.style.display = 'none';
+      if (seccionSugeridos) seccionSugeridos.style.display = 'none';
 
       if (tabId === 'vacaciones') {
           if (seccionVacaciones) seccionVacaciones.style.display = 'flex';
@@ -3475,6 +3554,9 @@
       } else if (tabId === 'metricas') {
           if (seccionMetricas) seccionMetricas.style.display = 'block';
           renderMetrics();
+      } else if (tabId === 'sugeridos') {
+          if (seccionSugeridos) seccionSugeridos.style.display = 'flex';
+          window.renderSugeridos();
       } else if (tabId === 'horarios') {
           if (seccionHorarios) seccionHorarios.style.display = 'flex';
           renderUI();
@@ -5219,6 +5301,171 @@
     
     attachDatepickerJump(mobileDatepickerTrigger);
     attachDatepickerJump(desktopDatepickerTrigger);
+
+    // --- SUGERIDOS LOGIC ---
+    window.renderSugeridos = async function() {
+       const dateInput = document.getElementById('suggestedDateFilter');
+       if (!dateInput.value) {
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const tzOffset = tomorrow.getTimezoneOffset() * 60000; 
+          const localISOTime = (new Date(tomorrow - tzOffset)).toISOString().slice(0, -1).split('T')[0];
+          dateInput.value = localISOTime;
+       }
+       
+       const selectedDateStr = dateInput.value;
+       const tbody = document.getElementById('sugeridosTableBody');
+       tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:var(--text-muted);">Cargando sugerencias...</td></tr>';
+       
+       let sugerenciasGuardadas = {};
+       if (typeof isMockMode === 'undefined' || !isMockMode) {
+          try {
+             // Adaptado para usar Firestore v9 en base a los imports de tu proyecto
+             const q = query(collection(db, "sugerencias"), where("fecha", "==", selectedDateStr));
+             const snap = await getDocs(q);
+             snap.forEach(d => {
+                sugerenciasGuardadas[d.data().colaboradorId] = d.data();
+             });
+          } catch(err) {
+             console.error("Error al obtener sugerencias:", err);
+          }
+       }
+       
+       tbody.innerHTML = '';
+       const forbiddenStates = ['VAC', 'V', 'SUS', 'FRANCO', 'F', 'LIBRE', '-'];
+       
+       state.collaborators.forEach(collab => {
+          const isVac = state.vacations && state.vacations.some(vac => 
+              vac.colaboradorId === collab.id && 
+              selectedDateStr >= vac.startDate && 
+              selectedDateStr <= vac.endDate
+          );
+          
+          const rawTurno = getPlanningSlot(collab.id, selectedDateStr) || '-';
+          const shiftText = isVac ? 'V' : rawTurno;
+          const isBlocked = forbiddenStates.includes(shiftText.toUpperCase().trim());
+          
+          const cleanName = collab.name.split('(')[0].split('-')[0].trim();
+          
+          const savedData = sugerenciasGuardadas[collab.id];
+          const textValue = savedData ? savedData.texto : '';
+          const authorLabel = savedData && savedData.legajo ? `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; text-align: right;">Escrito por: <span style="color: var(--primary); font-weight: bold;">${savedData.legajo}</span></div>` : '';
+          
+          const tr = document.createElement('tr');
+          tr.style.borderBottom = '1px solid var(--border)';
+          
+          tr.innerHTML = `
+            <td style="padding: 8px 12px; width: 350px;">
+               <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                  <div style="font-weight: bold; font-size: 0.85em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                     ${collab.id} ${cleanName}
+                  </div>
+                  <div class="collab-meta" style="font-size: 0.8em; display: flex; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted);">
+                     <span>${collab.pasillo}</span>
+                     <span style="opacity: 0.6;">(${collab.hours}h)</span>
+                  </div>
+               </div>
+            </td>
+            <td style="padding: 8px 12px; text-align: center; font-weight: 500; font-size: 0.9rem; color: ${isBlocked ? 'var(--info)' : 'var(--text)'};">
+               ${shiftText}
+            </td>
+            <td style="padding: 8px 12px;">
+               <textarea class="sugeridos-comment" 
+                  data-collab="${collab.id}"
+                  placeholder="${isBlocked ? 'Inhabilitado (Estado: ' + shiftText + ')' : 'Agregar comentario...'}" 
+                  ${isBlocked ? 'disabled' : 'onmousedown="window.requireEditor(event)"'}
+                  ${!isBlocked && currentRole === 'visitor' ? 'readonly' : ''}
+                  rows="2" 
+                  style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? '#2d3748' : 'var(--bg)'}; color: ${isBlocked ? '#718096' : 'var(--text)'}; resize: none; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? '0.6' : '1'}; ${isBlocked ? 'cursor: not-allowed;' : ''}">${textValue}</textarea>
+               ${authorLabel}
+            </td>
+          `;
+          
+          tbody.appendChild(tr);
+       });
+       
+       document.querySelectorAll('.sugeridos-comment').forEach(textarea => {
+          textarea.addEventListener('blur', async (e) => {
+             const val = e.target.value.trim();
+             const collabId = e.target.getAttribute('data-collab');
+             const originalData = sugerenciasGuardadas[collabId];
+             const originalText = originalData ? originalData.texto : '';
+             
+             if (val !== originalText && !e.target.readOnly && !e.target.disabled) {
+                let activeLegajo = sessionStorage.getItem('editorLegajo');
+                if (currentRole === 'admin') activeLegajo = 'Admin';
+                if (!activeLegajo) return;
+                
+                const commentData = {
+                   legajo: activeLegajo,
+                   fecha: selectedDateStr,
+                   colaboradorId: collabId,
+                   texto: val,
+                   timestamp: new Date().toISOString()
+                };
+                
+                try {
+                   await setDoc(doc(db, "sugerencias", `${selectedDateStr}_${collabId}`), commentData);
+                   // Opcional: mostrar un mini toast visual para confirmar guardado
+                   if (typeof showToast === 'function') {
+                      showToast('Guardado', 'Comentario de sugerencia guardado con éxito.', 'success');
+                   }
+                   sugerenciasGuardadas[collabId] = commentData; // Actualizar cache local
+                } catch(err) {
+                   console.error("Error guardando sugerencia:", err);
+                   if (typeof showToast === 'function') {
+                      showToast('Error', 'No se pudo guardar la sugerencia.', 'error');
+                   }
+                }
+             }
+          });
+       });
+    };
+
+    document.getElementById('suggestedDateFilter')?.addEventListener('change', window.renderSugeridos);
+
+    document.getElementById('pdfSugeridosBtn')?.addEventListener('click', () => {
+       const dateVal = document.getElementById('suggestedDateFilter').value;
+       
+       const header = document.createElement('h1');
+       header.innerText = `Sugerencias del día: ${dateVal}`;
+       header.style.color = 'black';
+       header.style.textAlign = 'center';
+       header.style.padding = '20px 0';
+       header.style.margin = '0';
+       header.style.fontFamily = 'inherit';
+       document.body.prepend(header);
+       
+       const textareas = document.querySelectorAll('.sugeridos-comment');
+       const divs = [];
+       textareas.forEach(ta => {
+           const div = document.createElement('div');
+           div.innerHTML = ta.value.replace(/\n/g, '<br>');
+           div.className = 'print-only-text';
+           div.style.cssText = "padding: 5px; font-size: 10pt; line-height: 1.2; word-break: break-all; color: black;";
+           ta.parentNode.insertBefore(div, ta);
+           ta.style.display = 'none';
+           divs.push({ div, ta });
+       });
+       
+       let container = document.getElementById('print-container');
+       if (!container) {
+           container = document.createElement('div');
+           container.id = 'print-container';
+           Array.from(document.body.childNodes).forEach(child => {
+               container.appendChild(child);
+           });
+           document.body.appendChild(container);
+       }
+       
+       window.print();
+       
+       header.remove();
+       divs.forEach(item => {
+           item.div.remove();
+           item.ta.style.display = '';
+       });
+    });
 
     // INICIO
     migrateFechas().then(() => {
