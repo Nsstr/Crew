@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -2043,30 +2043,29 @@
           });
           
           const renderBox = (hours, isVac, metaStr) => {
-              if (isVac) return `<div class="hour-box" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.65em; font-weight: bold; border: 1px solid var(--info); color: var(--info);" title="Vacaciones">V</div>`;
-              
               const meta = parseFloat(metaStr) || 48;
               const maxPermitido = meta <= 30 ? 32 : 48; 
               
-              let color = 'var(--danger)';
-              let borderStyle = '1px solid';
-              let horasExtras = 0;
+              let color = (hours === meta) ? 'var(--success)' : (hours > meta ? (hours <= maxPermitido ? '#eab308' : 'var(--danger)') : 'var(--danger)');
+              let borderStyle = (hours === meta) ? '2px solid' : '1px solid';
+              let horasExtras = (hours > maxPermitido) ? (hours - maxPermitido) : 0;
               
-              if (hours === meta) { 
-                  color = 'var(--success)'; borderStyle = '2px solid'; 
-              } else if (hours > meta) {
-                  color = (hours <= maxPermitido) ? '#eab308' : 'var(--danger)';
-                  if (hours > maxPermitido) horasExtras = hours - maxPermitido;
+              // Si es Vacaciones, devolvemos la misma estructura pero con la V
+              if (isVac) {
+                  return `
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 32px; width: 24px;">
+                       <div style="width: 22px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.60em; font-weight: bold; border: 1px solid var(--info); color: var(--info);">V</div>
+                       <div style="font-size: 0.6rem; color: transparent; visibility: hidden;">Xtr</div>
+                    </div>`;
               }
               
+              // Bloque de horas con altura y estructura fija
               const text = Number.isInteger(hours) ? hours : hours.toFixed(1);
-              
-              // Reserva de espacio fija: el div de Xtr siempre existe, se oculta solo si horasExtras es 0
               return `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 32px;">
-                  <div class="hour-box" style="width: 22px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.60em; font-weight: bold; border: ${borderStyle} ${color}; color: ${color};" title="Meta: ${meta}h">${text}</div>
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 32px; width: 24px;">
+                  <div class="hour-box" style="width: 22px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.60em; font-weight: bold; border: ${borderStyle} ${color}; color: ${color};">${text}</div>
                   <div style="font-size: 0.6rem; font-weight: bold; color: var(--danger); visibility: ${horasExtras > 0 ? 'visible' : 'hidden'};">
-                    Xtr: ${horasExtras > 0 ? (Number.isInteger(horasExtras) ? horasExtras : horasExtras.toFixed(1)) : '0'}h
+                    Xtr:${Number.isInteger(horasExtras) ? horasExtras : horasExtras.toFixed(1)}h
                   </div>
                 </div>
               `;
