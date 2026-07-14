@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -683,12 +683,11 @@
        }
        .skeleton-cell {
          animation: pulse-skeleton 1.5s infinite ease-in-out !important;
-         pointer-events: none;
+         background-color: rgba(255, 255, 255, 0.05) !important;
+         pointer-events: none !important;
        }
        .skeleton-input {
-         background: transparent !important;
-         color: transparent !important;
-         border-color: transparent !important;
+         opacity: 0 !important;
        }
        .skeleton-cell::before, .skeleton-cell::after {
          display: none !important;
@@ -1079,6 +1078,47 @@
     /* 3. Mantener el color de los feriados intacto si caen en la segunda semana */
     table#planningTable td:nth-child(n+9):nth-child(-n+15).holiday-col {
       background-color: rgba(239, 68, 68, 0.15) !important;
+    }
+
+    /* Compactar días para que quepan los 16 días con los márgenes */
+    table#planningTable th:not(:first-child),
+    table#planningTable td:not(:first-child),
+    th.day-column, td.day-cell {
+      width: 70px !important;
+      min-width: 70px !important;
+      max-width: 70px !important;
+    }
+
+    /* Asegurar que el scroll no se meta debajo del bloque fijo de colaboradores */
+    table#planningTable th:first-child, 
+    table#planningTable td:first-child {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 30 !important;
+      width: 260px !important;
+      min-width: 260px !important;
+      max-width: 260px !important;
+      background-color: #1a1e29 !important;
+    }
+
+    /* Bajar opacidad al 70% a las cabeceras de los días de margen */
+    table#planningTable th:nth-child(2),
+    table#planningTable th:nth-child(17) {
+      opacity: 0.3 !important;
+    }
+
+    /* Bajar opacidad al 70% a los inputs de los días de margen */
+    table#planningTable td:nth-child(2) .cell-input,
+    table#planningTable td:nth-child(17) .cell-input {
+      opacity: 0.3 !important;
+    }
+
+    /* Si el cursor se posa sobre ellos, recuperan el 100% de brillo para editar cómodo */
+    table#planningTable td:nth-child(2) .cell-input:focus,
+    table#planningTable td:nth-child(17) .cell-input:focus,
+    table#planningTable td:nth-child(2) .cell-input:hover,
+    table#planningTable td:nth-child(17) .cell-input:hover {
+      opacity: 1 !important;
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -1628,9 +1668,11 @@
 
     function getWeekDays() {
       const days = [];
-      let current = new Date(state.currentWeekStart);
-      const range = state.viewRange || 7;
-      for(let i=0; i<range; i++) {
+      // Restamos 1 día al lunes de inicio para incluir el domingo anterior de margen
+      let current = addDays(state.currentWeekStart, -1); 
+      
+      // Forzamos el visor estricto a 16 días en pantalla
+      for(let i=0; i<16; i++) {
         days.push(new Date(current));
         current = addDays(current, 1);
       }
@@ -1712,46 +1754,63 @@
 
     async function loadWeekPlanning(append = false) {
       const range = state.viewRange || 7;
-      
       const realStartD = getStartOfWeek(state.currentWeekStart);
       const realEndD = addDays(getStartOfWeek(addDays(state.currentWeekStart, range - 1)), 6);
       
-      // Asegurar que el objeto exista y no se borre
       state.planning = state.planning || {};
       state.monthlySundaysWorked = state.monthlySundaysWorked || {};
       
-      // Extraemos el año y mes de la fecha actual para descargar el mes completo
-      const currentYear = state.currentWeekStart.getFullYear();
-      const currentMonth = String(state.currentWeekStart.getMonth() + 1).padStart(2, '0');
-      
-      // Definimos el rango estricto del mes completo (desde el día 1 al 31)
-      const fetchStartD = `${currentYear}-${currentMonth}-01`;
-      const fetchEndD = `${currentYear}-${currentMonth}-31`;
+      // Forzar el estado de carga estructural inmediatamente
+      state.skeletonStartStr = formatDate(realStartD);
+      renderUI(); 
+
+      // Mapeamos los meses del rango para traer ambos si la quincena está partida
+      const yearStart = realStartD.getFullYear();
+      const monthStart = String(realStartD.getMonth() + 1).padStart(2, '0');
+      const yearEnd = realEndD.getFullYear();
+      const monthEnd = String(realEndD.getMonth() + 1).padStart(2, '0');
 
       if (isMockMode) {
-        // Mock
+        state.skeletonStartStr = null;
+        renderUI();
       } else {
         try {
-          // Query definitiva: Trae absolutamente todo el mes de la base de datos
-          const q = query(
+          // Consulta 1: Trae el mes de inicio de la quincena
+          const q1 = query(
             collection(db, "planificacion"), 
-            where("fecha", ">=", fetchStartD),
-            where("fecha", "<=", fetchEndD)
+            where("fecha", ">=", `${yearStart}-${monthStart}-01`),
+            where("fecha", "<=", `${yearStart}-${monthStart}-31`)
           );
-          
-          const snap = await getDocs(q);
-          snap.forEach(doc => {
+          const snap1 = await getDocs(q1);
+          snap1.forEach(doc => {
             const data = doc.data();
-            // Guardamos todo el mes en la memoria local
             state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
           });
+
+          // Consulta 2: Si la quincena pisa el mes siguiente, lo descarga en paralelo
+          if (monthStart !== monthEnd) {
+             const q2 = query(
+               collection(db, "planificacion"), 
+               where("fecha", ">=", `${yearEnd}-${monthEnd}-01`),
+               where("fecha", "<=", `${yearEnd}-${monthEnd}-31`)
+             );
+             const snap2 = await getDocs(q2);
+             snap2.forEach(doc => {
+               const data = doc.data();
+               state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
+             });
+          }
+
+          // Apagar el esqueleto de carga RECIÉN cuando todos los datos están en memoria
+          state.skeletonStartStr = null;
+          renderUI(); 
           
         } catch(e) {
-          console.error("Error leyendo planificación completa del mes:", e);
+          console.error("Error en la carga asrincrónica de datos:", e);
+          state.skeletonStartStr = null;
+          renderUI();
         }
       }
-      state.skeletonStartStr = null;
-      renderUI();
     }
 
     // 7. MOTOR DE VALIDACIONES ABSOLUTAS
@@ -1893,10 +1952,14 @@
              const parsed = parseShift(val, obj.tardanzaMinutosTotales || 0);
              
              let isVac = state.vacations.some(vac => vac.colaboradorId === collab.id && dStr >= vac.startDate && dStr <= vac.endDate);
-             if (i < 7) {
+             
+             // SEMANA 1 REAL: Índices del 1 al 7 (ignora el domingo de margen index 0)
+             if (i >= 1 && i <= 7) {
                  if (isVac) w1Vac = true;
                  if (parsed && parsed.type === 'work' && !w1Vac) w1Hours += parsed.hours;
-             } else {
+             } 
+             // SEMANA 2 REAL: Índices del 8 al 14 (ignora el lunes de margen index 15)
+             else if (i >= 8 && i <= 14) {
                  if (isVac) w2Vac = true;
                  if (parsed && parsed.type === 'work' && !w2Vac) w2Hours += parsed.hours;
              }
@@ -2335,20 +2398,16 @@
              
              let nextIndex = null;
              if (e.key === 'Tab') nextIndex = e.shiftKey ? index - 1 : index + 1;
-             else if (e.key === 'ArrowUp') nextIndex = index - 14;   /* Sube en línea recta vertical al colaborador anterior */
-             else if (e.key === 'ArrowDown') nextIndex = index + 14; /* Baja en línea recta vertical al siguiente colaborador */
-             else if (e.key === 'ArrowLeft') nextIndex = index - 1;  /* Se mueve al día anterior */
-             else if (e.key === 'ArrowRight') nextIndex = index + 1; /* Se mueve al día siguiente */
+             else if (e.key === 'ArrowUp') nextIndex = index - 16;   /* Sube recto en la grilla de 16 columnas */
+             else if (e.key === 'ArrowDown') nextIndex = index + 16; /* Baja recto en la grilla de 16 columnas */
+             else if (e.key === 'ArrowLeft') nextIndex = index - 1;
+             else if (e.key === 'ArrowRight') nextIndex = index + 1;
 
              const nextNode = inputs[nextIndex];
              if (nextNode) {
                 const targetCollab = nextNode.getAttribute('data-collab');
                 const targetDate = nextNode.getAttribute('data-date');
-                
-                // Forzar el blur y el re-render síncrono ANTES de saltar
                 el.blur();
-                
-                // Buscar el nodo en el DOM actualizado (reconstruido)
                 const freshNode = document.querySelector(`.cell-input[data-collab="${targetCollab}"][data-date="${targetDate}"]`);
                 if (freshNode) {
                    freshNode.focus();
