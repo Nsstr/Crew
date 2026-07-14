@@ -2062,10 +2062,10 @@
               // Bloque de horas con altura y estructura fija
               const text = Number.isInteger(hours) ? hours : hours.toFixed(1);
               return `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 32px; width: 24px;">
-                  <div class="hour-box" style="width: 22px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.60em; font-weight: bold; border: ${borderStyle} ${color}; color: ${color};">${text}</div>
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 32px; width: 26px; padding: 0 2px;">
+                  <div class="hour-box" style="width: 24px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.60em; font-weight: bold; border: ${borderStyle} ${color}; color: ${color};">${text}</div>
                   <div style="font-size: 0.6rem; font-weight: bold; color: var(--danger); visibility: ${horasExtras > 0 ? 'visible' : 'hidden'};">
-                    Xtr:${Number.isInteger(horasExtras) ? horasExtras : horasExtras.toFixed(1)}h
+                    Xtr:${horasExtras > 0 ? (Number.isInteger(horasExtras) ? horasExtras : horasExtras.toFixed(1)) : '0'}h
                   </div>
                 </div>
               `;
@@ -2236,7 +2236,7 @@
               </div>
               
               <!-- Bloques de Horas (Alineados a la Derecha) -->
-              <div id="desktop-hours-${collab.id}-left" style="display: flex; gap: 6px; padding-left: 4px; margin-left: auto; flex-shrink: 0; align-items: flex-start;">
+              <div id="desktop-hours-${collab.id}-left" style="display: flex; gap: 12px; padding-left: 4px; margin-left: auto; flex-shrink: 0; align-items: flex-start;">
                  <div id="desktop-hours-w1-${collab.id}"></div>
                  <div id="desktop-hours-w2-${collab.id}"></div>
               </div>
