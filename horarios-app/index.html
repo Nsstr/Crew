@@ -1163,6 +1163,13 @@
       width: 22px !important;
     }
 
+    /* Aseguramos que el contenedor de la vista Sugeridos pueda scrollear */
+    .sugeridos-container {
+        height: calc(100vh - 80px) !important; /* Ajuste para el topNav */
+        overflow-y: auto !important;
+        padding-bottom: 80px !important;
+    }
+
     @media print {
         /* 1. Añadimos márgenes generales a la página impresa */
         @page { margin: 1.5cm; }
