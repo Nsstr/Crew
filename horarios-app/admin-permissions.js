@@ -83,6 +83,11 @@ export async function loadPermisosInvitado(legajoRaw) {
     const snap = await _getDoc(ref);
     if (snap.exists()) {
       _state.permisosInvitado[legajo] = snap.data();
+      _state.currentInvitadoLegajo = legajo;
+      
+      console.log("Datos cargados correctamente. Forzando actualización de UI...");
+      syncPermissionsUI(); // <--- LLAMADA OBLIGATORIA AQUÍ
+      
       return snap.data();
     }
     return null;
@@ -226,16 +231,16 @@ export function syncPermissionsUI() {
 
   // verMetricas
   const metricsTab = document.getElementById('metricsTabBtn');
-  if (metricsTab) metricsTab.style.display = perms.verMetricas ? 'inline-block' : 'none';
+  if (metricsTab) metricsTab.style.display = perms.verMetricas ? 'block' : 'none';
 
   // sugeridos
   const sugeridosTab = document.getElementById('suggestedTabBtn');
-  if (sugeridosTab) sugeridosTab.style.display = perms.sugeridos ? 'inline-block' : 'none';
+  if (sugeridosTab) sugeridosTab.style.display = perms.sugeridos ? 'block' : 'none';
 
   // modificarVacaciones / bajarVacaciones
   const vacTab = document.getElementById('vacationTabBtn');
   if (vacTab) {
-    vacTab.style.display = (perms.modificarVacaciones || perms.bajarVacaciones) ? 'inline-block' : 'none';
+    vacTab.style.display = (perms.modificarVacaciones || perms.bajarVacaciones) ? 'block' : 'none';
   }
 
   // modificarHorario
