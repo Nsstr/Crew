@@ -13,7 +13,7 @@
       --bg: #0f172a;
       --surface: #1e293b;
       --surface-hover: #334155;
-      --col-left-width: 260px;
+      --col-left-width: 290px;
       --col-right-width: 80px;
       --primary: #3b82f6;
       --primary-hover: #2563eb;
@@ -1095,9 +1095,9 @@
       position: sticky !important;
       left: 0 !important;
       z-index: 30 !important;
-      width: 260px !important;
-      min-width: 260px !important;
-      max-width: 260px !important;
+      width: 290px !important;
+      min-width: 290px !important;
+      max-width: 290px !important;
       background-color: #1a1e29 !important;
     }
 
@@ -1119,6 +1119,13 @@
     table#planningTable td:nth-child(2) .cell-input:hover,
     table#planningTable td:nth-child(17) .cell-input:hover {
       opacity: 1 !important;
+    }
+
+    table#planningTable th:first-child, 
+    table#planningTable td:first-child {
+      width: 290px !important;
+      min-width: 290px !important;
+      max-width: 290px !important;
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -1874,6 +1881,41 @@
       // 7.3 Lógica de Feriados: Las validaciones de francos adyacentes a feriados ahora son puramente visuales.
       // (Eliminadas las restricciones bloqueantes por pedido del usuario)
 
+      // 7.4 Bloqueo estricto de 32 horas máximas para contratos de jornada reducida (<= 30hs)
+      if (collab && collab.hours <= 30) {
+         const targetDateObj = new Date(dateStr + "T00:00:00");
+         const weekStart = getStartOfWeek(targetDateObj);
+         let totalWeekHoursWithNewTurn = 0;
+
+         for (let i = 0; i < 7; i++) {
+            const d = addDays(weekStart, i);
+            const currentDStr = formatDate(d);
+            
+            // Si es el día que estamos editando actualmente, sumamos las horas del nuevo turno
+            if (currentDStr === dateStr) {
+               if (parsedNewSlot && parsedNewSlot.type === 'work') {
+                  totalWeekHoursWithNewTurn += parsedNewSlot.hours;
+               }
+            } else {
+               // Si es otro día de la semana, sumamos lo que ya estaba cargado en memoria
+               const valDay = getPlanningSlot(collabId, currentDStr);
+               const parsedDay = parseShift(valDay);
+               if (parsedDay && parsedDay.type === 'work') {
+                  totalWeekHoursWithNewTurn += parsedDay.hours;
+               }
+            }
+         }
+
+         // Si la simulación supera el techo de 32 horas, se rechaza el cambio
+         if (totalWeekHoursWithNewTurn > 32) {
+            return { 
+               valid: false, 
+               type: 'exceso_horas', 
+               msg: `Exceso de horas: Este colaborador tiene un contrato de ${collab.hours}hs y no puede superar las 32 horas semanales máximas permitidas. (Total calculado con este turno: ${totalWeekHoursWithNewTurn}hs)` 
+            };
+         }
+      }
+
       return { valid: true };
     }
 
@@ -1967,14 +2009,32 @@
           
           const renderBox = (hours, isVac, metaStr) => {
               if (isVac) return `<div class="hour-box" style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.65em; font-weight: bold; border: 1px solid var(--info); color: var(--info);" title="Vacaciones">V</div>`;
+              
+              const meta = parseFloat(metaStr) || 48;
+              const maxPermitido = meta <= 30 ? 32 : 48; 
+              
+              let extraHtml = '';
               let color = 'var(--danger)';
               let borderStyle = '1px solid';
-              const meta = parseFloat(metaStr) || 48;
-              if (hours === meta) { color = 'var(--success)'; borderStyle = '2px solid'; }
-              else if (hours > meta) color = (hours <= 31) ? '#eab308' : (hours === 32 ? 'var(--success)' : 'var(--danger)');
+              
+              if (hours === meta) { 
+                  color = 'var(--success)'; 
+                  borderStyle = '2px solid'; 
+              } else if (hours > meta) {
+                  color = (hours <= maxPermitido) ? '#eab308' : 'var(--danger)';
+                  if (hours > maxPermitido) {
+                      const horasExtras = hours - maxPermitido;
+                      extraHtml = `<div style="font-size: 0.55rem; font-weight: bold; color: var(--danger); margin-top: 2px; white-space: nowrap;">Xtr: ${Number.isInteger(horasExtras) ? horasExtras : horasExtras.toFixed(1)}h</div>`;
+                  }
+              }
               
               const text = Number.isInteger(hours) ? hours : hours.toFixed(1);
-              return `<div class="hour-box" style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.65em; font-weight: bold; border: ${borderStyle} ${color}; color: ${color};" title="Meta: ${meta}h">${text}</div>`;
+              return `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                  <div class="hour-box" style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.65em; font-weight: bold; border: ${borderStyle} ${color}; color: ${color};" title="Meta: ${meta}h">${text}</div>
+                  ${extraHtml}
+                </div>
+              `;
           };
 
           const w1Container = document.getElementById(`desktop-hours-w1-${collab.id}`);
@@ -2123,25 +2183,30 @@
         const cleanName = collab.name.split('(')[0].split('-')[0].trim();
 
         let html = `
-          <td class="collab-cell" style="width: 260px; min-width: 260px; padding: 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; height: 100%; padding: 2px 12px; box-sizing: border-box;">
-              <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
-                <div style="font-weight: bold; font-size: 0.75em; color: #fff; display: flex; align-items: center;">
-                  <div class="indicator ${indClass}" title="Abandono Sector: ${maxAbandon} días" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; position: relative;"></div>
+          <td class="collab-cell" style="width: 290px; min-width: 290px; padding: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; height: 100%; padding: 2px 12px; box-sizing: border-box; gap: 8px;">
+              
+              <!-- Texto del Colaborador (Izquierda) -->
+              <div style="display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0; flex: 1;">
+                <div style="font-weight: bold; font-size: 0.75em; color: #fff; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                  <div class="indicator ${indClass}" title="Abandono Sector: ${maxAbandon} días" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; flex-shrink: 0;"></div>
                   ${collab.id} ${cleanName}
                 </div>
                 <div class="mobile-hours-tag" id="mobile-hours-${collab.id}"></div>
-                <div class="collab-meta" style="font-size: 0.7em; display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; color: var(--text-muted);">
+                <div class="collab-meta" style="font-size: 0.7em; display: flex; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                   <span>${collab.pasillo}</span>
                   <span style="opacity: 0.6;">(${collab.hours}h)</span>
                   <span style="opacity: 0.3">|</span>
                   <span id="dom-badge-${collab.id}" class="dom-badge" style="padding: 0 0.2rem; font-size: 0.7em;" title="Francos Dominicales"></span>
                 </div>
               </div>
-              <div id="desktop-hours-${collab.id}-left" style="display: flex; gap: 4px; padding-left: 8px;">
+              
+              <!-- Bloques de Horas (Alineados a la Derecha) -->
+              <div id="desktop-hours-${collab.id}-left" style="display: flex; gap: 6px; padding-left: 4px; margin-left: auto; flex-shrink: 0; align-items: flex-start;">
                  <div id="desktop-hours-w1-${collab.id}"></div>
                  <div id="desktop-hours-w2-${collab.id}"></div>
               </div>
+
             </div>
           </td>
         `;
@@ -2640,7 +2705,9 @@
       
       if (!validation.valid) {
         if (validation.type === 'legal') {
-           showToast("ERROR CRÍTICO DE LEY", `No se puede asignar este horario.<br>El colaborador no cumple con las ${validation.req} de descanso obligatorio por Ley. (Descanso calculado: ${validation.actual} horas)`);
+           showToast("ERROR CRÍTICO DE LEY", `No se puede asignar este horario.<br>El colaborador no cumple con las ${validation.req} de descanso obligatorio por Ley.`);
+        } else if (validation.type === 'exceso_horas') {
+           showToast("LÍMITE OPERATIVO VIOLADO", validation.msg);
         } else {
            showToast("Restricción Violada", validation.msg);
         }
