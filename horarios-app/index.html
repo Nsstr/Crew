@@ -1069,9 +1069,9 @@
       background-color: rgba(255, 255, 255, 0.03) !important;
     }
 
-    /* 2. Línea divisoria rígida pero sutil a la izquierda del segundo Lunes (Columna 9) */
-    table#planningTable th:nth-child(9),
-    table#planningTable td:nth-child(9) {
+    /* Línea divisoria vertical exacta en el Lunes de la segunda semana */
+    table#planningTable th:nth-child(10),
+    table#planningTable td:nth-child(10) {
       border-left: 3px solid rgba(255, 255, 255, 0.25) !important;
     }
 
@@ -2335,6 +2335,26 @@
           
           let isSkeleton = state.skeletonStartStr && dStr >= state.skeletonStartStr;
           let finalWrapperClass = wrapperClass + (isSkeleton ? ' skeleton-cell' : '') + ' day-cell';
+          
+          // Validar descanso diario de 12 horas para turnos ya cargados
+          let hasRestError = false;
+          if (parsed && parsed.type === 'work') {
+             const prevDateStr = formatDate(addDays(d, -1));
+             const prevSlotKey = getPlanningSlot(collab.id, prevDateStr);
+             const prevSlot = parseShift(prevSlotKey);
+             if (prevSlot && prevSlot.type === 'work') {
+                let currAbs = getShiftAbsoluteTimes(dStr, parsed);
+                let prevAbs = getShiftAbsoluteTimes(prevDateStr, prevSlot);
+                if (currAbs && prevAbs && (currAbs.start - prevAbs.end) / 3600000 < 12) {
+                   hasRestError = true;
+                }
+             }
+          }
+          
+          if (hasRestError) {
+             inputClass += ' franco-error'; // Aplica el estilo rojo fuerte nativo
+          }
+
           let finalInputClass = inputClass + (isSkeleton ? ' skeleton-input' : '');
 
           html += `
