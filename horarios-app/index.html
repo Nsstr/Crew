@@ -1939,14 +1939,16 @@
              }
           });
           
+          // Semáforo Corregido: El límite es un techo estricto
           let domClass = '';
           const limit = collab.domingosAcordados || 0;
-          if (limit === 0) {
-              domClass = ''; 
+          
+          if (restCount > limit) {
+              domClass = 'danger';  // ROJO: Se pasó de los domingos asignados (Alerta)
           } else if (restCount < limit) {
-              domClass = 'danger'; 
-          } else if (restCount >= limit) {
-              domClass = 'success'; 
+              domClass = 'success'; // VERDE: Todavía tiene domingos disponibles en el mes
+          } else {
+              domClass = '';        // NEUTRO/GRIS: Cumplió la cuota exacta (Equilibrio)
           }
           
           const domBadge = document.getElementById(`dom-badge-${collab.id}`);
