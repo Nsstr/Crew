@@ -212,7 +212,13 @@ export function syncPermissionsUI() {
 
   // ── Restricciones granulares para invitados ──────────────────────────────
   const entry = _state.permisosInvitado?.[legajo];
-  const perms = entry?.permisos || {};
+  
+  if (!entry || !entry.permisos) {
+      console.warn("Permisos aún no cargados, esperando...");
+      return; // Salimos y evitamos ocultar los botones por error
+  }
+  
+  const perms = entry.permisos;
 
   // imprimirPdf
   const pdfBtn = document.getElementById('pdfBtn');
