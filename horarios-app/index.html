@@ -1190,6 +1190,11 @@
             width: 100% !important;
             box-sizing: border-box !important;
         }
+        
+        /* Forzar negro puro en absolutamente todo el contenido impreso */
+        #print-container, #print-container * {
+            color: black !important;
+        }
 
         /* 2. Configurar tabla para PDF y no pegada al borde */
         table { width: 100% !important; border-collapse: collapse; table-layout: fixed; margin: 0 auto; margin-top: 10px; }
