@@ -8,12 +8,19 @@
 
 // ─── ETIQUETAS LEGIBLES DE PERMISOS ──────────────────────────────────────────
 export const PERMISOS_META = {
-  modificarHorario:    { label: 'Mod. Horario',    icon: '✏️'  },
-  imprimirPdf:         { label: 'Imprimir PDF',     icon: '🖨️'  },
-  modificarVacaciones: { label: 'Mod. Vacaciones',  icon: '🏖️'  },
-  verMetricas:         { label: 'Ver Métricas',     icon: '📊'  },
-  sugeridos:           { label: 'Sugeridos',         icon: '💡'  },
-  bajarVacaciones:     { label: 'Bajar Vacaciones', icon: '⬇️'  },
+  // ── Claves originales (backward compat) ─────────────────────────────────
+  modificarHorario:       { label: 'Mod.<br>Horario',       icon: '✏️'  },
+  imprimirPdf:            { label: 'PDF<br>Horarios',       icon: '🖨️'  },
+  sugeridos:              { label: 'Ver<br>Sugeridos',      icon: '💡'  },
+  modificarVacaciones:    { label: 'Reg.<br>Vacaciones',    icon: '🏖️'  },
+  bajarVacaciones:        { label: 'Bajar<br>Vacac.',       icon: '⬇️'  },
+  verMetricas:            { label: 'Ver<br>Métricas',       icon: '📊'  },
+  // ── Claves nuevas ─────────────────────────────────────────────────────────
+  exportarPdfHorarios:    { label: 'Export<br>PDF',         icon: '📄'  },
+  modificarSugeridos:     { label: 'Edit<br>Sugeridos',     icon: '✍️'  },
+  exportarSugeridosPdf:   { label: 'PDF<br>Sugeridos',      icon: '📑'  },
+  gestionSaldos:          { label: 'Gestión<br>Saldos',     icon: '💰'  },
+  exportarExcelVacaciones:{ label: 'Excel<br>Vacac.',       icon: '📊'  },
 };
 
 export const PERMISO_KEYS = Object.keys(PERMISOS_META);
@@ -77,31 +84,43 @@ export async function loadAllPermisosInvitados() {
 
 export async function loadPermisosInvitado(legajoRaw) {
   if (_isMockMode || !_db) return null;
+
+  // 1. Verificación de seguridad: si no viene el legajo, abortamos.
+  const legajo = legajoRaw ? String(legajoRaw).trim() : null;
+  if (!legajo) {
+    console.error('[Permisos] Error: No se recibió un legajo para cargar.');
+    return null;
+  }
+
   try {
-    const legajo = String(legajoRaw).trim();
     const ref  = _doc(_db, 'permisos_invitados', legajo);
     const snap = await _getDoc(ref);
+
     if (snap.exists()) {
       _state.permisosInvitado[legajo] = snap.data();
       _state.currentInvitadoLegajo = legajo;
-      
-      console.log("Datos cargados correctamente. Forzando actualización de UI...");
-      syncPermissionsUI(); // <--- LLAMADA OBLIGATORIA AQUÍ
-      
+
+      console.log('Datos cargados. Forzando actualización...');
+      syncPermissionsUI('invitado', legajo);
+
       return snap.data();
+    } else {
+      console.warn('[Permisos] No existe documento para el legajo:', legajo);
+      return null;
     }
-    return null;
   } catch (err) {
-    console.error('[Permisos] Error cargando permisos de ' + legajo + ':', err);
+    console.error('[Permisos] Error crítico en loadPermisosInvitado:', err);
     return null;
   }
 }
 
 // =============================================================================
-// 2. MIDDLEWARE DE SEGURIDAD — checkAccess(permiso)
+// 2. MIDDLEWARE DE SEGURIDAD — checkAccess(permiso, accion)
 // =============================================================================
+// Uso: checkAccess('modificarVacaciones')
+//      checkAccess('modificarVacaciones', 'edit')
 
-export function checkAccess(permiso) {
+export function checkAccess(permiso, accion = 'view') {
   const role   = _getCurrentRole();
   const legajo = _getCurrentLegajo();
 
@@ -115,8 +134,11 @@ export function checkAccess(permiso) {
       return false;
     }
 
-    const perms = entry.permisos || {};
-    if (perms[permiso] === true) return true;
+    // Firebase almacena los permisos como claves con punto literal: "permisos.modificarHorario"
+    // Si la acción es 'view' o 'edit', basta con que el permiso esté en true.
+    // Se puede extender 'accion' para lógica diferenciada por tipo de operación.
+    const permitido = entry?.['permisos.' + permiso] === true;
+    if (permitido) return true;
 
     _showToast('Acceso denegado', 'No tenés permiso para esta acción. Contactá al Administrador.');
     return false;
@@ -178,10 +200,14 @@ export async function crearInvitado(legajo) {
     permisos: {
       modificarHorario:    false,
       imprimirPdf:         false,
-      modificarVacaciones: false,
-      verMetricas:         false,
+      exportarPdfHorarios: false,
       sugeridos:           false,
+      modificarSugeridos:  false,
+      exportarSugeridosPdf:false,
+      modificarVacaciones: false,
       bajarVacaciones:     false,
+      exportarExcelVacaciones: false,
+      gestionSaldos:       false,
     }
   };
   _state.permisosInvitado[legajo] = nuevoDoc;
@@ -198,14 +224,15 @@ export async function crearInvitado(legajo) {
 // 4. RESTRICCIONES DE UI — syncPermissionsUI()
 // =============================================================================
 
-export function syncPermissionsUI() {
-  const role   = _getCurrentRole();
-  const legajo = _getCurrentLegajo();
+export function syncPermissionsUI(forcedRole, forcedLegajo) {
+  const role   = forcedRole || _getCurrentRole();
+  const legajo = forcedLegajo || _getCurrentLegajo();
 
-  console.log("Sincronizando UI para legajo:", legajo, "Permisos:", _state.permisosInvitado[legajo]);
+  console.log("Sync UI intentando ejecutar para:", legajo);
+  if (!legajo) return;
 
-  const backupBtn   = document.getElementById('backupDriveBtn');
-  const bellBtn     = document.getElementById('auditBellBtn');
+  const backupBtn = document.getElementById('backupDriveBtn');
+  const bellBtn   = document.getElementById('auditBellBtn');
 
   if (role === 'admin') return; // checkLogin() ya gestiona todo para admin
 
@@ -215,45 +242,71 @@ export function syncPermissionsUI() {
 
   if (role !== 'invitado') return;
 
-  // ── Restricciones granulares para invitados ──────────────────────────────
-  const entry = _state.permisosInvitado?.[legajo];
-  
-  if (!entry || !entry.permisos) {
-      console.warn("Permisos aún no cargados, esperando...");
-      return; // Salimos y evitamos ocultar los botones por error
-  }
-  
-  const perms = entry.permisos;
+  // Firebase almacena los permisos con claves de punto literal al usar setDoc con merge:
+  // { "permisos.verMetricas": true } — no como objeto anidado.
+  // También soportamos la lectura del objeto anidado clásico para backward compat.
+  const docData = _state.permisosInvitado?.[legajo];
+  if (!docData) return;
 
-  // imprimirPdf
+  // Helper: lee la clave en formato plano (Firebase merge) o anidado (legacy)
+  const get = (key) => docData['permisos.' + key] === true || docData?.permisos?.[key] === true;
+
+  // ── Las PESTAÑAS siempre son visibles para el invitado. ─────────────────────
+  // Solo los BOTONES DE ACCIÓN dentro de cada sección se controlan aquí.
+
+  // Grid Semanal — PDF
   const pdfBtn = document.getElementById('pdfBtn');
-  if (pdfBtn) pdfBtn.style.display = perms.imprimirPdf ? 'inline-flex' : 'none';
+  if (pdfBtn) pdfBtn.style.setProperty('display', get('imprimirPdf') || get('exportarPdfHorarios') ? 'inline-flex' : 'none', 'important');
 
-  // verMetricas
-  const metricsTab = document.getElementById('metricsTabBtn');
-  if (metricsTab) metricsTab.style.display = perms.verMetricas ? 'block' : 'none';
+  // Sugeridos — PDF
+  const pdfSugeridosBtn = document.getElementById('pdfSugeridosBtn');
+  if (pdfSugeridosBtn) pdfSugeridosBtn.style.setProperty('display', get('sugeridos') || get('exportarSugeridosPdf') ? 'inline-flex' : 'none', 'important');
 
-  // sugeridos
-  const sugeridosTab = document.getElementById('suggestedTabBtn');
-  if (sugeridosTab) sugeridosTab.style.display = perms.sugeridos ? 'block' : 'none';
+  // Vacaciones — Guardar Periodo
+  const vSubmitBtn = document.getElementById('vSubmitBtn');
+  if (vSubmitBtn) vSubmitBtn.style.setProperty('display', get('modificarVacaciones') ? '' : 'none', 'important');
 
-  // modificarVacaciones / bajarVacaciones
-  const vacTab = document.getElementById('vacationTabBtn');
-  if (vacTab) {
-    vacTab.style.display = (perms.modificarVacaciones || perms.bajarVacaciones) ? 'block' : 'none';
+  // Vacaciones — Exportar Excel
+  const vExportExcelBtn = document.getElementById('vExportExcelBtn');
+  if (vExportExcelBtn) vExportExcelBtn.style.setProperty('display', get('exportarExcelVacaciones') || get('bajarVacaciones') ? '' : 'none', 'important');
+
+  // Gestión de Saldos: inputs readonly si no tiene permiso
+  const saldosContainer = document.getElementById('saldosVacacionesContainer');
+  if (saldosContainer) {
+    const canEditSaldos = get('gestionSaldos');
+    saldosContainer.querySelectorAll('.saldo-tipo, .saldo-asignados').forEach(el => {
+      el.disabled = !canEditSaldos;
+      el.style.setProperty('pointer-events', canEditSaldos ? '' : 'none', 'important');
+      el.style.opacity = canEditSaldos ? '' : '0.45';
+    });
   }
 
-  // modificarHorario
+  // Sugeridos: textareas readonly si no tiene permiso modificarSugeridos
+  const canEditSugeridos = get('modificarSugeridos') || get('sugeridos');
+  document.querySelectorAll('.sugeridos-comment').forEach(ta => {
+    if (!canEditSugeridos) {
+      ta.setAttribute('readonly', 'true');
+      ta.style.setProperty('pointer-events', 'none', 'important');
+      ta.style.opacity = '0.45';
+    } else {
+      ta.removeAttribute('readonly');
+      ta.style.removeProperty('pointer-events');
+      ta.style.opacity = '';
+    }
+  });
+
+  // Grid Semanal: inputs readonly si no tiene permiso modificarHorario
   document.querySelectorAll('.cell-input').forEach(input => {
-    if (!perms.modificarHorario) {
+    if (!get('modificarHorario')) {
       input.setAttribute('readonly', 'true');
-      input.style.cursor = 'not-allowed';
+      input.style.setProperty('cursor', 'not-allowed', 'important');
     } else {
       input.removeAttribute('readonly');
       input.style.cursor = '';
     }
   });
 }
+
 
 // =============================================================================
 // 5. RENDERIZADO DE "GESTIÓN DE INVITADOS" EN EL configModal
@@ -277,14 +330,24 @@ export async function renderGestionInvitados(container) {
 
   const wrapper = container.querySelector('#invitadosTableWrapper');
 
-  const PERMISO_KEYS_LOCAL = ['modificarHorario','imprimirPdf','modificarVacaciones','verMetricas','sugeridos','bajarVacaciones'];
+  const PERMISO_KEYS_LOCAL = [
+    'modificarHorario', 'imprimirPdf', 'sugeridos',
+    'modificarVacaciones', 'bajarVacaciones', 'verMetricas',
+    'exportarPdfHorarios', 'modificarSugeridos', 'exportarSugeridosPdf',
+    'gestionSaldos', 'exportarExcelVacaciones',
+  ];
   const PERMISOS_META_LOCAL = {
-    modificarHorario:    { label: 'Mod.<br>Horario',   icon: '✏️' },
-    imprimirPdf:         { label: 'Impr.<br>PDF',       icon: '🖨️' },
-    modificarVacaciones: { label: 'Mod.<br>Vacac.',     icon: '🏖️' },
-    verMetricas:         { label: 'Ver<br>Métricas',    icon: '📊' },
-    sugeridos:           { label: 'Sugeridos',           icon: '💡' },
-    bajarVacaciones:     { label: 'Bajar<br>Vacac.',    icon: '⬇️' },
+    modificarHorario:       { label: 'Mod.<br>Horario',    icon: '✏️' },
+    imprimirPdf:            { label: 'PDF<br>Horarios',    icon: '🖨️' },
+    sugeridos:              { label: 'Ver<br>Sugeridos',   icon: '💡' },
+    modificarVacaciones:    { label: 'Reg.<br>Vacac.',     icon: '🏖️' },
+    bajarVacaciones:        { label: 'Bajar<br>Vacac.',    icon: '⬇️' },
+    verMetricas:            { label: 'Ver<br>Métricas',    icon: '📊' },
+    exportarPdfHorarios:    { label: 'Export<br>PDF',      icon: '📄' },
+    modificarSugeridos:     { label: 'Edit<br>Suger.',     icon: '✍️' },
+    exportarSugeridosPdf:   { label: 'PDF<br>Suger.',      icon: '📑' },
+    gestionSaldos:          { label: 'Gestión<br>Saldos',  icon: '💰' },
+    exportarExcelVacaciones:{ label: 'Excel<br>Vacac.',    icon: '📊' },
   };
 
   const headerCells = PERMISO_KEYS_LOCAL.map(key =>
@@ -297,14 +360,15 @@ export async function renderGestionInvitados(container) {
   Object.entries(INVITADOS_AUTORIZADOS).forEach(([leg, nombre]) => {
     const entry  = _state.permisosInvitado?.[leg];
     const activo = entry?.activo ?? false;
-    const perms  = entry?.permisos || {};
+    // Firebase almacena los permisos como claves con punto literal: "permisos.verMetricas"
+    // NO como objeto anidado, por eso accedemos con bracket notation.
 
     const rowBg = activo
       ? 'background:rgba(59,130,246,0.07);'
       : 'opacity:0.52;';
 
     const permisosCells = PERMISO_KEYS_LOCAL.map(key => {
-      const isChecked = perms[key] === true;
+      const isChecked = entry?.['permisos.' + key] === true || entry?.permisos?.[key] === true;
       const chk = isChecked ? 'checked' : '';
       const dis = activo ? '' : 'disabled';
       return '<td style="text-align:center;padding:0.45rem 0.25rem;">' +
