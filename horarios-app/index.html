@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1178,7 +1178,7 @@
 
     @media print {
         /* 1. Añadimos márgenes generales a la página impresa */
-        @page { margin: 1.5cm; }
+        @page { margin: 0.5cm; }
 
         /* Ocultar botones, menús y fondo oscuro */
         body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
@@ -1186,7 +1186,7 @@
         #seccionSugeridos { height: auto !important; overflow: visible !important; padding: 0 !important; }
         
         #print-container {
-            padding: 40px !important;
+            padding: 10px !important;
             width: 100% !important;
             box-sizing: border-box !important;
         }
@@ -1207,7 +1207,7 @@
         /* 4. Regla crítica para la celda del comentario y padding interno */
         td, th { 
             border: 1px solid #ccc !important; 
-            padding: 10px !important; 
+            padding: 4px 6px !important; 
             word-wrap: break-word; 
             overflow-wrap: break-word; 
             color: black !important; 
@@ -5689,7 +5689,7 @@
        header.innerText = `Sugerencias del día: ${dateVal}`;
        header.style.color = 'black';
        header.style.textAlign = 'center';
-       header.style.padding = '20px 0';
+       header.style.padding = '10px 0';
        header.style.margin = '0';
        header.style.fontFamily = 'inherit';
        document.body.prepend(header);
@@ -5700,7 +5700,7 @@
            const div = document.createElement('div');
            div.innerHTML = ta.value.replace(/\n/g, '<br>');
            div.className = 'print-only-text';
-           div.style.cssText = "padding: 5px; font-size: 10pt; line-height: 1.2; word-break: break-all; color: black;";
+           div.style.cssText = "padding: 2px; font-size: 9.5pt; line-height: 1.15; word-break: break-all; color: black;";
            ta.parentNode.insertBefore(div, ta);
            ta.style.display = 'none';
            divs.push({ div, ta });
