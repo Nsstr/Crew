@@ -1636,6 +1636,8 @@
             <div id="vacationCalendarContainer" class="vac-cal-container" style="flex: 1; overflow: hidden; min-height: 0;">
               <!-- JS -->
             </div>
+            <!-- Contenedor dinámico de detalles de vacaciones -->
+            <div id="vacationDetailContainer" style="display: none; padding: 16px; background: rgba(30,41,59,0.9); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; margin-top: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);"></div>
           </div>
        </div>
        
@@ -4803,7 +4805,7 @@
                 }
              });
              
-             currentWeek.push({ day, onVacation, onVacationIds, isHoliday: state.holidays.includes(dStr) });
+             currentWeek.push({ day, dStr, onVacation, onVacationIds, isHoliday: state.holidays.includes(dStr) });
              
              if (currentWeek.length === 7) {
                 weeks.push(currentWeek);
@@ -4856,7 +4858,9 @@
                       tooltip = 'Feriado' + (count > 0 ? ' | ' + tooltip : '');
                    }
                    
-                   html += `<div class="vac-cal-cell ${densClass}" style="${inlineStyle}" title="${tooltip}">${wday.day}</div>`;
+                   const clickHandler = `onclick="window.showVacationDetails('${wday.dStr}', '${wday.onVacationIds.join(',')}')"`;
+                   const curPointer = 'cursor: pointer;';
+                   html += `<div class="vac-cal-cell ${densClass}" style="${inlineStyle} ${curPointer}" title="${tooltip}" ${clickHandler}>${wday.day}</div>`;
                 }
              });
           });
@@ -4865,6 +4869,67 @@
           monthDiv.innerHTML = html;
           container.appendChild(monthDiv);
        }
+    };
+
+    window.showVacationDetails = function(dStr, idsStr) {
+       const detailContainer = document.getElementById('vacationDetailContainer');
+       if (!detailContainer) return;
+       
+       if (!idsStr || idsStr.length === 0) {
+           detailContainer.innerHTML = `
+             <div style="text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+                Sin novedades para el ${dStr.split('-').reverse().join('/')}
+             </div>
+           `;
+           detailContainer.style.display = 'block';
+           return;
+       }
+       
+       const ids = idsStr.split(',');
+       const targetD = new Date(dStr + "T00:00:00");
+       
+       let detailsHTML = `<h4 style="margin: 0 0 12px 0; color: #fff; font-size: 1rem;">Vacaciones del ${dStr.split('-').reverse().join('/')}</h4>`;
+       detailsHTML += `<div style="display: flex; flex-direction: column; gap: 8px;">`;
+       
+       ids.forEach(id => {
+           const collab = state.collaborators.find(c => c.id === id);
+           const collabName = collab ? collab.name : 'Desconocido';
+           const collabLegajo = collab ? (collab.legajo || '-') : '-';
+           
+           let vacEntry = null;
+           for (let v of (state.vacations || [])) {
+               if (v.colaboradorId === id) {
+                   const vStart = new Date(v.startDate + "T00:00:00");
+                   const vEnd = new Date(v.endDate + "T00:00:00");
+                   if (targetD >= vStart && targetD <= vEnd) {
+                       vacEntry = v;
+                       break;
+                   }
+               }
+           }
+           
+           if (vacEntry) {
+               const startStr = vacEntry.startDate.split('-').reverse().join('/');
+               const endStr = vacEntry.endDate.split('-').reverse().join('/');
+               const vColor = getCollabColor(id);
+               detailsHTML += `
+                 <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg); padding: 10px 14px; border-radius: 6px; border-left: 4px solid ${vColor}; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);">
+                    <div style="display: flex; flex-direction: column;">
+                       <span style="font-weight: 600; font-size: 0.95rem; color: #fff;">${collabName}</span>
+                       <span style="font-size: 0.8rem; color: var(--text-muted);">Legajo: ${collabLegajo}</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; text-align: right;">
+                       <span style="font-size: 0.85rem; color: #fff; font-weight: bold;">${startStr}</span>
+                       <span style="font-size: 0.75rem; color: var(--text-muted);">al ${endStr}</span>
+                    </div>
+                 </div>
+               `;
+           }
+       });
+       
+       detailsHTML += `</div>`;
+       detailContainer.innerHTML = detailsHTML;
+       detailContainer.style.display = 'block';
     };
 
     // -- LÓGICA DE LOGIN Y RBAC --
