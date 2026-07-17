@@ -713,9 +713,9 @@
        }
        #mobile-coverage-dashboard {
          display: grid !important;
-         grid-template-columns: repeat(6, 1fr);
-         gap: 4px;
-         padding: 8px 12px;
+         grid-template-columns: repeat(8, 1fr);
+         gap: 2px;
+         padding: 6px 8px;
          position: sticky;
          top: 0;
          z-index: 50;
@@ -734,12 +734,12 @@
          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
        }
        .mobile-cov-time {
-         font-size: 0.75rem;
+         font-size: 0.65rem;
          color: var(--text-muted);
          margin-bottom: 2px;
        }
        .mobile-cov-val {
-         font-size: 1.3rem;
+         font-size: 1.15rem;
          font-weight: 900;
          line-height: 1;
        }
@@ -2684,7 +2684,7 @@
        });
 
        let blocksHTML = '';
-       for (let h = 6; h <= 23; h++) {
+       for (let h = 0; h <= 23; h++) {
            let count = hourlyCounts[h];
            let colorStr = count >= 2 ? '#22c55e' : '#ef4444';
            let hStr = h.toString().padStart(2, '0') + ':00';
