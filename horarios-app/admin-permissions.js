@@ -124,23 +124,27 @@ export function checkAccess(permiso, accion = 'view') {
   const role   = _getCurrentRole();
   const legajo = _getCurrentLegajo();
 
+  if (role === 'visitor') {
+    _showToast('Acceso denegado', 'Inicia sesión para editar esta información', 'warning');
+    return false;
+  }
+
   if (role === 'admin') return true;
 
   if (role === 'invitado') {
     const entry = _state.permisosInvitado?.[legajo];
 
     if (!entry || entry.activo === false) {
-      _showToast('Acceso denegado', 'Tu cuenta de invitado está inactiva. Contacta al Administrador.');
+      _showToast('Acceso denegado', 'Tu cuenta de invitado está inactiva. Contacta al Administrador.', 'warning');
       return false;
     }
 
     // Firebase almacena los permisos como claves con punto literal: "permisos.modificarHorario"
     // Si la acción es 'view' o 'edit', basta con que el permiso esté en true.
-    // Se puede extender 'accion' para lógica diferenciada por tipo de operación.
-    const permitido = entry?.['permisos.' + permiso] === true;
+    const permitido = entry?.['permisos.' + permiso] === true || entry?.permisos?.[permiso] === true;
     if (permitido) return true;
 
-    _showToast('Acceso denegado', 'No tenés permiso para esta acción. Contactá al Administrador.');
+    _showToast('Acceso denegado', 'No tenés permiso para esta acción. Contactá al Administrador.', 'warning');
     return false;
   }
 

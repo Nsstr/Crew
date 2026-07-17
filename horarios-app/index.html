@@ -709,13 +709,57 @@
          display: none !important;
        }
        .top-heatmap-area {
-         overflow-x: auto !important;
-         width: 100%;
+         display: none !important;
+       }
+       #mobile-coverage-dashboard {
+         display: grid !important;
+         grid-template-columns: repeat(6, 1fr);
+         gap: 4px;
+         padding: 8px 12px;
+         position: sticky;
+         top: 0;
+         z-index: 50;
+         background: var(--bg);
+         border-bottom: 1px solid var(--border);
+         box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+       }
+       .mobile-cov-block {
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         justify-content: center;
+         background: var(--surface);
+         border-radius: 6px;
+         padding: 6px 2px;
+         box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+       }
+       .mobile-cov-time {
+         font-size: 0.75rem;
+         color: var(--text-muted);
+         margin-bottom: 2px;
+       }
+       .mobile-cov-val {
+         font-size: 1.3rem;
+         font-weight: 900;
+         line-height: 1;
        }
        #app-grid-container {
          margin-bottom: 80px;
+         display: flex;
+         flex-direction: column;
        }
-       
+       #tab-horarios {
+         flex: 1;
+         overflow: hidden !important;
+         display: flex;
+         flex-direction: column;
+       }
+       .grid-container {
+         flex: 1;
+         overflow-y: auto !important;
+         overflow-x: hidden !important;
+         height: 100%;
+       }
        @keyframes pulse-skeleton {
          0% { background-color: rgba(255, 255, 255, 0.02); }
          50% { background-color: rgba(255, 255, 255, 0.08); }
@@ -745,38 +789,27 @@
          margin-top: 2px;
        }
        
+       table#planningTable {
+         table-layout: fixed !important;
+         width: 100% !important;
+       }
        table#planningTable th:first-child, 
        table#planningTable td:first-child {
-         position: sticky;
-         left: 0;
-         z-index: 10;
-         background: var(--bg) !important;
-         min-width: 110px !important;
-         max-width: 110px !important;
-         width: 110px !important;
-         white-space: nowrap;
-         overflow: hidden;
-         text-overflow: ellipsis;
-         box-shadow: 2px 0 5px rgba(0,0,0,0.5);
-       }
-       table#planningTable td:first-child {
-         z-index: 11;
-       }
-       table#planningTable th:first-child {
-         z-index: 12 !important;
-       }
-
-       /* Day columns fixed width */
-       /* [REFACTORIZADO] Reglas de columnas movidas al bloque unificado al final */
-       /*
-       #planningTable th:not(:first-child):not(:last-child),
-       #planningTable td:not(:first-child):not(:last-child) {
-         width: auto !important;
-         min-width: 75px !important;
+         position: static !important;
+         background: transparent !important;
+         width: 60% !important;
+         min-width: 0 !important;
          max-width: none !important;
-         text-align: center;
+         box-shadow: none !important;
        }
-       */
+       table#planningTable th:nth-child(2),
+       table#planningTable td:nth-child(2) {
+         width: 40% !important;
+         opacity: 1 !important;
+       }
+       table#planningTable td:nth-child(2) .cell-input {
+         opacity: 1 !important;
+       }
        
        table#planningTable th:not(:first-child):not(:last-child) {
          font-size: 0.7rem !important;
@@ -1472,6 +1505,7 @@
     
     <div id="app-grid-container" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
        <div id="tab-horarios" class="container" style="padding: 0; display: flex; flex-direction: column;">
+          <div id="mobile-coverage-dashboard" style="display: none;"></div>
           <div class="grid-container">
       <table id="planningTable">
 
@@ -1708,7 +1742,7 @@
 
       <!-- Lista de eventos existentes -->
       <div id="eventosListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto;">
-        <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1rem;">Cargando eventos...</p>
+                      <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1rem;">Cargando eventos...</p>
       </div>
     </div>
   </div>
@@ -2428,7 +2462,253 @@
       });
     }
 
+    window.openMobileProfile = function(collabId) {
+       const collab = state.collaborators.find(c => c.id === collabId);
+       if (!collab) return;
+       const cleanName = (collab.name || 'Desconocido').split('(')[0].split('-')[0].trim();
+       document.getElementById('pbName').textContent = cleanName;
+       document.getElementById('pbLegajo').textContent = collab.legajo || collab.id || '-';
+       document.getElementById('pbSector').textContent = collab.sector || '-';
+       document.getElementById('pbCarga').textContent = collab.cargaHoraria ? `${collab.cargaHoraria} hs` : '-';
+       document.getElementById('profileBottomSheet').style.display = 'block';
+    };
+
+    window.openMobileContextMenu = function(inputElement) {
+       if (currentRole === 'visitor') return;
+       const simulatedEvent = {
+           preventDefault: () => {},
+           target: inputElement,
+           pageX: window.innerWidth / 2,
+           pageY: window.innerHeight - 200
+       };
+       handleContextMenu(simulatedEvent);
+    };
+
+    function renderMobileDayView() {
+      const activeEl = document.activeElement;
+      let focusCollab = null;
+      let focusDate = null;
+      if (activeEl && activeEl.classList.contains('cell-input')) {
+         focusCollab = activeEl.getAttribute('data-collab');
+         focusDate = activeEl.getAttribute('data-date');
+      }
+
+      const targetDate = state.currentWeekStart;
+      const dStr = formatDate(targetDate);
+      const isHoliday = state.holidays.includes(dStr);
+      const evento = state.eventos[dStr];
+      const prevDateStr = formatDate(addDays(targetDate, -1));
+
+      const weekDaysArr = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+      const monthsArr = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+      const dayLabelText = `${weekDaysArr[targetDate.getDay()]} ${String(targetDate.getDate()).padStart(2, '0')} ${monthsArr[targetDate.getMonth()]}`;
+      document.getElementById('weekLabel').textContent = dayLabelText;
+
+      const trHead = document.getElementById('tableHeader');
+      const thBg = evento ? `background-color: ${evento.color}22;` : '';
+      const holidayBadge = isHoliday ? `<span class="holiday-badge">Feriado</span>` : '';
+      const eventBadge = evento ? `<span class="event-badge" style="background-color:${evento.color};">&#128197; ${evento.descripcion}</span>` : '';
+      
+      trHead.innerHTML = `
+        <th style="width: 60%; padding: 4px;">Colaborador</th>
+        <th style="width: 40%; text-align: center; padding: 4px; ${thBg}">${dayLabelText} ${holidayBadge}${eventBadge}</th>
+      `;
+
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+      console.log("Datos para render móvil:", state.collaborators);
+
+      const hourlyCounts = {};
+      for (let h = 0; h <= 23; h++) hourlyCounts[h] = 0;
+
+      state.collaborators.forEach(c => {
+          const objForTardanza = getPlanningObj(c.id, dStr) || {};
+          const valToday = getPlanningSlot(c.id, dStr);
+          const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
+          
+          const targetDToday = new Date(dStr + "T00:00:00");
+          const targetDPrev = new Date(prevDateStr + "T00:00:00");
+          let isOnVacationToday = false;
+          let isOnVacationPrev = false;
+          for (let vac of (state.vacations || [])) {
+              if (vac.colaboradorId === c.id) {
+                  const vacStart = new Date(vac.startDate + "T00:00:00");
+                  const vacEnd = new Date(vac.endDate + "T00:00:00");
+                  if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
+                  if (targetDPrev >= vacStart && targetDPrev <= vacEnd) isOnVacationPrev = true;
+              }
+          }
+
+          const valPrev = getPlanningSlot(c.id, prevDateStr);
+          const parsedPrev = parseShift(valPrev);
+
+          for (let h = 0; h <= 23; h++) {
+              if (!isOnVacationToday && parsedToday && parsedToday.type === 'work') {
+                  if (parsedToday.end <= parsedToday.start) {
+                      if (h >= parsedToday.start) hourlyCounts[h]++;
+                  } else {
+                      if (h >= parsedToday.start && h < parsedToday.end) hourlyCounts[h]++;
+                  }
+              }
+              if (!isOnVacationPrev && parsedPrev && parsedPrev.type === 'work') {
+                  if (parsedPrev.end <= parsedPrev.start) {
+                      if (h < parsedPrev.end) hourlyCounts[h]++;
+                  }
+              }
+          }
+      });
+
+      state.collaborators.forEach(collab => {
+          const tr = document.createElement('tr');
+          
+          const targetDToday = new Date(dStr + "T00:00:00");
+          let isOnVacationToday = false;
+          for (let vac of (state.vacations || [])) {
+              if (vac.colaboradorId === collab.id) {
+                  const vacStart = new Date(vac.startDate + "T00:00:00");
+                  const vacEnd = new Date(vac.endDate + "T00:00:00");
+                  if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
+              }
+          }
+
+          if (isOnVacationToday) {
+             tr.style.background = 'rgba(234, 179, 8, 0.1)';
+             tr.style.opacity = '0.7';
+          }
+          if (!collab.name) {
+              // Si aún así no hay nombre, evitamos que se rompa.
+              collab.name = 'Desconocido';
+          }
+          const cleanName = collab.name.split('(')[0].split('-')[0].trim();
+          const nameParts = cleanName.split(' ');
+          const apeF = nameParts[0] || '-';
+          const nomF = nameParts.slice(1).join(' ') || '';
+          
+          let avatarStr = '';
+          if (nameParts.length > 1) {
+              avatarStr = apeF.charAt(0).toUpperCase() + nomF.charAt(0).toUpperCase();
+          } else {
+              avatarStr = apeF.charAt(0).toUpperCase() + (apeF.length > 1 ? apeF.charAt(1).toUpperCase() : '');
+          }
+
+          let cellsHTML = `
+            <td style="cursor: pointer; padding: 2px !important;" onclick="openMobileProfile('${collab.id}')">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div class="avatar" style="width: 24px; height: 24px; font-size: 0.7rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">${avatarStr}</div>
+                <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap;">
+                  <span style="font-weight: 600; font-size: 0.85rem; text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${apeF}</span>
+                  <span style="font-size: 0.7rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${nomF}</span>
+                </div>
+              </div>
+            </td>
+          `;
+
+          let shiftVal = getPlanningSlot(collab.id, dStr);
+          if (isOnVacationToday) shiftVal = 'V';
+          
+          let inputDisabled = isOnVacationToday || (!checkAccess('modificarHorario') && !checkAccess('modificarVacaciones'));
+          
+          cellsHTML += `
+            <td style="padding: 2px;">
+              <input type="text" class="cell-input" 
+                     data-collab="${collab.id}" data-date="${dStr}" 
+                     value="${shiftVal}" 
+                     style="height: 48px; font-size: 1.25rem; font-weight: 700; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; ${inputDisabled ? 'cursor: not-allowed;' : ''}"
+                     ${inputDisabled ? 'disabled' : ''}
+                     ${!inputDisabled ? 'readonly onclick="openMobileContextMenu(this)"' : ''}>
+            </td>
+          `;
+
+          tr.innerHTML = cellsHTML;
+          tbody.appendChild(tr);
+      });
+      
+      if (focusCollab && focusDate) {
+         const inp = document.querySelector(`.cell-input[data-collab="${focusCollab}"][data-date="${focusDate}"]`);
+         if (inp) {
+            inp.focus();
+            setTimeout(() => {
+               if(inp.setSelectionRange) inp.setSelectionRange(inp.value.length, inp.value.length);
+            }, 0);
+         }
+      }
+    }
+
+    window.addEventListener('resize', () => {
+       clearTimeout(window.resizeTimer);
+       window.resizeTimer = setTimeout(() => {
+           renderUI();
+       }, 250);
+    });
+
+    function renderMobileCoverageDashboard(targetDate) {
+       const dashboard = document.getElementById('mobile-coverage-dashboard');
+       if (!dashboard) return;
+       if (window.innerWidth > 768) {
+           dashboard.style.display = 'none';
+           return;
+       }
+       dashboard.style.display = 'grid';
+       
+       let dStr = formatDate(targetDate);
+
+       const hourlyCounts = Array(24).fill(0);
+       state.collaborators.forEach(collab => {
+           const shiftVal = getPlanningSlot(collab.id, dStr);
+           if (!shiftVal) return;
+           
+           let isOnVacationToday = false;
+           const targetDToday = new Date(dStr + "T00:00:00");
+           for (let vac of (state.vacations || [])) {
+               if (vac.colaboradorId === collab.id) {
+                   const vacStart = new Date(vac.startDate + "T00:00:00");
+                   const vacEnd = new Date(vac.endDate + "T00:00:00");
+                   if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
+               }
+           }
+           if (isOnVacationToday) return;
+
+           const lower = shiftVal.toLowerCase();
+           if (lower === 'f' || lower === 'v' || lower === 'libre' || lower === 'vacaciones') return;
+
+           const parsed = parseShift(shiftVal);
+           if (parsed && parsed.type === 'work') {
+               for (let h = 0; h <= 23; h++) {
+                   if (parsed.end <= parsed.start) {
+                       if (h >= parsed.start) hourlyCounts[h]++; 
+                   } else {
+                       if (h >= parsed.start && h < parsed.end) hourlyCounts[h]++;
+                   }
+               }
+           }
+       });
+
+       let blocksHTML = '';
+       for (let h = 6; h <= 23; h++) {
+           let count = hourlyCounts[h];
+           let colorStr = count >= 2 ? '#22c55e' : '#ef4444';
+           let hStr = h.toString().padStart(2, '0') + ':00';
+           
+           blocksHTML += `
+             <div class="mobile-cov-block">
+               <span class="mobile-cov-time">${hStr}</span>
+               <span class="mobile-cov-val" style="color: ${colorStr}; text-shadow: 0 0 10px ${colorStr}60;">${count}</span>
+             </div>
+           `;
+       }
+       dashboard.innerHTML = blocksHTML;
+    }
+
     function renderUI() {
+       if (window.innerWidth <= 768) {
+           renderMobileDayView();
+           renderMobileCoverageDashboard(state.currentWeekStart);
+       } else {
+           renderDesktopView();
+       }
+    }
+
+    function renderDesktopView() {
       // 1. Guardar Estado Antes del Render
       const activeEl = document.activeElement;
       let focusCollab = null;
@@ -5807,21 +6087,26 @@
             const parts = e.target.value.split('-');
             const selectedDate = new Date(Date.UTC(parts[0], parts[1]-1, parts[2], 12, 0, 0));
             
-            const currentStart = getStartOfWeek(state.currentWeekStart);
-            const diffMs = selectedDate - currentStart;
-            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-            
-            const colWidth = window.innerWidth <= 768 ? 75 : 120;
-            
-            if (diffDays >= 0 && diffDays < (state.viewRange || 7)) {
-                gridContainer.scrollLeft = diffDays * colWidth;
-            } else {
-                state.currentWeekStart = getStartOfWeek(selectedDate);
-                state.viewRange = 14;
+            if (window.innerWidth <= 768) {
+                state.currentWeekStart = selectedDate;
                 await loadWeekPlanning(false);
+            } else {
+                const currentStart = getStartOfWeek(state.currentWeekStart);
+                const diffMs = selectedDate - currentStart;
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
                 
-                const targetDayIndex = selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1;
-                gridContainer.scrollLeft = targetDayIndex * colWidth;
+                const colWidth = window.innerWidth <= 768 ? 75 : 120;
+                
+                if (diffDays >= 0 && diffDays < (state.viewRange || 7)) {
+                    gridContainer.scrollLeft = diffDays * colWidth;
+                } else {
+                    state.currentWeekStart = getStartOfWeek(selectedDate);
+                    state.viewRange = 14;
+                    await loadWeekPlanning(false);
+                    
+                    const targetDayIndex = selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1;
+                    gridContainer.scrollLeft = targetDayIndex * colWidth;
+                }
             }
             e.target.value = ''; 
         });
