@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -3128,6 +3128,10 @@
 
       // Async save to Firestore
       if (!isMockMode) {
+        if (!requireAuth()) {
+          input.value = oldValue;
+          return;
+        }
         try {
           const docId = `${collabId}_${dateStr}`;
           setDoc(doc(db, "planificacion", docId), {
@@ -3240,6 +3244,7 @@
       };
 
       // Guardar en Firebase
+      if (!requireAuth()) return;
       if (!isMockMode) {
         try {
           await setDoc(doc(db, "colaboradores", legajo), newCollab, { merge: true });
@@ -3322,6 +3327,7 @@
     }
 
     window.deleteCollab = async function(id) {
+      if (!requireAuth()) return;
       if (!confirm('¿Seguro que deseas eliminar al colaborador ' + id + '?')) return;
       
       if (!isMockMode) {
@@ -4025,6 +4031,7 @@
 
     async function autoSaveSaldos(collabId) {
        // MIDDLEWARE: Verificar permiso antes de escribir saldos
+       if (!requireAuth()) return;
        if (!checkAccess('gestionSaldos')) return;
        const collab = state.collaborators.find(c => c.id === collabId);
        if (!collab) return;
@@ -4405,6 +4412,7 @@
            newVac.imputacionAnio = parseInt(impVal, 10);
        }
        
+       if (!requireAuth()) return;
        if (!isMockMode) {
           try {
              const batch = writeBatch(db);
@@ -4584,6 +4592,15 @@
     // Legajo del invitado activo (sólo cuando currentRole === 'invitado')
     let currentInvitadoLegajo = null;
 
+    // Helper de seguridad global: bloquea operaciones de escritura si no hay sesión
+    function requireAuth() {
+      if (currentRole === 'visitor') {
+        showToast("Acceso denegado", "Inicia sesión para editar esta información", "warning");
+        return false;
+      }
+      return true;
+    }
+
     const adminLoginBtn = document.getElementById('adminLoginBtn');
     const logoutBtn = document.getElementById('logoutBtn');
     const configBtn = document.getElementById('configBtn');
@@ -4731,6 +4748,7 @@
     };
 
     window.deleteCellComment = async function() {
+       if (!requireAuth()) return;
        document.getElementById('cellCommentInput').value = '';
        await autoSaveContextMenu();
        window.closeContextMenu();
@@ -4738,6 +4756,7 @@
     };
 
     document.getElementById('cellFixedInput').addEventListener('change', async (e) => {
+       if (!requireAuth()) { e.target.checked = !e.target.checked; return; }
        if (!currentContextCell) return;
        const collabId = currentContextCell.getAttribute('data-collab');
        const dateStr = currentContextCell.getAttribute('data-date');
@@ -4779,6 +4798,7 @@
     });
 
     async function autoSaveContextMenu() {
+       if (!requireAuth()) return false;
        if (!currentContextCell) return;
        const collabId = currentContextCell.getAttribute('data-collab');
        const dateStr = currentContextCell.getAttribute('data-date');
@@ -4854,6 +4874,10 @@
 
     // Listener para marcar/desmarcar Inventario
     document.getElementById('cellInventarioInput').addEventListener('change', async (e) => {
+      if (!requireAuth()) {
+        e.target.checked = !e.target.checked;
+        return;
+      }
       if (!currentContextCell) return;
       if (!checkAccess('modificarHorario')) {
         e.target.checked = !e.target.checked; // revertir
@@ -5156,6 +5180,7 @@
 
     // -- LOG AUDITORÍA --
     window.logAudit = async function(action, collabId, targetDate, oldValue, newValue) {
+       if (!requireAuth()) return;
        if (isMockMode) return;
        try {
           let authorName = "Desconocido";
@@ -6070,6 +6095,7 @@
     };
 
     window.saveEvento = async function() {
+      if (!requireAuth()) return;
       if (!checkAccess('gestionarEventos')) return;
       const fecha = document.getElementById('eventoFechaInput').value;
       const tipo = document.getElementById('eventoTipoInput').value;
@@ -6095,6 +6121,7 @@
     };
 
     window.deleteEvento = async function(fecha) {
+      if (!requireAuth()) return;
       if (!checkAccess('gestionarEventos')) return;
       if (!isMockMode) {
         try {
