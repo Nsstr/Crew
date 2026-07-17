@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -654,7 +654,12 @@
     #gestionInvitadosSection {
       grid-column: 1 / -1;
     }
+    #sugeridosMobileCards { display: none; }
     @media (max-width: 768px) {
+       #sugeridosTable { display: none !important; }
+       #sugeridosMobileCards { display: flex !important; flex-direction: column; gap: 12px; width: 100%; }
+       .mobile-card { background: var(--surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: grid; grid-template-columns: 1fr auto; row-gap: 12px; column-gap: 8px; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+
        .modal-content { grid-template-columns: 1fr; overflow-y: auto; }
        
        /* 1. Bottom Toolbar & Heatmap Restructure */
@@ -1667,7 +1672,7 @@
          </div>
       </div>
       <div style="flex: 1; overflow: auto; border: 1px solid var(--border); border-radius: 8px;">
-         <table style="width: 100%; border-collapse: collapse; text-align: left;">
+         <table id="sugeridosTable" style="width: 100%; border-collapse: collapse; text-align: left;">
             <thead>
                <tr>
                   <th style="padding: 12px; background: var(--surface); border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 1;">Colaborador</th>
@@ -1680,7 +1685,8 @@
             </tbody>
          </table>
       </div>
-      <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 8px;">
+               <div id="sugeridosMobileCards" style="display: none;"></div>
+         <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 8px;">
          <label for="globalNotesTextarea" style="font-weight: bold; color: var(--text);">Comentarios</label>
          <textarea id="globalNotesTextarea" rows="3" placeholder="Agregar comentario global para este día..." style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); font-family: inherit; resize: vertical; box-sizing: border-box; color: var(--text);"></textarea>
       </div>
@@ -6223,7 +6229,12 @@
        }
        
        tbody.innerHTML = '';
+       const cardsContainer = document.getElementById('sugeridosMobileCards');
+       if (cardsContainer) cardsContainer.innerHTML = '';
+       const isMobile = window.innerWidth <= 768;
        const forbiddenStates = ['VAC', 'V', 'SUS', 'FRANCO', 'F', 'LIBRE', '-'];
+       
+       console.log("Intentando renderizar tarjetas móviles. isMobile:", isMobile, "cardsContainer:", !!cardsContainer);
        
        state.collaborators.forEach(collab => {
           const isVac = state.vacations && state.vacations.some(vac => 
@@ -6242,37 +6253,64 @@
           const textValue = savedData ? savedData.texto : '';
           const authorLabel = savedData && savedData.legajo ? `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; text-align: right;">Escrito por: <span style="color: var(--primary); font-weight: bold;">${savedData.legajo}</span></div>` : '';
           
-          const tr = document.createElement('tr');
-          tr.style.borderBottom = '1px solid var(--border)';
-          
-          tr.innerHTML = `
-            <td style="padding: 8px 12px; width: 350px;">
-               <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
-                  <div style="font-weight: bold; font-size: 0.85em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                     ${collab.id} ${cleanName}
-                  </div>
-                  <div class="collab-meta" style="font-size: 0.8em; display: flex; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted);">
-                     <span>${collab.pasillo}</span>
-                     <span style="opacity: 0.6;">(${collab.hours}h)</span>
-                  </div>
-               </div>
-            </td>
-            <td style="padding: 8px 12px; text-align: center; font-weight: 500; font-size: 0.9rem; color: ${isBlocked ? 'var(--info)' : 'var(--text)'};">
-               ${shiftText}
-            </td>
-            <td style="padding: 8px 12px;">
-               <textarea class="sugeridos-comment" 
-                  data-collab="${collab.id}"
-                  placeholder="${isBlocked ? 'Inhabilitado (Estado: ' + shiftText + ')' : 'Agregar comentario...'}" 
-                  ${isBlocked ? 'disabled' : 'onmousedown="window.requireEditor(event)"'}
-                  ${!isBlocked && currentRole === 'visitor' ? 'readonly' : ''}
-                  rows="2" 
-                  style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? '#2d3748' : 'var(--bg)'}; color: ${isBlocked ? '#718096' : 'var(--text)'}; resize: none; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? '0.6' : '1'}; ${isBlocked ? 'cursor: not-allowed;' : ''}">${textValue}</textarea>
-               ${authorLabel}
-            </td>
-          `;
-          
-          tbody.appendChild(tr);
+          if (isMobile && cardsContainer) {
+               const card = document.createElement('div');
+               card.className = 'mobile-card';
+               card.innerHTML = `
+                 <div style="grid-column: 1; grid-row: 1; display: flex; flex-direction: column; gap: 2px;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1;">L. ${collab.id}</div>
+                    <div style="font-weight: bold; font-size: 1rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${cleanName}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); gap: 0.4rem; display: flex;">
+                        <span>${collab.pasillo}</span><span style="opacity:0.6;">(${collab.hours}h)</span>
+                    </div>
+                 </div>
+                 <div style="grid-column: 2; grid-row: 1; text-align: right; font-size: 1.05rem; color: ${isBlocked ? 'var(--info)' : 'var(--text)'}; font-weight: 500;">
+                    ${shiftText}
+                 </div>
+                 <div style="grid-column: 1 / -1; grid-row: 2;">
+                    <textarea class="sugeridos-comment" 
+                       data-collab="${collab.id}"
+                       placeholder="${isBlocked ? 'Inhabilitado (' + shiftText + ')' : 'Agregar comentario...'}" 
+                       ${isBlocked ? 'disabled' : 'onmousedown="window.requireEditor(event)"'}
+                       ${!isBlocked && currentRole === 'visitor' ? 'readonly' : ''}
+                       rows="3" 
+                       style="width: 100%; min-height: 80px; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? '#2d3748' : 'var(--bg)'}; color: ${isBlocked ? '#718096' : '#fff'}; resize: none; font-size: 0.95rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? '0.6' : '1'}; ${isBlocked ? 'cursor: not-allowed;' : ''}">${textValue}</textarea>
+                    ${authorLabel}
+                 </div>
+               `;
+               cardsContainer.appendChild(card);
+           } else {
+               const tr = document.createElement('tr');
+               tr.style.borderBottom = '1px solid var(--border)';
+               tr.innerHTML = `
+                 <td style="padding: 8px 12px; width: 350px;">
+                    <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+                       <div style="font-size: 0.7em; color: var(--text-muted); line-height: 1;">L. ${collab.id}</div>
+                       <div style="font-weight: bold; font-size: 0.95em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">
+                          ${cleanName}
+                       </div>
+                       <div class="collab-meta" style="font-size: 0.8em; display: flex; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted);">
+                          <span>${collab.pasillo}</span>
+                          <span style="opacity: 0.6;">(${collab.hours}h)</span>
+                       </div>
+                    </div>
+                 </td>
+                 <td style="padding: 8px 12px; text-align: center; font-weight: 500; font-size: 0.9rem; color: ${isBlocked ? 'var(--info)' : 'var(--text)'};">
+                    ${shiftText}
+                 </td>
+                 <td style="padding: 8px 12px;">
+                    <textarea class="sugeridos-comment" 
+                       data-collab="${collab.id}"
+                       placeholder="${isBlocked ? 'Inhabilitado (Estado: ' + shiftText + ')' : 'Agregar comentario...'}" 
+                       ${isBlocked ? 'disabled' : 'onmousedown="window.requireEditor(event)"'}
+                       ${!isBlocked && currentRole === 'visitor' ? 'readonly' : ''}
+                       rows="2" 
+                       style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? '#2d3748' : 'var(--bg)'}; color: ${isBlocked ? '#718096' : 'var(--text)'}; resize: none; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? '0.6' : '1'}; ${isBlocked ? 'cursor: not-allowed;' : ''}">${textValue}</textarea>
+                    ${authorLabel}
+                 </td>
+               `;
+               tbody.appendChild(tr);
+           }
        });
        
        document.querySelectorAll('.sugeridos-comment').forEach(textarea => {
@@ -6479,7 +6517,7 @@
     window.deleteEvento = async function(fecha) {
       if (!requireAuth()) return;
       if (!checkAccess('gestionarEventos')) return;
-      if (!isMockMode) {
+         if (!isMockMode) {
         try {
           const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
           await deleteDoc(doc(db, "eventos_diarios", fecha));
