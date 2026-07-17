@@ -1544,6 +1544,10 @@
             </tbody>
          </table>
       </div>
+      <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 8px;">
+         <label for="globalNotesTextarea" style="font-weight: bold; color: var(--text);">Comentarios</label>
+         <textarea id="globalNotesTextarea" rows="3" placeholder="Agregar comentario global para este día..." style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); font-family: inherit; resize: vertical; box-sizing: border-box; color: var(--text);"></textarea>
+      </div>
    </div>
 
    <!-- MODAL DE HISTORIAL ANUAL CONSOLIDADO -->
@@ -5580,6 +5584,19 @@
              snap.forEach(d => {
                 sugerenciasGuardadas[d.data().colaboradorId] = d.data();
              });
+             
+             // OBTENER NOTAS GLOBALES
+             const globalDocRef = doc(db, "notas_globales", selectedDateStr);
+             const globalDocSnap = await getDoc(globalDocRef);
+             const globalNotesTA = document.getElementById('globalNotesTextarea');
+             if (globalNotesTA) {
+                globalNotesTA.value = globalDocSnap.exists() ? (globalDocSnap.data().texto || '') : '';
+                const canEdit = checkAccess('modificarSugeridos') && currentRole !== 'visitor';
+                globalNotesTA.readOnly = !canEdit;
+                globalNotesTA.style.background = canEdit ? 'var(--bg)' : '#f0f0f0';
+                globalNotesTA.style.color = canEdit ? 'var(--text)' : '#333';
+                globalNotesTA.style.cursor = canEdit ? 'text' : 'not-allowed';
+             }
           } catch(err) {
              console.error("Error al obtener sugerencias:", err);
           }
@@ -5679,6 +5696,17 @@
     };
 
     document.getElementById('suggestedDateFilter')?.addEventListener('change', window.renderSugeridos);
+    
+    document.getElementById('globalNotesTextarea')?.addEventListener('blur', async (e) => {
+       const val = e.target.value;
+       const dateVal = document.getElementById('suggestedDateFilter').value;
+       if (!dateVal || !checkAccess('modificarSugeridos') || currentRole === 'visitor') return;
+       try {
+          await setDoc(doc(db, "notas_globales", dateVal), { texto: val, fecha: dateVal, timestamp: new Date().toISOString() });
+       } catch(err) {
+          console.error("Error guardando notas globales:", err);
+       }
+    });
 
     document.getElementById('pdfSugeridosBtn')?.addEventListener('click', () => {
        // MIDDLEWARE: Verificar permiso antes de generar PDF de sugeridos
@@ -5705,6 +5733,17 @@
            ta.style.display = 'none';
            divs.push({ div, ta });
        });
+       
+       const globalTA = document.getElementById('globalNotesTextarea');
+       if (globalTA) {
+           const globalDiv = document.createElement('div');
+           globalDiv.innerHTML = `<strong>Comentarios Globales:</strong><br>${globalTA.value.replace(/\n/g, '<br>')}`;
+           globalDiv.className = 'print-only-text';
+           globalDiv.style.cssText = "margin-top: 15px; padding: 10px; border: 1px solid #000; border-radius: 4px; font-size: 10pt; line-height: 1.2; word-break: break-all; color: #000000 !important; page-break-inside: avoid;";
+           globalTA.parentNode.insertBefore(globalDiv, globalTA);
+           globalTA.style.display = 'none';
+           divs.push({ div: globalDiv, ta: globalTA });
+       }
        
        let container = document.getElementById('print-container');
        if (!container) {
