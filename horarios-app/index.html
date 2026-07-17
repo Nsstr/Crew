@@ -4689,7 +4689,13 @@
        syncPermissionsUI();
        // Botón de eventos: visible solo para admin o quien tiene gestionarEventos
        const eventosBtn = document.getElementById('eventosNavBtn');
-       if (eventosBtn) eventosBtn.style.display = checkAccess('gestionarEventos') ? 'flex' : 'none';
+       if (eventosBtn) {
+           if (currentRole === 'visitor') {
+               eventosBtn.style.display = 'none';
+           } else {
+               eventosBtn.style.display = checkAccess('gestionarEventos') ? 'flex' : 'none';
+           }
+       }
     };
 
     let currentContextCell = null;
