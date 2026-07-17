@@ -117,15 +117,30 @@
       background-color: var(--primary-hover);
     }
 
+    /* Reset al contenedor padre absoluto (#tab-horarios) para ajustarse a la pantalla */
+    #tab-horarios {
+      width: 100vw !important;
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
     .grid-container {
       background: rgba(30, 41, 59, 0.7);
       width: 100% !important;
+      max-width: 100%;
+      box-sizing: border-box;
       overflow-x: auto !important;
       overflow-y: hidden;
       display: block !important;
       position: relative;
       scroll-behavior: smooth;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+      padding-bottom: 5px;
+      margin-bottom: -5px;
+      padding-right: 0 !important;
+      margin-right: 0 !important;
     }
     
     /* New Grid Alignment Classes */
@@ -159,18 +174,19 @@
 
     
     table#planningTable {
-      width: auto !important;
+      width: 100% !important;
       min-width: 100% !important;
       table-layout: fixed !important;
       border-collapse: collapse;
     }
     
-    table#planningTable th:not(:first-child),
-    table#planningTable td:not(:first-child),
-    th.day-column, td.day-cell {
-      width: 52px !important;
+    /* [REFACTORIZADO] Reglas de tabla movidas al bloque unificado al final */
+    /*
+    #planningTable th:not(:first-child),
+    #planningTable td:not(:first-child) {
+      width: auto !important;
       min-width: 72px !important;
-      max-width: 72px !important;
+      max-width: none !important;
       scroll-snap-align: start;
       text-align: center;
     }
@@ -181,10 +197,14 @@
       position: sticky;
       left: 0;
       z-index: 20;
-      background-color: #1a1e29 !important;
+      background-color: var(--bg) !important;
       border-right: 2px solid var(--border) !important;
       box-shadow: 2px 0 5px rgba(0,0,0,0.5);
     }
+    table#planningTable th:first-child {
+      z-index: 30 !important;
+    }
+    */
 
 
     table {
@@ -515,6 +535,18 @@
       font-weight: bold;
     }
 
+    .event-badge {
+      display: inline-block;
+      font-size: 0.55rem;
+      color: white;
+      padding: 0.1rem 0.3rem;
+      border-radius: 0.25rem;
+      margin-left: 0.3rem;
+      text-transform: uppercase;
+      font-weight: bold;
+      vertical-align: middle;
+    }
+
     .dom-badge {
       font-size: 0.55rem;
       padding: 0.1rem 0.25rem;
@@ -718,29 +750,33 @@
          position: sticky;
          left: 0;
          z-index: 10;
-         background: var(--surface) !important;
+         background: var(--bg) !important;
          min-width: 110px !important;
          max-width: 110px !important;
          width: 110px !important;
          white-space: nowrap;
          overflow: hidden;
          text-overflow: ellipsis;
+         box-shadow: 2px 0 5px rgba(0,0,0,0.5);
        }
        table#planningTable td:first-child {
          z-index: 11;
        }
        table#planningTable th:first-child {
-         z-index: 12;
+         z-index: 12 !important;
        }
 
        /* Day columns fixed width */
-       table#planningTable th:not(:first-child):not(:last-child),
-       table#planningTable td:not(:first-child):not(:last-child) {
+       /* [REFACTORIZADO] Reglas de columnas movidas al bloque unificado al final */
+       /*
+       #planningTable th:not(:first-child):not(:last-child),
+       #planningTable td:not(:first-child):not(:last-child) {
+         width: auto !important;
          min-width: 75px !important;
-         width: 75px !important;
-         max-width: 75px !important;
+         max-width: none !important;
          text-align: center;
        }
+       */
        
        table#planningTable th:not(:first-child):not(:last-child) {
          font-size: 0.7rem !important;
@@ -1088,16 +1124,14 @@
       background-color: rgba(239, 68, 68, 0.15) !important;
     }
 
-    /* Compactar días para que quepan los 16 días con los márgenes */
-    table#planningTable th:not(:first-child),
-    table#planningTable td:not(:first-child),
-    th.day-column, td.day-cell {
-      width: 70px !important;
+    /* [REFACTORIZADO] Reglas movidas al bloque unificado al final */
+    /*
+    #planningTable th:not(:first-child),
+    #planningTable td:not(:first-child) {
+      width: auto !important;
       min-width: 70px !important;
-      max-width: 70px !important;
+      max-width: none !important;
     }
-
-    /* Asegurar que el scroll no se meta debajo del bloque fijo de colaboradores */
     table#planningTable th:first-child, 
     table#planningTable td:first-child {
       position: sticky !important;
@@ -1106,8 +1140,13 @@
       width: 290px !important;
       min-width: 290px !important;
       max-width: 290px !important;
-      background-color: #1a1e29 !important;
+      background-color: var(--bg) !important;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.5);
     }
+    table#planningTable th:first-child {
+      z-index: 40 !important;
+    }
+    */
 
     /* Bajar opacidad al 70% a las cabeceras de los días de margen */
     table#planningTable th:nth-child(2),
@@ -1223,6 +1262,65 @@
         /* 6. Evitar cortes de página en medio de una fila */
         tr { page-break-inside: avoid; }
         .page-break { page-break-after: always; }
+    } /* Cierre @media print */
+
+    /* ============================================================
+       --- CSS REFACTORIZADO 2026 ---
+       Reglas unificadas para la tabla de planning.
+       Estas tienen la mayor cascada (van al final del <style>).
+       Origen: var(--bg) = #0f172a, var(--border), var(--surface).
+       ============================================================ */
+
+    /* 1. Tabla base */
+    #planningTable {
+      width: 100% !important;
+      table-layout: fixed !important;
+      border-collapse: collapse;
+    }
+
+    /* 2. Columna fija izquierda (Colaborador) - Desktop */
+    #planningTable th:first-child,
+    #planningTable td:first-child {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 20 !important;
+      width: 350px !important;
+      min-width: 350px !important;
+      max-width: 350px !important;
+      background-color: var(--bg) !important;
+      border-right: 2px solid var(--border) !important;
+      box-shadow: 2px 0 6px rgba(0,0,0,0.55);
+    }
+    /* El <th> de cabecera va sobre los <td> de las filas */
+    #planningTable th:first-child {
+      z-index: 40 !important;
+    }
+
+    /* 3. Columnas de días: se estiran para llenar el espacio disponible */
+    #planningTable th:not(:first-child),
+    #planningTable td:not(:first-child) {
+      width: auto !important;
+      min-width: 70px !important;
+      max-width: none !important;
+      text-align: center;
+    }
+
+    /* 4. Regla de oro: eliminar cualquier columna diagnóstico sobrante */
+    /* (descomentar solo para debug) */
+    /* #planningTable th:last-child, #planningTable td:last-child { display: none !important; } */
+
+    /* 5. Mobile override (max-width: 768px): columna izquierda más angosta */
+    @media (max-width: 768px) {
+      #planningTable th:first-child,
+      #planningTable td:first-child {
+        width: 110px !important;
+        min-width: 110px !important;
+        max-width: 110px !important;
+      }
+      #planningTable th:not(:first-child),
+      #planningTable td:not(:first-child) {
+        min-width: 75px !important;
+      }
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -1236,6 +1334,8 @@
       <button class="app-tab-btn" id="metricsTabBtn" onclick="switchTab('metricas')" style="display: none;">Dashboard Métricas</button>
     </div>
     <div class="nav-auth-controls" style="display: flex; gap: 0.5rem; height: 26px;">
+      <!-- Botón Eventos: solo visible para quien puede modificar la grilla -->
+      <button id="eventosNavBtn" style="display: none; background: transparent; color: var(--warning); border: 1px solid var(--warning); border-radius: 0.25rem; padding: 0 0.75rem; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;" title="Gestionar Eventos del Día" onclick="window.openEventosModal()">&#128197; Eventos</button>
       <button id="auditBellBtn" class="audit-bell" title="Log de Auditoría">
         🔔 <span id="auditBadge" class="audit-badge" style="display: none;">0</span>
       </button>
@@ -1563,6 +1663,56 @@
       </div>
    </div>
 
+  <!-- MODAL GESTIÓN DE EVENTOS DIARIOS -->
+  <div class="login-overlay" id="eventosModal" style="display: none; z-index: 9998;">
+    <div class="login-content" style="max-width: 600px; width: 95%;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 style="margin: 0;">&#128197; Eventos del Día</h2>
+        <button onclick="document.getElementById('eventosModal').style.display='none'" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; line-height: 1;">&times;</button>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Creá eventos especiales (Inventarios, Reuniones, etc.) para que aparezcan en el encabezado de la grilla.</p>
+
+      <!-- Banner de solo lectura (solo visible si no tiene permiso gestionarEventos) -->
+      <div id="eventosSoloLecturaBanner" style="display: none; align-items: center; gap: 10px; background: rgba(245,158,11,0.12); border: 1px solid var(--warning); border-radius: 8px; padding: 10px 14px; margin-bottom: 1rem;">
+        <span style="font-size: 1.2rem;">🔒</span>
+        <span style="font-size: 0.85rem; color: var(--warning); font-weight: 600;">Modo de solo lectura. No tenés permiso para crear o borrar eventos. Contactá al Administrador.</span>
+      </div>
+
+      <!-- Formulario nuevo evento -->
+      <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+          <div>
+            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Fecha</label>
+            <input type="date" id="eventoFechaInput" style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.9rem; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Tipo</label>
+            <select id="eventoTipoInput" style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.9rem; box-sizing: border-box;">
+              <option value="Inventario">Inventario</option>
+              <option value="Evento">Evento</option>
+              <option value="Reunión">Reunión</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Descripción</label>
+            <input type="text" id="eventoDescInput" placeholder="Ej: Lácteos, 14/74..." style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.9rem; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Color</label>
+            <input type="color" id="eventoColorInput" value="#f59e0b" style="width: 100%; height: 36px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; box-sizing: border-box;">
+          </div>
+        </div>
+        <button onclick="window.saveEvento()" style="background: var(--primary); color: #fff; border: none; border-radius: 6px; padding: 8px 20px; cursor: pointer; font-weight: 600; font-size: 0.9rem; font-family: inherit;">&#43; Guardar Evento</button>
+      </div>
+
+      <!-- Lista de eventos existentes -->
+      <div id="eventosListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto;">
+        <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1rem;">Cargando eventos...</p>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-container" id="toastContainer"></div>
 
   <!-- MENÚ CONTEXTUAL -->
@@ -1584,6 +1734,18 @@
             <input type="checkbox" id="cellTardanzaCheck" style="width: 14px; height: 14px; cursor: pointer; margin-left: auto;">
          </div>
          <p style="margin: 4px 0 0 0; font-size: 0.7rem; color: var(--text-muted);">*(Ingresa minutos puros o formato H:MM para Horas y Minutos)</p>
+      </div>
+      
+      <!-- Bloque 3: Marcar Evento/Inventario (solo visible si hay evento ese día) -->
+      <div id="ctxInventarioBlock" style="display: none; background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="ctxInventarioIcon" style="font-size: 1.1rem;">&#128197;</span>
+          <label for="cellInventarioInput" style="margin: 0; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--text);">
+            Marcar en <span id="ctxInventarioLabel" style="font-style: italic;"></span>
+          </label>
+          <input type="checkbox" id="cellInventarioInput" style="width: 14px; height: 14px; cursor: pointer; margin-left: auto;">
+        </div>
+        <p style="margin: 4px 0 0 0; font-size: 0.7rem; color: var(--text-muted);">La celda tomará el color del evento al activar.</p>
       </div>
       
       <!-- Bloque 3: Comentario Libre & Acciones -->
@@ -1782,6 +1944,7 @@
       // ── Gestión de Permisos por Rol ──
       // key: legajo, value: { activo: boolean, permisos: { modificarHorario, imprimirPdf, modificarVacaciones, verMetricas, sugeridos, bajarVacaciones } }
       permisosInvitado: {},
+      eventos: {}, // key: 'YYYY-MM-DD', value: { tipo, descripcion, color } de Firebase eventos_diarios
     };
 
     // Helpers para metadatos de turnos
@@ -1969,6 +2132,12 @@
 
           // Apagar el esqueleto de carga RECIÉN cuando todos los datos están en memoria
           state.skeletonStartStr = null;
+
+          // Cargar eventos del rango visible
+          const startStr = formatDate(realStartD);
+          const endStr = formatDate(realEndD);
+          await loadEventos(startStr, endStr);
+
           renderUI(); 
           
         } catch(e) {
@@ -1976,6 +2145,24 @@
           state.skeletonStartStr = null;
           renderUI();
         }
+      }
+    }
+
+    // Carga eventos del rango visible desde Firebase
+    async function loadEventos(startStr, endStr) {
+      if (isMockMode) return;
+      try {
+        const q = query(
+          collection(db, "eventos_diarios"),
+          where("__name__", ">=", startStr),
+          where("__name__", "<=", endStr)
+        );
+        const snap = await getDocs(q);
+        snap.forEach(docSnap => {
+          state.eventos[docSnap.id] = docSnap.data();
+        });
+      } catch(e) {
+        console.warn("Error cargando eventos_diarios:", e);
       }
     }
 
@@ -2264,13 +2451,17 @@
       days.forEach(d => {
         const dStr = formatDate(d);
         const isHoliday = state.holidays.includes(dStr);
+        const evento = state.eventos[dStr];
         const weekDaysArr = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
         const monthsArr = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
         const dayNumStr = String(d.getDate()).padStart(2, '0');
         const dayName = `${weekDaysArr[d.getDay()]} ${dayNumStr} ${monthsArr[d.getMonth()]}`;
         
         const thClass = isHoliday ? 'holiday-col day-column' : 'day-column';
-        trHead.innerHTML += `<th class="${thClass}" style="text-align: center;">${dayName} ${isHoliday ? '<span class="holiday-badge">Feriado</span>' : ''}</th>`;
+        const thBg = evento ? `background-color: ${evento.color}22;` : '';
+        const holidayBadge = isHoliday ? `<span class="holiday-badge">Feriado</span>` : '';
+        const eventBadge = evento ? `<span class="event-badge" style="background-color:${evento.color};">&#128197; ${evento.descripcion}</span>` : '';
+        trHead.innerHTML += `<th class="${thClass}" style="text-align: center; ${thBg}">${dayName} ${holidayBadge}${eventBadge}</th>`;
       });
       
 
@@ -2582,8 +2773,13 @@
 
           let finalInputClass = inputClass + (isSkeleton ? ' skeleton-input' : '');
 
+          // Calcular color de evento si la celda está marcada como inventario
+          const eventoDelDia = state.eventos[dStr];
+          const esInventarioCelda = obj && obj.esInventario && eventoDelDia;
+          const eventoCellStyle = esInventarioCelda ? `background-color: ${eventoDelDia.color}33;` : '';
+
           html += `
-            <td class="${isHoliday ? 'holiday-col' : ''} ${finalWrapperClass}" ${titleAttr} style="position: relative; ${isOnVacation ? 'background-color: rgba(14, 165, 233, 0.08);' : ''}">
+            <td class="${isHoliday ? 'holiday-col' : ''} ${finalWrapperClass}" ${titleAttr} style="position: relative; ${isOnVacation ? 'background-color: rgba(14, 165, 233, 0.08);' : ''}${eventoCellStyle}">
               ${vacationTagHtml}
               <input type="text" class="cell-input ${finalInputClass}" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" value="${val}" ${isDisabled ? 'disabled' : ''} placeholder="-">
             </td>
@@ -4474,6 +4670,9 @@
 
        // Aplicar restricciones de UI según permisos del usuario activo
        syncPermissionsUI();
+       // Botón de eventos: visible solo para admin o quien tiene gestionarEventos
+       const eventosBtn = document.getElementById('eventosNavBtn');
+       if (eventosBtn) eventosBtn.style.display = checkAccess('gestionarEventos') ? 'flex' : 'none';
     };
 
     let currentContextCell = null;
@@ -4492,6 +4691,18 @@
        
        document.getElementById('cellTardanzaInput').value = obj.tardanzaTexto || '';
        document.getElementById('cellTardanzaCheck').checked = !!obj.tardanzaConfirmada;
+
+       // Mostrar/ocultar bloque de inventario según si hay evento ese día
+       const eventoHoy = state.eventos[dateStr];
+       const ctxBlock = document.getElementById('ctxInventarioBlock');
+       if (eventoHoy) {
+         ctxBlock.style.display = 'block';
+         ctxBlock.style.borderColor = eventoHoy.color;
+         document.getElementById('ctxInventarioLabel').textContent = `${eventoHoy.tipo}: ${eventoHoy.descripcion}`;
+         document.getElementById('cellInventarioInput').checked = !!obj.esInventario;
+       } else {
+         ctxBlock.style.display = 'none';
+       }
 
        const ctxMenu = document.getElementById('contextMenu');
        ctxMenu.style.display = 'block';
@@ -4640,6 +4851,34 @@
        autoSaveContextMenu();
     });
     document.getElementById('cellCommentInput').addEventListener('blur', autoSaveContextMenu);
+
+    // Listener para marcar/desmarcar Inventario
+    document.getElementById('cellInventarioInput').addEventListener('change', async (e) => {
+      if (!currentContextCell) return;
+      if (!checkAccess('modificarHorario')) {
+        e.target.checked = !e.target.checked; // revertir
+        return;
+      }
+      const collabId = currentContextCell.getAttribute('data-collab');
+      const dateStr = currentContextCell.getAttribute('data-date');
+      const obj = getPlanningObj(collabId, dateStr) || {};
+      obj.slot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+      obj.esInventario = e.target.checked;
+      state.planning[`${collabId}_${dateStr}`] = obj;
+      if (!isMockMode) {
+        try {
+          setDoc(doc(db, "planificacion", `${collabId}_${dateStr}`), {
+            colaboradorId: collabId,
+            fecha: dateStr,
+            slot: obj.slot,
+            esInventario: obj.esInventario
+          }, { merge: true });
+        } catch(err) {
+          console.error("Error guardando esInventario:", err);
+        }
+      }
+      renderUI();
+    });
 
     document.getElementById('saveCellDetailsBtn').addEventListener('click', async () => {
        const saved = await autoSaveContextMenu();
@@ -5768,6 +6007,109 @@
     migrateFechas().then(() => {
         loadInitialData();
     });
+
+    // ============================================================
+    // MÓDULO EVENTOS DIARIOS — Modal de gestión
+    // ============================================================
+
+    window.openEventosModal = async function() {
+      document.getElementById('eventosModal').style.display = 'flex';
+      const hoy = formatDate(new Date());
+      document.getElementById('eventoFechaInput').value = hoy;
+
+      // Mostrar/ocultar controles de escritura según permiso
+      const puedeEditar = checkAccess('gestionarEventos');
+      const formBox = document.querySelector('#eventosModal [data-eventos-form]') || document.querySelector('#eventosModal > div > div:nth-child(3)');
+      const guardarBtn = document.querySelector('#eventosModal button[onclick="window.saveEvento()"]');
+      if (guardarBtn) guardarBtn.style.display = puedeEditar ? '' : 'none';
+
+      // Banner de solo lectura
+      const banner = document.getElementById('eventosSoloLecturaBanner');
+      if (banner) banner.style.display = puedeEditar ? 'none' : 'flex';
+
+      await window.renderEventosList();
+    };
+
+    window.renderEventosList = async function() {
+      const container = document.getElementById('eventosListContainer');
+      container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1rem;">Cargando...</p>';
+      if (isMockMode) {
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1rem;">No disponible en modo demo.</p>';
+        return;
+      }
+      try {
+        // Traer todos los eventos del año en curso para el listado del modal
+        const year = new Date().getFullYear();
+        const q = query(
+          collection(db, "eventos_diarios"),
+          where("__name__", ">=", `${year}-01-01`),
+          where("__name__", "<=", `${year}-12-31`)
+        );
+        const snap = await getDocs(q);
+        const eventos = [];
+        snap.forEach(d => eventos.push({ id: d.id, ...d.data() }));
+        eventos.sort((a, b) => a.id.localeCompare(b.id));
+        if (eventos.length === 0) {
+          container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1rem;">Sin eventos registrados este año.</p>';
+          return;
+        }
+        container.innerHTML = eventos.map(ev => `
+          <div style="display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid ${ev.color}55; border-left: 4px solid ${ev.color}; border-radius: 8px; padding: 10px 12px;">
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 700; font-size: 0.9rem; color: var(--text);">${ev.tipo}: ${ev.descripcion}</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">${ev.id}</div>
+            </div>
+            <div style="width: 20px; height: 20px; border-radius: 50%; background: ${ev.color}; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.2);"></div>
+            <button onclick="window.deleteEvento('${ev.id}')" style="background: transparent; border: 1px solid var(--danger); color: var(--danger); border-radius: 6px; padding: 4px 10px; font-size: 0.75rem; cursor: pointer; font-family: inherit; flex-shrink: 0;">Borrar</button>
+          </div>
+        `).join('');
+      } catch(e) {
+        container.innerHTML = '<p style="color: var(--danger); font-size: 0.85rem; text-align: center; padding: 1rem;">Error al cargar eventos.</p>';
+        console.error("Error cargando lista de eventos:", e);
+      }
+    };
+
+    window.saveEvento = async function() {
+      if (!checkAccess('gestionarEventos')) return;
+      const fecha = document.getElementById('eventoFechaInput').value;
+      const tipo = document.getElementById('eventoTipoInput').value;
+      const descripcion = document.getElementById('eventoDescInput').value.trim();
+      const color = document.getElementById('eventoColorInput').value;
+      if (!fecha || !descripcion) {
+        showToast("Campos incompletos", "Completá la fecha y la descripción del evento.", "warning");
+        return;
+      }
+      if (!isMockMode) {
+        try {
+          await setDoc(doc(db, "eventos_diarios", fecha), { tipo, descripcion, color });
+          state.eventos[fecha] = { tipo, descripcion, color };
+          showToast("Evento guardado", `${tipo}: ${descripcion} — ${fecha}`, "success");
+          document.getElementById('eventoDescInput').value = '';
+          await window.renderEventosList();
+          renderUI();
+        } catch(e) {
+          showToast("Error", "No se pudo guardar el evento.", "error");
+          console.error("Error guardando evento:", e);
+        }
+      }
+    };
+
+    window.deleteEvento = async function(fecha) {
+      if (!checkAccess('gestionarEventos')) return;
+      if (!isMockMode) {
+        try {
+          const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+          await deleteDoc(doc(db, "eventos_diarios", fecha));
+          delete state.eventos[fecha];
+          showToast("Evento eliminado", `El evento del ${fecha} fue borrado.`, "info");
+          await window.renderEventosList();
+          renderUI();
+        } catch(e) {
+          showToast("Error", "No se pudo borrar el evento.", "error");
+          console.error("Error borrando evento:", e);
+        }
+      }
+    };
   </script>
 </body>
 </html>

@@ -208,6 +208,7 @@ export async function crearInvitado(legajo) {
       bajarVacaciones:     false,
       exportarExcelVacaciones: false,
       gestionSaldos:       false,
+      gestionarEventos:    false,
     }
   };
   _state.permisosInvitado[legajo] = nuevoDoc;
@@ -305,6 +306,10 @@ export function syncPermissionsUI(forcedRole, forcedLegajo) {
       input.style.cursor = '';
     }
   });
+
+  // Botón Eventos: solo visible si tiene permiso gestionarEventos
+  const eventosBtn = document.getElementById('eventosNavBtn');
+  if (eventosBtn) eventosBtn.style.display = get('gestionarEventos') ? 'flex' : 'none';
 }
 
 
@@ -334,7 +339,7 @@ export async function renderGestionInvitados(container) {
     'modificarHorario', 'imprimirPdf', 'sugeridos',
     'modificarVacaciones', 'bajarVacaciones', 'verMetricas',
     'exportarPdfHorarios', 'modificarSugeridos', 'exportarSugeridosPdf',
-    'gestionSaldos', 'exportarExcelVacaciones',
+    'gestionSaldos', 'exportarExcelVacaciones', 'gestionarEventos',
   ];
   const PERMISOS_META_LOCAL = {
     modificarHorario:       { label: 'Mod.<br>Horario',    icon: '✏️' },
@@ -348,6 +353,7 @@ export async function renderGestionInvitados(container) {
     exportarSugeridosPdf:   { label: 'PDF<br>Suger.',      icon: '📑' },
     gestionSaldos:          { label: 'Gestión<br>Saldos',  icon: '💰' },
     exportarExcelVacaciones:{ label: 'Excel<br>Vacac.',    icon: '📊' },
+    gestionarEventos:       { label: 'Gestionar<br>Eventos', icon: '📅' },
   };
 
   const headerCells = PERMISO_KEYS_LOCAL.map(key =>
