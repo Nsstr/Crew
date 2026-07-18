@@ -1893,6 +1893,7 @@
     // Reemplaza con tus credenciales de Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { initPermissionsModule, checkAccess, syncPermissionsUI, renderGestionInvitados, loadPermisosInvitado, crearInvitado, INVITADOS_AUTORIZADOS } from "./admin-permissions.js";
 
     const firebaseConfig = {
@@ -1907,10 +1908,24 @@
     // Para evitar errores en este prototipo si no hay config real, 
     // usaremos un flag de mock mode si falla la conexión real.
     let db;
+    let auth;
     let isMockMode = false;
     try {
       const app = initializeApp(firebaseConfig);
       db = getFirestore(app);
+      auth = getAuth(app);
+      
+      // Persistencia local explícita solicitada
+      setPersistence(auth, browserLocalPersistence).catch(console.error);
+
+      // Redirección inteligente y validación
+      onAuthStateChanged(auth, (user) => {
+         if (user || localStorage.getItem('userLoggedIn') === 'true') {
+            if (typeof checkLogin === 'function') {
+               checkLogin();
+            }
+         }
+      });
     } catch (e) {
       console.warn("Firebase no configurado, operando en modo Mock.");
       isMockMode = true;
@@ -2124,7 +2139,7 @@
       // Orden por id o jerarquía para mantener estructura
       state.collaborators.sort((a, b) => a.id.localeCompare(b.id));
       
-      // 1. CARGA AL ABRIR LA SESIÓN: Recuperar permisos si entra como invitado por localStorage/sessionStorage
+      // 1. CARGA AL ABRIR LA SESIÓN: Recuperar permisos si entra como invitado por localStorage/localStorage
       if (currentRole === 'invitado' && currentInvitadoLegajo) {
          await loadPermisosInvitado(currentInvitadoLegajo);
       }
@@ -4998,12 +5013,12 @@
     const editorModal = document.getElementById('editorModal');
     const userRoleText = document.getElementById('userRoleText');
     
-    if (sessionStorage.getItem('adminLogged') === 'true') {
+    if (localStorage.getItem('adminLogged') === 'true') {
        currentRole = 'admin';
-    } else if (sessionStorage.getItem('invitadoLegajo')) {
+    } else if (localStorage.getItem('invitadoLegajo')) {
        currentRole = 'invitado';
-       currentInvitadoLegajo = sessionStorage.getItem('invitadoLegajo');
-    } else if (sessionStorage.getItem('editorLegajo')) {
+       currentInvitadoLegajo = localStorage.getItem('invitadoLegajo');
+    } else if (localStorage.getItem('editorLegajo')) {
        currentRole = 'editor';
     }
 
@@ -5409,7 +5424,8 @@
        if (leg === ADMIN_LEGAJO) {
           // ── Flujo Admin
           if (pass === 'AdminGDN2026') {
-             sessionStorage.setItem('adminLogged', 'true');
+             localStorage.setItem('adminLogged', 'true');
+             localStorage.setItem('userLoggedIn', 'true');
              currentRole = 'admin';
              loginModal.style.display = 'none';
              document.getElementById('loginPass').value = '';
@@ -5428,8 +5444,9 @@
              showToast('Acceso denegado', 'Tu cuenta está inactiva. Contactá al Administrador.');
              return;
           }
-          sessionStorage.setItem('invitadoLegajo', leg);
-          sessionStorage.setItem('invitadoNombre', nom);
+          localStorage.setItem('invitadoLegajo', leg);
+          localStorage.setItem('userLoggedIn', 'true');
+          localStorage.setItem('invitadoNombre', nom);
           currentRole = 'invitado';
           currentInvitadoLegajo = leg;
           state.currentInvitadoLegajo = leg;
@@ -5440,8 +5457,9 @@
        } else {
           // ── Flujo Editor clásico
           if (!nom) { showToast('Error', 'Legajo no encontrado.'); return; }
-          sessionStorage.setItem('editorNombre', nom);
-          sessionStorage.setItem('editorLegajo', leg);
+          localStorage.setItem('editorNombre', nom);
+          localStorage.setItem('userLoggedIn', 'true');
+          localStorage.setItem('editorLegajo', leg);
           currentRole = 'editor';
           loginModal.style.display = 'none';
           checkLogin();
@@ -5456,11 +5474,12 @@
     });
 
     logoutBtn.addEventListener('click', () => {
-       sessionStorage.removeItem('adminLogged');
-       sessionStorage.removeItem('editorLegajo');
-       sessionStorage.removeItem('editorNombre');
-       sessionStorage.removeItem('invitadoLegajo');
-       sessionStorage.removeItem('invitadoNombre');
+       localStorage.removeItem('userLoggedIn');
+       localStorage.removeItem('adminLogged');
+       localStorage.removeItem('editorLegajo');
+       localStorage.removeItem('editorNombre');
+       localStorage.removeItem('invitadoLegajo');
+       localStorage.removeItem('invitadoNombre');
        currentRole = 'visitor';
        currentInvitadoLegajo = null;
        state.currentInvitadoLegajo = null;
@@ -5527,8 +5546,8 @@
              }
              // Si no existe documento en Firebase aún, el invitado accede sin permisos
              // (el Admin puede configurarlos después)
-             sessionStorage.setItem('invitadoLegajo', leg);
-             sessionStorage.setItem('invitadoNombre', nom);
+             localStorage.setItem('invitadoLegajo', leg);
+             localStorage.setItem('invitadoNombre', nom);
              currentRole = 'invitado';
              currentInvitadoLegajo = leg;
              editorModal.style.display = 'none';
@@ -5536,8 +5555,8 @@
              showToast('Acceso Invitado', `Bienvenido/a, ${nom}`);
           } else {
              // Es un colaborador operativo → flujo de editor clásico
-             sessionStorage.setItem('editorNombre', nom);
-             sessionStorage.setItem('editorLegajo', leg);
+             localStorage.setItem('editorNombre', nom);
+             localStorage.setItem('editorLegajo', leg);
              currentRole = 'editor';
              editorModal.style.display = 'none';
              checkLogin();
@@ -5577,8 +5596,8 @@
        try {
           let authorName = "Desconocido";
           if (currentRole === 'admin') authorName = "Administrador (10045875)";
-          else if (currentRole === 'editor') authorName = `${sessionStorage.getItem('editorNombre')} (${sessionStorage.getItem('editorLegajo')})`;
-          else if (currentRole === 'invitado') authorName = `${sessionStorage.getItem('invitadoNombre')} (${sessionStorage.getItem('invitadoLegajo')}) [Invitado]`;
+          else if (currentRole === 'editor') authorName = `${localStorage.getItem('editorNombre')} (${localStorage.getItem('editorLegajo')})`;
+          else if (currentRole === 'invitado') authorName = `${localStorage.getItem('invitadoNombre')} (${localStorage.getItem('invitadoLegajo')}) [Invitado]`;
 
           const logRef = doc(collection(db, "logs_cambios"));
           await setDoc(logRef, {
@@ -5766,11 +5785,11 @@
           let execLegajo = "Desconocido";
           let execNombre = "Desconocido";
           if (currentRole === 'editor') {
-             execLegajo = sessionStorage.getItem('editorLegajo') || "";
-             execNombre = sessionStorage.getItem('editorNombre') || "";
+             execLegajo = localStorage.getItem('editorLegajo') || "";
+             execNombre = localStorage.getItem('editorNombre') || "";
           } else if (currentRole === 'invitado') {
-             execLegajo = sessionStorage.getItem('invitadoLegajo') || "";
-             execNombre = sessionStorage.getItem('invitadoNombre') + " [Invitado]" || "";
+             execLegajo = localStorage.getItem('invitadoLegajo') || "";
+             execNombre = localStorage.getItem('invitadoNombre') + " [Invitado]" || "";
           }
 
           const collab = state.collaborators.find(c => String(c.id) === String(collabId));
@@ -6361,7 +6380,7 @@
              if (val !== originalText && !e.target.readOnly && !e.target.disabled) {
                 // MIDDLEWARE: Verificar permiso antes de escribir sugerencia
                 if (!checkAccess('modificarSugeridos', 'edit')) return;
-                let activeLegajo = sessionStorage.getItem('editorLegajo');
+                let activeLegajo = localStorage.getItem('editorLegajo');
                 if (currentRole === 'admin') activeLegajo = 'Admin';
                 if (!activeLegajo) return;
                 
