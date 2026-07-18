@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -3351,7 +3351,7 @@
     // 10. INTERACCION Y GUARDADO
     async function handleInputChange(e) {
       // MIDDLEWARE: Verificar permiso antes de procesar cualquier cambio
-      if (!checkAccess('modificarHorario')) return;
+      if (!checkAccess('modificarHorario', 'edit')) return;
       const input = e.target;
       const collabId = input.getAttribute('data-collab');
       const dateStr = input.getAttribute('data-date');
@@ -4181,7 +4181,7 @@
 
     window.exportVacationsCSV = function() {
         // MIDDLEWARE: Verificar permiso antes de exportar
-        if (!checkAccess('exportarExcelVacaciones')) return;
+        if (!checkAccess('exportarExcelVacaciones', 'edit')) return;
         const filterSelect = document.getElementById('vFilterYear');
         const selectedYear = filterSelect ? filterSelect.value : 'Todos';
         
@@ -4355,7 +4355,7 @@
     async function autoSaveSaldos(collabId) {
        // MIDDLEWARE: Verificar permiso antes de escribir saldos
        if (!requireAuth()) return;
-       if (!checkAccess('gestionSaldos')) return;
+       if (!checkAccess('gestionSaldos', 'edit')) return;
        const collab = state.collaborators.find(c => c.id === collabId);
        if (!collab) return;
        
@@ -4645,7 +4645,7 @@
     document.getElementById('vacationForm').addEventListener('submit', async (e) => {
        e.preventDefault();
        // MIDDLEWARE: Verificar permiso antes de guardar
-       if (!checkAccess('modificarVacaciones')) return;
+       if (!checkAccess('modificarVacaciones', 'edit')) return;
        
        const editId = document.getElementById('vEditId').value;
        const collabId = document.getElementById('vCollab').value;
@@ -5271,7 +5271,7 @@
         return;
       }
       if (!currentContextCell) return;
-      if (!checkAccess('modificarHorario')) {
+      if (!checkAccess('modificarHorario', 'edit')) {
         e.target.checked = !e.target.checked; // revertir
         return;
       }
@@ -5561,7 +5561,7 @@
           setTimeout(() => document.getElementById('loginLegajo').focus(), 80);
        } else if (currentRole === 'invitado') {
           // Verificar permiso modificarHorario antes de permitir la edición
-          if (!checkAccess('modificarHorario')) {
+          if (!checkAccess('modificarHorario', 'edit')) {
              e.preventDefault();
           }
        }
@@ -6360,7 +6360,7 @@
              
              if (val !== originalText && !e.target.readOnly && !e.target.disabled) {
                 // MIDDLEWARE: Verificar permiso antes de escribir sugerencia
-                if (!checkAccess('modificarSugeridos')) return;
+                if (!checkAccess('modificarSugeridos', 'edit')) return;
                 let activeLegajo = sessionStorage.getItem('editorLegajo');
                 if (currentRole === 'admin') activeLegajo = 'Admin';
                 if (!activeLegajo) return;
@@ -6396,7 +6396,7 @@
     document.getElementById('globalNotesTextarea')?.addEventListener('blur', async (e) => {
        const val = e.target.value;
        const dateVal = document.getElementById('suggestedDateFilter').value;
-       if (!dateVal || !checkAccess('modificarSugeridos') || currentRole === 'visitor') return;
+       if (!dateVal || !checkAccess('modificarSugeridos', 'edit') || currentRole === 'visitor') return;
        try {
           await setDoc(doc(db, "notas_globales", dateVal), { texto: val, fecha: dateVal, timestamp: new Date().toISOString() });
        } catch(err) {
@@ -6406,7 +6406,7 @@
 
     document.getElementById('pdfSugeridosBtn')?.addEventListener('click', () => {
        // MIDDLEWARE: Verificar permiso antes de generar PDF de sugeridos
-       if (!checkAccess('exportarSugeridosPdf')) return;
+       if (!checkAccess('exportarSugeridosPdf', 'edit')) return;
        const dateVal = document.getElementById('suggestedDateFilter').value;
        
        const header = document.createElement('h1');
@@ -6531,7 +6531,7 @@
 
     window.saveEvento = async function() {
       if (!requireAuth()) return;
-      if (!checkAccess('gestionarEventos')) return;
+      if (!checkAccess('gestionarEventos', 'edit')) return;
       const fecha = document.getElementById('eventoFechaInput').value;
       const tipo = document.getElementById('eventoTipoInput').value;
       const descripcion = document.getElementById('eventoDescInput').value.trim();
@@ -6559,7 +6559,7 @@
 
     window.deleteEvento = async function(fecha) {
       if (!requireAuth()) return;
-      if (!checkAccess('gestionarEventos')) return;
+      if (!checkAccess('gestionarEventos', 'edit')) return;
          if (!isMockMode) {
         try {
           const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
