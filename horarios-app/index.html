@@ -2133,7 +2133,9 @@
           // Leer colaboradores 1 sola vez (Caché)
           const colSnap = await getDocs(collection(db, "colaboradores"));
           state.collaborators = colSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-          // Vacaciones ahora se cargan filtradas en loadWeekPlanning()
+          
+          const vacSnap = await getDocs(collection(db, "vacaciones"));
+          state.vacations = vacSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         } catch (e) {
           console.error("Error cargando Firestore:", e);
           state.collaborators = mockCollaborators;
@@ -2208,16 +2210,7 @@
             state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
           });
 
-          // Consulta optimizada: Trae SOLAMENTE las vacaciones activas en el rango visual
-          const vacQuery = query(
-            collection(db, "vacaciones"),
-            where("endDate", ">=", formatDate(realStartD))
-          );
-          const vacSnap = await getDocs(vacQuery);
-          // Filtramos en memoria las que empiezan después del rango
-          state.vacations = vacSnap.docs
-             .map(d => ({ id: d.id, ...d.data() }))
-             .filter(v => v.startDate <= formatDate(realEndD));
+
 
           // Apagar el esqueleto de carga RECIÉN cuando todos los datos están en memoria
           state.skeletonStartStr = null;
