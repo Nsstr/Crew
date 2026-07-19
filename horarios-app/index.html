@@ -1149,12 +1149,12 @@
     .audit-item .audit-date { color: var(--info); font-weight: bold; }
 
     /* Afecta a los encabezados de la segunda semana */
-    table#planningTable th:nth-child(n+9):nth-child(-n+15) {
+    table#planningTable th:nth-child(n+10):nth-child(-n+16) {
       background-color: rgba(255, 255, 255, 0.04) !important;
     }
 
     /* Afecta directamente al fondo de los inputs de la segunda semana */
-    table#planningTable td:nth-child(n+9):nth-child(-n+15) .cell-input {
+    table#planningTable td:nth-child(n+10):nth-child(-n+16) .cell-input {
       background-color: rgba(255, 255, 255, 0.03) !important;
     }
 
@@ -1165,7 +1165,7 @@
     }
 
     /* 3. Mantener el color de los feriados intacto si caen en la segunda semana */
-    table#planningTable td:nth-child(n+9):nth-child(-n+15).holiday-col {
+    table#planningTable td:nth-child(n+10):nth-child(-n+16).holiday-col {
       background-color: rgba(239, 68, 68, 0.15) !important;
     }
 
@@ -1366,6 +1366,10 @@
       #planningTable td:not(:first-child) {
         min-width: 75px !important;
       }
+    }
+    .dia-actual {
+       border-top: 3px solid #fbbf24 !important;
+       background-color: rgba(251, 191, 36, 0.05) !important;
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -2002,7 +2006,12 @@
     // 3. ESTADO DE LA APLICACIÓN (Caché local)
     const state = {
       viewRange: 14,
-      currentWeekStart: getStartOfWeek(new Date()),
+      currentWeekStart: (function() {
+         const saved = localStorage.getItem('lastDateNav');
+         if (saved) return new Date(saved + "T00:00:00");
+         const todayStr = new Date().toISOString().split('T')[0];
+         return new Date(todayStr + "T00:00:00");
+      })(),
       collaborators: [],
       vacations: [], // { id, collabId, startDate, endDate, weeksCount }
       planning: {}, // key: `${collabId}_${dateString}`, value: slot object or string
@@ -2043,8 +2052,8 @@
     function getStartOfWeek(date) {
       const d = new Date(date);
       const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Lunes
-      return new Date(d.setDate(diff));
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(d.getFullYear(), d.getMonth(), diff);
     }
     
     function formatDate(date) {
@@ -2060,8 +2069,8 @@
 
     function getWeekDays() {
       const days = [];
-      // Restamos 1 día al lunes de inicio para incluir el domingo anterior de margen
-      let current = addDays(state.currentWeekStart, -1); 
+      let startMon = getStartOfWeek(state.currentWeekStart);
+      let current = addDays(startMon, -1); 
       
       // Forzamos el visor estricto a 16 días en pantalla
       for(let i=0; i<16; i++) {
@@ -2150,6 +2159,9 @@
     }
 
     async function loadWeekPlanning(append = false) {
+      if (state.currentWeekStart) {
+         localStorage.setItem('lastDateNav', formatDate(state.currentWeekStart));
+      }
       const range = state.viewRange || 7;
       const realStartD = getStartOfWeek(state.currentWeekStart);
       const realEndD = addDays(getStartOfWeek(addDays(state.currentWeekStart, range - 1)), 6);
@@ -2788,7 +2800,9 @@
         const dayNumStr = String(d.getDate()).padStart(2, '0');
         const dayName = `${weekDaysArr[d.getDay()]} ${dayNumStr} ${monthsArr[d.getMonth()]}`;
         
-        const thClass = isHoliday ? 'holiday-col day-column' : 'day-column';
+        const isToday = formatDate(d) === formatDate(new Date());
+        const todayClass = isToday ? 'dia-actual ' : '';
+        const thClass = todayClass + (isHoliday ? 'holiday-col day-column' : 'day-column');
         const thBg = evento ? `background-color: ${evento.color}22;` : '';
         const holidayBadge = isHoliday ? `<span class="holiday-badge">Feriado</span>` : '';
         const eventBadge = evento ? `<span class="event-badge" style="background-color:${evento.color};">&#128197; ${evento.descripcion}</span>` : '';
@@ -3086,7 +3100,9 @@
           }
           
           let isSkeleton = state.skeletonStartStr && dStr >= state.skeletonStartStr;
-          let finalWrapperClass = wrapperClass + (isSkeleton ? ' skeleton-cell' : '') + ' day-cell';
+          const isToday = dStr === formatDate(new Date());
+          const todayClass = isToday ? ' dia-actual' : '';
+          let finalWrapperClass = wrapperClass + (isSkeleton ? ' skeleton-cell' : '') + ' day-cell' + todayClass;
           
           // Validar descanso diario de 12 horas para turnos ya cargados
           let hasRestError = false;
