@@ -1865,6 +1865,20 @@
           <label>Pasillo Asignado</label>
           <input type="text" id="cPasillo" required>
         </div>
+        <div class="form-group">
+          <label>Área</label>
+          <select id="cArea" required>
+            <option value="Disponibilidad">Disponibilidad</option>
+            <option value="AP">AP</option>
+            <option value="Calidad">Calidad</option>
+            <option value="Linea de Cajas">Linea de Cajas</option>
+            <option value="Perecederos">Perecederos</option>
+            <option value="Limpieza">Limpieza</option>
+            <option value="RRHH">RRHH</option>
+            <option value="Gerentes">Gerentes</option>
+            <option value="Direccion">Direccion</option>
+          </select>
+        </div>
 
         <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
            <button type="submit" id="cSubmitBtn" class="primary" style="flex: 1; justify-content: center;">Guardar</button>
@@ -2571,7 +2585,26 @@
       const hourlyCounts = {};
       for (let h = 0; h <= 23; h++) hourlyCounts[h] = 0;
 
+      const areasOrderMobile = ['Disponibilidad', 'AP', 'Calidad', 'Linea de Cajas', 'Perecederos', 'Limpieza', 'RRHH', 'Gerentes', 'Direccion'];
+      const groupedCollabsMobile = {};
       state.collaborators.forEach(c => {
+         const area = c.area || 'Disponibilidad';
+         if (!groupedCollabsMobile[area]) groupedCollabsMobile[area] = [];
+         groupedCollabsMobile[area].push(c);
+      });
+      Object.keys(groupedCollabsMobile).forEach(k => { if (!areasOrderMobile.includes(k)) areasOrderMobile.push(k); });
+
+      areasOrderMobile.forEach(areaName => {
+         if (!groupedCollabsMobile[areaName] || groupedCollabsMobile[areaName].length === 0) return;
+         
+         const headerRow = document.createElement('tr');
+         headerRow.className = 'area-header-row';
+         headerRow.style.background = 'var(--danger)';
+         headerRow.style.color = '#fff';
+         headerRow.innerHTML = `<td colspan="2" style="padding: 4px 15px; font-weight: bold; font-size: 0.85rem; text-transform: uppercase;">${areaName}</td>`;
+         tbody.appendChild(headerRow);
+
+         groupedCollabsMobile[areaName].forEach(c => {
           const objForTardanza = getPlanningObj(c.id, dStr) || {};
           const valToday = getPlanningSlot(c.id, dStr);
           const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
@@ -2675,6 +2708,7 @@
 
           tr.innerHTML = cellsHTML;
           tbody.appendChild(tr);
+         });
       });
       
       if (focusCollab && focusDate) {
@@ -2860,7 +2894,26 @@
       // Week contains holiday?
       const weekHasHoliday = days.some(d => state.holidays.includes(formatDate(d)));
 
-      state.collaborators.forEach(collab => {
+      const areasOrderDesktop = ['Disponibilidad', 'AP', 'Calidad', 'Linea de Cajas', 'Perecederos', 'Limpieza', 'RRHH', 'Gerentes', 'Direccion'];
+      const groupedCollabsDesktop = {};
+      state.collaborators.forEach(c => {
+         const area = c.area || 'Disponibilidad';
+         if (!groupedCollabsDesktop[area]) groupedCollabsDesktop[area] = [];
+         groupedCollabsDesktop[area].push(c);
+      });
+      Object.keys(groupedCollabsDesktop).forEach(k => { if (!areasOrderDesktop.includes(k)) areasOrderDesktop.push(k); });
+
+      areasOrderDesktop.forEach(areaName => {
+         if (!groupedCollabsDesktop[areaName] || groupedCollabsDesktop[areaName].length === 0) return;
+         
+         const headerRow = document.createElement('tr');
+         headerRow.className = 'area-header-row';
+         headerRow.style.background = 'var(--danger)';
+         headerRow.style.color = '#fff';
+         headerRow.innerHTML = `<td colspan="${days.length + 1}" style="padding: 4px 15px; font-weight: bold; font-size: 0.85rem; text-transform: uppercase;">${areaName}</td>`;
+         tbody.appendChild(headerRow);
+
+         groupedCollabsDesktop[areaName].forEach(collab => {
         const tr = document.createElement('tr');
         
         
@@ -3149,6 +3202,7 @@
 
         tr.innerHTML = html;
         tbody.appendChild(tr);
+         });
       });
 
       // Counters Footer
@@ -3599,7 +3653,8 @@
         hours: parseInt(document.getElementById('cHours').value),
         domingosAcordados: parseInt(document.getElementById('cDoms').value),
         pasillo: document.getElementById('cPasillo').value.trim(),
-        fechaAlta: document.getElementById('cFechaAlta').value
+        fechaAlta: document.getElementById('cFechaAlta').value,
+        area: document.getElementById('cArea').value
       };
 
       // Guardar en Firebase
@@ -3678,6 +3733,7 @@
       document.getElementById('cDoms').value = c.domingosAcordados || 0;
       document.getElementById('cPasillo').value = c.pasillo;
       document.getElementById('cFechaAlta').value = c.fechaAlta || '';
+      document.getElementById('cArea').value = c.area || 'Disponibilidad';
 
       
       document.getElementById('cCancelBtn').style.display = 'block';
