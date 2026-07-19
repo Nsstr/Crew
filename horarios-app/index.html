@@ -1396,15 +1396,27 @@
       <button class="app-tab-btn" id="metricsTabBtn" onclick="switchTab('metricas')" style="display: none;">Dashboard Métricas</button>
     </div>
     <div class="nav-auth-controls" style="display: flex; gap: 0.5rem; height: 26px;">
-      <!-- Botón Eventos: solo visible para quien puede modificar la grilla -->
-      <button id="eventosNavBtn" style="display: none; background: transparent; color: var(--warning); border: 1px solid var(--warning); border-radius: 0.25rem; padding: 0 0.75rem; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;" title="Gestionar Eventos del Día" onclick="window.openEventosModal()">&#128197; Eventos</button>
-      <button id="auditBellBtn" class="audit-bell" title="Log de Auditoría">
-        🔔 <span id="auditBadge" class="audit-badge" style="display: none;">0</span>
-      </button>
-      <button id="hardRefreshBtn" onclick="window.forceHardRefresh()" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;" title="Limpiar datos y caché locales">🔄 Ultims Version de App</button>
-      <button id="backupDriveBtn" style="display: none; background: transparent; color: var(--success); border: 1px solid var(--success); border-radius: 0.25rem; padding: 0 0.75rem; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;" title="Respaldar todo en Google Sheets">Backup Drive</button>
-      <button id="adminLoginBtn" style="background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">Acceso</button>
-      <button id="logoutBtn" style="display: none; background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 0.25rem; padding: 0 0.75rem; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;">Salir</button>
+      <div id="navDropdownContainer" style="position: relative; display: flex; align-items: center; height: 100%;">
+        <button id="navDropdownToggle" style="background: transparent; border: 1px solid var(--border); color: var(--text); padding: 0 0.75rem; height: 100%; border-radius: 0.25rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; font-weight: 600; font-size: 0.75rem; transition: all 0.2s;">
+          ⚙️ Acciones ▼
+        </button>
+        <div id="navDropdownMenu" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 0.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); padding: 8px; flex-direction: column; gap: 6px; z-index: 10000; min-width: 200px;">
+          <!-- Botón Eventos -->
+          <button id="eventosNavBtn" style="display: none; background: transparent; color: var(--warning); border: 1px solid var(--warning); border-radius: 0.25rem; padding: 8px; align-items: center; justify-content: flex-start; gap: 6px; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; width: 100%;" title="Gestionar Eventos del Día" onclick="window.openEventosModal()">&#128197; Eventos</button>
+          
+          <button id="auditBellBtn" class="audit-bell" title="Log de Auditoría" style="width: 100%; justify-content: flex-start; gap: 6px; padding: 8px; height: auto;">
+            🔔 Auditoría <span id="auditBadge" class="audit-badge" style="display: none; position: relative; margin-left: auto; top: 0; right: 0; transform: none;">0</span>
+          </button>
+          
+          <button id="hardRefreshBtn" onclick="window.forceHardRefresh()" style="display: flex; background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.25rem; padding: 8px; align-items: center; justify-content: flex-start; gap: 6px; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; width: 100%;" title="Limpiar datos y caché locales">🔄 Limpiar Caché / Refresh</button>
+          
+          <button id="backupDriveBtn" style="display: none; background: transparent; color: var(--success); border: 1px solid var(--success); border-radius: 0.25rem; padding: 8px; align-items: center; justify-content: flex-start; gap: 6px; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; width: 100%;" title="Respaldar todo en Google Sheets">💾 Backup Drive</button>
+          
+          <button id="adminLoginBtn" style="display: flex; background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.25rem; padding: 8px; align-items: center; justify-content: flex-start; gap: 6px; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; width: 100%;">👤 Acceso</button>
+          
+          <button id="logoutBtn" style="display: none; background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 0.25rem; padding: 8px; align-items: center; justify-content: flex-start; gap: 6px; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; width: 100%;">🚪 Salir</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -6620,6 +6632,25 @@
         window.location.reload(true);
       }
     };
+
+    // Dropdown Header Menu Logic
+    document.addEventListener('DOMContentLoaded', () => {
+       const toggleBtn = document.getElementById('navDropdownToggle');
+       const dropdownMenu = document.getElementById('navDropdownMenu');
+       if (toggleBtn && dropdownMenu) {
+           toggleBtn.addEventListener('click', (e) => {
+               e.stopPropagation();
+               const isVisible = dropdownMenu.style.display === 'flex';
+               dropdownMenu.style.display = isVisible ? 'none' : 'flex';
+           });
+
+           document.addEventListener('click', (e) => {
+               if (!dropdownMenu.contains(e.target) && e.target !== toggleBtn) {
+                   dropdownMenu.style.display = 'none';
+               }
+           });
+       }
+    });
   </script>
   <script>
     if ('serviceWorker' in navigator) {
