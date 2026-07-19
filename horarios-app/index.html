@@ -6182,45 +6182,7 @@
     const gridContainer = document.querySelector('.grid-container');
     let isFetchingNextWeek = false;
 
-    // 1. Wheel event para scroll horizontal en escritorio
-    gridContainer.addEventListener('wheel', (e) => {
-       if (e.deltaY !== 0) {
-         e.preventDefault(); // CRÍTICO: Evita que el navegador intente hacer scroll vertical
-         gridContainer.scrollLeft += e.deltaY * 1.2; // Traduce el movimiento vertical a horizontal
-       }
-    }, { passive: false });
-
-    // 1b. Mouse Drag-to-Scroll (Arrastrar con el click en PC)
-    let isDown = false;
-    let startX;
-    let scrollLeft;
-
-    gridContainer.addEventListener('mousedown', (e) => {
-        // Ignorar si hace click en un input
-        if (e.target.tagName.toLowerCase() === 'input') return;
-        isDown = true;
-        gridContainer.style.cursor = 'grabbing';
-        startX = e.pageX - gridContainer.offsetLeft;
-        scrollLeft = gridContainer.scrollLeft;
-    });
-    
-    gridContainer.addEventListener('mouseleave', () => {
-        isDown = false;
-        gridContainer.style.cursor = '';
-    });
-    
-    gridContainer.addEventListener('mouseup', () => {
-        isDown = false;
-        gridContainer.style.cursor = '';
-    });
-    
-    gridContainer.addEventListener('mousemove', (e) => {
-        if (!isDown) return;
-        e.preventDefault(); // Previene selección de texto
-        const x = e.pageX - gridContainer.offsetLeft;
-        const walk = (x - startX) * 1.5; // Multiplicador de velocidad de arrastre
-        gridContainer.scrollLeft = scrollLeft - walk;
-    });
+    // 1. (Funciones programáticas de scroll eliminadas para permitir scroll nativo)
 
     // 2. Scroll event para lazy loading y sincronización del mapa de calor
     let isScrolling = false;
