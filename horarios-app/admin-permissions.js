@@ -114,37 +114,19 @@ export async function loadPermisosInvitado(legajoRaw) {
   }
 }
 
-let _toastCooldown = false;
-function showWarning(title, msg) {
-  if (_toastCooldown) return;
-  if (_showToast) _showToast(title, msg, 'warning');
-  _toastCooldown = true;
-  setTimeout(() => { _toastCooldown = false; }, 1500);
-}
-
-export function checkAccess(permiso, accion = 'view') {
+export function checkAccess(permiso) {
   const role   = _getCurrentRole();
   const legajo = _getCurrentLegajo();
 
-  if (role === 'visitor') {
-    if (accion !== 'view') showWarning('Acceso denegado', 'Inicia sesión para editar esta información');
-    return false;
-  }
-
+  if (role === 'visitor') return false;
   if (role === 'admin') return true;
 
   if (role === 'invitado') {
     const entry = _state.permisosInvitado?.[legajo];
-
-    if (!entry || entry.activo === false) {
-      if (accion !== 'view') showWarning('Acceso denegado', 'Tu cuenta de invitado está inactiva. Contacta al Administrador.');
-      return false;
-    }
+    if (!entry || entry.activo === false) return false;
 
     const permitido = entry?.['permisos.' + permiso] === true || entry?.permisos?.[permiso] === true;
     if (permitido) return true;
-
-    if (accion !== 'view') showWarning('Acceso denegado', 'No tenés permiso para esta acción. Contactá al Administrador.');
     return false;
   }
 

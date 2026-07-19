@@ -2519,6 +2519,7 @@
     };
 
     function renderMobileDayView() {
+      const userHasAccess = checkAccess('modificarHorario') || checkAccess('modificarVacaciones');
       const activeEl = document.activeElement;
       let focusCollab = null;
       let focusDate = null;
@@ -2643,7 +2644,7 @@
           const isTiendaCerrada = evento && evento.tiendaCerrada;
           if (isTiendaCerrada) shiftVal = 'LIBRE';
           
-          let inputDisabled = isOnVacationToday || isTiendaCerrada || (!checkAccess('modificarHorario') && !checkAccess('modificarVacaciones'));
+          let inputDisabled = isOnVacationToday || isTiendaCerrada || !userHasAccess;
           let cellStyle = isTiendaCerrada ? "background-color: rgba(100, 116, 139, 0.2);" : "";
           
           cellsHTML += `
@@ -2758,7 +2759,8 @@
     }
 
     function renderDesktopView() {
-      // 1. Guardar Estado Antes del Render
+      // 1. Guardar Estado Antes del Render y centralizar permisos
+      const userHasAccess = checkAccess('modificarHorario') || checkAccess('modificarVacaciones');
       const activeEl = document.activeElement;
       let focusCollab = null;
       let focusDate = null;
@@ -3011,7 +3013,7 @@
           let val = getPlanningSlot(collab.id, dStr);
           let parsed = null;
           let inputClass = '';
-          let isDisabled = false;
+          let isDisabled = !userHasAccess;
 
           let vacationTagHtml = '';
           const isTiendaCerrada = state.eventos[dStr] && state.eventos[dStr].tiendaCerrada;
@@ -3366,7 +3368,7 @@
     // 10. INTERACCION Y GUARDADO
     async function handleInputChange(e) {
       // MIDDLEWARE: Verificar permiso antes de procesar cualquier cambio
-      if (!checkAccess('modificarHorario', 'edit')) return;
+      if (!checkAccessWithToast('modificarHorario')) return;
       const input = e.target;
       const collabId = input.getAttribute('data-collab');
       const dateStr = input.getAttribute('data-date');
@@ -4196,7 +4198,7 @@
 
     window.exportVacationsCSV = function() {
         // MIDDLEWARE: Verificar permiso antes de exportar
-        if (!checkAccess('exportarExcelVacaciones', 'edit')) return;
+        if (!checkAccessWithToast('exportarExcelVacaciones')) return;
         const filterSelect = document.getElementById('vFilterYear');
         const selectedYear = filterSelect ? filterSelect.value : 'Todos';
         
@@ -4370,7 +4372,7 @@
     async function autoSaveSaldos(collabId) {
        // MIDDLEWARE: Verificar permiso antes de escribir saldos
        if (!requireAuth()) return;
-       if (!checkAccess('gestionSaldos', 'edit')) return;
+       if (!checkAccessWithToast('gestionSaldos')) return;
        const collab = state.collaborators.find(c => c.id === collabId);
        if (!collab) return;
        
@@ -4660,7 +4662,7 @@
     document.getElementById('vacationForm').addEventListener('submit', async (e) => {
        e.preventDefault();
        // MIDDLEWARE: Verificar permiso antes de guardar
-       if (!checkAccess('modificarVacaciones', 'edit')) return;
+       if (!checkAccessWithToast('modificarVacaciones')) return;
        
        const editId = document.getElementById('vEditId').value;
        const collabId = document.getElementById('vCollab').value;
@@ -5002,6 +5004,14 @@
       return true;
     }
 
+    window.checkAccessWithToast = function(permiso) {
+      if (!checkAccess(permiso)) {
+         showToast("Acceso denegado", "No tenés permiso para realizar esta acción.", "warning");
+         return false;
+      }
+      return true;
+    };
+
     const adminLoginBtn = document.getElementById('adminLoginBtn');
     const logoutBtn = document.getElementById('logoutBtn');
     const configBtn = document.getElementById('configBtn');
@@ -5286,7 +5296,7 @@
         return;
       }
       if (!currentContextCell) return;
-      if (!checkAccess('modificarHorario', 'edit')) {
+      if (!checkAccessWithToast('modificarHorario')) {
         e.target.checked = !e.target.checked; // revertir
         return;
       }
@@ -5570,7 +5580,7 @@
           setTimeout(() => document.getElementById('loginLegajo').focus(), 80);
        } else if (currentRole === 'invitado') {
           // Verificar permiso modificarHorario antes de permitir la edición
-          if (!checkAccess('modificarHorario', 'edit')) {
+          if (!checkAccessWithToast('modificarHorario')) {
              e.preventDefault();
           }
        }
@@ -6369,7 +6379,7 @@
              
              if (val !== originalText && !e.target.readOnly && !e.target.disabled) {
                 // MIDDLEWARE: Verificar permiso antes de escribir sugerencia
-                if (!checkAccess('modificarSugeridos', 'edit')) return;
+                if (!checkAccessWithToast('modificarSugeridos')) return;
                 let activeLegajo = localStorage.getItem('editorLegajo');
                 if (currentRole === 'admin') activeLegajo = 'Admin';
                 if (!activeLegajo) return;
@@ -6405,7 +6415,7 @@
     document.getElementById('globalNotesTextarea')?.addEventListener('blur', async (e) => {
        const val = e.target.value;
        const dateVal = document.getElementById('suggestedDateFilter').value;
-       if (!dateVal || !checkAccess('modificarSugeridos', 'edit') || currentRole === 'visitor') return;
+       if (!dateVal || !checkAccessWithToast('modificarSugeridos') || currentRole === 'visitor') return;
        try {
           await setDoc(doc(db, "notas_globales", dateVal), { texto: val, fecha: dateVal, timestamp: new Date().toISOString() });
        } catch(err) {
@@ -6415,7 +6425,7 @@
 
     document.getElementById('pdfSugeridosBtn')?.addEventListener('click', () => {
        // MIDDLEWARE: Verificar permiso antes de generar PDF de sugeridos
-       if (!checkAccess('exportarSugeridosPdf', 'edit')) return;
+       if (!checkAccessWithToast('exportarSugeridosPdf')) return;
        const dateVal = document.getElementById('suggestedDateFilter').value;
        
        const header = document.createElement('h1');
@@ -6540,7 +6550,7 @@
 
     window.saveEvento = async function() {
       if (!requireAuth()) return;
-      if (!checkAccess('gestionarEventos', 'edit')) return;
+      if (!checkAccessWithToast('gestionarEventos')) return;
       const fecha = document.getElementById('eventoFechaInput').value;
       const tipo = document.getElementById('eventoTipoInput').value;
       const descripcion = document.getElementById('eventoDescInput').value.trim();
@@ -6568,7 +6578,7 @@
 
     window.deleteEvento = async function(fecha) {
       if (!requireAuth()) return;
-      if (!checkAccess('gestionarEventos', 'edit')) return;
+      if (!checkAccessWithToast('gestionarEventos')) return;
          if (!isMockMode) {
         try {
           const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
