@@ -2610,8 +2610,6 @@
          groupedCollabsMobile[areaName].forEach(c => {
           const tr = document.createElement('tr');
           tr.style.willChange = 'transform';
-          tr.style.contentVisibility = 'auto';
-          tr.style.containIntrinsicSize = '50px';
           const objForTardanza = getPlanningObj(c.id, dStr) || {};
           const valToday = getPlanningSlot(c.id, dStr);
           const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
@@ -2923,8 +2921,6 @@
          groupedCollabsDesktop[areaName].forEach(collab => {
         const tr = document.createElement('tr');
         tr.style.willChange = 'transform';
-        tr.style.contentVisibility = 'auto';
-        tr.style.containIntrinsicSize = '50px';
         
         let cellsHTML = '';
         
@@ -6243,67 +6239,6 @@
            updateDynamicHours(); // Actualiza etiquetas de horas flotantes (Móvil y Escritorio)
        }
 
-       // B. Lazy Loading de las siguientes semanas (Prefetch Hacia Adelante)
-       if (isFetchingNextWeek) return;
-       
-       // Bloquear lazy loading de semanas (que cambia la fecha) en vista móvil, ya que se navega por días
-       if (window.innerWidth <= 768) return;
-       
-       // Disparar cuando el scroll horizontal pase el 60% del ancho actual
-       if (gridContainer.scrollLeft > (gridContainer.scrollWidth - gridContainer.clientWidth) * 0.6) {
-          isFetchingNextWeek = true;
-          
-          const currentScroll = gridContainer.scrollLeft;
-          const heatmapArea = document.querySelector('.top-heatmap-area');
-          const currentHeatmapScroll = heatmapArea ? heatmapArea.scrollLeft : 0;
-          
-          const prevRange = state.viewRange || 7;
-          state.viewRange = prevRange + 7;
-          
-          // Calcula a partir de qué fecha empiezan los esqueletos
-          const skeletonStartDate = addDays(getStartOfWeek(state.currentWeekStart), prevRange);
-          state.skeletonStartStr = formatDate(skeletonStartDate);
-          
-          // Renderiza los esqueletos temporalmente (síncrono)
-          renderUI();
-          
-          // Restauramos el scroll exacto para que no haya salto al inyectar las columnas grises
-          gridContainer.scrollLeft = currentScroll;
-          if (heatmapArea) heatmapArea.scrollLeft = currentHeatmapScroll;
-          
-          // Realiza el fetch de datos en segundo plano
-          await loadWeekPlanning(true); // append = true
-          
-          isFetchingNextWeek = false;
-       }
-       
-       // C. Lazy Loading de las semanas anteriores (Prepend Hacia Atrás)
-       else if (gridContainer.scrollLeft <= 100) {
-          isFetchingNextWeek = true; // Usamos el mismo candado para evitar cargas duplicadas
-          
-          const currentScroll = gridContainer.scrollLeft;
-          const heatmapArea = document.querySelector('.top-heatmap-area');
-          const currentHeatmapScroll = heatmapArea ? heatmapArea.scrollLeft : 0;
-          
-          // Restar 7 días al inicio y sumar 7 días al rango total
-          state.currentWeekStart = addDays(state.currentWeekStart, -7);
-          state.viewRange = (state.viewRange || 7) + 7;
-          
-          // El ancho de los días insertados a la izquierda
-          const shiftWidth = (window.innerWidth <= 768 ? 75 : 120) * 7;
-          
-          // Fetch sincrono (se podría optimizar con esqueleto si es lento)
-          await loadWeekPlanning(false); 
-          
-          // Restaurar el scroll compensando el ancho de los 7 días inyectados
-          gridContainer.scrollLeft = currentScroll + shiftWidth;
-          if (heatmapArea) heatmapArea.scrollLeft = currentHeatmapScroll + shiftWidth;
-          
-          // Actualizar índice actual para no romper el heatmap
-          window.currentHeatmapStartIndex = (window.currentHeatmapStartIndex || 0) + 7;
-          
-          isFetchingNextWeek = false;
-       }
        }); // Fin de requestAnimationFrame
     });
 
