@@ -143,7 +143,8 @@
       flex: 1;
       height: 100%;
       position: relative;
-      scroll-behavior: smooth;
+      scroll-behavior: auto;
+      -webkit-overflow-scrolling: touch;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
       padding-bottom: 5px;
       margin-bottom: -5px;
@@ -2582,7 +2583,6 @@
 
       const tbody = document.getElementById('tableBody');
       tbody.innerHTML = '';
-      tbody.style.contain = 'content';
       console.log("Datos para render móvil:", state.collaborators);
 
       const hourlyCounts = {};
@@ -2610,6 +2610,8 @@
          groupedCollabsMobile[areaName].forEach(c => {
           const tr = document.createElement('tr');
           tr.style.willChange = 'transform';
+          tr.style.contentVisibility = 'auto';
+          tr.style.containIntrinsicSize = '50px';
           const objForTardanza = getPlanningObj(c.id, dStr) || {};
           const valToday = getPlanningSlot(c.id, dStr);
           const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
@@ -2856,7 +2858,6 @@
       // Table Body
       const tbody = document.getElementById('tableBody');
       tbody.innerHTML = '';
-      tbody.style.contain = 'content';
       
       // 1. FILA DE TOTAL FRANCOS (Fijada arriba dentro de la tabla)
       const francoRow = document.createElement('tr');
@@ -2922,6 +2923,8 @@
          groupedCollabsDesktop[areaName].forEach(collab => {
         const tr = document.createElement('tr');
         tr.style.willChange = 'transform';
+        tr.style.contentVisibility = 'auto';
+        tr.style.containIntrinsicSize = '50px';
         
         let cellsHTML = '';
         
