@@ -114,28 +114,8 @@ export async function loadPermisosInvitado(legajoRaw) {
   }
 }
 
-let _alertsEnabled = false;
-
-document.addEventListener('DOMContentLoaded', () => {
-  // Estado de carga discreto pedido por el usuario
-  const loadingIndicator = document.createElement('div');
-  loadingIndicator.id = 'perm-loading-indicator';
-  loadingIndicator.style.cssText = 'position:fixed; bottom:20px; right:20px; background:var(--primary); color:white; padding:8px 12px; border-radius:6px; font-size:12px; z-index:9999; opacity:0.9; transition:opacity 0.3s; box-shadow: 0 2px 10px rgba(0,0,0,0.2); pointer-events:none;';
-  loadingIndicator.innerHTML = '<span>⏳</span> Validando permisos...';
-  document.body.appendChild(loadingIndicator);
-
-  setTimeout(() => {
-    _alertsEnabled = true;
-    const el = document.getElementById('perm-loading-indicator');
-    if (el) el.style.opacity = '0';
-    setTimeout(() => { if (el) el.remove(); }, 300);
-  }, 800);
-});
-setTimeout(() => { _alertsEnabled = true; }, 1500); // Respaldo
-
 let _toastCooldown = false;
 function showWarning(title, msg) {
-  if (!_alertsEnabled) return;
   if (_toastCooldown) return;
   if (_showToast) _showToast(title, msg, 'warning');
   _toastCooldown = true;

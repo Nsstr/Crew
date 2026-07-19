@@ -5474,19 +5474,9 @@
     });
 
     logoutBtn.addEventListener('click', () => {
-       localStorage.removeItem('userLoggedIn');
-       localStorage.removeItem('adminLogged');
-       localStorage.removeItem('editorLegajo');
-       localStorage.removeItem('editorNombre');
-       localStorage.removeItem('invitadoLegajo');
-       localStorage.removeItem('invitadoNombre');
-       currentRole = 'visitor';
-       currentInvitadoLegajo = null;
-       state.currentInvitadoLegajo = null;
-       checkLogin();
-       switchTab('horarios');
-       renderUI();
-       showToast('Sesión', 'Sesión cerrada correctamente.');
+       localStorage.clear();
+       sessionStorage.clear();
+       location.reload();
     });
 
     let pendingEditTarget = null;
