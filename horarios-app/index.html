@@ -1896,7 +1896,7 @@
     // 1. FIREBASE INITIALIZATION
     // Reemplaza con tus credenciales de Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { initPermissionsModule, checkAccess, syncPermissionsUI, renderGestionInvitados, loadPermisosInvitado, crearInvitado, INVITADOS_AUTORIZADOS } from "./admin-permissions.js";
 
@@ -1917,6 +1917,16 @@
     try {
       const app = initializeApp(firebaseConfig);
       db = getFirestore(app);
+      
+      // Persistencia Local (Firestore IndexedDB) para reducir lecturas
+      enableIndexedDbPersistence(db).catch((err) => {
+          if (err.code == 'failed-precondition') {
+              console.warn("Múltiples pestañas abiertas, la persistencia solo se puede habilitar en una.");
+          } else if (err.code == 'unimplemented') {
+              console.warn("El navegador no soporta persistencia.");
+          }
+      });
+
       auth = getAuth(app);
       
       // Persistencia local explícita solicitada
@@ -2123,9 +2133,7 @@
           // Leer colaboradores 1 sola vez (Caché)
           const colSnap = await getDocs(collection(db, "colaboradores"));
           state.collaborators = colSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-          
-          const vacSnap = await getDocs(collection(db, "vacaciones"));
-          state.vacations = vacSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Vacaciones ahora se cargan filtradas en loadWeekPlanning()
         } catch (e) {
           console.error("Error cargando Firestore:", e);
           state.collaborators = mockCollaborators;
@@ -2188,31 +2196,28 @@
         renderUI();
       } else {
         try {
-          // Consulta 1: Trae el mes de inicio de la quincena
-          const q1 = query(
+          // Consulta optimizada: Trae SOLAMENTE los días del rango visual
+          const q = query(
             collection(db, "planificacion"), 
-            where("fecha", ">=", `${yearStart}-${monthStart}-01`),
-            where("fecha", "<=", `${yearStart}-${monthStart}-31`)
+            where("fecha", ">=", formatDate(realStartD)),
+            where("fecha", "<=", formatDate(realEndD))
           );
-          const snap1 = await getDocs(q1);
-          snap1.forEach(doc => {
+          const snap = await getDocs(q);
+          snap.forEach(doc => {
             const data = doc.data();
             state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
           });
 
-          // Consulta 2: Si la quincena pisa el mes siguiente, lo descarga en paralelo
-          if (monthStart !== monthEnd) {
-             const q2 = query(
-               collection(db, "planificacion"), 
-               where("fecha", ">=", `${yearEnd}-${monthEnd}-01`),
-               where("fecha", "<=", `${yearEnd}-${monthEnd}-31`)
-             );
-             const snap2 = await getDocs(q2);
-             snap2.forEach(doc => {
-               const data = doc.data();
-               state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
-             });
-          }
+          // Consulta optimizada: Trae SOLAMENTE las vacaciones activas en el rango visual
+          const vacQuery = query(
+            collection(db, "vacaciones"),
+            where("endDate", ">=", formatDate(realStartD))
+          );
+          const vacSnap = await getDocs(vacQuery);
+          // Filtramos en memoria las que empiezan después del rango
+          state.vacations = vacSnap.docs
+             .map(d => ({ id: d.id, ...d.data() }))
+             .filter(v => v.startDate <= formatDate(realEndD));
 
           // Apagar el esqueleto de carga RECIÉN cuando todos los datos están en memoria
           state.skeletonStartStr = null;
@@ -4365,9 +4370,16 @@
         }
     });
 
+    async function fetchHistorialVacaciones(collabId) {
+       const q = query(collection(db, "vacaciones"), where("colaboradorId", "==", collabId));
+       const snap = await getDocs(q);
+       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
     function calcularDiasTomados(collabId, año) {
         let diasTomados = 0;
-        state.vacations.forEach(v => {
+        const vacsToUse = state.currentEmployeeVacations || [];
+        vacsToUse.forEach(v => {
             if (v.colaboradorId === collabId) {
                 const vStart = new Date(v.startDate + "T00:00:00");
                 const vEnd = new Date(v.endDate + "T00:00:00");
@@ -4422,16 +4434,23 @@
        }
     }
 
-    function renderSaldosVacaciones() {
+    async function renderSaldosVacaciones() {
        const collabId = document.getElementById('vCollab').value;
        const container = document.getElementById('saldosVacacionesContainer');
        if (!collabId) {
           container.innerHTML = '';
+          state.currentEmployeeVacations = [];
           return;
        }
        
        const collab = state.collaborators.find(c => c.id === collabId);
        if (!collab) return;
+
+       // LAZY LOADING: Traer historial completo de este empleado
+       container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">Cargando historial...</div>';
+       state.currentEmployeeVacations = await fetchHistorialVacaciones(collabId);
+       container.innerHTML = ''; // Limpiar loader
+
        
        let maxYear = new Date().getFullYear();
        let minYear = maxYear - 3;
@@ -4509,7 +4528,7 @@
        
        // Calcular historial automático
        const historyByYear = {};
-       state.vacations.forEach(v => {
+       (state.currentEmployeeVacations || []).forEach(v => {
           if (v.colaboradorId === collabId) {
              const vStart = new Date(v.startDate + "T00:00:00");
              const vEnd = new Date(v.endDate + "T00:00:00");
