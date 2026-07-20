@@ -2653,7 +2653,7 @@
       const eventBadge = evento ? `<span class="event-badge" style="background-color:${evento.color};">&#128197; ${evento.descripcion}</span>` : '';
       
       trHead.innerHTML = `
-        <th style="width: 60%; padding: 4px;">Colaborador</th>
+        <th id="mobileAreaHeader" style="width: 60%; padding: 4px; text-transform: uppercase;">Colaborador</th>
         <th style="width: 40%; text-align: center; padding: 4px; ${thBg}">${dayLabelText} ${holidayBadge}${eventBadge}</th>
       `;
 
@@ -2676,16 +2676,10 @@
       areasOrderMobile.forEach(areaName => {
          if (!groupedCollabsMobile[areaName] || groupedCollabsMobile[areaName].length === 0) return;
          
-         const headerRow = document.createElement('tr');
-         headerRow.className = 'area-header-row';
-         headerRow.style.background = 'var(--danger)';
-         headerRow.style.color = '#fff';
-         headerRow.innerHTML = `<td colspan="2" style="padding: 4px 15px; font-weight: bold; font-size: 0.85rem; text-transform: uppercase;">${areaName}</td>`;
-         tbody.appendChild(headerRow);
-
          groupedCollabsMobile[areaName].forEach(c => {
           const tr = document.createElement('tr');
           tr.style.willChange = 'transform';
+          tr.setAttribute('data-area', areaName);
           const objForTardanza = getPlanningObj(c.id, dStr) || {};
           const valToday = getPlanningSlot(c.id, dStr);
           const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
@@ -2801,6 +2795,37 @@
             }, 0);
          }
       }
+      
+      if (areasOrderMobile.length > 0) {
+          const firstArea = areasOrderMobile.find(a => groupedCollabsMobile[a] && groupedCollabsMobile[a].length > 0);
+          if (firstArea) {
+             const headerEl = document.getElementById('mobileAreaHeader');
+             if (headerEl) headerEl.textContent = firstArea;
+          }
+      }
+
+      if (!window._mobileScrollAttached) {
+         window.addEventListener('scroll', () => {
+             if (window.innerWidth >= 768) return;
+             const rows = document.querySelectorAll('#tableBody tr[data-area]');
+             if (rows.length === 0) return;
+             
+             let activeArea = null;
+             for (let r of rows) {
+                 const rect = r.getBoundingClientRect();
+                 if (rect.bottom > 130) { 
+                     activeArea = r.getAttribute('data-area');
+                     break;
+                 }
+             }
+             
+             const headerEl = document.getElementById('mobileAreaHeader');
+             if (headerEl && activeArea && headerEl.textContent !== activeArea) {
+                 headerEl.textContent = activeArea;
+             }
+         }, { passive: true });
+         window._mobileScrollAttached = true;
+      }
     }
 
     window.addEventListener('resize', () => {
@@ -2908,7 +2933,7 @@
 
       // Table Headers
       const trHead = document.getElementById('tableHeader');
-      trHead.innerHTML = `<th>Disponibilidad</th>`;
+      trHead.innerHTML = `<th>Colaborador</th>`;
       days.forEach(d => {
         const dStr = formatDate(d);
         const isHoliday = state.holidays.includes(dStr);
@@ -2951,6 +2976,14 @@
 
       areasOrderDesktop.forEach(areaName => {
          if (!groupedCollabsDesktop[areaName] || groupedCollabsDesktop[areaName].length === 0) return;
+         
+         const headerRow = document.createElement('tr');
+         headerRow.className = 'area-header-row';
+         headerRow.style.background = 'var(--danger)';
+         headerRow.style.color = '#fff';
+         headerRow.innerHTML = `<td colspan="${days.length + 1}" style="padding: 4px 15px; font-weight: bold; font-size: 0.85rem; text-transform: uppercase;">${areaName}</td>`;
+         tbody.appendChild(headerRow);
+
          groupedCollabsDesktop[areaName].forEach(collab => {
         const tr = document.createElement('tr');
         tr.style.willChange = 'transform';
