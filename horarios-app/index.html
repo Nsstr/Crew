@@ -3334,13 +3334,16 @@
 
     function renderAreaCounters(areaName, collabs, days) {
       let html = `
-        <td style="background: rgba(15, 23, 42, 0.95); border-bottom: 2px solid var(--border); padding: 4px 15px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-             <div>
+        <td style="background: rgba(15, 23, 42, 0.95); border-bottom: 2px solid var(--border); padding: 4px 8px 4px 15px; vertical-align: top;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+             <div style="display: flex; flex-direction: column; justify-content: flex-start; line-height: 1.2; padding: 2px 0;">
+                <div style="color: transparent; font-size: 0.8rem; margin-bottom: 2px; user-select: none; pointer-events: none;">-</div>
                 <span style="font-weight: bold; color: var(--primary); font-size: 0.8rem;">Subtotales ${areaName}</span>
-                <div style="font-size: 0.65rem; color: var(--text-muted);">Cobertura M/I/T/N/E</div>
+                <div style="font-size: 0.65rem; color: var(--text-muted);">M(05-10)|I(11-13)|T(14-19)|N(20-00)|E(00-04)</div>
              </div>
-             <div style="font-weight: bold; color: #a855f7; font-size: 0.75rem;">Francos:</div>
+             <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start; line-height: 1.2; padding: 2px 0;">
+                <div style="font-weight: bold; color: #a855f7; font-size: 0.8rem; margin-bottom: 2px;">Francos:</div>
+             </div>
           </div>
         </td>`;
       
@@ -3377,8 +3380,8 @@
         });
 
         html += `
-          <td style="background: rgba(15, 23, 42, 0.95); border-bottom: 2px solid var(--border);">
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.65rem; line-height: 1.2; padding: 2px 0;">
+          <td style="background: rgba(15, 23, 42, 0.95); border-bottom: 2px solid var(--border); vertical-align: top; padding: 4px 0;">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; font-size: 0.65rem; line-height: 1.2; padding: 2px 0;">
                <div style="color: #a855f7; font-weight: bold; font-size: 0.8rem; margin-bottom: 2px;" title="Total Francos">${francos}</div>
                <div style="display: flex; flex-wrap: wrap; gap: 0.15rem 0.35rem; justify-content: center; color: var(--text-muted);">
                   <div>M:<strong style="color: var(--text); margin-left:1px;">${counts['M']}</strong></div>
