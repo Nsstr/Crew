@@ -5298,6 +5298,29 @@
                eventosBtn.style.display = checkAccess('gestionarEventos') ? 'flex' : 'none';
            }
        }
+
+       // Update dropdown toggle text with user's shortened name
+       const navToggleBtn = document.getElementById('navDropdownToggle');
+       if (navToggleBtn) {
+           let rawName = 'Acciones';
+           if (currentRole === 'admin') {
+               rawName = 'Admin';
+           } else if (currentRole === 'invitado') {
+               rawName = localStorage.getItem('invitadoNombre') || 'Invitado';
+           } else if (currentRole === 'editor') {
+               rawName = localStorage.getItem('editorNombre') || 'Editor';
+           }
+
+           let shortName = rawName;
+           if (rawName && rawName !== 'Acciones' && rawName !== 'Admin' && rawName !== 'Invitado' && rawName !== 'Editor') {
+               let clean = rawName.trim();
+               if (clean.length > 15) {
+                   clean = clean.substring(0, 15) + '...';
+               }
+               shortName = clean;
+           }
+           navToggleBtn.innerHTML = `⚙️ ${shortName} ▼`;
+       }
     };
 
     let currentContextCell = null;
