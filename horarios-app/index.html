@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -261,6 +261,17 @@
     .vista-21d { --col-right-width: 250px; }
     .vista-14d .cell-input { font-size: 0.7rem; padding: 0 0.1rem; }
     .vista-21d .cell-input { font-size: 0.65rem; padding: 0; text-align: center; }
+
+    /* Forzar visualización de inputs vacíos para confirmar su renderizado */
+    .input-empty {
+      border: 1px dashed rgba(255, 255, 255, 0.15) !important;
+      background-color: rgba(255, 255, 255, 0.02) !important;
+      border-radius: 4px;
+    }
+    .input-empty:hover {
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+      background-color: rgba(255, 255, 255, 0.05) !important;
+    }
     .vista-14d th { font-size: 0.65rem; }
     .vista-21d th { font-size: 0.6rem; letter-spacing: -0.5px; padding: 0 0.1rem; }
     .vista-21d td { padding: 0; }
@@ -2859,6 +2870,9 @@
 
        const hourlyCounts = Array(24).fill(0);
        state.collaborators.forEach(collab => {
+           const collabArea = collab.area || 'Disponibilidad';
+           if (collabArea !== 'Disponibilidad') return;
+
            const shiftVal = getPlanningSlot(collab.id, dStr);
            if (!shiftVal) return;
            
@@ -2976,6 +2990,21 @@
 
       areasOrderDesktop.forEach(areaName => {
          if (!groupedCollabsDesktop[areaName] || groupedCollabsDesktop[areaName].length === 0) return;
+         if (areaName !== 'Disponibilidad') {
+            // 1. Heatmap Row para esta área
+            const heatmapTr = document.createElement('tr');
+            heatmapTr.innerHTML = `<td colspan="${days.length + 1}" style="padding: 10px 0; background: var(--bg); position: sticky; left: 0;">
+               <div class="top-heatmap-area" style="margin: 0; width: 100%; border-radius: 0;">
+                  <div class="heatmap-grid" id="heatmapGrid_${areaName.replace(/\s+/g, '')}"></div>
+               </div>
+            </td>`;
+            tbody.appendChild(heatmapTr);
+
+            // 2. Date Header Row (Copia exacta del thead global)
+            const dateTr = document.createElement('tr');
+            dateTr.innerHTML = trHead.innerHTML;
+            tbody.appendChild(dateTr);
+         }
          
          const headerRow = document.createElement('tr');
          headerRow.className = 'area-header-row';
@@ -2993,7 +3022,7 @@
         // Collab info
         // Calculamos abandono máximo de la semana para este colaborador (visual global) o por día.
         // Lo haremos global para la fila.
-        const maxAbandon = Math.max(...days.map(d => abandonmentMap[collab.pasillo][formatDate(d)]));
+        const maxAbandon = Math.max(0, ...days.map(d => (abandonmentMap[collab.pasillo] ? (abandonmentMap[collab.pasillo][formatDate(d)] || 0) : 0)));
         let indClass = '';
         if (maxAbandon >= 4) indClass = 'red';
         else if (maxAbandon >= 2) indClass = 'yellow';
@@ -3151,9 +3180,9 @@
               }
            }
 
-          let val = getPlanningSlot(collab.id, dStr);
+          let val = getPlanningSlot(collab.id, dStr) || '';
           let parsed = null;
-          let inputClass = '';
+          let inputClass = 'input-empty';
           let isDisabled = !userHasAccess;
 
           let vacationTagHtml = '';
@@ -3171,7 +3200,7 @@
              let objForTardanza = getPlanningObj(collab.id, dStr) || {};
              parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
              
-             inputClass = parsed ? parsed.class : '';
+             inputClass = parsed ? parsed.class : 'input-empty';
              
              if (isHoliday && parsed && ['franco', 'libre', 'absence'].includes(parsed.type)) {
                 inputClass += ' input-holiday-absence';
@@ -3435,85 +3464,99 @@
       const startIndex = window.currentHeatmapStartIndex || 0;
       // Saltamos el día de margen y tomamos los 7 días reales de la semana
       const days = allDays.slice(startIndex + 1, startIndex + 8);
-      const grid = document.getElementById('heatmapGrid');
-      if (!grid) return;
       
-      let html = `<div class="heatmap-row heatmap-header-row">`;
-      html += `<div style="border-bottom: 1px solid rgba(255,255,255,0.05);"></div>`; // Empty corner cell
-      for (let h = 0; h <= 23; h++) {
-         const timeLabel = String(h).padStart(2, '0');
-         html += `<div class="heatmap-header-cell" style="border-bottom: 1px solid rgba(255,255,255,0.05);">${timeLabel}h</div>`;
+      const areasToRender = ['Disponibilidad'];
+      if (typeof groupedCollabsDesktop !== 'undefined') {
+          Object.keys(groupedCollabsDesktop).forEach(k => {
+             if (k !== 'Disponibilidad') areasToRender.push(k);
+          });
       }
-      html += `</div>`;
-
-      days.forEach(d => {
-         const dStr = formatDate(d);
-         const weekDaysArr = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
-         const monthsArr = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-         const dayNumStr = String(d.getDate()).padStart(2, '0');
-         const dayLabel = `${weekDaysArr[d.getDay()]} ${dayNumStr} ${monthsArr[d.getMonth()]}`;
-
-         const prevDateStr = formatDate(addDays(d, -1));
+      
+      areasToRender.forEach(areaName => {
+         const gridId = areaName === 'Disponibilidad' ? 'heatmapGrid' : `heatmapGrid_${areaName.replace(/\s+/g, '')}`;
+         const grid = document.getElementById(gridId);
+         if (!grid) return;
          
-         const capitalizedLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-         
-         const isSkeleton = state.skeletonStartStr && dStr >= state.skeletonStartStr;
-         
-         html += `<div class="heatmap-row ${isSkeleton ? 'skeleton-cell' : ''}" data-date="${dStr}">`;
-         html += `<div class="heatmap-row-label">${capitalizedLabel}</div>`;
-         
-         const hourlyCounts = {};
-         for (let h = 0; h <= 23; h++) hourlyCounts[h] = 0;
-
-         state.collaborators.forEach(c => {
-            const objForTardanza = getPlanningObj(c.id, dStr) || {};
-            const valToday = getPlanningSlot(c.id, dStr);
-            const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
-            
-            const targetDToday = new Date(dStr + "T00:00:00");
-            const targetDPrev = new Date(prevDateStr + "T00:00:00");
-            let isOnVacationToday = false;
-            let isOnVacationPrev = false;
-            for (let vac of state.vacations) {
-               if (vac.colaboradorId === c.id) {
-                  const vacStart = new Date(vac.startDate + "T00:00:00");
-                  const vacEnd = new Date(vac.endDate + "T00:00:00");
-                  if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
-                  if (targetDPrev >= vacStart && targetDPrev <= vacEnd) isOnVacationPrev = true;
-               }
-            }
-
-            const valPrev = getPlanningSlot(c.id, prevDateStr);
-            const parsedPrev = parseShift(valPrev);
-
-            for (let h = 0; h <= 23; h++) {
-               if (!isOnVacationToday && parsedToday && parsedToday.type === 'work') {
-                  if (parsedToday.end <= parsedToday.start) {
-                     if (h >= parsedToday.start) hourlyCounts[h]++;
-                  } else {
-                     if (h >= parsedToday.start && h < parsedToday.end) hourlyCounts[h]++;
-                  }
-               }
-               if (!isOnVacationPrev && parsedPrev && parsedPrev.type === 'work') {
-                  if (parsedPrev.end <= parsedPrev.start) {
-                     if (h < parsedPrev.end) hourlyCounts[h]++;
-                  }
-               }
-            }
-         });
-
+         let html = `<div class="heatmap-row heatmap-header-row">`;
+         html += `<div style="border-bottom: 1px solid rgba(255,255,255,0.05);"></div>`; // Empty corner cell
          for (let h = 0; h <= 23; h++) {
-            const count = hourlyCounts[h];
-            let heatClass = 'heat-danger';
-            if (count >= 3) heatClass = 'heat-success';
-            else if (count >= 1) heatClass = 'heat-warning';
-            
-            html += `<div class="heatmap-cell ${heatClass}" title="${h}h: ${count} personas">${count}</div>`;
+            const timeLabel = String(h).padStart(2, '0');
+            html += `<div class="heatmap-header-cell" style="border-bottom: 1px solid rgba(255,255,255,0.05);">${timeLabel}h</div>`;
          }
          html += `</div>`;
+
+         days.forEach(d => {
+            const dStr = formatDate(d);
+            const weekDaysArr = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+            const monthsArr = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+            const dayNumStr = String(d.getDate()).padStart(2, '0');
+            const dayLabel = `${weekDaysArr[d.getDay()]} ${dayNumStr} ${monthsArr[d.getMonth()]}`;
+
+            const prevDateStr = formatDate(addDays(d, -1));
+            
+            const capitalizedLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+            
+            const isSkeleton = state.skeletonStartStr && dStr >= state.skeletonStartStr;
+            
+            html += `<div class="heatmap-row ${isSkeleton ? 'skeleton-cell' : ''}" data-date="${dStr}">`;
+            html += `<div class="heatmap-row-label">${capitalizedLabel}</div>`;
+            
+            const hourlyCounts = {};
+            for (let h = 0; h <= 23; h++) hourlyCounts[h] = 0;
+
+            state.collaborators.forEach(c => {
+               const collabArea = c.area || 'Disponibilidad';
+               if (collabArea !== areaName) return;
+
+               const objForTardanza = getPlanningObj(c.id, dStr) || {};
+               const valToday = getPlanningSlot(c.id, dStr);
+               const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
+               
+               const targetDToday = new Date(dStr + "T00:00:00");
+               const targetDPrev = new Date(prevDateStr + "T00:00:00");
+               let isOnVacationToday = false;
+               let isOnVacationPrev = false;
+               for (let vac of state.vacations) {
+                  if (vac.colaboradorId === c.id) {
+                     const vacStart = new Date(vac.startDate + "T00:00:00");
+                     const vacEnd = new Date(vac.endDate + "T00:00:00");
+                     if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
+                     if (targetDPrev >= vacStart && targetDPrev <= vacEnd) isOnVacationPrev = true;
+                  }
+               }
+
+               const valPrev = getPlanningSlot(c.id, prevDateStr);
+               const parsedPrev = parseShift(valPrev);
+
+               for (let h = 0; h <= 23; h++) {
+                  if (!isOnVacationToday && parsedToday && parsedToday.type === 'work') {
+                     if (parsedToday.end <= parsedToday.start) {
+                        if (h >= parsedToday.start) hourlyCounts[h]++;
+                     } else {
+                        if (h >= parsedToday.start && h < parsedToday.end) hourlyCounts[h]++;
+                     }
+                  }
+                  if (!isOnVacationPrev && parsedPrev && parsedPrev.type === 'work') {
+                     if (parsedPrev.end <= parsedPrev.start) {
+                        if (h < parsedPrev.end) hourlyCounts[h]++;
+                     }
+                  }
+               }
+            });
+
+            for (let h = 0; h <= 23; h++) {
+               const count = hourlyCounts[h];
+               let heatClass = 'heat-danger';
+               if (count >= 3) heatClass = 'heat-success';
+               else if (count >= 1) heatClass = 'heat-warning';
+               
+               html += `<div class="heatmap-cell ${heatClass}" title="${h}h: ${count} personas">${count}</div>`;
+            }
+            html += `</div>`;
+         });
+         
+         grid.innerHTML = html;
       });
-      
-      grid.innerHTML = html;
     }
 
 
@@ -6247,7 +6290,9 @@
        for (let id in dates) {
            try {
                await updateDoc(doc(db, "colaboradores", id), { fechaAlta: dates[id] }, { merge: true });
-           } catch(e) { console.error("Fallo al migrar " + id, e) }
+           } catch(e) { 
+               // console.error("Fallo al migrar " + id, e) 
+           }
        }
        localStorage.setItem('fechasMigradasV1', 'true');
        console.log('Fechas migradas exitosamente.');
