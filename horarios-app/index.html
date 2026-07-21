@@ -2689,6 +2689,15 @@
       areasOrderMobile.forEach(areaName => {
          if (!groupedCollabsMobile[areaName] || groupedCollabsMobile[areaName].length === 0) return;
          
+         const areaHeaderTr = document.createElement('tr');
+         areaHeaderTr.style.backgroundColor = 'var(--surface)';
+         areaHeaderTr.innerHTML = `
+           <td colspan="2" style="padding: 8px 12px; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); border-top: 1px solid var(--border); letter-spacing: 0.5px;">
+             ${areaName}
+           </td>
+         `;
+         tbody.appendChild(areaHeaderTr);
+
          groupedCollabsMobile[areaName].forEach(collab => {
             const tr = document.createElement('tr');
             tr.style.willChange = 'transform';
