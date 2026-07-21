@@ -2303,11 +2303,15 @@
         renderUI();
       } else {
         try {
-          // Consulta optimizada: Trae SOLAMENTE los días del rango visual
+          // Consulta ampliada: Traemos los datos desde el primer día del mes inicial hasta el último día del mes final
+          // Esto es CRÍTICO para que el contador de domingos calcule correctamente la cuota mensual, incluso si no están en pantalla.
+          const fetchStart = new Date(realStartD.getFullYear(), realStartD.getMonth(), 1);
+          const fetchEnd = new Date(realEndD.getFullYear(), realEndD.getMonth() + 1, 0);
+          
           const q = query(
             collection(db, "planificacion"), 
-            where("fecha", ">=", formatDate(realStartD)),
-            where("fecha", "<=", formatDate(realEndD))
+            where("fecha", ">=", formatDate(fetchStart)),
+            where("fecha", "<=", formatDate(fetchEnd))
           );
           const snap = await getDocs(q);
           snap.forEach(doc => {
@@ -2597,7 +2601,7 @@
           
           // Semáforo Corregido: El límite es un techo estricto
           let domClass = '';
-          const limit = collab.domingosAcordados || 0;
+          const limit = parseInt(collab.domingosAcordados) || 0;
           
           if (restCount > limit) {
               domClass = 'danger';  // ROJO: Se pasó de los domingos asignados (Alerta)
