@@ -2679,128 +2679,77 @@
       tbody.innerHTML = '';
       console.log("Datos para render móvil:", state.collaborators);
 
-      const hourlyCounts = {};
-      for (let h = 0; h <= 23; h++) hourlyCounts[h] = 0;
-
-      const areasOrderMobile = ['Disponibilidad', 'AP', 'Calidad', 'Linea de Cajas', 'Perecederos', 'Limpieza', 'RRHH', 'Gerentes', 'Direccion'];
-      const groupedCollabsMobile = {};
-      state.collaborators.forEach(c => {
-         const area = c.area || 'Disponibilidad';
-         if (!groupedCollabsMobile[area]) groupedCollabsMobile[area] = [];
-         groupedCollabsMobile[area].push(c);
-      });
-      Object.keys(groupedCollabsMobile).forEach(k => { if (!areasOrderMobile.includes(k)) areasOrderMobile.push(k); });
-
       areasOrderMobile.forEach(areaName => {
          if (!groupedCollabsMobile[areaName] || groupedCollabsMobile[areaName].length === 0) return;
          
-         groupedCollabsMobile[areaName].forEach(c => {
-          const tr = document.createElement('tr');
-          tr.style.willChange = 'transform';
-          tr.setAttribute('data-area', areaName);
-          const objForTardanza = getPlanningObj(c.id, dStr) || {};
-          const valToday = getPlanningSlot(c.id, dStr);
-          const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
-          
-          const targetDToday = new Date(dStr + "T00:00:00");
-          const targetDPrev = new Date(prevDateStr + "T00:00:00");
-          let isOnVacationToday = false;
-          let isOnVacationPrev = false;
-          for (let vac of (state.vacations || [])) {
-              if (vac.colaboradorId === c.id) {
-                  const vacStart = new Date(vac.startDate + "T00:00:00");
-                  const vacEnd = new Date(vac.endDate + "T00:00:00");
-                  if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
-                  if (targetDPrev >= vacStart && targetDPrev <= vacEnd) isOnVacationPrev = true;
-              }
-          }
+         groupedCollabsMobile[areaName].forEach(collab => {
+            const tr = document.createElement('tr');
+            tr.style.willChange = 'transform';
+            tr.setAttribute('data-area', areaName);
+            
+            const targetDToday = new Date(dStr + "T00:00:00");
+            let isOnVacationToday = false;
+            for (let vac of (state.vacations || [])) {
+                if (vac.colaboradorId === collab.id) {
+                    const vacStart = new Date(vac.startDate + "T00:00:00");
+                    const vacEnd = new Date(vac.endDate + "T00:00:00");
+                    if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
+                }
+            }
 
-          const valPrev = getPlanningSlot(c.id, prevDateStr);
-          const parsedPrev = parseShift(valPrev);
+            if (isOnVacationToday) {
+               tr.style.background = 'rgba(234, 179, 8, 0.1)';
+               tr.style.opacity = '0.7';
+            }
+            if (!collab.name) {
+                collab.name = 'Desconocido';
+            }
+            const cleanName = collab.name.split('(')[0].split('-')[0].trim();
+            const nameParts = cleanName.split(' ');
+            const apeF = nameParts[0] || '-';
+            const nomF = nameParts.slice(1).join(' ') || '';
+            
+            let avatarStr = '';
+            if (nameParts.length > 1) {
+                avatarStr = apeF.charAt(0).toUpperCase() + nomF.charAt(0).toUpperCase();
+            } else {
+                avatarStr = apeF.charAt(0).toUpperCase() + (apeF.length > 1 ? apeF.charAt(1).toUpperCase() : '');
+            }
 
-          for (let h = 0; h <= 23; h++) {
-              if (!isOnVacationToday && parsedToday && parsedToday.type === 'work') {
-                  if (parsedToday.end <= parsedToday.start) {
-                      if (h >= parsedToday.start) hourlyCounts[h]++;
-                  } else {
-                      if (h >= parsedToday.start && h < parsedToday.end) hourlyCounts[h]++;
-                  }
-              }
-              if (!isOnVacationPrev && parsedPrev && parsedPrev.type === 'work') {
-                  if (parsedPrev.end <= parsedPrev.start) {
-                      if (h < parsedPrev.end) hourlyCounts[h]++;
-                  }
-              }
-          }
-      });
-
-      state.collaborators.forEach(collab => {
-          const tr = document.createElement('tr');
-          
-          const targetDToday = new Date(dStr + "T00:00:00");
-          let isOnVacationToday = false;
-          for (let vac of (state.vacations || [])) {
-              if (vac.colaboradorId === collab.id) {
-                  const vacStart = new Date(vac.startDate + "T00:00:00");
-                  const vacEnd = new Date(vac.endDate + "T00:00:00");
-                  if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
-              }
-          }
-
-          if (isOnVacationToday) {
-             tr.style.background = 'rgba(234, 179, 8, 0.1)';
-             tr.style.opacity = '0.7';
-          }
-          if (!collab.name) {
-              // Si aún así no hay nombre, evitamos que se rompa.
-              collab.name = 'Desconocido';
-          }
-          const cleanName = collab.name.split('(')[0].split('-')[0].trim();
-          const nameParts = cleanName.split(' ');
-          const apeF = nameParts[0] || '-';
-          const nomF = nameParts.slice(1).join(' ') || '';
-          
-          let avatarStr = '';
-          if (nameParts.length > 1) {
-              avatarStr = apeF.charAt(0).toUpperCase() + nomF.charAt(0).toUpperCase();
-          } else {
-              avatarStr = apeF.charAt(0).toUpperCase() + (apeF.length > 1 ? apeF.charAt(1).toUpperCase() : '');
-          }
-
-          let cellsHTML = `
-            <td style="cursor: pointer; padding: 2px !important;" onclick="openMobileProfile('${collab.id}')">
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <div class="avatar" style="width: 24px; height: 24px; font-size: 0.7rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">${avatarStr}</div>
-                <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap;">
-                  <span style="font-weight: 600; font-size: 0.85rem; text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${apeF}</span>
-                  <span style="font-size: 0.7rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${nomF}</span>
+            let cellsHTML = `
+              <td style="cursor: pointer; padding: 2px !important;" onclick="openMobileProfile('${collab.id}')">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <div class="avatar" style="width: 24px; height: 24px; font-size: 0.7rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">${avatarStr}</div>
+                  <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap;">
+                    <span style="font-weight: 600; font-size: 0.85rem; text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${apeF}</span>
+                    <span style="font-size: 0.7rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${nomF}</span>
+                  </div>
                 </div>
-              </div>
-            </td>
-          `;
+              </td>
+            `;
 
-          let shiftVal = getPlanningSlot(collab.id, dStr);
-          if (isOnVacationToday) shiftVal = 'V';
-          
-          const isTiendaCerrada = evento && evento.tiendaCerrada;
-          if (isTiendaCerrada) shiftVal = 'LIBRE';
-          
-          let inputDisabled = isOnVacationToday || isTiendaCerrada || !userHasAccess;
-          let cellStyle = isTiendaCerrada ? "background-color: rgba(100, 116, 139, 0.2);" : "";
-          
-          cellsHTML += `
-            <td style="padding: 2px; ${cellStyle}">
-              <input type="text" class="cell-input" 
-                     data-collab="${collab.id}" data-date="${dStr}" 
-                     value="${shiftVal}" 
-                     style="height: 48px; font-size: 1.25rem; font-weight: 700; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; ${inputDisabled ? 'cursor: not-allowed;' : ''}"
-                     ${inputDisabled ? 'disabled' : ''}
-                     ${!inputDisabled ? 'readonly onclick="openMobileContextMenu(this)"' : ''}>
-            </td>
-          `;
+            let shiftVal = getPlanningSlot(collab.id, dStr);
+            if (isOnVacationToday) shiftVal = 'V';
+            
+            const isTiendaCerrada = evento && evento.tiendaCerrada;
+            if (isTiendaCerrada) shiftVal = 'LIBRE';
+            
+            let inputDisabled = isOnVacationToday || isTiendaCerrada || !userHasAccess;
+            let cellStyle = isTiendaCerrada ? "background-color: rgba(100, 116, 139, 0.2);" : "";
+            
+            cellsHTML += `
+              <td style="padding: 2px; ${cellStyle}">
+                <input type="text" class="cell-input" 
+                       data-collab="${collab.id}" data-date="${dStr}" 
+                       value="${shiftVal}" 
+                       style="height: 48px; font-size: 1.25rem; font-weight: 700; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; ${inputDisabled ? 'cursor: not-allowed;' : ''}"
+                       ${inputDisabled ? 'disabled' : ''}
+                       ${!inputDisabled ? 'readonly onclick="openMobileContextMenu(this)"' : ''}>
+              </td>
+            `;
 
-          tr.innerHTML = cellsHTML;
-          tbody.appendChild(tr);
+            tr.innerHTML = cellsHTML;
+            tbody.appendChild(tr);
          });
       });
       
