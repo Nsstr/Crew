@@ -2677,7 +2677,14 @@
 
       const tbody = document.getElementById('tableBody');
       tbody.innerHTML = '';
-      console.log("Datos para render móvil:", state.collaborators);
+      const areasOrderMobile = ['Disponibilidad', 'AP', 'Calidad', 'Linea de Cajas', 'Perecederos', 'Limpieza', 'RRHH', 'Gerentes', 'Direccion'];
+      const groupedCollabsMobile = {};
+      state.collaborators.forEach(c => {
+         const area = c.area || 'Disponibilidad';
+         if (!groupedCollabsMobile[area]) groupedCollabsMobile[area] = [];
+         groupedCollabsMobile[area].push(c);
+      });
+      Object.keys(groupedCollabsMobile).forEach(k => { if (!areasOrderMobile.includes(k)) areasOrderMobile.push(k); });
 
       areasOrderMobile.forEach(areaName => {
          if (!groupedCollabsMobile[areaName] || groupedCollabsMobile[areaName].length === 0) return;
