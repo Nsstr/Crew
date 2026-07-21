@@ -2656,16 +2656,23 @@
       const weekDaysArr = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
       const monthsArr = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
       const dayLabelText = `${weekDaysArr[targetDate.getDay()]} ${String(targetDate.getDate()).padStart(2, '0')} ${monthsArr[targetDate.getMonth()]}`;
-      document.getElementById('weekLabel').textContent = dayLabelText;
+      const holidayBadge = isHoliday ? `<span class="holiday-badge" style="font-size: 0.6rem; padding: 2px 6px; margin: 2px;">Feriado</span>` : '';
+      const eventBadge = evento ? `<span class="event-badge" style="background-color:${evento.color}; font-size: 0.6rem; padding: 2px 6px; margin: 2px;">&#128197; ${evento.descripcion}</span>` : '';
+      
+      const navHtml = `
+         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1;">
+            <span>${dayLabelText}</span>
+            ${(isHoliday || evento) ? `<div style="display: flex; justify-content: center; margin-top: 2px;">${holidayBadge}${eventBadge}</div>` : ''}
+         </div>
+      `;
+      document.getElementById('weekLabel').innerHTML = navHtml;
 
       const trHead = document.getElementById('tableHeader');
       const thBg = evento ? `background-color: ${evento.color}22;` : '';
-      const holidayBadge = isHoliday ? `<span class="holiday-badge">Feriado</span>` : '';
-      const eventBadge = evento ? `<span class="event-badge" style="background-color:${evento.color};">&#128197; ${evento.descripcion}</span>` : '';
       
       trHead.innerHTML = `
         <th id="mobileAreaHeader" style="width: 60%; padding: 4px; text-transform: uppercase;">Colaborador</th>
-        <th style="width: 40%; text-align: center; padding: 4px; ${thBg}">${dayLabelText} ${holidayBadge}${eventBadge}</th>
+        <th style="width: 40%; text-align: center; padding: 4px; ${thBg}">${dayLabelText}</th>
       `;
 
       const tbody = document.getElementById('tableBody');
