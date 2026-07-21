@@ -2668,12 +2668,8 @@
       document.getElementById('weekLabel').innerHTML = navHtml;
 
       const trHead = document.getElementById('tableHeader');
-      const thBg = evento ? `background-color: ${evento.color}22;` : '';
-      
-      trHead.innerHTML = `
-        <th id="mobileAreaHeader" style="width: 60%; padding: 4px; text-transform: uppercase;">Colaborador</th>
-        <th style="width: 40%; text-align: center; padding: 4px; text-transform: uppercase; ${thBg}">Horario</th>
-      `;
+      trHead.innerHTML = '';
+      trHead.style.display = 'none';
 
       const tbody = document.getElementById('tableBody');
       tbody.innerHTML = '';
@@ -2997,6 +2993,7 @@
 
       // Table Headers
       const trHead = document.getElementById('tableHeader');
+      trHead.style.display = '';
       trHead.innerHTML = `<th>Colaborador</th>`;
       days.forEach(d => {
         const dStr = formatDate(d);
