@@ -2927,6 +2927,84 @@
        }
     }
 
+    function attachScheduleEventListeners() {
+      const userHasAccess = checkAccess('modificarHorario') || checkAccess('modificarVacaciones');
+      const inputs = Array.from(document.querySelectorAll('.cell-input'));
+      
+      inputs.forEach((el, index) => {
+        // Habilitar o deshabilitar celdas basado en el estado actual del login/permisos
+        if (userHasAccess) {
+            el.removeAttribute('disabled');
+        } else {
+            el.setAttribute('disabled', 'true');
+        }
+
+        // Si ya tiene los listeners adjuntos, saltar para no duplicarlos
+        if (el.dataset.listenersAttached) return;
+        el.dataset.listenersAttached = 'true';
+
+        el.addEventListener('blur', handleInputChange);
+        el.addEventListener('contextmenu', handleContextMenu);
+        
+        let touchTimer;
+        el.addEventListener('touchstart', e => {
+           if (currentRole === 'visitor') return;
+           touchTimer = setTimeout(() => {
+              const touch = e.touches[0];
+              const mockEvent = {
+                 preventDefault: () => {},
+                 target: e.target,
+                 pageX: touch.pageX,
+                 pageY: touch.pageY
+              };
+              handleContextMenu(mockEvent);
+           }, 500);
+        }, {passive: true});
+        
+        el.addEventListener('touchmove', () => clearTimeout(touchTimer), {passive: true});
+        el.addEventListener('touchend', () => clearTimeout(touchTimer));
+        el.addEventListener('touchcancel', () => clearTimeout(touchTimer));
+
+        el.addEventListener('focus', e => {
+           if (currentRole === 'visitor') {
+              requireEditor(e);
+           } else {
+              e.target.select();
+           }
+        });
+        el.addEventListener('click', e => {
+           if (currentRole === 'visitor') requireEditor(e);
+        });
+        el.addEventListener('keydown', e => {
+           if (e.key === 'Enter') {
+             e.preventDefault();
+             e.target.blur();
+           } else if (['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+             e.preventDefault();
+             
+             let nextIndex = null;
+             if (e.key === 'Tab') nextIndex = e.shiftKey ? index - 1 : index + 1;
+             else if (e.key === 'ArrowUp') nextIndex = index - 16;   /* Sube recto en la grilla de 16 columnas */
+             else if (e.key === 'ArrowDown') nextIndex = index + 16; /* Baja recto en la grilla de 16 columnas */
+             else if (e.key === 'ArrowLeft') nextIndex = index - 1;
+             else if (e.key === 'ArrowRight') nextIndex = index + 1;
+
+             const nextNode = inputs[nextIndex];
+             if (nextNode) {
+                const targetCollab = nextNode.getAttribute('data-collab');
+                const targetDate = nextNode.getAttribute('data-date');
+                el.blur();
+                const freshNode = document.querySelector(`.cell-input[data-collab="${targetCollab}"][data-date="${targetDate}"]`);
+                if (freshNode) {
+                   freshNode.focus();
+                   freshNode.select();
+                }
+             }
+           }
+        });
+      });
+    }
+
     function renderDesktopView() {
       // 1. Guardar Estado Antes del Render y centralizar permisos
       const userHasAccess = checkAccess('modificarHorario') || checkAccess('modificarVacaciones');
@@ -3318,68 +3396,7 @@
       if (tfoot) tfoot.innerHTML = '';
       
       // Attach events
-      const inputs = Array.from(document.querySelectorAll('.cell-input'));
-      inputs.forEach((el, index) => {
-        el.addEventListener('blur', handleInputChange);
-        el.addEventListener('contextmenu', handleContextMenu);
-        
-        let touchTimer;
-        el.addEventListener('touchstart', e => {
-           if (currentRole === 'visitor') return;
-           touchTimer = setTimeout(() => {
-              const touch = e.touches[0];
-              const mockEvent = {
-                 preventDefault: () => {},
-                 target: e.target,
-                 pageX: touch.pageX,
-                 pageY: touch.pageY
-              };
-              handleContextMenu(mockEvent);
-           }, 500);
-        }, {passive: true});
-        
-        el.addEventListener('touchmove', () => clearTimeout(touchTimer), {passive: true});
-        el.addEventListener('touchend', () => clearTimeout(touchTimer));
-        el.addEventListener('touchcancel', () => clearTimeout(touchTimer));
-
-        el.addEventListener('focus', e => {
-           if (currentRole === 'visitor') {
-              requireEditor(e);
-           } else {
-              e.target.select();
-           }
-        });
-        el.addEventListener('click', e => {
-           if (currentRole === 'visitor') requireEditor(e);
-        });
-        el.addEventListener('keydown', e => {
-           if (e.key === 'Enter') {
-             e.preventDefault();
-             e.target.blur();
-           } else if (['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-             e.preventDefault();
-             
-             let nextIndex = null;
-             if (e.key === 'Tab') nextIndex = e.shiftKey ? index - 1 : index + 1;
-             else if (e.key === 'ArrowUp') nextIndex = index - 16;   /* Sube recto en la grilla de 16 columnas */
-             else if (e.key === 'ArrowDown') nextIndex = index + 16; /* Baja recto en la grilla de 16 columnas */
-             else if (e.key === 'ArrowLeft') nextIndex = index - 1;
-             else if (e.key === 'ArrowRight') nextIndex = index + 1;
-
-             const nextNode = inputs[nextIndex];
-             if (nextNode) {
-                const targetCollab = nextNode.getAttribute('data-collab');
-                const targetDate = nextNode.getAttribute('data-date');
-                el.blur();
-                const freshNode = document.querySelector(`.cell-input[data-collab="${targetCollab}"][data-date="${targetDate}"]`);
-                if (freshNode) {
-                   freshNode.focus();
-                   freshNode.select();
-                }
-             }
-           }
-        });
-      });
+      attachScheduleEventListeners();
 
       renderHeatmap();
       updateDynamicHours(); // Llama a la actualización de horas inicial
@@ -5298,14 +5315,7 @@
           logoutBtn.style.display = 'inline-flex';
           logoutBtn.innerHTML = 'Cerrar Sesión de Editor';
        }
-       
-       document.querySelectorAll('.cell-input').forEach(input => {
-          if (currentRole === 'visitor') {
-             input.setAttribute('readonly', 'true');
-          } else {
-             input.removeAttribute('readonly');
-          }
-       });
+       attachScheduleEventListeners();
 
        // Aplicar restricciones de UI según permisos del usuario activo
        syncPermissionsUI();
