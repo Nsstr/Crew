@@ -3035,9 +3035,14 @@
       });
       Object.keys(groupedCollabsDesktop).forEach(k => { if (!areasOrderDesktop.includes(k)) areasOrderDesktop.push(k); });
 
-      areasOrderDesktop.forEach(areaName => {
+      areasOrderDesktop.forEach((areaName, index) => {
          if (!groupedCollabsDesktop[areaName] || groupedCollabsDesktop[areaName].length === 0) return;
-         if (areaName !== 'Disponibilidad') {
+         
+         if (index === 0) {
+            if (trHead.firstElementChild) {
+               trHead.firstElementChild.textContent = areaName.toUpperCase();
+            }
+         } else {
             // 1. Heatmap Row para esta área
             const heatmapTr = document.createElement('tr');
             heatmapTr.innerHTML = `<td colspan="${days.length + 1}" style="padding: 10px 0; background: var(--bg); position: sticky; left: 0;">
@@ -3050,15 +3055,11 @@
             // 2. Date Header Row (Copia exacta del thead global)
             const dateTr = document.createElement('tr');
             dateTr.innerHTML = trHead.innerHTML;
+            if (dateTr.firstElementChild) {
+               dateTr.firstElementChild.textContent = areaName.toUpperCase();
+            }
             tbody.appendChild(dateTr);
          }
-         
-         const headerRow = document.createElement('tr');
-         headerRow.className = 'area-header-row';
-         headerRow.style.background = 'var(--danger)';
-         headerRow.style.color = '#fff';
-         headerRow.innerHTML = `<td colspan="${days.length + 1}" style="padding: 4px 15px; font-weight: bold; font-size: 0.85rem; text-transform: uppercase;">${areaName}</td>`;
-         tbody.appendChild(headerRow);
 
          groupedCollabsDesktop[areaName].forEach(collab => {
         const tr = document.createElement('tr');
