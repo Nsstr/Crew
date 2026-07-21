@@ -3982,6 +3982,7 @@
           let cambiosSolicitados = 0;
           let feriadosTrabajados = 0;
           let feriadosLibres = 0;
+          let enfermedadTotalDias = 0;
 
           // Process all unique dates in planning to calculate metrics
           const allDates = Object.keys(state.planning)
@@ -4005,10 +4006,11 @@
                 cambiosSolicitados++;
              }
 
-             // b. Partes Pegados
+             // b. Partes Pegados y Enfermedad
              const val = obj.slot || '';
              const isSick = isAbsence(val) || isAbsence(obj.comentario);
              if (isSick) {
+                enfermedadTotalDias++;
                 // Ensure date object properly reflects the date string natively without timezone offset issues
                 const [year, month, day] = dateStr.split('-');
                 const d = new Date(year, month - 1, day);
@@ -4061,7 +4063,8 @@
              partesPegados,
              cambiosSolicitados,
              feriadosTrabajados,
-             feriadosLibres
+             feriadosLibres,
+             enfermedadTotalDias
           });
        });
 
@@ -4077,7 +4080,7 @@
        });
 
        metricsData.forEach(data => {
-          const { collab, tardanzaTotalMins, partesPegados, cambiosSolicitados, feriadosTrabajados, feriadosLibres } = data;
+          const { collab, tardanzaTotalMins, partesPegados, cambiosSolicitados, feriadosTrabajados, feriadosLibres, enfermedadTotalDias } = data;
 
           // Crear UI para colaborador
           const tardanzaHs = (tardanzaTotalMins / 60).toFixed(1);
@@ -4110,9 +4113,14 @@
                   <div style="font-size: 1rem; font-weight: bold; color: var(--text);">${cambiosSolicitados}</div>
                </div>
                
-               <div style="background: var(--surface); padding: 8px; border-radius: 6px; border: 1px solid var(--border); grid-column: span 2;">
+               <div style="background: var(--surface); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
                   <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Presentismo en Feriados</div>
                   <div style="font-size: 1rem; font-weight: bold; color: var(--text);">${feriadosTrabajados} trab. / ${feriadosLibres} lib. <span style="font-size: 0.8rem; font-weight: normal; color: var(--info);">(${ratioFeriados}%)</span></div>
+               </div>
+
+               <div style="background: var(--surface); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+                  <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Enfermedad (Año)</div>
+                  <div style="font-size: 1rem; font-weight: bold; color: ${enfermedadTotalDias > 0 ? 'var(--danger)' : 'var(--success)'};">${enfermedadTotalDias} día${enfermedadTotalDias !== 1 ? 's' : ''}</div>
                </div>
             </div>
             
