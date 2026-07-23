@@ -2741,11 +2741,12 @@
 
     window.openMobileContextMenu = function(inputElement) {
        if (currentRole === 'visitor') return;
+       const rect = inputElement.getBoundingClientRect();
        const simulatedEvent = {
            preventDefault: () => {},
            target: inputElement,
-           pageX: window.innerWidth / 2,
-           pageY: window.innerHeight - 200
+           pageX: rect.left + window.scrollX + (rect.width / 2),
+           pageY: rect.top + window.scrollY + rect.height
        };
        handleContextMenu(simulatedEvent);
     };
@@ -2859,6 +2860,13 @@
             const isTiendaCerrada = evento && evento.tiendaCerrada;
             if (isTiendaCerrada) shiftVal = 'LIBRE';
             
+            let originalScheduleTitle = '';
+            let obj = getPlanningObj(collab.id, dStr);
+            if (obj && obj.horarioOriginal && obj.horarioOriginal !== shiftVal && !isOnVacationToday && !isTiendaCerrada) {
+                shiftVal += ' *';
+                originalScheduleTitle = `title="Horario original: ${obj.horarioOriginal}"`;
+            }
+            
             let inputDisabled = isOnVacationToday || isTiendaCerrada || !userHasAccess;
             let cellStyle = isTiendaCerrada ? "background-color: rgba(100, 116, 139, 0.2);" : "";
             
@@ -2866,7 +2874,7 @@
               <td style="padding: 2px; ${cellStyle}">
                 <input type="text" class="cell-input" 
                        data-collab="${collab.id}" data-date="${dStr}" 
-                       value="${shiftVal}" 
+                       value="${shiftVal}" ${originalScheduleTitle}
                        style="height: 48px; font-size: 1.25rem; font-weight: 700; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; ${inputDisabled ? 'cursor: not-allowed;' : ''}"
                        ${inputDisabled ? 'disabled' : ''}
                        ${!inputDisabled ? 'readonly onclick="openMobileContextMenu(this)"' : ''}>
@@ -3450,11 +3458,22 @@
           if (isTiendaCerrada) {
               eventoCellStyle = 'background-color: rgba(100, 116, 139, 0.2);';
           }
+          
+          let displayVal = val;
+          if (obj && obj.horarioOriginal && obj.horarioOriginal !== val && !isOnVacation && !isTiendaCerrada) {
+              displayVal += ' *';
+              let origTitle = `Horario original: ${obj.horarioOriginal}`;
+              if (titleAttr) {
+                  titleAttr = titleAttr.replace('title="', `title="${origTitle} | `);
+              } else {
+                  titleAttr = `title="${origTitle}"`;
+              }
+          }
 
           html += `
             <td class="${isHoliday ? 'holiday-col' : ''} ${finalWrapperClass}" ${titleAttr} style="position: relative; ${isOnVacation ? 'background-color: rgba(14, 165, 233, 0.08);' : ''}${eventoCellStyle}">
               ${vacationTagHtml}
-              <input type="text" class="cell-input ${finalInputClass}" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" value="${val}" ${isDisabled ? 'disabled' : ''} placeholder="-">
+              <input type="text" class="cell-input ${finalInputClass}" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" value="${displayVal}" ${isDisabled ? 'disabled' : ''} placeholder="-">
             </td>
           `;
         });
@@ -3667,7 +3686,7 @@
       const input = e.target;
       const collabId = input.getAttribute('data-collab');
       const dateStr = input.getAttribute('data-date');
-      const rawValue = input.value;
+      const rawValue = input.value.replace('*', '').trim();
       
       const parsedNew = parseShift(rawValue);
       const oldValue = getPlanningSlot(collabId, dateStr);
@@ -5536,6 +5555,51 @@
        document.getElementById('cellTardanzaInput').value = obj.tardanzaTexto || '';
        document.getElementById('cellTardanzaCheck').checked = !!obj.tardanzaConfirmada;
 
+       const ctxMenu = document.getElementById('contextMenu');
+       
+       // Inyección dinámica de Estados Rápidos y Cambio de Horario
+       if (!document.getElementById('mobileQuickStatesBlock')) {
+           const quickStatesHTML = `
+              <div id="mobileQuickStatesBlock" style="background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
+                 <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 6px;">Estados Rápidos</label>
+                 <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px;">
+                    <button id="qs-E" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Enfermedad">E</button>
+                    <button id="qs-Susp" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Suspensión">Susp</button>
+                    <button id="qs-PG" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Permiso Gremial">PG</button>
+                    <button id="qs-ACA" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Ausente con aviso">ACA</button>
+                    <button id="qs-ASA" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Ausente sin aviso">ASA</button>
+                 </div>
+                 <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 6px;">Modificar Horario del Día</label>
+                 <div style="display: flex; gap: 4px; align-items: center;">
+                    <input type="time" id="ctxTimeIn" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.8rem; font-family: inherit;">
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">a</span>
+                    <input type="time" id="ctxTimeOut" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.8rem; font-family: inherit;">
+                    <button id="qs-apply" style="background: var(--primary); color: #fff; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-weight: bold; font-size: 0.8rem;" title="Aplicar Horario">✓</button>
+                 </div>
+              </div>
+           `;
+           ctxMenu.insertAdjacentHTML('afterbegin', quickStatesHTML);
+
+           document.getElementById('qs-E').addEventListener('click', () => window.setQuickState('E'));
+           document.getElementById('qs-Susp').addEventListener('click', () => window.setQuickState('Susp'));
+           document.getElementById('qs-PG').addEventListener('click', () => window.setQuickState('PG'));
+           document.getElementById('qs-ACA').addEventListener('click', () => window.setQuickState('ACA'));
+           document.getElementById('qs-ASA').addEventListener('click', () => window.setQuickState('ASA'));
+           document.getElementById('qs-apply').addEventListener('click', () => window.applyCustomSchedule());
+       }
+
+       // Pre-fill Schedule Modifiers if slot is a time range
+       const currentSlot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+       document.getElementById('ctxTimeIn').value = '';
+       document.getElementById('ctxTimeOut').value = '';
+       if (currentSlot && currentSlot.includes('-')) {
+           const parts = currentSlot.split('-');
+           const tIn = parts[0].trim();
+           const tOut = parts[1].trim();
+           if (/^\d{1,2}:\d{2}$/.test(tIn)) document.getElementById('ctxTimeIn').value = tIn.padStart(5, '0');
+           if (/^\d{1,2}:\d{2}$/.test(tOut)) document.getElementById('ctxTimeOut').value = tOut.padStart(5, '0');
+       }
+
        // Mostrar/ocultar bloque de inventario según si hay evento ese día
        const eventoHoy = state.eventos[dateStr];
        const ctxBlock = document.getElementById('ctxInventarioBlock');
@@ -5548,7 +5612,6 @@
          ctxBlock.style.display = 'none';
        }
 
-       const ctxMenu = document.getElementById('contextMenu');
        ctxMenu.style.display = 'block';
        
        let topPos = e.pageY;
@@ -5580,6 +5643,71 @@
        await autoSaveContextMenu();
        window.closeContextMenu();
        renderHeatmap();
+    };
+
+    window.setQuickState = async function(stateVal) {
+       if (!requireAuth()) return;
+       if (!currentContextCell) return;
+       const collabId = currentContextCell.getAttribute('data-collab');
+       const dateStr = currentContextCell.getAttribute('data-date');
+       
+       const obj = getPlanningObj(collabId, dateStr) || {};
+       if (!obj.horarioOriginal) {
+           obj.horarioOriginal = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+       }
+       obj.slot = stateVal;
+       state.planning[`${collabId}_${dateStr}`] = obj;
+       
+       if (!isMockMode) {
+          try {
+             const docId = `${collabId}_${dateStr}`;
+             setDoc(doc(db, "planificacion", docId), {
+                colaboradorId: collabId,
+                fecha: dateStr,
+                slot: obj.slot,
+                horarioOriginal: obj.horarioOriginal
+             }, { merge: true });
+          } catch(err) {
+             console.error("Error guardando quick state:", err);
+          }
+       }
+       window.closeContextMenu();
+       renderUI();
+    };
+
+    window.applyCustomSchedule = async function() {
+       if (!requireAuth()) return;
+       if (!currentContextCell) return;
+       
+       const timeIn = document.getElementById('ctxTimeIn').value;
+       const timeOut = document.getElementById('ctxTimeOut').value;
+       if (!timeIn || !timeOut) return;
+       
+       const collabId = currentContextCell.getAttribute('data-collab');
+       const dateStr = currentContextCell.getAttribute('data-date');
+       
+       const obj = getPlanningObj(collabId, dateStr) || {};
+       if (!obj.horarioOriginal) {
+           obj.horarioOriginal = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+       }
+       obj.slot = `${timeIn} - ${timeOut}`;
+       state.planning[`${collabId}_${dateStr}`] = obj;
+       
+       if (!isMockMode) {
+          try {
+             const docId = `${collabId}_${dateStr}`;
+             setDoc(doc(db, "planificacion", docId), {
+                colaboradorId: collabId,
+                fecha: dateStr,
+                slot: obj.slot,
+                horarioOriginal: obj.horarioOriginal
+             }, { merge: true });
+          } catch(err) {
+             console.error("Error guardando custom schedule:", err);
+          }
+       }
+       window.closeContextMenu();
+       renderUI();
     };
 
     document.getElementById('cellFixedInput').addEventListener('change', async (e) => {
