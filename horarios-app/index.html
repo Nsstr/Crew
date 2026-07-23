@@ -5698,8 +5698,8 @@
            obj.horarioOriginal = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
        }
        
-       let formattedTimeIn = timeIn.replace(/^0/, ''); // strip leading zero from hours
-       let formattedTimeOut = timeOut.replace(/^0/, ''); // strip leading zero from hours
+       let formattedTimeIn = timeIn.replace(/^0/, '').replace(/:00$/, ''); // strip leading zero and :00
+       let formattedTimeOut = timeOut.replace(/^0/, '').replace(/:00$/, ''); // strip leading zero and :00
        obj.slot = `${formattedTimeIn}a${formattedTimeOut}`;
        state.planning[`${collabId}_${dateStr}`] = obj;
        
