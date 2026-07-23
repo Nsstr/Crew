@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1669,6 +1669,7 @@
                    <div class="form-group" style="margin:0;">
                       <label style="font-size: 0.8rem; color: var(--text-muted);">Inicio (Lunes)</label>
                       <input type="date" id="vStartDate" required style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border);">
+                      <div id="vStartDateError" style="color: var(--danger); font-size: 0.8rem; display: none; margin-top: 4px;"></div>
                    </div>
                </form>
              </div>
@@ -4574,6 +4575,7 @@
     document.getElementById('vCollab').addEventListener('change', renderSaldosVacaciones);
 
     document.getElementById('vStartDate').addEventListener('change', (e) => {
+        document.getElementById('vStartDateError').style.display = 'none';
         if (!e.target.value) return;
         const vStart = new Date(e.target.value + "T00:00:00");
         let yearOfVacation = vStart.getFullYear();
@@ -4946,17 +4948,39 @@
        
        // Validación Lunes o Martes post feriado
        const dayOfWeek = startD.getDay(); // 0 Sun, 1 Mon, 2 Tue
+       const isHistoricalYear = startD.getFullYear() < new Date().getFullYear();
+       
+       // Nueva regla: el día seleccionado NO puede ser feriado
+       if (state.holidays.includes(startDateStr) && !isHistoricalYear) {
+          const errDiv = document.getElementById('vStartDateError');
+          const partes = startDateStr.split('-');
+          const fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+          errDiv.textContent = `El ${fechaFormateada} es feriado nacional. Las vacaciones no pueden iniciar en un día feriado; deben comenzar el primer día hábil posterior.`;
+          errDiv.style.display = 'block';
+          return;
+       }
+
        let validStart = false;
+       
        if (dayOfWeek === 1) validStart = true;
        else if (dayOfWeek === 2) {
           const prevMonStr = formatDate(addDays(startD, -1));
           if (state.holidays.includes(prevMonStr)) validStart = true;
        }
        
+       // Permitir excepción si es un año histórico y el lunes fue feriado, 
+       // pero no tenemos los feriados completos de ese año cargados.
+       if (!validStart && isHistoricalYear) {
+          validStart = true;
+       }
+       
        if (!validStart) {
-          showToast("Error de Fecha", "El inicio de vacaciones debe ser un Lunes (o Martes si el Lunes es feriado).");
+          const errDiv = document.getElementById('vStartDateError');
+          errDiv.textContent = 'Las vacaciones deben comenzar un día lunes (o el primer día hábil posterior si el lunes es feriado).';
+          errDiv.style.display = 'block';
           return;
        }
+       document.getElementById('vStartDateError').style.display = 'none';
        
        const endD = addDays(startD, (weeks * 7) - 1);
        const endDateStr = formatDate(endD);
