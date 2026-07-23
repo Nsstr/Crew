@@ -7120,7 +7120,7 @@
     // ==========================================
     // DETECCIÓN AUTOMÁTICA DE NUEVAS VERSIONES (version.json)
     // ==========================================
-    let currentAppVersion = null;
+    let currentAppVersion = localStorage.getItem('appVersion');
     async function checkForAppUpdates() {
        try {
            // Construir ruta absoluta al archivo version.json
@@ -7135,7 +7135,8 @@
            
            if (!currentAppVersion) {
                currentAppVersion = data.version; 
-               console.log(`[App Version] Versión inicial cargada: ${currentAppVersion}`);
+               localStorage.setItem('appVersion', currentAppVersion);
+               console.log(`[App Version] Versión inicial cargada y guardada: ${currentAppVersion}`);
            } else {
                console.log(`[App Version] Chequeo periódico. Local: ${currentAppVersion} | Servidor: ${data.version}`);
                if (currentAppVersion !== data.version) {
