@@ -492,37 +492,89 @@
     /* Modals/Alerts */
     .toast-container {
       position: fixed;
-      bottom: 2rem;
-      right: 2rem;
+      top: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
       display: flex;
       flex-direction: column;
       gap: 1rem;
-      z-index: 50;
+      z-index: 10000;
+      align-items: center;
+      width: max-content;
+      max-width: 90vw;
     }
 
     .toast {
       background: var(--surface);
-      border-left: 4px solid var(--danger);
-      padding: 1rem 1.5rem;
+      border-left: 4px solid var(--primary);
+      padding: 1rem 1.5rem 1.25rem 1.5rem;
       border-radius: 0.5rem;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-      transform: translateX(120%);
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6);
+      transform: translateY(-150%) scale(0.9);
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      overflow: hidden;
+      min-width: 320px;
     }
 
     .toast.show {
-      transform: translateX(0);
+      transform: translateY(0) scale(1);
+      opacity: 1;
     }
 
     .toast-title {
       font-weight: 600;
       margin-bottom: 0.25rem;
+      font-size: 1.05rem;
     }
 
     .toast-desc {
       font-size: 0.875rem;
       color: var(--text-muted);
+      line-height: 1.4;
+      padding-right: 1.5rem;
     }
+    
+    .toast-close {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.5rem;
+      padding: 0 5px;
+      line-height: 1;
+    }
+    .toast-close:hover {
+      color: var(--text);
+    }
+
+    .toast-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      width: 100%;
+    }
+    .toast-progress-bar {
+      height: 100%;
+      background: var(--primary);
+      width: 100%;
+      transition: width 5s linear;
+    }
+
+    .toast.error { border-left-color: var(--danger); }
+    .toast.error .toast-progress-bar { background: var(--danger); }
+    .toast.success { border-left-color: var(--success); }
+    .toast.success .toast-progress-bar { background: var(--success); }
+    .toast.warning { border-left-color: var(--warning); }
+    .toast.warning .toast-progress-bar { background: var(--warning); }
+    .toast.info { border-left-color: var(--primary); }
+    .toast.info .toast-progress-bar { background: var(--primary); }
 
     /* Date controls */
     .date-nav {
@@ -3733,20 +3785,56 @@
 
     // 12. UTILS Y EVENTOS
 
-    function showToast(title, msg) {
+    function showToast(title, msg, type = 'info') {
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
-      toast.className = 'toast show';
-      toast.innerHTML = `
+      
+      let typeClass = 'info';
+      if (type === 'error' || type === 'danger') typeClass = 'error';
+      if (type === 'success') typeClass = 'success';
+      if (type === 'warning') typeClass = 'warning';
+      
+      toast.className = `toast ${typeClass}`;
+      
+      const isPersistent = (typeClass === 'error' || typeClass === 'danger');
+      
+      let html = `
         <div class="toast-title">${title}</div>
         <div class="toast-desc">${msg}</div>
+        <button class="toast-close" onclick="this.parentElement.classList.remove('show'); setTimeout(() => this.parentElement.remove(), 400);">&times;</button>
       `;
+      
+      if (!isPersistent) {
+        html += `
+          <div class="toast-progress">
+             <div class="toast-progress-bar"></div>
+          </div>
+        `;
+      }
+      
+      toast.innerHTML = html;
       container.appendChild(toast);
       
       setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-      }, 5000);
+        toast.classList.add('show');
+        if (!isPersistent) {
+           const bar = toast.querySelector('.toast-progress-bar');
+           if (bar) {
+             // Forzar reflow para animación
+             bar.getBoundingClientRect();
+             bar.style.width = '0%';
+           }
+        }
+      }, 10);
+      
+      if (!isPersistent) {
+        setTimeout(() => {
+          if (toast.parentElement) {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 400);
+          }
+        }, 5000);
+      }
     }
 
 
