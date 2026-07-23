@@ -1,7 +1,0 @@
-{
-  "name": "crew-root",
-  "version": "1.0.0",
-  "scripts": {
-    "build": "node -e \"require('fs').writeFileSync('horarios-app/version.json', JSON.stringify({version: Date.now().toString()}))\""
-  }
-}
