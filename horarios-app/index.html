@@ -7123,7 +7123,10 @@
     let currentAppVersion = null;
     async function checkForAppUpdates() {
        try {
-           const url = 'version.json?t=' + Date.now();
+           // Construir ruta absoluta al archivo version.json
+           const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
+           const url = `${window.location.origin}${basePath}/version.json?t=${Date.now()}`;
+           
            const res = await fetch(url, { cache: 'no-store' });
            if (!res.ok) return;
            const data = await res.json();
@@ -7132,8 +7135,13 @@
            
            if (!currentAppVersion) {
                currentAppVersion = data.version; 
-           } else if (currentAppVersion !== data.version) {
-               document.getElementById('updateAppBtn').style.display = 'flex';
+               console.log(`[App Version] Versión inicial cargada: ${currentAppVersion}`);
+           } else {
+               console.log(`[App Version] Chequeo periódico. Local: ${currentAppVersion} | Servidor: ${data.version}`);
+               if (currentAppVersion !== data.version) {
+                   console.log(`[App Version] ¡NUEVA VERSIÓN DETECTADA! Mostrando botón.`);
+                   document.getElementById('updateAppBtn').style.display = 'flex';
+               }
            }
        } catch (e) {
            console.log("No se pudo comprobar la versión de la app", e);
