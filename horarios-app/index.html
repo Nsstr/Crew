@@ -5589,7 +5589,10 @@
        }
 
        // Pre-fill Schedule Modifiers if slot is a time range
-       const currentSlot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+       let currentSlot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+       if (typeof currentSlot === 'string') {
+           currentSlot = currentSlot.replace('*', '').trim();
+       }
        document.getElementById('ctxTimeIn').value = '';
        document.getElementById('ctxTimeOut').value = '';
        if (currentSlot && currentSlot.includes('-')) {
