@@ -7093,7 +7093,7 @@
     }
 
     window.forceHardRefresh = function() {
-      if (!confirm("Esto cerrará la sesión actual, limpiará la caché y recargará la aplicación. ¿Deseás continuar?")) return;
+      if (!confirm("Esto recargará la aplicación a la última versión. ¿Deseás continuar?")) return;
       
       localStorage.clear();
       sessionStorage.clear();
@@ -7101,13 +7101,48 @@
       if ('caches' in window) {
         caches.keys().then((names) => {
           names.forEach((name) => caches.delete(name));
-        }).finally(() => {
-          window.location.reload(true);
         });
-      } else {
-        window.location.reload(true);
       }
+      
+      if ('serviceWorker' in navigator) {
+         navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) {
+               registration.unregister();
+            }
+         });
+      }
+      
+      setTimeout(() => {
+        window.location.reload(true);
+      }, 500);
     };
+
+    // ==========================================
+    // DETECCIÓN AUTOMÁTICA DE NUEVAS VERSIONES (version.json)
+    // ==========================================
+    let currentAppVersion = null;
+    async function checkForAppUpdates() {
+       try {
+           const url = 'version.json?t=' + Date.now();
+           const res = await fetch(url, { cache: 'no-store' });
+           if (!res.ok) return;
+           const data = await res.json();
+           
+           if (!data || !data.version) return; 
+           
+           if (!currentAppVersion) {
+               currentAppVersion = data.version; 
+           } else if (currentAppVersion !== data.version) {
+               document.getElementById('updateAppBtn').style.display = 'flex';
+           }
+       } catch (e) {
+           console.log("No se pudo comprobar la versión de la app", e);
+       }
+    }
+    
+    setTimeout(checkForAppUpdates, 5000);
+    setInterval(checkForAppUpdates, 180000);
+
 
     // Dropdown Header Menu Logic
     document.addEventListener('DOMContentLoaded', () => {
