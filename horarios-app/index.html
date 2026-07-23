@@ -5595,12 +5595,16 @@
        }
        document.getElementById('ctxTimeIn').value = '';
        document.getElementById('ctxTimeOut').value = '';
-       if (currentSlot && currentSlot.includes('-')) {
-           const parts = currentSlot.split('-');
-           const tIn = parts[0].trim();
-           const tOut = parts[1].trim();
-           if (/^\d{1,2}:\d{2}$/.test(tIn)) document.getElementById('ctxTimeIn').value = tIn.padStart(5, '0');
-           if (/^\d{1,2}:\d{2}$/.test(tOut)) document.getElementById('ctxTimeOut').value = tOut.padStart(5, '0');
+       if (currentSlot) {
+           const matchTime = currentSlot.match(/(\d{1,2})(?::(\d{2}))?\s*(?:a|-)\s*(\d{1,2})(?::(\d{2}))?/i);
+           if (matchTime) {
+               let tInH = matchTime[1];
+               let tInM = matchTime[2] || '00';
+               let tOutH = matchTime[3];
+               let tOutM = matchTime[4] || '00';
+               document.getElementById('ctxTimeIn').value = `${tInH.padStart(2, '0')}:${tInM}`;
+               document.getElementById('ctxTimeOut').value = `${tOutH.padStart(2, '0')}:${tOutM}`;
+           }
        }
 
        // Mostrar/ocultar bloque de inventario según si hay evento ese día
@@ -5693,7 +5697,10 @@
        if (!obj.horarioOriginal) {
            obj.horarioOriginal = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
        }
-       obj.slot = `${timeIn} - ${timeOut}`;
+       
+       let formattedTimeIn = timeIn.replace(/^0/, ''); // strip leading zero from hours
+       let formattedTimeOut = timeOut.replace(/^0/, ''); // strip leading zero from hours
+       obj.slot = `${formattedTimeIn}a${formattedTimeOut}`;
        state.planning[`${collabId}_${dateStr}`] = obj;
        
        if (!isMockMode) {
