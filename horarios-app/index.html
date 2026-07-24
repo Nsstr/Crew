@@ -1336,7 +1336,25 @@
         /* Ocultar botones, menús y fondo oscuro */
         body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
         .main-app-nav, #sugeridosHeader, .sugeridos-actions, button, input[type="date"] { display: none !important; }
-        #seccionSugeridos { height: auto !important; overflow: visible !important; padding: 0 !important; }
+        #seccionSugeridos { 
+            height: auto !important; 
+            overflow: visible !important; 
+            padding: 0 !important; 
+            margin: 0 !important; 
+        }
+
+        /* Control de Saltos de Página y Compactación para Sugeridos */
+        #sugeridosTable, 
+        #seccionSugeridos > div:last-child {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+        
+        #sugeridosTable td, #sugeridosTable th {
+            padding: 3px 5px !important;
+            font-size: 11px !important;
+            line-height: 1.2 !important;
+        }
         
         #print-container {
             padding: 10px !important;
