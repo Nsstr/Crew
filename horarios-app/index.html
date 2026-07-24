@@ -1602,6 +1602,40 @@
     </div>
   </div>
 
+  <!-- OVERTIME MODAL -->
+  <div class="login-overlay" id="overtimeModal" style="display: none; z-index: 10000;">
+    <div class="login-content" style="max-width: 450px;">
+      <h2 style="color: var(--warning);">Horas Extras Detectadas</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.2rem;">
+        Se está intentando asignar un horario que supera la carga horaria por contrato del colaborador.
+      </p>
+      
+      <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
+         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Colaborador:</span>
+            <span id="overtimeCollabName" style="font-weight: bold; color: var(--text);"></span>
+         </div>
+         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Carga Contrato:</span>
+            <span id="overtimeContractHours" style="font-weight: bold; color: var(--info);"></span>
+         </div>
+         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Total Proyectado:</span>
+            <span id="overtimeProjectedHours" style="font-weight: bold; color: var(--warning);"></span>
+         </div>
+         <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 0.5rem; margin-top: 0.5rem;">
+            <span style="color: var(--text-muted);">Horas Extras:</span>
+            <span id="overtimeExcessHours" style="font-weight: bold; color: var(--danger); font-size: 1.1rem;"></span>
+         </div>
+      </div>
+      
+      <div style="display: flex; gap: 0.5rem;">
+        <button type="button" id="overtimeRejectBtn" style="flex: 1; padding: 0.75rem; background: var(--surface); color: var(--text); border: 1px solid var(--border);">Rechazar / Error de Carga</button>
+        <button type="button" id="overtimeAcceptBtn" style="flex: 1; padding: 0.75rem; background: var(--primary); color: white; border: none; font-weight: bold;">Aceptar como Hora Extra</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL DE ACCESO UNIFICADO -->
   <div class="login-overlay" id="loginModal" style="display: none;">
     <div class="login-content">
@@ -2483,6 +2517,95 @@
       } catch(e) {
         console.warn("Error cargando eventos_diarios:", e);
       }
+    }
+
+    // -- LÓGICA DE HORAS EXTRAS --
+    function calculateWeeklyHours(collabId, weekMondayStr, excludeDateStr) {
+       let total = 0;
+       let currentD = new Date(weekMondayStr + "T00:00:00");
+       
+       for (let i = 0; i < 7; i++) {
+           const dStr = formatDate(currentD);
+           currentD = addDays(currentD, 1);
+           
+           if (dStr === excludeDateStr) continue;
+           
+           let isOnVacation = false;
+           for (let vac of (state.vacations || [])) {
+              if (vac.colaboradorId === collabId) {
+                 const vacStart = new Date(vac.startDate + "T00:00:00");
+                 const vacEnd = new Date(vac.endDate + "T00:00:00");
+                 const iterDate = new Date(dStr + "T00:00:00");
+                 if (iterDate >= vacStart && iterDate <= vacEnd) {
+                    isOnVacation = true;
+                    break;
+                 }
+              }
+           }
+           if (isOnVacation) continue;
+
+           const val = getPlanningSlot(collabId, dStr);
+           const objForTardanza = getPlanningObj(collabId, dStr) || {};
+           const parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
+           
+           if (parsed && parsed.type === 'work') {
+               total += parsed.hours;
+           }
+       }
+       return total;
+    }
+
+    async function checkOvertime(collabId, dateStr, newParsedSlot) {
+       if (!newParsedSlot || newParsedSlot.type !== 'work') return true;
+       
+       const collab = state.collaborators.find(c => c.id === collabId);
+       if (!collab || !collab.cargaHoraria) return true;
+       
+       const cargaContrato = parseFloat(collab.cargaHoraria) || 0;
+       if (cargaContrato <= 0) return true;
+
+       const targetDate = new Date(dateStr + "T00:00:00");
+       const mondayStr = formatDate(getStartOfWeek(targetDate));
+       
+       const hsActualesSinEsteDia = calculateWeeklyHours(collabId, mondayStr, dateStr);
+       const hsProyectadas = hsActualesSinEsteDia + newParsedSlot.hours;
+       
+       if (hsProyectadas > cargaContrato) {
+           const horasExtras = hsProyectadas - cargaContrato;
+           
+           document.getElementById('overtimeCollabName').textContent = collab.name;
+           document.getElementById('overtimeContractHours').textContent = cargaContrato + " hs";
+           document.getElementById('overtimeProjectedHours').textContent = hsProyectadas + " hs";
+           document.getElementById('overtimeExcessHours').textContent = horasExtras + " hs";
+           
+           const modal = document.getElementById('overtimeModal');
+           modal.style.display = 'flex';
+           
+           return new Promise((resolve) => {
+               const btnAccept = document.getElementById('overtimeAcceptBtn');
+               const btnReject = document.getElementById('overtimeRejectBtn');
+               
+               const cleanup = () => {
+                   btnAccept.removeEventListener('click', onAccept);
+                   btnReject.removeEventListener('click', onReject);
+                   modal.style.display = 'none';
+               };
+               
+               const onAccept = () => {
+                   cleanup();
+                   resolve(true);
+               };
+               
+               const onReject = () => {
+                   cleanup();
+                   resolve(false);
+               };
+               
+               btnAccept.addEventListener('click', onAccept);
+               btnReject.addEventListener('click', onReject);
+           });
+       }
+       return true;
     }
 
     // 7. MOTOR DE VALIDACIONES ABSOLUTAS
@@ -3746,6 +3869,13 @@
       }
 
       const validation = validateTurn(collabId, dateStr, parsedNew);
+      
+      // Check overtime
+      const overtimeAllowed = await checkOvertime(collabId, dateStr, parsedNew);
+      if (!overtimeAllowed) {
+         input.value = oldValue; // Revert
+         return;
+      }
       
       if (!validation.valid) {
         if (validation.type === 'legal') {
@@ -5707,6 +5837,13 @@
        if (!obj.horarioOriginal) {
            obj.horarioOriginal = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
        }
+       const parsedNew = parseShift(stateVal);
+       const overtimeAllowed = await checkOvertime(collabId, dateStr, parsedNew);
+       if (!overtimeAllowed) {
+           window.closeContextMenu();
+           return;
+       }
+
        obj.slot = stateVal;
        state.planning[`${collabId}_${dateStr}`] = obj;
        
@@ -5745,7 +5882,16 @@
        
        let formattedTimeIn = timeIn.replace(/^0/, '').replace(/:00$/, ''); // strip leading zero and :00
        let formattedTimeOut = timeOut.replace(/^0/, '').replace(/:00$/, ''); // strip leading zero and :00
-       obj.slot = `${formattedTimeIn}a${formattedTimeOut}`;
+       const newSlotStr = `${formattedTimeIn}a${formattedTimeOut}`;
+       
+       const parsedNew = parseShift(newSlotStr);
+       const overtimeAllowed = await checkOvertime(collabId, dateStr, parsedNew);
+       if (!overtimeAllowed) {
+           window.closeContextMenu();
+           return;
+       }
+
+       obj.slot = newSlotStr;
        state.planning[`${collabId}_${dateStr}`] = obj;
        
        if (!isMockMode) {
