@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -2776,6 +2776,9 @@
       let monthName = centerDay.toLocaleString('es-ES', { month: 'long' });
       monthName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
       
+      let globalOvertimeW1 = 0;
+      let globalOvertimeW2 = 0;
+
       state.collaborators.forEach(collab => {
           let w1Hours = 0, w2Hours = 0;
           let w1Vac = false, w2Vac = false;
@@ -2830,6 +2833,14 @@
               `;
           };
 
+          const metaCollab = parseFloat(collab.hours) || 48;
+          if (w1Hours > metaCollab && !w1Vac) {
+              globalOvertimeW1 += (w1Hours - metaCollab);
+          }
+          if (w2Hours > metaCollab && !w2Vac) {
+              globalOvertimeW2 += (w2Hours - metaCollab);
+          }
+
           const w1Container = document.getElementById(`desktop-hours-w1-${collab.id}`);
           if (w1Container) w1Container.innerHTML = renderBox(w1Hours, w1Vac, collab.hours);
           
@@ -2873,6 +2884,20 @@
               domBadge.innerText = `Dom ${monthName}: ${restCount}/${limit}`;
           }
       });
+
+      // Actualizar el indicador global de horas extras en Subtotales Disponibilidad
+      const globalOvertimeIndicatorW1 = document.getElementById('global-overtime-budget-w1');
+      if (globalOvertimeIndicatorW1) {
+          globalOvertimeIndicatorW1.textContent = globalOvertimeW1 > 0 
+              ? (Number.isInteger(globalOvertimeW1) ? globalOvertimeW1 : globalOvertimeW1.toFixed(1)) + 'h'
+              : '0h';
+      }
+      const globalOvertimeIndicatorW2 = document.getElementById('global-overtime-budget-w2');
+      if (globalOvertimeIndicatorW2) {
+          globalOvertimeIndicatorW2.textContent = globalOvertimeW2 > 0 
+              ? (Number.isInteger(globalOvertimeW2) ? globalOvertimeW2 : globalOvertimeW2.toFixed(1)) + 'h'
+              : '0h';
+      }
     }
 
     window.openMobileProfile = function(collabId) {
@@ -3679,6 +3704,17 @@
              </div>
              <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start; line-height: 1.2; padding: 2px 0;">
                 <div style="font-weight: bold; color: #a855f7; font-size: 0.8rem; margin-bottom: 2px;">Francos:</div>
+                ${areaName === 'Disponibilidad' ? `
+                <div style="display: flex; gap: 12px; margin-top: 4px;">
+                    <div style="display: flex; align-items: center; gap: 4px; border: 1px solid var(--danger); border-radius: 4px; padding: 2px 4px; background: rgba(239, 68, 68, 0.1);" title="Semana 1: Presupuesto Extra">
+                       <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">W1 Ext:</span>
+                       <span id="global-overtime-budget-w1" style="font-weight: bold; color: var(--danger); font-size: 0.85rem;">0h</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 4px; border: 1px solid var(--danger); border-radius: 4px; padding: 2px 4px; background: rgba(239, 68, 68, 0.1);" title="Semana 2: Presupuesto Extra">
+                       <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">W2 Ext:</span>
+                       <span id="global-overtime-budget-w2" style="font-weight: bold; color: var(--danger); font-size: 0.85rem;">0h</span>
+                    </div>
+                </div>` : ''}
              </div>
           </div>
         </td>`;
