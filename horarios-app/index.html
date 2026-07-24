@@ -2886,7 +2886,8 @@
                 originalScheduleTitle = `title="Horario original: ${obj.horarioOriginal}"`;
             }
             
-            let inputDisabled = isOnVacationToday || isTiendaCerrada || !userHasAccess;
+            let logicDisabled = isOnVacationToday || isTiendaCerrada;
+            let inputDisabled = logicDisabled || !userHasAccess;
             let cellStyle = isTiendaCerrada ? "background-color: rgba(100, 116, 139, 0.2);" : "";
             
             cellsHTML += `
@@ -2895,8 +2896,8 @@
                        data-collab="${collab.id}" data-date="${dStr}" 
                        value="${shiftVal}" ${originalScheduleTitle}
                        style="height: 48px; font-size: 1.25rem; font-weight: 700; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; ${inputDisabled ? 'cursor: not-allowed;' : ''}"
-                       ${inputDisabled ? 'disabled' : ''}
-                       ${!inputDisabled ? 'readonly onclick="openMobileContextMenu(this)"' : ''}>
+                       ${logicDisabled ? 'disabled data-disabled="true"' : ''}
+                       ${!logicDisabled ? 'readonly onclick="openMobileContextMenu(this)"' : ''}>
               </td>
             `;
 
@@ -3041,10 +3042,17 @@
       
       inputs.forEach((el, index) => {
         // Habilitar o deshabilitar celdas basado en el estado actual del login/permisos
-        if (userHasAccess) {
-            el.removeAttribute('disabled');
-        } else {
+        if (el.dataset.disabled === 'true') {
             el.setAttribute('disabled', 'true');
+            el.removeAttribute('readonly');
+        } else {
+            if (userHasAccess) {
+                el.removeAttribute('disabled');
+                el.removeAttribute('readonly');
+            } else {
+                el.removeAttribute('disabled');
+                el.setAttribute('readonly', 'true');
+            }
         }
 
         // Si ya tiene los listeners adjuntos, saltar para no duplicarlos
@@ -3371,7 +3379,7 @@
           let val = getPlanningSlot(collab.id, dStr) || '';
           let parsed = null;
           let inputClass = 'input-empty';
-          let isDisabled = !userHasAccess;
+          let isDisabled = false;
 
           let vacationTagHtml = '';
           const isTiendaCerrada = state.eventos[dStr] && state.eventos[dStr].tiendaCerrada;
@@ -3492,7 +3500,7 @@
           html += `
             <td class="${isHoliday ? 'holiday-col' : ''} ${finalWrapperClass}" ${titleAttr} style="position: relative; ${isOnVacation ? 'background-color: rgba(14, 165, 233, 0.08);' : ''}${eventoCellStyle}">
               ${vacationTagHtml}
-              <input type="text" class="cell-input ${finalInputClass}" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" value="${displayVal}" ${isDisabled ? 'disabled' : ''} placeholder="-">
+              <input type="text" class="cell-input ${finalInputClass}" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" value="${displayVal}" ${isDisabled ? 'disabled data-disabled="true"' : ''} placeholder="-">
             </td>
           `;
         });
