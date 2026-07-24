@@ -2559,10 +2559,15 @@
        if (!newParsedSlot || newParsedSlot.type !== 'work') return true;
        
        const collab = state.collaborators.find(c => c.id === collabId);
-       if (!collab || !collab.hours) return true;
+       if (!collab) return true;
        
-       const cargaContrato = parseFloat(collab.hours) || 0;
-       if (cargaContrato <= 0) return true;
+       console.log("Colaborador en checkOvertime:", collab);
+       
+       const cargaContrato = parseFloat(collab.hours) || parseFloat(collab.cargaHoraria) || parseFloat(collab.contractHours) || 0;
+       if (cargaContrato <= 0) {
+           console.log("No se pudo extraer el contrato o es 0. Abortando checkOvertime.");
+           return true;
+       }
 
        const targetDate = new Date(dateStr + "T00:00:00");
        const mondayStr = formatDate(getStartOfWeek(targetDate));
