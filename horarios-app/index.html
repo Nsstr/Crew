@@ -2759,7 +2759,7 @@
     };
 
     window.openMobileContextMenu = function(inputElement) {
-       if (currentRole === 'visitor') return;
+       if (!requireAuth()) return;
        const rect = inputElement.getBoundingClientRect();
        const simulatedEvent = {
            preventDefault: () => {},
@@ -3056,7 +3056,7 @@
         
         let touchTimer;
         el.addEventListener('touchstart', e => {
-           if (currentRole === 'visitor') return;
+           if (!requireAuth()) return;
            touchTimer = setTimeout(() => {
               const touch = e.touches[0];
               const mockEvent = {
@@ -5430,7 +5430,16 @@
     // Helper de seguridad global: bloquea operaciones de escritura si no hay sesión
     function requireAuth() {
       if (currentRole === 'visitor') {
-        showToast("Acceso denegado", "Inicia sesión para editar esta información", "warning");
+        showToast("Acceso denegado", "Es necesario iniciar sesión con tu número de legajo para poder operar.", "warning");
+        if (typeof resetLoginModal === 'function') resetLoginModal();
+        const loginModal = document.getElementById('loginModal');
+        if (loginModal) {
+          loginModal.style.display = 'flex';
+          setTimeout(() => {
+            const legajoInput = document.getElementById('loginLegajo');
+            if (legajoInput) legajoInput.focus();
+          }, 80);
+        }
         return false;
       }
       return true;
@@ -5560,7 +5569,7 @@
     let currentContextCell = null;
     function handleContextMenu(e) {
        e.preventDefault();
-       if (currentRole === 'visitor') return;
+       if (!requireAuth()) return;
        currentContextCell = e.target;
        
        const collabId = currentContextCell.getAttribute('data-collab');
