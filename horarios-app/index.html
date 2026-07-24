@@ -6154,10 +6154,7 @@
        if (currentRole === 'visitor') {
           e.preventDefault();
           pendingEditTarget = e.target;
-          // Abrir el modal unificado de acceso
-          resetLoginModal();
-          loginModal.style.display = 'flex';
-          setTimeout(() => document.getElementById('loginLegajo').focus(), 80);
+          requireAuth();
        } else if (currentRole === 'invitado') {
           // Verificar permiso modificarHorario antes de permitir la edición
           if (!checkAccessWithToast('modificarHorario')) {
