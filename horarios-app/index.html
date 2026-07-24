@@ -1946,7 +1946,8 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <!-- MENÚ CONTEXTUAL -->
-  <div id="contextMenu" class="context-menu" style="display: none; padding: 12px; width: 300px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 9999; font-family: inherit;">
+  <div id="contextMenuBackdrop" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 9998; backdrop-filter: blur(2px);"></div>
+  <div id="contextMenu" class="context-menu" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 12px; width: 300px; max-height: 85vh; overflow-y: auto; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 9999; font-family: inherit;">
       <!-- Bloque 1: Fijar Horario -->
       <div style="background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
          <div style="display: flex; align-items: center; gap: 8px;">
@@ -5637,29 +5638,33 @@
          ctxBlock.style.display = 'none';
        }
 
+       const backdrop = document.getElementById('contextMenuBackdrop');
+       if (backdrop) backdrop.style.display = 'block';
+       
+       // Modal Desktop Centrado
+       ctxMenu.style.left = '50%';
+       ctxMenu.style.top = '50%';
        ctxMenu.style.display = 'block';
-       
-       let topPos = e.pageY;
-       let leftPos = e.pageX;
-       if (leftPos + 450 > window.innerWidth) leftPos = window.innerWidth - 470;
-       if (topPos + 400 > window.innerHeight) topPos = window.innerHeight - 420;
-       if (topPos < 0) topPos = 10;
-       
-       ctxMenu.style.left = leftPos + 'px';
-       ctxMenu.style.top = topPos + 'px';
+
+       // El modal ya está centrado vía CSS y display bloque.
+       // Tope de Altura Máxima (Fallback)
+       ctxMenu.style.maxHeight = '80vh';
+       ctxMenu.style.overflowY = 'auto';
     }
 
     document.addEventListener('click', e => {
        const ctxMenu = document.getElementById('contextMenu');
        if (ctxMenu && ctxMenu.style.display === 'block') {
           if (!ctxMenu.contains(e.target) && e.target !== currentContextCell) {
-             ctxMenu.style.display = 'none';
+             window.closeContextMenu();
           }
        }
     });
 
     window.closeContextMenu = function() {
        document.getElementById('contextMenu').style.display = 'none';
+       const backdrop = document.getElementById('contextMenuBackdrop');
+       if (backdrop) backdrop.style.display = 'none';
     };
 
     window.deleteCellComment = async function() {
