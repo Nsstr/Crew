@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1368,7 +1368,7 @@
         }
 
         /* 2. Configurar tabla para PDF y no pegada al borde */
-        table { width: 100% !important; border-collapse: collapse; table-layout: fixed; margin: 0 auto; margin-top: 10px; }
+        table { width: 100% !important; border-collapse: collapse; table-layout: fixed; margin: 0 auto; margin-top: 10px; border: 1px solid black !important; }
         
         /* 3. Ajuste de anchos para optimizar el espacio */
         th:nth-child(1), td:nth-child(1) { width: 30%; } /* Colaborador */
@@ -1377,7 +1377,7 @@
 
         /* 4. Regla crítica para la celda del comentario y padding interno */
         td, th { 
-            border: 1px solid #ccc !important; 
+            border: 1px solid black !important; 
             padding: 4px 6px !important; 
             word-wrap: break-word; 
             overflow-wrap: break-word; 
@@ -1385,7 +1385,7 @@
             background: white !important; 
             vertical-align: top; 
         }
-        th { border-bottom: 2px solid #aaa !important; }
+        th { border-bottom: 2px solid black !important; }
         
         /* 5. Asegurar expansión total del área de texto */
         .print-only-text { display: block !important; }
