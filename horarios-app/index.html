@@ -3708,9 +3708,14 @@
 
     // 10. INTERACCION Y GUARDADO
     async function handleInputChange(e) {
-      // MIDDLEWARE: Verificar permiso antes de procesar cualquier cambio
-      if (!checkAccessWithToast('modificarHorario')) return;
       const input = e.target;
+      if (input.readOnly || input.disabled) return;
+      
+      // MIDDLEWARE: Verificar permiso antes de procesar cualquier cambio
+      if (!checkAccessWithToast('modificarHorario')) {
+          input.value = getPlanningSlot(input.getAttribute('data-collab'), input.getAttribute('data-date')) || '';
+          return;
+      }
       const collabId = input.getAttribute('data-collab');
       const dateStr = input.getAttribute('data-date');
       const rawValue = input.value.replace('*', '').trim();
