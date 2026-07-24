@@ -2807,7 +2807,7 @@
               
               let color = (hours === meta) ? 'var(--success)' : (hours > meta ? (hours <= maxPermitido ? '#eab308' : 'var(--danger)') : 'var(--danger)');
               let borderStyle = (hours === meta) ? '2px solid' : '1px solid';
-              let horasExtras = (hours > maxPermitido) ? (hours - maxPermitido) : 0;
+              let horasExtras = (hours > meta) ? (hours - meta) : 0;
               
               // Si es Vacaciones, devolvemos la misma estructura pero con la V
               if (isVac) {
