@@ -2559,9 +2559,9 @@
        if (!newParsedSlot || newParsedSlot.type !== 'work') return true;
        
        const collab = state.collaborators.find(c => c.id === collabId);
-       if (!collab || !collab.cargaHoraria) return true;
+       if (!collab || !collab.hours) return true;
        
-       const cargaContrato = parseFloat(collab.cargaHoraria) || 0;
+       const cargaContrato = parseFloat(collab.hours) || 0;
        if (cargaContrato <= 0) return true;
 
        const targetDate = new Date(dateStr + "T00:00:00");
