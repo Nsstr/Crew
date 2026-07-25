@@ -416,7 +416,7 @@
       // 7.3 Lógica de Feriados: Las validaciones de francos adyacentes a feriados ahora son puramente visuales.
       // (Eliminadas las restricciones bloqueantes por pedido del usuario)
 
-      // 7.4 Bloqueo estricto de 32 horas máximas para contratos de jornada reducida (<= 30hs)
+      // 7.4 Bloqueo estricto de 42 horas máximas para contratos de jornada reducida (<= 30hs)
       if (collab && collab.hours <= 30) {
          const targetDateObj = new Date(dateStr + "T00:00:00");
          const weekStart = getStartOfWeek(targetDateObj);
@@ -441,12 +441,30 @@
             }
          }
 
-         // Si la simulación supera el techo de 32 horas, se rechaza el cambio
-         if (totalWeekHoursWithNewTurn > 32) {
+         // Si la simulación supera el techo de 42 horas, se rechaza el cambio
+         if (totalWeekHoursWithNewTurn > 42) {
             return { 
                valid: false, 
                type: 'exceso_horas', 
-               msg: `Exceso de horas: Este colaborador tiene un contrato de ${collab.hours}hs y no puede superar las 32 horas semanales máximas permitidas. (Total calculado con este turno: ${totalWeekHoursWithNewTurn}hs)` 
+               msg: `Exceso de horas: Este colaborador tiene un contrato de ${collab.hours}hs y no puede superar las 42 horas semanales máximas permitidas. (Total calculado con este turno: ${totalWeekHoursWithNewTurn}hs)` 
+            };
+         }
+      }
+
+      // 7.5 Límite diario de horas (Máximo 8.5 hs y Mínimo 4 hs por día)
+      if (parsedNewSlot && parsedNewSlot.type === 'work') {
+         if (parsedNewSlot.hours > 8.5) {
+            return {
+               valid: false,
+               type: 'exceso_horas',
+               msg: `Exceso de horas diarias: No se pueden cargar más de 8.5 horas en un solo día. (Turno ingresado: ${parsedNewSlot.hours} hs)`
+            };
+         }
+         if (parsedNewSlot.hours < 4) {
+            return {
+               valid: false,
+               type: 'exceso_horas',
+               msg: `Mínimo de horas diarias: El turno ingresado (${parsedNewSlot.hours} hs) es inferior al mínimo legal obligatorio de 4 horas por día.`
             };
          }
       }
