@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -30,7 +30,7 @@
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #ef4444;
-      --info: #0ea5e9;
+      /*--info: #0ea5e9;*/
       --franco: #8b5cf6;
       
       --font-family: 'Inter', sans-serif;
@@ -306,13 +306,12 @@
       width: 100%;
       height: 20px;
       font-size: 0.75rem;
-      background-color: var(--bg);
-      color: var(--text);
-      border: 1px solid var(--border);
+      background-color: #1E293B; /* Option B: fondo mate azul/gris oscuro uniforme */
+      color: #F9FAFB;
+      border: 1px solid transparent; /* Eliminar recuadros completos */
       border-radius: 0.25rem;
       text-align: center;
       font-weight: 600;
-      font-size: 0.75rem;
       outline: none;
       transition: all 0.2s;
     }
@@ -321,10 +320,22 @@
       border-color: var(--primary);
     }
     
-    .input-work { border-left: 3px solid var(--info); }
-    .input-franco { border-left: 3px solid var(--franco); color: var(--franco); }
+    .input-work { 
+      border-left: 3px solid var(--info); /* Option B: barra vertical a la izquierda */
+      font-family: 'ui-monospace', 'SFMono-Regular', 'Consolas', 'JetBrains Mono', 'Roboto Mono', monospace;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    
+    /* Celdas Inactivas */
+    .input-franco, .input-libre { 
+      background-color: #1E293B !important; 
+      color: #94A3B8 !important; 
+      font-weight: 500 !important;
+      border-left: 1px solid transparent !important;
+    }
+    
     .input-absence { border-left: 3px solid var(--text-muted); color: var(--text-muted); }
-    .input-libre { border-left: 3px solid #64748b; color: #64748b; }
     .input-error { border: 1px solid var(--danger); background-color: rgba(239, 68, 68, 0.1); color: var(--danger); font-weight: bold; }
     
     .vacation-error {
@@ -682,15 +693,16 @@
        justify-content: center;
        align-items: center;
        font-size: 0.55rem;
-       font-weight: bold;
-       color: rgba(255, 255, 255, 0.9);
+       font-weight: 600;
+       color: #FFFFFF;
+       text-shadow: none;
        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
        border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    .heat-danger { background-color: var(--danger); }
-    .heat-warning { background-color: var(--warning); color: #1e293b; }
-    .heat-success { background-color: var(--success); }
+    .heat-danger { background-color: #ac3a3a; color: #FFFFFF; }
+    .heat-warning { background-color: #d37a47; color: #FFFFFF; }
+    .heat-success { background-color: #30947a; color: #FFFFFF; }
 
     /* Modal Config */
     .modal-overlay {
