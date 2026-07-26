@@ -2376,21 +2376,42 @@
 
     // 6. CARGA DE DATOS (Optimizada para plan Spark)
     async function loadInitialData() {
-      // Cargar feriados nacionales desde API pública (Nager Date)
+      // Cargar feriados nacionales desde API pública (Nager Date) multiaño (año actual y siguiente)
       const year = new Date().getFullYear();
+      const nextYear = year + 1;
+      
       try {
-        const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/AR`);
-        if (!res.ok) throw new Error("API Status: " + res.status);
-        const data = await res.json();
-        state.holidays = data.map(h => h.date);
+        const [resCurrent, resNext] = await Promise.all([
+          fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/AR`).catch(() => null),
+          fetch(`https://date.nager.at/api/v3/PublicHolidays/${nextYear}/AR`).catch(() => null)
+        ]);
+        
+        let allHolidays = [];
+        
+        if (resCurrent && resCurrent.ok) {
+          const dataCurrent = await resCurrent.json();
+          allHolidays = allHolidays.concat(dataCurrent.map(h => h.date));
+        }
+        if (resNext && resNext.ok) {
+          const dataNext = await resNext.json();
+          allHolidays = allHolidays.concat(dataNext.map(h => h.date));
+        }
+        
+        if (allHolidays.length === 0) throw new Error("Both APIs failed");
+        
+        state.holidays = allHolidays;
       } catch (e) {
         console.error("Error fetching holidays API, using fallback:", e);
         // Fallback de feriados inamovibles
-        state.holidays = [
-          `${year}-01-01`, `${year}-02-12`, `${year}-02-13`, `${year}-03-24`, 
-          `${year}-03-29`, `${year}-04-02`, `${year}-05-01`, `${year}-05-25`, 
-          `${year}-06-20`, `${year}-07-09`, `${year}-12-08`, `${year}-12-25`
+        const getFallback = (y) => [
+          `${y}-01-01`, `${y}-03-24`, `${y}-04-02`, `${y}-05-01`, `${y}-05-25`, 
+          `${y}-06-20`, `${y}-07-09`, `${y}-12-08`, `${y}-12-25`
         ];
+        state.holidays = [...getFallback(year), ...getFallback(nextYear)];
+        
+        if (year === 2027 || nextYear === 2027) {
+           state.holidays.push("2027-02-08", "2027-02-09", "2027-03-26");
+        }
       }
 
       if (isMockMode) {
@@ -5283,41 +5304,37 @@
        
        if (!collabId || !startDateStr || !weeks) return;
        
-       const startD = new Date(startDateStr + "T00:00:00");
-       
-       // Validación Lunes o Martes post feriado
-       const dayOfWeek = startD.getDay(); // 0 Sun, 1 Mon, 2 Tue
+       let startD = new Date(startDateStr + "T00:00:00");
        const isHistoricalYear = startD.getFullYear() < new Date().getFullYear();
        
-       // Nueva regla: el día seleccionado NO puede ser feriado
-       if (state.holidays.includes(startDateStr) && !isHistoricalYear) {
-          const errDiv = document.getElementById('vStartDateError');
-          const partes = startDateStr.split('-');
-          const fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
-          errDiv.textContent = `El ${fechaFormateada} es feriado nacional. Las vacaciones no pueden iniciar en un día feriado; deben comenzar el primer día hábil posterior.`;
-          errDiv.style.display = 'block';
-          return;
-       }
+       if (!isHistoricalYear) {
+          let shiftOccurred = false;
+          
+          while (true) {
+             const dStr = formatDate(startD);
+             const dDay = startD.getDay(); // 0 Sun
+             const isHoliday = state.holidays.includes(dStr);
+             
+             // Revisar si coincide con el día de descanso (F o Libre o Franco)
+             const slotValue = getPlanningSlot(collabId, dStr);
+             const parsedSlot = parseShift(slotValue);
+             const isDescanso = (parsedSlot && parsedSlot.type === 'franco') || (slotValue && ['f', 'libre'].includes(slotValue.toLowerCase()));
 
-       let validStart = false;
-       
-       if (dayOfWeek === 1) validStart = true;
-       else if (dayOfWeek === 2) {
-          const prevMonStr = formatDate(addDays(startD, -1));
-          if (state.holidays.includes(prevMonStr)) validStart = true;
-       }
-       
-       // Permitir excepción si es un año histórico y el lunes fue feriado, 
-       // pero no tenemos los feriados completos de ese año cargados.
-       if (!validStart && isHistoricalYear) {
-          validStart = true;
-       }
-       
-       if (!validStart) {
-          const errDiv = document.getElementById('vStartDateError');
-          errDiv.textContent = 'Las vacaciones deben comenzar un día lunes (o el primer día hábil posterior si el lunes es feriado).';
-          errDiv.style.display = 'block';
-          return;
+             if (isHoliday || dDay === 0 || isDescanso) {
+                startD = addDays(startD, 1);
+                shiftOccurred = true;
+             } else {
+                break;
+             }
+          }
+          
+          if (shiftOccurred) {
+             const newStartDateStr = formatDate(startD);
+             document.getElementById('vStartDate').value = newStartDateStr;
+             const partes = newStartDateStr.split('-');
+             const fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+             showToast("Traslado Automático", `La fecha de inicio fue trasladada automáticamente al día ${fechaFormateada} por coincidir con feriado/descanso (Art. 151 LCT).`);
+          }
        }
        document.getElementById('vStartDateError').style.display = 'none';
        
