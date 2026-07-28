@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1319,7 +1319,8 @@
     /* Compactar la altura de las filas de la tabla */
     table#planningTable td, table#planningTable th {
       padding: 0 !important;
-      height: 32px !important;
+      min-height: 32px !important;
+      height: auto !important;
     }
 
     /* Reducir márgenes en la información interna del colaborador */
@@ -2882,18 +2883,18 @@
               // Si es Vacaciones, devolvemos la misma estructura pero con la V
               if (isVac) {
                   return `
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 32px; width: 24px;">
-                       <div style="width: 22px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.60em; font-weight: bold; border: 1px solid var(--info); color: var(--info);">V</div>
-                       <div style="font-size: 0.6rem; color: transparent; visibility: hidden;">Xtr</div>
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; height: 32px; width: 24px;">
+                       <div style="width: 22px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.65rem; font-weight: bold; border: 1px solid var(--info); color: var(--info); box-sizing: border-box;">V</div>
+                       <div style="font-size: 0.6rem; color: transparent; visibility: hidden; line-height: 1; margin-top: 2px;">Xtr</div>
                     </div>`;
               }
               
               // Bloque de horas con altura y estructura fija
               const text = Number.isInteger(hours) ? hours : hours.toFixed(1);
               return `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 32px; width: 26px; padding: 0 2px;">
-                  <div class="hour-box" style="width: 24px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.60em; font-weight: bold; border: ${borderStyle} ${color}; color: ${color};">${text}</div>
-                  <div style="font-size: 0.6rem; font-weight: bold; color: var(--danger); visibility: ${horasExtras > 0 ? 'visible' : 'hidden'};">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; height: 32px; width: 26px; padding: 0 2px;">
+                  <div class="hour-box" style="width: 24px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.65rem; font-weight: bold; border: ${borderStyle} ${color}; color: ${color}; box-sizing: border-box;">${text}</div>
+                  <div style="font-size: 0.6rem; font-weight: bold; color: var(--danger); visibility: ${horasExtras > 0 ? 'visible' : 'hidden'}; line-height: 1.1; margin-top: 2px;">
                     Xtr:${horasExtras > 0 ? (Number.isInteger(horasExtras) ? horasExtras : horasExtras.toFixed(1)) : '0'}h
                   </div>
                 </div>
@@ -2947,8 +2948,9 @@
           
           const domBadge = document.getElementById(`dom-badge-${collab.id}`);
           if (domBadge) {
+              const monthNumStr = (monthDays.length > 0 ? (monthDays[0].getMonth() + 1).toString().padStart(2, '0') : '00');
               domBadge.className = `dom-badge ${domClass}`;
-              domBadge.innerText = `Dom ${monthName}: ${restCount}/${limit}`;
+              domBadge.innerText = `D${monthNumStr}: ${restCount}/${limit}`;
           }
       });
 
@@ -2966,6 +2968,19 @@
               : '0h';
       }
     }
+
+    window.toggleCollabDetails = function(collabId) {
+        const meta = document.getElementById(`collab-meta-${collabId}`);
+        const arrow = document.getElementById(`collab-arrow-${collabId}`);
+        if (!meta || !arrow) return;
+        if (meta.style.display === 'none') {
+            meta.style.display = 'flex';
+            arrow.style.transform = 'rotate(-180deg)';
+        } else {
+            meta.style.display = 'none';
+            arrow.style.transform = 'rotate(0deg)';
+        }
+    };
 
     window.openMobileProfile = function(collabId) {
        const collab = state.collaborators.find(c => c.id === collabId);
@@ -3451,27 +3466,37 @@
 
         let html = `
           <td class="collab-cell" style="width: 350px; min-width: 350px; padding: 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; height: 100%; padding: 2px 12px; box-sizing: border-box; gap: 8px;">
+            <div style="display: flex; flex-direction: column; justify-content: flex-start; width: 100%; height: 100%; padding: 4px 12px; box-sizing: border-box;">
               
-              <!-- Texto del Colaborador (Izquierda) -->
-              <div style="display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0; flex: 1;">
-                <div style="font-weight: bold; font-size: 0.75em; color: #fff; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                  <div class="indicator ${indClass}" title="Abandono Sector: ${maxAbandon} días" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; flex-shrink: 0;"></div>
-                  ${collab.id} ${cleanName}
-                </div>
-                <div class="mobile-hours-tag" id="mobile-hours-${collab.id}"></div>
-                <div class="collab-meta" style="font-size: 0.8em; display: flex; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                  <span>${collab.pasillo}</span>
-                  <span style="opacity: 0.6;">(${collab.hours}h)</span>
-                  <span style="opacity: 0.3">|</span>
-                  <span id="dom-badge-${collab.id}" class="dom-badge" style="padding: 0 0.2rem; font-size: 0.7em;" title="Domingos"></span>
-                </div>
+              <!-- Fila Superior: Nombre, Flecha y Badges alineados al centro estricto -->
+              <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px;">
+                 
+                 <!-- Nombre y Flecha -->
+                 <div style="display: flex; align-items: center; cursor: pointer; min-width: 0; flex: 1;" onclick="window.toggleCollabDetails('${collab.id}')">
+                   <div style="font-weight: bold; font-size: 0.95rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;">
+                     <div class="indicator ${indClass}" title="Abandono Sector: ${maxAbandon} días" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; flex-shrink: 0;"></div>
+                     ${cleanName}
+                   </div>
+                   <div id="collab-arrow-${collab.id}" style="font-size: 0.7rem; color: var(--text-muted); transition: transform 0.2s; padding-left: 8px;">▼</div>
+                 </div>
+
+                 <!-- Badges -->
+                 <div id="desktop-hours-${collab.id}-left" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                    <!-- Contenedor estricto para Domingo -->
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; height: 32px; width: 56px;">
+                      <span id="dom-badge-${collab.id}" class="dom-badge" style="display: flex; align-items: center; justify-content: center; height: 18px; width: 100%; font-size: 0.65rem; border: 1px solid currentColor; border-radius: 3px; font-weight: bold; opacity: 0.9; box-sizing: border-box; letter-spacing: 0.5px;" title="Domingos"></span>
+                    </div>
+                    <div id="desktop-hours-w1-${collab.id}"></div>
+                    <div id="desktop-hours-w2-${collab.id}"></div>
+                 </div>
               </div>
-              
-              <!-- Bloques de Horas (Alineados a la Derecha) -->
-              <div id="desktop-hours-${collab.id}-left" style="display: flex; gap: 12px; padding-left: 4px; margin-left: auto; flex-shrink: 0; align-items: flex-start;">
-                 <div id="desktop-hours-w1-${collab.id}"></div>
-                 <div id="desktop-hours-w2-${collab.id}"></div>
+
+              <!-- Fila Inferior: Meta (Desplegable) -->
+              <div class="mobile-hours-tag" id="mobile-hours-${collab.id}"></div>
+              <div id="collab-meta-${collab.id}" class="collab-meta" style="display: none; font-size: 0.75rem; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
+                <span>| Leg: ${collab.id} |</span>
+                <span>${collab.pasillo || 'Sin Área'} |</span>
+                <span>${collab.hours}h |</span>
               </div>
 
             </div>
