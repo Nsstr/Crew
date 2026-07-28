@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1552,7 +1552,7 @@
       <button class="app-tab-btn" id="metricsTabBtn" onclick="switchTab('metricas')" style="display: none;">Dashboard Métricas</button>
     </div>
     
-    <div class="main-app-nav-center date-nav-container">
+    <div class="main-app-nav-center date-nav-container" id="dateNavigationContainer">
       <div class="date-nav" style="display: flex; align-items: center; gap: 0.25rem; min-width: 250px;">
         <button id="prevWeekBtn" title="Semana Anterior">&lt;</button>
         <button id="prevDayBtn" title="Día Anterior">&larr;</button>
@@ -5004,7 +5004,7 @@
       const seccionVacaciones = document.getElementById('seccionVacaciones');
       const seccionMetricas = document.getElementById('seccionMetricas');
       const seccionSugeridos = document.getElementById('seccionSugeridos');
-      const navCenter = document.querySelector('.main-app-nav-center');
+      const navCenter = document.getElementById('dateNavigationContainer');
       
       if (seccionHorarios) seccionHorarios.style.display = 'none';
       if (seccionVacaciones) seccionVacaciones.style.display = 'none';
