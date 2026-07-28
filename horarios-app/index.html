@@ -5004,11 +5004,16 @@
       const seccionVacaciones = document.getElementById('seccionVacaciones');
       const seccionMetricas = document.getElementById('seccionMetricas');
       const seccionSugeridos = document.getElementById('seccionSugeridos');
+      const navCenter = document.querySelector('.main-app-nav-center');
       
       if (seccionHorarios) seccionHorarios.style.display = 'none';
       if (seccionVacaciones) seccionVacaciones.style.display = 'none';
       if (seccionMetricas) seccionMetricas.style.display = 'none';
       if (seccionSugeridos) seccionSugeridos.style.display = 'none';
+      
+      if (navCenter) {
+          navCenter.style.visibility = (tabId === 'horarios') ? 'visible' : 'hidden';
+      }
 
       if (tabId === 'vacaciones') {
           if (seccionVacaciones) seccionVacaciones.style.display = 'flex';
