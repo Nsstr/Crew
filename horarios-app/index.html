@@ -1924,12 +1924,12 @@
 
    <!-- MODAL DE HISTORIAL ANUAL CONSOLIDADO -->
    <div id="metricsDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; font-family: inherit;">
-      <div style="background: var(--surface); width: 600px; max-width: 90%; max-height: 90%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;">
+      <div style="background: var(--surface); width: 900px; max-width: 95%; max-height: 90vh; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;">
          <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--bg);">
             <h3 id="metricsDetailTitle" style="margin: 0; color: var(--primary); font-size: 1.2rem;">Historial Anual Consolidado</h3>
             <button onclick="document.getElementById('metricsDetailModal').style.display='none'" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
          </div>
-         <div id="metricsDetailContent" style="padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 20px;">
+         <div id="metricsDetailContent" style="padding: 20px; overflow-y: auto; flex: 1; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
             <!-- Contenido inyectado dinámicamente -->
          </div>
       </div>
@@ -4603,7 +4603,16 @@
 
        document.getElementById('metricsDetailTitle').innerHTML = `${collab.name.split('(')[0].trim()} <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: normal;">(Legajo: ${collab.id})</span>`;
        const content = document.getElementById('metricsDetailContent');
-       content.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px; width: 100%;">Cargando historial completo...</div>`;
+       
+       // Show modal immediately with loading spinner
+       document.getElementById('metricsDetailModal').style.display = 'flex';
+       content.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; color: var(--text-muted);">
+             <div style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-left-color: var(--primary); border-radius: 50%; animation: spinMetrics 1s linear infinite; margin-bottom: 15px;"></div>
+             <style>@keyframes spinMetrics { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+             <div style="font-size: 0.9rem;">Calculando métricas...</div>
+          </div>
+       `;
 
        // Fetch employee full history from Firestore
        try {
@@ -4697,11 +4706,12 @@
           const month = dateStr.substring(5, 7);
           
           if (!historyData[year]) historyData[year] = {};
-          if (!historyData[year][month]) historyData[year][month] = { tardanza: 0, alertas: [], ausencias: 0, feriadosTrab: 0 };
+          if (!historyData[year][month]) historyData[year][month] = { tardanza: 0, alertas: [], ausencias: 0, feriadosTrab: 0, fijados: 0 };
           
           const monthData = historyData[year][month];
 
           if (obj.tardanzaMinutosTotales) monthData.tardanza += obj.tardanzaMinutosTotales;
+          if (obj.fijado) monthData.fijados++;
 
           const val = obj.slot || '';
           const isSick = isAbsence(val);
@@ -4754,62 +4764,213 @@
        const sortedYears = Object.keys(historyData).sort((a, b) => b - a);
 
        if (sortedYears.length === 0) {
-          content.innerHTML = `<p style="color: var(--text-muted); text-align: center; margin-top: 40px;">No hay registros históricos para este colaborador.</p>`;
+          content.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 40px;">No hay registros históricos para este colaborador.</p>';
+          document.getElementById('metricsDetailModal').style.display = 'flex';
+          return;
        }
 
        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-       sortedYears.forEach(year => {
-          let yearTardanza = 0;
-          let yearAlertas = 0;
+       const getYearTotals = (year) => {
+           let yearTardanza = 0, yearAlertas = 0, yearEnfermedad = 0, yearFijados = 0;
+           for(let m=1; m<=12; m++) {
+               let mStr = m.toString().padStart(2, '0');
+               if (historyData[year] && historyData[year][mStr]) {
+                   const md = historyData[year][mStr];
+                   yearTardanza += md.tardanza;
+                   yearAlertas += md.alertas.length;
+                   yearEnfermedad += md.ausencias;
+                   yearFijados += md.fijados;
+               }
+           }
+           return { yearTardanza, yearAlertas, yearEnfermedad, yearFijados };
+       };
 
-          const monthsContent = Object.keys(historyData[year]).sort((a,b)=>b-a).map(month => {
-             const md = historyData[year][month];
-             yearTardanza += md.tardanza;
-             yearAlertas += md.alertas.length;
+       const createYearBlock = (year) => {
+          let yearTardanza = 0, yearAlertas = 0, yearEnfermedad = 0, yearFijados = 0;
+          let allAlerts = [];
+          let maxEnfermedad = 0, maxAlertas = 0;
 
-             let alertList = md.alertas.map(a => `<div style="color: var(--danger); font-size: 0.8rem; margin-top: 2px;">• ${a.date.substring(8,10)}/${a.date.substring(5,7)} (${a.desc})</div>`).join('');
+          for(let m=1; m<=12; m++) {
+              let mStr = m.toString().padStart(2, '0');
+              if (historyData[year] && historyData[year][mStr]) {
+                  const md = historyData[year][mStr];
+                  yearTardanza += md.tardanza;
+                  yearAlertas += md.alertas.length;
+                  yearEnfermedad += md.ausencias;
+                  yearFijados += md.fijados;
+                  if (md.alertas.length > 0) allAlerts.push(...md.alertas);
+                  if (md.ausencias > maxEnfermedad) maxEnfermedad = md.ausencias;
+                  if (md.alertas.length > maxAlertas) maxAlertas = md.alertas.length;
+              }
+          }
 
-             return `
-                <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
-                   <h4 style="margin: 0 0 10px 0; color: var(--text); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">${monthNames[parseInt(month)-1]} ${year}</h4>
-                   <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-                      <div>
-                         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Enfermedad</div>
-                         <div style="font-size: 1rem; font-weight: bold;">${md.ausencias} ${md.ausencias===1?'día':'días'}</div>
-                      </div>
-                      <div>
-                         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Tardanza</div>
-                         <div style="font-size: 1rem; font-weight: bold; color: ${md.tardanza > 0 ? 'var(--warning)' : 'var(--text)'};">${md.tardanza} min</div>
-                      </div>
-                      <div style="grid-column: span 2;">
-                         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Partes Pegados</div>
-                         <div style="font-size: 1rem; font-weight: bold; color: ${md.alertas.length > 0 ? 'var(--danger)' : 'var(--success)'};">${md.alertas.length} alertas</div>
-                         ${alertList}
-                      </div>
-                      <div>
-                         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Feriados Trab.</div>
-                         <div style="font-size: 1rem; font-weight: bold;">${md.feriadosTrab}</div>
-                      </div>
-                   </div>
-                </div>
-             `;
-          }).join('');
+          let chartBarsEnfermedad = '';
+          let chartBarsAlertas = '';
+          let monthlyGrid = '';
+          
+          for(let m=1; m<=12; m++) {
+              let mStr = m.toString().padStart(2, '0');
+              const md = historyData[year][mStr] || { tardanza: 0, alertas: [], ausencias: 0, feriadosTrab: 0, fijados: 0 };
+              
+              const hEnf = maxEnfermedad > 0 ? (md.ausencias / maxEnfermedad) * 100 : 0;
+              const hAlt = maxAlertas > 0 ? (md.alertas.length / maxAlertas) * 100 : 0;
+              
+              chartBarsEnfermedad += 
+                  '<div title="' + monthNames[m-1] + ': ' + md.ausencias + ' días" style="display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; flex:1;">' +
+                      '<div style="width:60%; background: ' + (md.ausencias > 0 ? 'var(--danger)' : 'var(--border)') + '; height: ' + hEnf + '%; min-height: ' + (md.ausencias > 0 ? '4px' : '0') + '; border-radius: 4px 4px 0 0; transition: all 0.2s;"></div>' +
+                      '<div style="font-size: 0.6rem; color: var(--text-muted); margin-top: 4px;">' + monthNames[m-1] + '</div>' +
+                  '</div>';
+              
+              chartBarsAlertas += 
+                  '<div title="' + monthNames[m-1] + ': ' + md.alertas.length + ' alertas" style="display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; flex:1;">' +
+                      '<div style="width:60%; background: ' + (md.alertas.length > 0 ? 'var(--warning)' : 'var(--border)') + '; height: ' + hAlt + '%; min-height: ' + (md.alertas.length > 0 ? '4px' : '0') + '; border-radius: 4px 4px 0 0; transition: all 0.2s;"></div>' +
+                      '<div style="font-size: 0.6rem; color: var(--text-muted); margin-top: 4px;">' + monthNames[m-1] + '</div>' +
+                  '</div>';
+
+              monthlyGrid += 
+                  '<div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 6px; text-align: center;">' +
+                      '<div style="font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">' + monthNames[m-1] + '</div>' +
+                      '<div style="font-size: 0.7rem; display: flex; justify-content: space-between; margin-bottom: 2px;"><span style="color:var(--text-muted)">Enf:</span> <span style="font-weight:bold; color:' + (md.ausencias>0?'var(--danger)':'var(--text)') + '">' + md.ausencias + '</span></div>' +
+                      '<div style="font-size: 0.7rem; display: flex; justify-content: space-between; margin-bottom: 2px;"><span style="color:var(--text-muted)">Alert:</span> <span style="font-weight:bold; color:' + (md.alertas.length>0?'var(--warning)':'var(--text)') + '">' + md.alertas.length + '</span></div>' +
+                      '<div style="font-size: 0.7rem; display: flex; justify-content: space-between; margin-bottom: 2px;"><span style="color:var(--text-muted)">Fij:</span> <span style="font-weight:bold">' + md.fijados + '</span></div>' +
+                      '<div style="font-size: 0.7rem; display: flex; justify-content: space-between;"><span style="color:var(--text-muted)">Tard:</span> <span style="font-weight:bold; color:' + (md.tardanza>0?'var(--warning)':'var(--text)') + '">' + md.tardanza + 'm</span></div>' +
+                  '</div>';
+          }
+          
+          let alertListHtml = '<div style="color: var(--success); font-size: 0.85rem; padding: 10px; text-align: center;">✓ Sin alertas de ausentismo estratégico este año.</div>';
+          if (allAlerts.length > 0) {
+              alertListHtml = allAlerts.map(a => '<div style="font-size: 0.8rem; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text);"><span style="color: var(--danger); font-weight: bold;">• ' + a.date.substring(8,10) + '/' + a.date.substring(5,7) + ':</span> ' + a.desc + '</div>').join('');
+          }
 
           const yearBlock = document.createElement('div');
-          yearBlock.innerHTML = `
-             <div style="background: rgba(30,41,59,0.5); padding: 10px 15px; border-radius: 6px; border-left: 4px solid var(--primary); margin-bottom: 15px;">
-                <h3 style="margin: 0; color: white;">AÑO CALENDARIO ${year}</h3>
-                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Totales: ${yearTardanza} min de tardanza, ${yearAlertas} alertas de auditoría</p>
-             </div>
-             <div style="padding-left: 10px;">
-                ${monthsContent}
-             </div>
-          `;
-          content.appendChild(yearBlock);
-       });
+          yearBlock.innerHTML = 
+             '<div style="background: var(--surface); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px;">' +
+                '<h3 style="margin: 0 0 15px 0; color: white; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">DASHBOARD ' + year + '</h3>' +
+                '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">' +
+                    '<div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px; text-align: center; border: 1px solid var(--border);">' +
+                        '<div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Días Enfermedad</div>' +
+                        '<div style="font-size: 1.5rem; font-weight: bold; color: ' + (yearEnfermedad > 0 ? 'var(--danger)' : 'var(--success)') + ';">' + yearEnfermedad + '</div>' +
+                    '</div>' +
+                    '<div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px; text-align: center; border: 1px solid var(--border);">' +
+                        '<div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Alertas Ausentismo</div>' +
+                        '<div style="font-size: 1.5rem; font-weight: bold; color: ' + (yearAlertas > 0 ? 'var(--warning)' : 'var(--success)') + ';">' + yearAlertas + '</div>' +
+                    '</div>' +
+                    '<div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px; text-align: center; border: 1px solid var(--border);">' +
+                        '<div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Turnos Fijados</div>' +
+                        '<div style="font-size: 1.5rem; font-weight: bold; color: var(--text);">' + yearFijados + '</div>' +
+                    '</div>' +
+                    '<div style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px; text-align: center; border: 1px solid var(--border);">' +
+                        '<div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Tardanza Total</div>' +
+                        '<div style="font-size: 1.5rem; font-weight: bold; color: ' + (yearTardanza > 0 ? 'var(--warning)' : 'var(--text)') + ';">' + yearTardanza + '<span style="font-size: 0.8rem; font-weight:normal;">m</span></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; height: 120px;">' +
+                    '<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; min-width: 0;">' +
+                        '<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Tendencia Enfermedad</div>' +
+                        '<div style="display: flex; flex-direction: row; flex: 1; align-items: flex-end; gap: 2px; min-width: 0; overflow: hidden;">' +
+                            chartBarsEnfermedad +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; min-width: 0;">' +
+                        '<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Tendencia Alertas</div>' +
+                        '<div style="display: flex; flex-direction: row; flex: 1; align-items: flex-end; gap: 2px; min-width: 0; overflow: hidden;">' +
+                            chartBarsAlertas +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 20px;">' +
+                    monthlyGrid +
+                '</div>' +
+                '<div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 6px; padding: 10px;">' +
+                    '<div style="font-size: 0.85rem; font-weight: bold; color: var(--text); margin-bottom: 8px;">Bitácora de Alertas de Ausentismo Estratégico</div>' +
+                    '<div style="max-height: 120px; overflow-y: auto; padding-right: 5px; font-family: monospace;">' +
+                        alertListHtml +
+                    '</div>' +
+                '</div>' +
+             '</div>';
+          return yearBlock;
+       };
 
-       document.getElementById('metricsDetailModal').style.display = 'flex';
+       const currentYear = sortedYears[0];
+       content.appendChild(createYearBlock(currentYear));
+
+       if (sortedYears.length > 1) {
+           const prevYear = sortedYears[1];
+           const curTot = getYearTotals(currentYear);
+           const prevTot = getYearTotals(prevYear);
+
+           const getDiffHtml = (cur, prev) => {
+               const diff = cur - prev;
+               if (diff === 0) return '<span style="color:var(--text-muted); font-size:0.8rem; margin-left: 8px;">(Igual)</span>';
+               return diff > 0 
+                  ? '<span style="color:var(--danger); font-size:0.8rem; margin-left: 8px;">(+' + diff + ')</span>' 
+                  : '<span style="color:var(--success); font-size:0.8rem; margin-left: 8px;">(' + diff + ')</span>';
+           };
+           
+           const getDiffTimeHtml = (cur, prev) => {
+               const diff = cur - prev;
+               if (diff === 0) return '<span style="color:var(--text-muted); font-size:0.8rem; margin-left: 8px;">(Igual)</span>';
+               return diff > 0 
+                  ? '<span style="color:var(--danger); font-size:0.8rem; margin-left: 8px;">(+' + diff + 'm)</span>' 
+                  : '<span style="color:var(--success); font-size:0.8rem; margin-left: 8px;">(' + diff + 'm)</span>';
+           };
+
+           const compBlock = document.createElement('div');
+           compBlock.innerHTML = 
+               '<div style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px; padding: 15px; margin-bottom: 20px;">' +
+                   '<h3 style="margin: 0 0 12px 0; color: var(--primary); font-size: 1rem;">Comparativa Anual: ' + currentYear + ' vs ' + prevYear + '</h3>' +
+                   '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">' +
+                       '<div style="background: var(--surface); padding: 10px; border-radius: 6px; border: 1px solid var(--border); text-align: center;">' +
+                           '<div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Días Enfermedad</div>' +
+                           '<div style="font-size: 1rem; color: var(--text); display: flex; align-items: center; justify-content: center;">' + 
+                               '<span>' + currentYear + ': <b>' + curTot.yearEnfermedad + '</b></span>' +
+                               '<span style="margin: 0 6px; color: var(--text-muted)">|</span>' +
+                               '<span>' + prevYear + ': <b>' + prevTot.yearEnfermedad + '</b></span>' +
+                               getDiffHtml(curTot.yearEnfermedad, prevTot.yearEnfermedad) +
+                           '</div>' +
+                       '</div>' +
+                       '<div style="background: var(--surface); padding: 10px; border-radius: 6px; border: 1px solid var(--border); text-align: center;">' +
+                           '<div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Alertas Ausentismo</div>' +
+                           '<div style="font-size: 1rem; color: var(--text); display: flex; align-items: center; justify-content: center;">' + 
+                               '<span>' + currentYear + ': <b>' + curTot.yearAlertas + '</b></span>' +
+                               '<span style="margin: 0 6px; color: var(--text-muted)">|</span>' +
+                               '<span>' + prevYear + ': <b>' + prevTot.yearAlertas + '</b></span>' +
+                               getDiffHtml(curTot.yearAlertas, prevTot.yearAlertas) +
+                           '</div>' +
+                       '</div>' +
+                       '<div style="background: var(--surface); padding: 10px; border-radius: 6px; border: 1px solid var(--border); text-align: center;">' +
+                           '<div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Tardanza</div>' +
+                           '<div style="font-size: 1rem; color: var(--text); display: flex; align-items: center; justify-content: center;">' + 
+                               '<span>' + currentYear + ': <b>' + curTot.yearTardanza + 'm</b></span>' +
+                               '<span style="margin: 0 6px; color: var(--text-muted)">|</span>' +
+                               '<span>' + prevYear + ': <b>' + prevTot.yearTardanza + 'm</b></span>' +
+                               getDiffTimeHtml(curTot.yearTardanza, prevTot.yearTardanza) +
+                           '</div>' +
+                       '</div>' +
+                   '</div>' +
+               '</div>';
+           content.appendChild(compBlock);
+
+           const histContainer = document.createElement('div');
+           histContainer.id = 'histContainer_' + collabId;
+           
+           const loadBtn = document.createElement('button');
+           loadBtn.innerText = 'Cargar historial de años anteriores (' + (sortedYears.length - 1) + ' año/s)';
+           loadBtn.style = 'background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text); padding: 12px 20px; border-radius: 6px; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; width: 100%; margin-bottom: 10px; font-weight: bold;';
+           loadBtn.onmouseover = () => loadBtn.style.background = 'rgba(255,255,255,0.1)';
+           loadBtn.onmouseout = () => loadBtn.style.background = 'rgba(255,255,255,0.05)';
+           loadBtn.onclick = () => {
+               loadBtn.style.display = 'none';
+               for (let i = 1; i < sortedYears.length; i++) {
+                   histContainer.appendChild(createYearBlock(sortedYears[i]));
+               }
+           };
+           histContainer.appendChild(loadBtn);
+           content.appendChild(histContainer);
+       }
+
+       // Modal was displayed at the beginning of the function with the loader.
     };
 
     window.switchTab = function(tabId) {
