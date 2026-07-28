@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -4384,10 +4384,7 @@
        
        const isAbsence = (text) => {
           if (!text) return false;
-          const t = text.trim().toLowerCase();
-          if (t === 'e') return true;
-          const longKeywords = ["enfermo", "médico", "medico", "art", "parte", "certificado"];
-          return longKeywords.some(kw => t.includes(kw));
+          return text.trim().toLowerCase() === 'e';
        };
 
        const isDayOff = (text) => {
@@ -4430,7 +4427,7 @@
 
              // b. Partes Pegados y Enfermedad
              const val = obj.slot || '';
-             const isSick = isAbsence(val) || isAbsence(obj.comentario);
+             const isSick = isAbsence(val);
              if (isSick) {
                 enfermedadTotalDias++;
                 // Ensure date object properly reflects the date string natively without timezone offset issues
@@ -4471,7 +4468,7 @@
                       const parsed = parseShift(val);
                       if (parsed && parsed.type === 'work') {
                          feriadosTrabajados++;
-                      } else if (isDayOff(val) || isAbsence(val) || isAbsence(obj.comentario) || (parsed && ['franco', 'libre', 'absence', 'vacation'].includes(parsed.type))) {
+                      } else if (isDayOff(val) || isAbsence(val) || (parsed && ['franco', 'libre', 'absence', 'vacation'].includes(parsed.type))) {
                          feriadosLibres++;
                       }
                    }
@@ -4584,10 +4581,7 @@
 
        const isAbsence = (text) => {
           if (!text) return false;
-          const t = text.trim().toLowerCase();
-          if (t === 'e') return true;
-          const longKeywords = ["enfermo", "médico", "medico", "art", "parte", "certificado"];
-          return longKeywords.some(kw => t.includes(kw));
+          return text.trim().toLowerCase() === 'e';
        };
        const isDayOff = (text) => text && ['f', 'libre', 'v', 'vacaciones'].includes(text.toLowerCase());
 
@@ -4634,7 +4628,7 @@
           if (obj.tardanzaMinutosTotales) monthData.tardanza += obj.tardanzaMinutosTotales;
 
           const val = obj.slot || '';
-          const isSick = isAbsence(val) || isAbsence(obj.comentario);
+          const isSick = isAbsence(val);
           if (isSick) {
              monthData.ausencias++;
 
