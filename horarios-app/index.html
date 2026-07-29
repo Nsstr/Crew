@@ -463,6 +463,19 @@
       min-width: 200px;
       overflow: hidden;
     }
+    /* Clase de apertura garantizada - pisa cualquier inline style o regla anterior */
+    .context-menu.open {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      position: fixed !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      z-index: 2147483647 !important;
+      max-height: 80vh !important;
+      overflow-y: auto !important;
+    }
     .context-menu-item {
       padding: 10px 15px;
       font-size: 0.85rem;
@@ -713,7 +726,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 100;
+      z-index: 9999;
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.3s ease;
@@ -1579,7 +1592,7 @@
         </button>
         <div id="navDropdownMenu" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 0.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); padding: 8px; flex-direction: column; gap: 6px; z-index: 10000; min-width: 200px;">
           <!-- Botón Eventos -->
-          <button id="eventosNavBtn" style="display: none; background: transparent; color: var(--warning); border: 1px solid var(--warning); border-radius: 0.25rem; padding: 8px; align-items: center; justify-content: flex-start; gap: 6px; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; width: 100%;" title="Gestionar Eventos del Día" onclick="window.openEventosModal()">&#128197; Eventos</button>
+          <button id="eventosNavBtn" style="display: none; background: transparent; color: var(--warning); border: 1px solid var(--warning); border-radius: 0.25rem; padding: 8px; align-items: center; justify-content: flex-start; gap: 6px; font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; width: 100%;" title="Gestionar Eventos del Día">&#128197; Eventos</button>
           
           <button id="auditBellBtn" class="audit-bell" title="Log de Auditoría" style="width: 100%; justify-content: flex-start; gap: 6px; padding: 8px; height: auto;">
             🔔 Auditoría <span id="auditBadge" class="audit-badge" style="display: none; position: relative; margin-left: auto; top: 0; right: 0; transform: none;">0</span>
@@ -2005,12 +2018,18 @@
       </div> <!-- /COLUMNA DERECHA -->
     </div>
   </div>
+</div>
 
   <div class="toast-container" id="toastContainer"></div>
 
   <!-- MENÚ CONTEXTUAL -->
   <div id="contextMenuBackdrop" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 9998; backdrop-filter: blur(2px);"></div>
-  <div id="contextMenu" class="context-menu" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 12px; width: 300px; max-height: 85vh; overflow-y: auto; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 9999; font-family: inherit;">
+  <div id="contextMenu" class="context-menu" style="display: none; width: 300px; padding: 12px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 9999; font-family: inherit;">
+      <!-- Cabecera con botón de cierre -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
+        <span style="font-size: 0.85rem; font-weight: 700; color: var(--text); letter-spacing: 0.3px;">Opciones de Celda</span>
+        <button onclick="window.closeContextMenu()" style="background: var(--danger); color: #fff; border: none; border-radius: 4px; width: 22px; height: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem; line-height: 1; flex-shrink: 0;" title="Cerrar">&times;</button>
+      </div>
       <!-- Bloque 1: Fijar Horario -->
       <div style="background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
          <div style="display: flex; align-items: center; gap: 8px;">
@@ -3295,7 +3314,19 @@
         el.dataset.listenersAttached = 'true';
 
         el.addEventListener('blur', handleInputChange);
-        el.addEventListener('contextmenu', handleContextMenu);
+        
+        // Delegar contextmenu a nivel de tbody para capturar clics interceptados o en celdas deshabilitadas
+        const tbody = document.getElementById('tableBody');
+        if (tbody && !tbody.dataset.ctxMenuAttached) {
+            tbody.dataset.ctxMenuAttached = 'true';
+            tbody.addEventListener('contextmenu', e => {
+                const validTarget = e.target.closest('[data-collab]');
+                if (validTarget) {
+                    handleContextMenu(e);
+                }
+            });
+        }
+
         
         let touchTimer;
         el.addEventListener('touchstart', e => {
@@ -3447,6 +3478,7 @@
          groupedCollabsDesktop[areaName].forEach(collab => {
         const tr = document.createElement('tr');
         tr.style.willChange = 'transform';
+        tr.setAttribute('data-collab', collab.id);
         
         let cellsHTML = '';
         
@@ -3743,7 +3775,7 @@
           }
 
           html += `
-            <td class="${isHoliday ? 'holiday-col' : ''} ${finalWrapperClass}" ${titleAttr} style="position: relative; ${isOnVacation ? 'background-color: rgba(14, 165, 233, 0.08);' : ''}${eventoCellStyle}">
+            <td class="${isHoliday ? 'holiday-col' : ''} ${finalWrapperClass}" ${titleAttr} data-collab="${collab.id}" data-date="${dStr}" style="position: relative; ${isOnVacation ? 'background-color: rgba(14, 165, 233, 0.08);' : ''}${eventoCellStyle}">
               ${vacationTagHtml}
               <input type="text" class="cell-input ${finalInputClass}" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" value="${displayVal}" ${isDisabled ? 'disabled data-disabled="true"' : ''} placeholder="-">
             </td>
@@ -4180,7 +4212,15 @@
     const configModal = document.getElementById('configModal');
     const collabForm = document.getElementById('collabForm');
 
-    document.getElementById('configBtn').addEventListener('click', () => {
+    document.getElementById('configBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      console.log("CLICK: configBtn called!"); 
+
+      // Cerrar el dropdown del nav antes de abrir el modal
+      const dropdownMenu = document.getElementById('navDropdownMenu');
+      if (dropdownMenu) dropdownMenu.style.display = 'none';
+      
       renderConfigModalList();
       collabForm.reset();
       document.getElementById('collabMode').value = 'add';
@@ -6080,111 +6120,183 @@
     function handleContextMenu(e) {
        e.preventDefault();
        if (!requireAuth()) return;
-       currentContextCell = e.target;
        
-       const collabId = currentContextCell.getAttribute('data-collab');
-       const dateStr = currentContextCell.getAttribute('data-date');
-       const obj = getPlanningObj(collabId, dateStr) || {};
+       let collabId = null;
+       let dateStr = null;
        
-       document.getElementById('cellCommentInput').value = obj.comentario || '';
-       document.getElementById('cellFixedInput').checked = !!obj.fijado;
-       document.getElementById('cellFixedDateText').textContent = obj.fijado && obj.fechaFijado ? `*(Solicitado con tiempo: ${obj.fechaFijado})` : '*(Solicitado con tiempo)';
+       // Buscar el contenedor de la celda (el td, el div interno o el input)
+       const tdNode = e.target.closest('td');
+       const inputNode = e.target.closest('.cell-input') || (tdNode ? tdNode.querySelector('.cell-input') : null);
        
-       document.getElementById('cellTardanzaInput').value = obj.tardanzaTexto || '';
-       document.getElementById('cellTardanzaCheck').checked = !!obj.tardanzaConfirmada;
-
-       const ctxMenu = document.getElementById('contextMenu');
-       
-       // Inyección dinámica de Estados Rápidos y Cambio de Horario
-       if (!document.getElementById('mobileQuickStatesBlock')) {
-           const quickStatesHTML = `
-              <div id="mobileQuickStatesBlock" style="background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
-                 <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 6px;">Estados Rápidos</label>
-                 <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px;">
-                    <button id="qs-E" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Enfermedad">E</button>
-                    <button id="qs-Susp" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Suspensión">Susp</button>
-                    <button id="qs-PG" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Permiso Gremial">PG</button>
-                    <button id="qs-ACA" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Ausente con aviso">ACA</button>
-                    <button id="qs-ASA" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Ausente sin aviso">ASA</button>
-                 </div>
-                 <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 6px;">Modificar Horario del Día</label>
-                 <div style="display: flex; gap: 4px; align-items: center;">
-                    <input type="time" id="ctxTimeIn" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.8rem; font-family: inherit;">
-                    <span style="color: var(--text-muted); font-size: 0.8rem;">a</span>
-                    <input type="time" id="ctxTimeOut" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.8rem; font-family: inherit;">
-                    <button id="qs-apply" style="background: var(--primary); color: #fff; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-weight: bold; font-size: 0.8rem;" title="Aplicar Horario">✓</button>
-                 </div>
-              </div>
-           `;
-           ctxMenu.insertAdjacentHTML('afterbegin', quickStatesHTML);
-
-           document.getElementById('qs-E').addEventListener('click', () => window.setQuickState('E'));
-           document.getElementById('qs-Susp').addEventListener('click', () => window.setQuickState('Susp'));
-           document.getElementById('qs-PG').addEventListener('click', () => window.setQuickState('PG'));
-           document.getElementById('qs-ACA').addEventListener('click', () => window.setQuickState('ACA'));
-           document.getElementById('qs-ASA').addEventListener('click', () => window.setQuickState('ASA'));
-           document.getElementById('qs-apply').addEventListener('click', () => window.applyCustomSchedule());
+       // Intentar sacar los atributos del input primero (que siempre los tuvo históricamente)
+       if (inputNode) {
+           collabId = inputNode.getAttribute('data-collab');
+           dateStr = inputNode.getAttribute('data-date');
        }
-
-       // Pre-fill Schedule Modifiers if slot is a time range
-       let currentSlot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
-       if (typeof currentSlot === 'string') {
-           currentSlot = currentSlot.replace('*', '').trim();
+       
+       // Fallback: buscarlos en el DOM hacia arriba (td, tr, etc.)
+       if (!collabId) {
+           const collabNode = e.target.closest('[data-collab]');
+           if (collabNode) collabId = collabNode.getAttribute('data-collab');
        }
-       document.getElementById('ctxTimeIn').value = '';
-       document.getElementById('ctxTimeOut').value = '';
-       if (currentSlot) {
-           const matchTime = currentSlot.match(/(\d{1,2})(?::(\d{2}))?\s*(?:a|-)\s*(\d{1,2})(?::(\d{2}))?/i);
-           if (matchTime) {
-               let tInH = matchTime[1];
-               let tInM = matchTime[2] || '00';
-               let tOutH = matchTime[3];
-               let tOutM = matchTime[4] || '00';
-               document.getElementById('ctxTimeIn').value = `${tInH.padStart(2, '0')}:${tInM}`;
-               document.getElementById('ctxTimeOut').value = `${tOutH.padStart(2, '0')}:${tOutM}`;
+       
+       if (!dateStr) {
+           const dateNode = e.target.closest('[data-date]');
+           if (dateNode) dateStr = dateNode.getAttribute('data-date');
+       }
+       
+       if (!collabId) return; // Sin colaborador no podemos procesar
+       
+       try {
+           currentContextCell = inputNode || tdNode || e.target.closest('[data-collab]');
+           
+           // Asegurar compatibilidad para otras funciones que leen de currentContextCell
+           if (currentContextCell && !currentContextCell.hasAttribute('data-collab')) currentContextCell.setAttribute('data-collab', collabId);
+           if (currentContextCell && dateStr && !currentContextCell.hasAttribute('data-date')) currentContextCell.setAttribute('data-date', dateStr);
+           
+           const obj = getPlanningObj(collabId, dateStr) || {};
+           
+           document.getElementById('cellCommentInput').value = obj.comentario || '';
+           document.getElementById('cellFixedInput').checked = !!obj.fijado;
+           document.getElementById('cellFixedDateText').textContent = obj.fijado && obj.fechaFijado ? `*(Solicitado con tiempo: ${obj.fechaFijado})` : '*(Solicitado con tiempo)';
+           
+           document.getElementById('cellTardanzaInput').value = obj.tardanzaTexto || '';
+           document.getElementById('cellTardanzaCheck').checked = !!obj.tardanzaConfirmada;
+
+           const ctxMenu = document.getElementById('contextMenu');
+           
+           // Inyección dinámica de Estados Rápidos y Cambio de Horario
+           if (!document.getElementById('mobileQuickStatesBlock')) {
+               const quickStatesHTML = `
+                  <div id="mobileQuickStatesBlock" style="background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
+                     <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 6px;">Estados Rápidos</label>
+                     <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px;">
+                        <button id="qs-E" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Enfermedad">E</button>
+                        <button id="qs-Susp" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Suspensión">Susp</button>
+                        <button id="qs-PG" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Permiso Gremial">PG</button>
+                        <button id="qs-ACA" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Ausente con aviso">ACA</button>
+                        <button id="qs-ASA" style="flex: 1; padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Ausente sin aviso">ASA</button>
+                     </div>
+                     <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 6px;">Modificar Horario del Día</label>
+                     <div style="display: flex; gap: 4px; align-items: center;">
+                        <input type="time" id="ctxTimeIn" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.8rem; font-family: inherit;">
+                        <span style="color: var(--text-muted); font-size: 0.8rem;">a</span>
+                        <input type="time" id="ctxTimeOut" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.8rem; font-family: inherit;">
+                        <button id="qs-apply" style="background: var(--primary); color: #fff; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-weight: bold; font-size: 0.8rem;" title="Aplicar Horario">✓</button>
+                     </div>
+                  </div>
+               `;
+               ctxMenu.insertAdjacentHTML('afterbegin', quickStatesHTML);
+
+               document.getElementById('qs-E').addEventListener('click', () => window.setQuickState('E'));
+               document.getElementById('qs-Susp').addEventListener('click', () => window.setQuickState('Susp'));
+               document.getElementById('qs-PG').addEventListener('click', () => window.setQuickState('PG'));
+               document.getElementById('qs-ACA').addEventListener('click', () => window.setQuickState('ACA'));
+               document.getElementById('qs-ASA').addEventListener('click', () => window.setQuickState('ASA'));
+               document.getElementById('qs-apply').addEventListener('click', () => window.applyCustomSchedule());
            }
+
+           // Pre-fill Schedule Modifiers if slot is a time range
+           let currentSlot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+           if (typeof currentSlot === 'string') {
+               currentSlot = currentSlot.replace('*', '').trim();
+           }
+           document.getElementById('ctxTimeIn').value = '';
+           document.getElementById('ctxTimeOut').value = '';
+           if (currentSlot) {
+               const matchTime = currentSlot.match(/(\d{1,2})(?::(\d{2}))?\s*(?:a|-)\s*(\d{1,2})(?::(\d{2}))?/i);
+               if (matchTime) {
+                   let tInH = matchTime[1];
+                   let tInM = matchTime[2] || '00';
+                   let tOutH = matchTime[3];
+                   let tOutM = matchTime[4] || '00';
+                   document.getElementById('ctxTimeIn').value = `${tInH.padStart(2, '0')}:${tInM}`;
+                   document.getElementById('ctxTimeOut').value = `${tOutH.padStart(2, '0')}:${tOutM}`;
+               }
+           }
+
+           // Mostrar/ocultar bloque de inventario según si hay evento ese día
+           const eventoHoy = state.eventos[dateStr];
+           const ctxBlock = document.getElementById('ctxInventarioBlock');
+           if (eventoHoy) {
+             ctxBlock.style.display = 'block';
+             ctxBlock.style.borderColor = eventoHoy.color;
+             document.getElementById('ctxInventarioLabel').textContent = `${eventoHoy.tipo}: ${eventoHoy.descripcion}`;
+             document.getElementById('cellInventarioInput').checked = !!obj.esInventario;
+           } else {
+             ctxBlock.style.display = 'none';
+           }
+
+           const backdrop = document.getElementById('contextMenuBackdrop');
+           if (backdrop) backdrop.style.display = 'block';
+           
+           // Cerrar cualquier menú previo antes de abrir el nuevo
+           const prevMenu = document.getElementById('contextMenu');
+           if (prevMenu && prevMenu.classList.contains('open')) {
+               prevMenu.classList.remove('open');
+           }
+           
+           // Sacar el menú de cualquier contenedor con stacking context restrictivo
+           // y anclarlo directamente al body para que se pinte sobre todo
+           document.body.appendChild(ctxMenu);
+           
+           document.addEventListener('click', e => {
+              const ctxMenu = document.getElementById('contextMenu');
+              if (ctxMenu && ctxMenu.classList.contains('open')) {
+                 if (!ctxMenu.contains(e.target)) {
+                     window.closeContextMenu();
+                 }
+              }
+           });
+
+           // Cerrar menú al hacer clic derecho sobre otra celda de la grilla
+           document.addEventListener('contextmenu', e => {
+              const ctxMenu = document.getElementById('contextMenu');
+              if (ctxMenu && ctxMenu.classList.contains('open')) {
+                  const isOnGrid = e.target.closest('#tableBody');
+                  if (isOnGrid) {
+                      ctxMenu.classList.remove('open');
+                      const backdrop = document.getElementById('contextMenuBackdrop');
+                      if (backdrop) backdrop.style.display = 'none';
+                  }
+              }
+           }, true); // capture=true: se ejecuta ANTES que el listener del tbody
+           
+           // Apertura por clase — cero cálculos, garantizado
+           ctxMenu.classList.add('open');
+       } catch (err) {
+           console.error("Error al renderizar el contextMenu:", err);
        }
-
-       // Mostrar/ocultar bloque de inventario según si hay evento ese día
-       const eventoHoy = state.eventos[dateStr];
-       const ctxBlock = document.getElementById('ctxInventarioBlock');
-       if (eventoHoy) {
-         ctxBlock.style.display = 'block';
-         ctxBlock.style.borderColor = eventoHoy.color;
-         document.getElementById('ctxInventarioLabel').textContent = `${eventoHoy.tipo}: ${eventoHoy.descripcion}`;
-         document.getElementById('cellInventarioInput').checked = !!obj.esInventario;
-       } else {
-         ctxBlock.style.display = 'none';
-       }
-
-       const backdrop = document.getElementById('contextMenuBackdrop');
-       if (backdrop) backdrop.style.display = 'block';
-       
-       // Modal Desktop Centrado
-       ctxMenu.style.left = '50%';
-       ctxMenu.style.top = '50%';
-       ctxMenu.style.display = 'block';
-
-       // El modal ya está centrado vía CSS y display bloque.
-       // Tope de Altura Máxima (Fallback)
-       ctxMenu.style.maxHeight = '80vh';
-       ctxMenu.style.overflowY = 'auto';
     }
 
+
+    window.closeContextMenu = function() {
+       document.getElementById('contextMenu').classList.remove('open');
+       const backdrop = document.getElementById('contextMenuBackdrop');
+       if (backdrop) backdrop.style.display = 'none';
+    };
+
+    // Clic fuera del menú → cerrar
     document.addEventListener('click', e => {
        const ctxMenu = document.getElementById('contextMenu');
-       if (ctxMenu && ctxMenu.style.display === 'block') {
-          if (!ctxMenu.contains(e.target) && e.target !== currentContextCell) {
-             window.closeContextMenu();
+       if (ctxMenu && ctxMenu.classList.contains('open')) {
+          if (!ctxMenu.contains(e.target)) {
+              window.closeContextMenu();
           }
        }
     });
 
-    window.closeContextMenu = function() {
-       document.getElementById('contextMenu').style.display = 'none';
-       const backdrop = document.getElementById('contextMenuBackdrop');
-       if (backdrop) backdrop.style.display = 'none';
-    };
+    // Clic derecho en otra celda → cerrar primero (capture=true, antes del listener del tbody)
+    document.addEventListener('contextmenu', e => {
+       const ctxMenu = document.getElementById('contextMenu');
+       if (ctxMenu && ctxMenu.classList.contains('open')) {
+           if (e.target.closest('#tableBody')) {
+               ctxMenu.classList.remove('open');
+               const bk = document.getElementById('contextMenuBackdrop');
+               if (bk) bk.style.display = 'none';
+           }
+       }
+    }, true);
 
     window.deleteCellComment = async function() {
        if (!requireAuth()) return;
@@ -7499,6 +7611,16 @@
     // MÓDULO EVENTOS DIARIOS — Modal de gestión
     // ============================================================
 
+    // Asignar el listener de forma aislada
+    document.getElementById('eventosNavBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        console.log("CLICK: eventosNavBtn called!");
+        const dropdownMenu = document.getElementById('navDropdownMenu');
+        if (dropdownMenu) dropdownMenu.style.display = 'none';
+        window.openEventosModal();
+    });
+
     window.openEventosModal = async function() {
       document.getElementById('eventosModal').style.display = 'flex';
       const hoy = formatDate(new Date());
@@ -7899,7 +8021,8 @@
 
 
     // Dropdown Header Menu Logic
-    document.addEventListener('DOMContentLoaded', () => {
+    // (No necesita DOMContentLoaded porque este script corre después de que el HTML ya está en el DOM)
+    (function() {
        const toggleBtn = document.getElementById('navDropdownToggle');
        const dropdownMenu = document.getElementById('navDropdownMenu');
        if (toggleBtn && dropdownMenu) {
@@ -7910,12 +8033,17 @@
            });
 
            document.addEventListener('click', (e) => {
+               // No cerrar si hay un modal activo
+               const hasActiveModal = document.querySelector('.modal-overlay.active') ||
+                                      document.querySelector('.login-overlay[style*="flex"]');
+               if (hasActiveModal) return;
                if (!dropdownMenu.contains(e.target) && e.target !== toggleBtn) {
                    dropdownMenu.style.display = 'none';
                }
            });
        }
-    });
+    })();
+
   </script>
   <script>
     if ('serviceWorker' in navigator) {
