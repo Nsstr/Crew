@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -14,7 +14,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <style>
-    :root {
+    :root { 
       color-scheme: dark;
       --bg: #0f172a;
       --surface: #1e293b;
@@ -2284,7 +2284,7 @@
     // 1. FIREBASE INITIALIZATION
     // Reemplaza con tus credenciales de Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, enableIndexedDbPersistence, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
     import { initPermissionsModule, checkAccess, syncPermissionsUI, renderGestionInvitados, loadPermisosInvitado, crearInvitado, INVITADOS_AUTORIZADOS } from "./admin-permissions.js";
@@ -2405,6 +2405,8 @@
        }
        return 'Mala';
     }
+
+    let unsubscribePlanning = null;
 
     // 3. ESTADO DE LA APLICACIÓN (Caché local)
     const state = {
@@ -2789,23 +2791,47 @@
             where("fecha", ">=", formatDate(fetchStart)),
             where("fecha", "<=", formatDate(fetchEnd))
           );
-          const snap = await getDocs(q);
-          snap.forEach(doc => {
-            const data = doc.data();
-            state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
+          
+          if (unsubscribePlanning) {
+             unsubscribePlanning();
+          }
+
+          await new Promise((resolve) => {
+             let firstLoad = true;
+             unsubscribePlanning = onSnapshot(q, async (snap) => {
+                snap.docChanges().forEach((change) => {
+                   const data = change.doc.data();
+                   if (change.type === "added" || change.type === "modified") {
+                      state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
+                   }
+                   if (change.type === "removed") {
+                      delete state.planning[`${data.colaboradorId}_${data.fecha}`];
+                   }
+                });
+
+                if (firstLoad) {
+                   firstLoad = false;
+                   // Apagar el esqueleto de carga RECIÉN cuando todos los datos están en memoria
+                   state.skeletonStartStr = null;
+
+                   // Cargar eventos del rango visible
+                   const startStr = formatDate(realStartD);
+                   const endStr = formatDate(realEndD);
+                   await loadEventos(startStr, endStr);
+                   resolve();
+                }
+
+                renderUI(); 
+             }, (error) => {
+                console.error("Error en onSnapshot de planificación:", error);
+                if (firstLoad) {
+                   firstLoad = false;
+                   resolve();
+                }
+                state.skeletonStartStr = null;
+                renderUI();
+             });
           });
-
-
-
-          // Apagar el esqueleto de carga RECIÉN cuando todos los datos están en memoria
-          state.skeletonStartStr = null;
-
-          // Cargar eventos del rango visible
-          const startStr = formatDate(realStartD);
-          const endStr = formatDate(realEndD);
-          await loadEventos(startStr, endStr);
-
-          renderUI(); 
           
         } catch(e) {
           console.error("Error en la carga asrincrónica de datos:", e);
