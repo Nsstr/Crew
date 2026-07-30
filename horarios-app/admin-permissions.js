@@ -238,8 +238,26 @@ export function syncPermissionsUI(forcedRole, forcedLegajo) {
   // Helper: lee la clave en formato plano (Firebase merge) o anidado (legacy)
   const get = (key) => docData['permisos.' + key] === true || docData?.permisos?.[key] === true;
 
-  // ── Las PESTAÑAS siempre son visibles para el invitado. ─────────────────────
-  // Solo los BOTONES DE ACCIÓN dentro de cada sección se controlan aquí.
+  // ── PESTAÑAS (TABS) - Visibilidad y Redirección ─────────────────────────
+  const canSeeVacaciones = get('modificarVacaciones') || get('bajarVacaciones') || get('exportarExcelVacaciones') || get('gestionSaldos');
+  const vacationTabBtn = document.getElementById('vacationTabBtn');
+  if (vacationTabBtn) vacationTabBtn.style.setProperty('display', canSeeVacaciones ? 'inline-block' : 'none', 'important');
+
+  const canSeeSugeridos = get('sugeridos') || get('modificarSugeridos') || get('exportarSugeridosPdf');
+  const suggestedTabBtn = document.getElementById('suggestedTabBtn');
+  if (suggestedTabBtn) suggestedTabBtn.style.setProperty('display', canSeeSugeridos ? 'inline-block' : 'none', 'important');
+
+  const canSeeMetrics = get('verMetricas');
+  const metricsTabBtn = document.getElementById('metricsTabBtn');
+  if (metricsTabBtn) metricsTabBtn.style.setProperty('display', canSeeMetrics ? 'inline-block' : 'none', 'important');
+
+  // Redirigir si está en una pestaña sin permisos
+  const activeSectionId = document.querySelector('.app-section.active')?.id;
+  if (!canSeeVacaciones && activeSectionId === 'vacacionesSection') window.switchTab('semanal');
+  if (!canSeeSugeridos && activeSectionId === 'sugeridosSection') window.switchTab('semanal');
+  if (!canSeeMetrics && activeSectionId === 'metricsSection') window.switchTab('semanal');
+
+  // ── BOTONES DE ACCIÓN ─────────────────────────────────────────────────────
 
   // Grid Semanal — PDF
   const pdfBtn = document.getElementById('pdfBtn');
