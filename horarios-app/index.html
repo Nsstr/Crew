@@ -8109,6 +8109,13 @@
                dropdownMenu.style.display = isVisible ? 'none' : 'flex';
            });
 
+           // Cerrar el menú si se hace clic en alguna de sus opciones
+           dropdownMenu.addEventListener('click', (e) => {
+               if (e.target.closest('.nav-dropdown-item') || e.target.closest('button')) {
+                   dropdownMenu.style.display = 'none';
+               }
+           });
+
            document.addEventListener('click', (e) => {
                // No cerrar si hay un modal activo
                const hasActiveModal = document.querySelector('.modal-overlay.active') ||
