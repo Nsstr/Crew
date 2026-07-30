@@ -2024,12 +2024,9 @@
 
   <!-- MENÚ CONTEXTUAL -->
   <div id="contextMenuBackdrop" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 9998; backdrop-filter: blur(2px);"></div>
-  <div id="contextMenu" class="context-menu" style="display: none; width: 300px; padding: 12px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 9999; font-family: inherit;">
-      <!-- Cabecera con botón de cierre -->
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
-        <span style="font-size: 0.85rem; font-weight: 700; color: var(--text); letter-spacing: 0.3px;">Opciones de Celda</span>
-        <button onclick="window.closeContextMenu()" style="background: var(--danger); color: #fff; border: none; border-radius: 4px; width: 22px; height: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem; line-height: 1; flex-shrink: 0;" title="Cerrar">&times;</button>
-      </div>
+  <div id="contextMenu" class="context-menu" style="display: none; width: 300px; padding: 32px 12px 12px 12px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); z-index: 9999; font-family: inherit;">
+      <!-- Botón de cierre -->
+      <button onclick="window.closeContextMenu()" style="position: absolute; top: 8px; right: 10px; background: transparent; color: var(--text-muted); border: none; font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 2px; font-family: sans-serif;" title="Cerrar">&times;</button>
       <!-- Bloque 1: Fijar Horario -->
       <div style="background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 10px;">
          <div style="display: flex; align-items: center; gap: 8px;">
