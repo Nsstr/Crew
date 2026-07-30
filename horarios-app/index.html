@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1684,6 +1684,8 @@
           
           <button id="configBtn" class="nav-dropdown-item" title="Gestión de Dotación" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> Gestionar Colaboradores</button>
           
+          <button id="repositoresNavBtn" class="nav-dropdown-item" title="Gestión de Repositores" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg> Gestión de Repositores</button>
+          
           <button id="hardRefreshBtn" class="nav-dropdown-item" onclick="window.forceHardRefresh()" title="Nueva Version de la App"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg> Actualizar Version</button>
           
           <div class="nav-dropdown-divider"></div>
@@ -2148,6 +2150,93 @@
             </div>
          </div>
       </div>
+  </div>
+
+  <!-- MODAL GESTION REPOSITORES -->
+  <div class="modal-overlay" id="repositoresModal">
+    <div class="modal-content" style="max-width: 900px; width: 90%; flex-direction: row; gap: 20px; display: flex;">
+      <div class="modal-left" style="flex: 1; border-right: 1px solid var(--border); padding-right: 20px;">
+        <div class="modal-header">
+          <h2 style="display: flex; align-items: center; gap: 6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+            Gestión de Repositores
+          </h2>
+        </div>
+        <form id="repositorForm">
+          <input type="hidden" id="repoId" value="">
+          <div class="form-group">
+            <label>Nombre del Repositor</label>
+            <input type="text" id="repoNombre" required>
+          </div>
+          <div class="form-group">
+            <label>Celular</label>
+            <input type="text" id="repoCelular" required>
+          </div>
+          <div class="form-group">
+            <label>Empresa</label>
+            <input type="text" id="repoEmpresa" required>
+          </div>
+          <div class="form-group">
+            <label>Marcas que maneja</label>
+            <input type="text" id="repoMarcas" required>
+          </div>
+          <div class="form-group">
+            <label>Horario / Horas semanales</label>
+            <input type="text" id="repoHorario" required>
+          </div>
+          <div class="form-group">
+            <label style="margin-bottom: 8px; display: block;">Días de visita</label>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="L"> L</label>
+              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="M"> M</label>
+              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="X"> X</label>
+              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="J"> J</label>
+              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="V"> V</label>
+              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="S"> S</label>
+              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="D"> D</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Nombre del supervisor</label>
+            <input type="text" id="repoSupervisor" required>
+          </div>
+          <div class="form-group">
+            <label>Teléfono del supervisor</label>
+            <input type="text" id="repoTelSupervisor" required>
+          </div>
+          <div class="form-group">
+            <label>Correo electrónico</label>
+            <input type="email" id="repoEmail" required>
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 15px;">
+            <button type="submit" class="submit-btn" id="repoSubmitBtn" style="flex: 1;">Guardar Repositor</button>
+            <button type="button" class="cancel-btn" onclick="document.getElementById('repositorForm').reset(); document.getElementById('repoId').value='';" style="background: var(--surface-hover); color: var(--text); border: none; border-radius: 6px; padding: 0.75rem; cursor: pointer;">Limpiar</button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-right" style="flex: 2; overflow-y: auto; padding-left: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+           <h3 style="margin: 0;">Repositores Registrados</h3>
+           <button class="close-modal" id="closeRepositoresModal" title="Cerrar modal">&times;</button>
+        </div>
+        <div class="table-container">
+          <table class="data-table" id="repositoresTable">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Empresa</th>
+                <th>Celular</th>
+                <th>Días</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Se llenará dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- MODAL GESTION DOTACION -->
@@ -6297,12 +6386,16 @@
        const backupDriveBtn = document.getElementById('backupDriveBtn');
        if (backupDriveBtn) backupDriveBtn.style.display = 'none';
 
+       const repositoresNavBtn = document.getElementById('repositoresNavBtn');
+       if (repositoresNavBtn) repositoresNavBtn.style.display = 'none';
+
        if (currentRole === 'admin') {
           adminLoginBtn.style.display = 'none';
           logoutBtn.style.display = 'inline-flex';
           if (backupDriveBtn) backupDriveBtn.style.display = 'inline-flex';
           logoutBtn.innerHTML = 'Cerrar Sesión Admin';
           configBtn.style.display = 'inline-flex';
+          if (repositoresNavBtn) repositoresNavBtn.style.display = 'inline-flex';
           vacationTabBtn.style.display = 'inline-block';
           if (metricsTabBtn) metricsTabBtn.style.display = 'inline-block';
           const suggestedTabBtn = document.getElementById('suggestedTabBtn');
@@ -8320,6 +8413,155 @@
            });
        }
     })();
+
+    // ── GESTIÓN DE REPOSITORES ──
+    const repositoresNavBtn = document.getElementById('repositoresNavBtn');
+    const repositoresModal = document.getElementById('repositoresModal');
+    const closeRepositoresModal = document.getElementById('closeRepositoresModal');
+    const repositorForm = document.getElementById('repositorForm');
+    const repositoresTableBody = document.querySelector('#repositoresTable tbody');
+    let unsubscribeRepositores = null;
+
+    if (repositoresNavBtn && repositoresModal && closeRepositoresModal && repositorForm) {
+      repositoresNavBtn.addEventListener('click', () => {
+         const dm = document.getElementById('navDropdownMenu');
+         if(dm) dm.style.display = 'none';
+         repositoresModal.classList.add('active');
+         cargarRepositores();
+      });
+
+      closeRepositoresModal.addEventListener('click', () => {
+         repositoresModal.classList.remove('active');
+         if (unsubscribeRepositores) {
+             unsubscribeRepositores();
+             unsubscribeRepositores = null;
+         }
+      });
+
+      repositorForm.addEventListener('submit', async (e) => {
+         e.preventDefault();
+         
+         const btn = document.getElementById('repoSubmitBtn');
+         const originalText = btn.textContent;
+         btn.textContent = 'Guardando...';
+         btn.disabled = true;
+
+         try {
+            const id = document.getElementById('repoId').value;
+            
+            const diasCheckboxes = document.querySelectorAll('input[name="repoDias"]:checked');
+            const diasArr = Array.from(diasCheckboxes).map(cb => cb.value);
+
+            const data = {
+               nombre: document.getElementById('repoNombre').value.trim(),
+               celular: document.getElementById('repoCelular').value.trim(),
+               empresa: document.getElementById('repoEmpresa').value.trim(),
+               marcas: document.getElementById('repoMarcas').value.trim(),
+               horario: document.getElementById('repoHorario').value.trim(),
+               diasVisita: diasArr.join(', '),
+               supervisor: document.getElementById('repoSupervisor').value.trim(),
+               telSupervisor: document.getElementById('repoTelSupervisor').value.trim(),
+               email: document.getElementById('repoEmail').value.trim()
+            };
+
+            if (id) {
+               await updateDoc(doc(db, 'repositores', id), data);
+               if(window.showToast) window.showToast('Repositores', 'Repositor actualizado exitosamente.');
+            } else {
+               await setDoc(doc(collection(db, 'repositores')), data);
+               if(window.showToast) window.showToast('Repositores', 'Repositor creado exitosamente.');
+            }
+            repositorForm.reset();
+            document.getElementById('repoId').value = '';
+            
+         } catch(err) {
+            console.error('Error guardando repositor:', err);
+            if(window.showToast) window.showToast('Error', 'No se pudo guardar el repositor.', true);
+         } finally {
+            btn.textContent = originalText;
+            btn.disabled = false;
+         }
+      });
+      
+      if(repositoresTableBody) {
+          repositoresTableBody.addEventListener('click', async (e) => {
+             const btnEdit = e.target.closest('.edit-repo-btn');
+             const btnDel = e.target.closest('.delete-repo-btn');
+             
+             if (btnEdit) {
+                const tr = btnEdit.closest('tr');
+                document.getElementById('repoId').value = tr.dataset.id;
+                document.getElementById('repoNombre').value = tr.dataset.nombre;
+                document.getElementById('repoCelular').value = tr.dataset.celular;
+                document.getElementById('repoEmpresa').value = tr.dataset.empresa;
+                document.getElementById('repoMarcas').value = tr.dataset.marcas;
+                document.getElementById('repoHorario').value = tr.dataset.horario;
+                document.getElementById('repoSupervisor').value = tr.dataset.supervisor;
+                document.getElementById('repoTelSupervisor').value = tr.dataset.telsupervisor;
+                document.getElementById('repoEmail').value = tr.dataset.email;
+                
+                const diasCheckboxes = document.querySelectorAll('input[name="repoDias"]');
+                diasCheckboxes.forEach(cb => cb.checked = false);
+                if (tr.dataset.diasvisita) {
+                   const diasArr = tr.dataset.diasvisita.split(',').map(s => s.trim());
+                   diasCheckboxes.forEach(cb => {
+                      if (diasArr.includes(cb.value)) cb.checked = true;
+                   });
+                }
+             }
+             
+             if (btnDel) {
+                const id = btnDel.closest('tr').dataset.id;
+                if (confirm('¿Estás seguro de eliminar este repositor?')) {
+                   try {
+                      await deleteDoc(doc(db, 'repositores', id));
+                      if(window.showToast) window.showToast('Repositores', 'Repositor eliminado.');
+                   } catch(err) {
+                      console.error('Error eliminando repositor:', err);
+                      if(window.showToast) window.showToast('Error', 'No se pudo eliminar el repositor.', true);
+                   }
+                }
+             }
+          });
+      }
+    }
+
+    function cargarRepositores() {
+       if (unsubscribeRepositores) unsubscribeRepositores();
+       
+       const q = query(collection(db, 'repositores'));
+       unsubscribeRepositores = onSnapshot(q, (snap) => {
+          if(!repositoresTableBody) return;
+          repositoresTableBody.innerHTML = '';
+          snap.forEach(docSnap => {
+             const data = docSnap.data();
+             const tr = document.createElement('tr');
+             
+             tr.dataset.id = docSnap.id;
+             tr.dataset.nombre = data.nombre || '';
+             tr.dataset.celular = data.celular || '';
+             tr.dataset.empresa = data.empresa || '';
+             tr.dataset.marcas = data.marcas || '';
+             tr.dataset.horario = data.horario || '';
+             tr.dataset.diasvisita = data.diasVisita || '';
+             tr.dataset.supervisor = data.supervisor || '';
+             tr.dataset.telsupervisor = data.telSupervisor || '';
+             tr.dataset.email = data.email || '';
+             
+             tr.innerHTML = `
+                <td>${data.nombre || '-'}</td>
+                <td>${data.empresa || '-'}</td>
+                <td>${data.celular || '-'}</td>
+                <td>${data.diasVisita || '-'}</td>
+                <td style="white-space: nowrap;">
+                   <button type="button" class="action-btn edit-repo-btn" title="Editar" style="background: none; border: none; cursor: pointer; color: var(--primary);">✏️</button>
+                   <button type="button" class="action-btn delete-repo-btn" title="Eliminar" style="background: none; border: none; cursor: pointer; color: var(--danger);">🗑️</button>
+                </td>
+             `;
+             repositoresTableBody.appendChild(tr);
+          });
+       });
+    }
 
   </script>
   <script>
