@@ -9,18 +9,18 @@
 // ─── ETIQUETAS LEGIBLES DE PERMISOS ──────────────────────────────────────────
 export const PERMISOS_META = {
   // ── Claves originales (backward compat) ─────────────────────────────────
-  modificarHorario:       { label: 'Mod.<br>Horario',       icon: '✏️'  },
-  imprimirPdf:            { label: 'PDF<br>Horarios',       icon: '🖨️'  },
-  sugeridos:              { label: 'Ver<br>Sugeridos',      icon: '💡'  },
-  modificarVacaciones:    { label: 'Reg.<br>Vacaciones',    icon: '🏖️'  },
-  bajarVacaciones:        { label: 'Bajar<br>Vacac.',       icon: '⬇️'  },
-  verMetricas:            { label: 'Ver<br>Métricas',       icon: '📊'  },
+  modificarHorario:       { label: 'Mod.<br>Horario',       icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>'  },
+  imprimirPdf:            { label: 'PDF<br>Horarios',       icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>'  },
+  sugeridos:              { label: 'Ver<br>Sugeridos',      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M12 2v1"></path><path d="M12 7a5 5 0 0 0-5 5c0 2 1.5 3 2 4.5l1 1.5h4l1-1.5c.5-1.5 2-2.5 2-4.5a5 5 0 0 0-5-5z"></path></svg>'  },
+  modificarVacaciones:    { label: 'Reg.<br>Vacaciones',    icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M4.93 19.07l1.41-1.41"></path><path d="M17.66 6.34l1.41-1.41"></path><circle cx="12" cy="12" r="4"></circle></svg>'  },
+  bajarVacaciones:        { label: 'Bajar<br>Vacac.',       icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>'  },
+  verMetricas:            { label: 'Ver<br>Métricas',       icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>'  },
   // ── Claves nuevas ─────────────────────────────────────────────────────────
-  exportarPdfHorarios:    { label: 'Export<br>PDF',         icon: '📄'  },
-  modificarSugeridos:     { label: 'Edit<br>Sugeridos',     icon: '✍️'  },
-  exportarSugeridosPdf:   { label: 'PDF<br>Sugeridos',      icon: '📑'  },
-  gestionSaldos:          { label: 'Gestión<br>Saldos',     icon: '💰'  },
-  exportarExcelVacaciones:{ label: 'Excel<br>Vacac.',       icon: '📊'  },
+  exportarPdfHorarios:    { label: 'Export<br>PDF',         icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>'  },
+  modificarSugeridos:     { label: 'Edit<br>Sugeridos',     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>'  },
+  exportarSugeridosPdf:   { label: 'PDF<br>Sugeridos',      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>'  },
+  gestionSaldos:          { label: 'Gestión<br>Saldos',     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><line x1="12" y1="18" x2="12" y2="22"></line><line x1="12" y1="2" x2="12" y2="6"></line></svg>'  },
+  exportarExcelVacaciones:{ label: 'Excel<br>Vacac.',       icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>'  },
 };
 
 export const PERMISO_KEYS = Object.keys(PERMISOS_META);
@@ -308,7 +308,9 @@ export async function renderGestionInvitados(container) {
 
   container.innerHTML =
     '<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">' +
-      '<h3 style="margin:0;color:var(--primary);font-size:1rem;">👥 Gestión de Invitados</h3>' +
+      '<h3 style="margin:0;color:var(--primary);font-size:1rem;display:flex;align-items:center;gap:6px;">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>' +
+      'Gestión de Invitados</h3>' +
       '<span style="font-size:0.72rem;color:var(--text-muted);">Accesos con permisos configurables. Los cambios se guardan instantáneamente en Firebase.</span>' +
     '</div>' +
     '<div id="invitadosTableWrapper">' +
@@ -328,18 +330,18 @@ export async function renderGestionInvitados(container) {
     'gestionSaldos', 'exportarExcelVacaciones', 'gestionarEventos',
   ];
   const PERMISOS_META_LOCAL = {
-    modificarHorario:       { label: 'Mod.<br>Horario',    icon: '✏️' },
-    imprimirPdf:            { label: 'PDF<br>Horarios',    icon: '🖨️' },
-    sugeridos:              { label: 'Ver<br>Sugeridos',   icon: '💡' },
-    modificarVacaciones:    { label: 'Reg.<br>Vacac.',     icon: '🏖️' },
-    bajarVacaciones:        { label: 'Bajar<br>Vacac.',    icon: '⬇️' },
-    verMetricas:            { label: 'Ver<br>Métricas',    icon: '📊' },
-    exportarPdfHorarios:    { label: 'Export<br>PDF',      icon: '📄' },
-    modificarSugeridos:     { label: 'Edit<br>Suger.',     icon: '✍️' },
-    exportarSugeridosPdf:   { label: 'PDF<br>Suger.',      icon: '📑' },
-    gestionSaldos:          { label: 'Gestión<br>Saldos',  icon: '💰' },
-    exportarExcelVacaciones:{ label: 'Excel<br>Vacac.',    icon: '📊' },
-    gestionarEventos:       { label: 'Gestionar<br>Eventos', icon: '📅' },
+    modificarHorario:       { label: 'Mod.<br>Horario',    icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>' },
+    imprimirPdf:            { label: 'PDF<br>Horarios',    icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>' },
+    sugeridos:              { label: 'Ver<br>Sugeridos',   icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M12 2v1"></path><path d="M12 7a5 5 0 0 0-5 5c0 2 1.5 3 2 4.5l1 1.5h4l1-1.5c.5-1.5 2-2.5 2-4.5a5 5 0 0 0-5-5z"></path></svg>' },
+    modificarVacaciones:    { label: 'Reg.<br>Vacac.',     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M4.93 19.07l1.41-1.41"></path><path d="M17.66 6.34l1.41-1.41"></path><circle cx="12" cy="12" r="4"></circle></svg>' },
+    bajarVacaciones:        { label: 'Bajar<br>Vacac.',    icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>' },
+    verMetricas:            { label: 'Ver<br>Métricas',    icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>' },
+    exportarPdfHorarios:    { label: 'Export<br>PDF',      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>' },
+    modificarSugeridos:     { label: 'Edit<br>Suger.',     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>' },
+    exportarSugeridosPdf:   { label: 'PDF<br>Suger.',      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>' },
+    gestionSaldos:          { label: 'Gestión<br>Saldos',  icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><line x1="12" y1="18" x2="12" y2="22"></line><line x1="12" y1="2" x2="12" y2="6"></line></svg>' },
+    exportarExcelVacaciones:{ label: 'Excel<br>Vacac.',    icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>' },
+    gestionarEventos:       { label: 'Gestionar<br>Eventos', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' },
   };
 
   const headerCells = PERMISO_KEYS_LOCAL.map(key =>
