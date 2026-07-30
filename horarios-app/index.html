@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -2432,6 +2432,173 @@
     };
 
     // Helpers para metadatos de turnos
+    function getMonthlyRotationCompliance(collab, currentWeekDays) {
+        const weekDates = currentWeekDays.slice(0, 7);
+        const monthCounts = {};
+        weekDates.forEach(d => {
+            const m = d.getMonth();
+            monthCounts[m] = (monthCounts[m] || 0) + 1;
+        });
+        let targetMonth = -1;
+        let maxCount = 0;
+        for (let m in monthCounts) {
+            if (monthCounts[m] > maxCount) {
+                maxCount = monthCounts[m];
+                targetMonth = parseInt(m);
+            }
+        }
+        const targetYear = weekDates.find(d => d.getMonth() === targetMonth).getFullYear();
+        
+        let weeks = [];
+        let currentIter = getStartOfWeek(new Date(targetYear, targetMonth, 1));
+        currentIter = addDays(currentIter, -1);
+        
+        for (let w = 0; w < 6; w++) {
+            let weekDays = [];
+            let monthDayCount = 0;
+            for (let i = 0; i < 7; i++) {
+                weekDays.push(new Date(currentIter));
+                if (currentIter.getMonth() === targetMonth) monthDayCount++;
+                currentIter = addDays(currentIter, 1);
+            }
+            if (monthDayCount >= 4) {
+                weeks.push(weekDays);
+            }
+            if (currentIter.getMonth() > targetMonth || currentIter.getFullYear() > targetYear) {
+                if (monthDayCount < 4) break;
+            }
+        }
+        
+        let weeklyTypes = [];
+        let tooltipLines = [];
+        
+        weeks.forEach((week, index) => {
+            let mCount = 0;
+            let tCount = 0;
+            let iCount = 0;
+            
+            week.forEach(date => {
+                let dStr = formatDate(date);
+                let rawVal = getPlanningSlot(collab.id, dStr);
+                if (!rawVal) return;
+                let parsed = parseShift(rawVal);
+                if (parsed && parsed.type === 'work') {
+                    if (parsed.group === 'I') iCount++;
+                    else if (parsed.start < 14) mCount++;
+                    else tCount++;
+                }
+            });
+            
+            let weekType = 'M';
+            if (tCount > mCount && tCount > iCount) weekType = 'T';
+            else if (iCount > mCount && iCount > tCount) weekType = 'I';
+            else if (mCount === 0 && tCount === 0 && iCount === 0) weekType = 'N/A';
+            
+            weeklyTypes.push(weekType);
+            let d1 = week[0].toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'});
+            let d2 = week[6].toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'});
+            tooltipLines.push(`Semana ${index + 1} (${d1} a ${d2}): ${weekType !== 'N/A' ? 'Turno ' + weekType : 'Sin turnos'}`);
+        });
+        
+        let validTypes = weeklyTypes.filter(t => t !== 'N/A');
+        let uniqueTypes = new Set(validTypes);
+        let compliant = false;
+        let statusStr = '';
+        
+        let esquema = collab.esquema || '';
+        let esqUpper = esquema.toUpperCase().trim();
+        let isFixed = false;
+        let expectedFixedShift = null;
+        
+        if (esqUpper === 'M' || esqUpper === 'T' || esqUpper === 'I') {
+            isFixed = true;
+            expectedFixedShift = esqUpper;
+        } else if (esqUpper.includes('FIJO')) {
+            isFixed = true;
+            if (esqUpper.includes('M')) expectedFixedShift = 'M';
+            else if (esqUpper.includes('T')) expectedFixedShift = 'T';
+            else if (esqUpper.includes('I')) expectedFixedShift = 'I';
+        }
+        
+        if (isFixed) {
+            if (expectedFixedShift) {
+                compliant = validTypes.every(t => t === expectedFixedShift);
+                statusStr = compliant ? `Cumple (Fijo ${expectedFixedShift})` : `No Cumple (Debía ser ${expectedFixedShift})`;
+            } else {
+                compliant = uniqueTypes.size <= 1;
+                statusStr = compliant ? 'Cumple (Turno Fijo)' : 'No Cumple (Rotó en turno fijo)';
+            }
+        } else {
+            let requiredCounts = {};
+            let isProportional = false;
+            let baseTotal = 0;
+            const regex = /(\d+)([MTI])/g;
+            let match;
+            while ((match = regex.exec(esqUpper)) !== null) {
+                let cnt = parseInt(match[1], 10);
+                requiredCounts[match[2]] = cnt;
+                baseTotal += cnt;
+                isProportional = true;
+            }
+            
+            if (isProportional && baseTotal > 0 && validTypes.length > 1) {
+                let actualCounts = { M: 0, T: 0, I: 0 };
+                validTypes.forEach(t => { if (actualCounts[t] !== undefined) actualCounts[t]++; });
+                
+                let pattern = [];
+                for (let t in requiredCounts) {
+                    for (let i = 0; i < requiredCounts[t]; i++) pattern.push(t);
+                }
+                
+                let validCombinations = new Set();
+                for (let start = 0; start < pattern.length; start++) {
+                    let counts = { M: 0, T: 0, I: 0 };
+                    for (let i = 0; i < validTypes.length; i++) {
+                        counts[pattern[(start + i) % pattern.length]]++;
+                    }
+                    validCombinations.add(JSON.stringify(counts));
+                }
+                
+                let isCompliant = false;
+                for (let comboStr of validCombinations) {
+                    let combo = JSON.parse(comboStr);
+                    if (combo.M === actualCounts.M && combo.T === actualCounts.T && combo.I === actualCounts.I) {
+                        isCompliant = true;
+                        break;
+                    }
+                }
+                
+                let expectedStr = [];
+                const regex2 = /(\d+)([MTI])/g;
+                let match2;
+                while ((match2 = regex2.exec(esqUpper)) !== null) {
+                    expectedStr.push(`${match2[1]}${match2[2]}`);
+                }
+                let expectedFormat = expectedStr.join(' y ');
+                
+                let actualStr = [];
+                for (let t of ['M', 'T', 'I']) {
+                    if (actualCounts[t] > 0) actualStr.push(`${actualCounts[t]}${t}`);
+                }
+                let actualFormat = actualStr.length > 0 ? actualStr.join(' y ') : 'ninguno';
+                
+                if (isCompliant) {
+                    compliant = true;
+                    statusStr = `Cumple (Rotación esperada)`;
+                } else {
+                    compliant = false;
+                    statusStr = `No Cumple (Esquema: ${expectedFormat} | Real: ${actualFormat})`;
+                }
+            } else {
+                compliant = uniqueTypes.size > 1;
+                if (validTypes.length <= 1) compliant = true;
+                statusStr = compliant ? 'Cumple (Rotó)' : 'No Cumple (No rotó)';
+            }
+        }
+        
+        return { compliant, tooltip: 'Rotación Mensual:&#10;' + tooltipLines.join('&#10;') + '&#10;Estado: ' + statusStr };
+    }
+
     function getPlanningSlot(collabId, dateStr) {
        const obj = state.planning[`${collabId}_${dateStr}`];
        if (!obj) return '';
@@ -3528,12 +3695,9 @@
         let cellsHTML = '';
         
         // Collab info
-        // Calculamos abandono máximo de la semana para este colaborador (visual global) o por día.
-        // Lo haremos global para la fila.
-        const maxAbandon = Math.max(0, ...days.map(d => (abandonmentMap[collab.pasillo] ? (abandonmentMap[collab.pasillo][formatDate(d)] || 0) : 0)));
-        let indClass = '';
-        if (maxAbandon >= 4) indClass = 'red';
-        else if (maxAbandon >= 2) indClass = 'yellow';
+        // Calculamos rotación mensual para este colaborador.
+        const rotationInfo = getMonthlyRotationCompliance(collab, days);
+        let indClass = rotationInfo.compliant ? '' : 'red'; // default is green
 
         const isExported = state.exportedRows[collab.id];
         
@@ -3551,7 +3715,7 @@
                  <!-- Nombre y Flecha -->
                  <div style="display: flex; align-items: center; cursor: pointer; min-width: 0; flex: 1;" onclick="window.toggleCollabDetails('${collab.id}')">
                    <div style="font-weight: bold; font-size: 0.95rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;">
-                     <div class="indicator ${indClass}" title="Abandono Sector: ${maxAbandon} días" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; flex-shrink: 0;"></div>
+                     <div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; flex-shrink: 0;"></div>
                      ${cleanName}
                    </div>
                    <div id="collab-arrow-${collab.id}" style="font-size: 0.7rem; color: var(--text-muted); transition: transform 0.2s; padding-left: 8px;">▼</div>
@@ -3570,10 +3734,11 @@
 
               <!-- Fila Inferior: Meta (Desplegable) -->
               <div class="mobile-hours-tag" id="mobile-hours-${collab.id}"></div>
-              <div id="collab-meta-${collab.id}" class="collab-meta" style="display: none; font-size: 0.75rem; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
+              <div id="collab-meta-${collab.id}" class="collab-meta" style="display: none; font-size: 0.75rem; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; margin-bottom: 6px;">
                 <span>| Leg: ${collab.id} |</span>
                 <span>${collab.pasillo || 'Sin Área'} |</span>
                 <span>${collab.hours}h |</span>
+                <span>Esq: ${collab.esquema || 'N/A'} |</span>
               </div>
 
             </div>
