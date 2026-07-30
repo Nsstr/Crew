@@ -6177,6 +6177,9 @@
        e.preventDefault();
        if (!requireAuth()) return;
        
+       // Bloqueo estricto por permisos (Invitados)
+       if (!checkAccessWithToast('modificarHorario')) return;
+       
        let collabId = null;
        let dateStr = null;
        
