@@ -2733,6 +2733,10 @@
 
     let currentContextCell = null;
     function handleContextMenu(e) {
+       if (e.target.closest('[data-is-repositor="true"]')) {
+           e.preventDefault();
+           return;
+       }
        e.preventDefault();
        if (currentRole === 'visitor') return;
        currentContextCell = e.target;

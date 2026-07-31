@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -3720,9 +3720,9 @@
              cellsHTML += `
                <td class="${bgClass}" style="padding: 2px; width: 100px;">
                  <input type="text" class="cell-input" 
-                        data-collab="${repo.id}" data-date="${dStr}" data-is-repositor="true"
+                        data-collab="${repo.id}" data-date="${dStr}" data-is-repositor="true" readonly
                         value="${displayVal}" placeholder="${placeholderText}"
-                        style="height: 48px; font-size: 1.1rem; font-weight: 600; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; background: transparent; color: var(--text); ${inputDisabled ? 'cursor: not-allowed;' : ''}"
+                        style="height: 48px; font-size: 1.1rem; font-weight: 600; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; background: transparent; color: var(--text); cursor: default; pointer-events: none; ${inputDisabled ? 'cursor: not-allowed;' : ''}"
                         ${inputDisabled ? 'disabled data-disabled="true"' : ''}>
                </td>
              `;
@@ -4507,12 +4507,12 @@
                      placeholderText = repo.horario || 'Visita';
                  }
 
-                 const styleStr = 'font-weight: 500; text-align: center; width: 100%; border: none; background: transparent; color: var(--text);';
+                 const styleStr = 'font-weight: 500; text-align: center; width: 100%; border: none; background: transparent; color: var(--text); cursor: default; pointer-events: none;';
                  const disabledAttr = !userHasAccess ? 'disabled data-disabled="true"' : '';
                  
                  html += `
                    <td class="${bgClass.trim()}" style="position: relative;">
-                     <input type="text" class="cell-input" style="${styleStr}" data-collab="${repo.id}" data-date="${dStr}" data-is-repositor="true" value="${displayVal}" ${disabledAttr} placeholder="${placeholderText}">
+                     <input type="text" class="cell-input" style="${styleStr}" data-collab="${repo.id}" data-date="${dStr}" data-is-repositor="true" readonly value="${displayVal}" ${disabledAttr} placeholder="${placeholderText}">
                    </td>
                  `;
              });
@@ -6853,6 +6853,10 @@
 
     let currentContextCell = null;
     function handleContextMenu(e) {
+       if (e.target.closest('[data-is-repositor="true"]')) {
+           e.preventDefault();
+           return;
+       }
        e.preventDefault();
        if (!requireAuth()) return;
        
