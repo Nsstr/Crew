@@ -814,6 +814,76 @@
            margin-left: auto !important;
            padding-right: 15px !important;
        }
+       #repositoresModal .modal-content {
+           flex-direction: column-reverse !important;
+           padding: 1.25rem !important;
+           position: relative;
+       }
+       #repositoresModal .modal-left, #repositoresModal .modal-right {
+           border-right: none !important;
+           padding: 0 !important;
+           width: 100% !important;
+       }
+       #closeRepositoresModal {
+           position: absolute !important;
+           top: 16px !important;
+           right: 16px !important;
+           z-index: 10 !important;
+           font-size: 1.8rem !important;
+           background: var(--surface) !important;
+           border-radius: 50% !important;
+           width: 40px !important;
+           height: 40px !important;
+           display: flex !important;
+           align-items: center !important;
+           justify-content: center !important;
+       }
+       #repositoresTable thead {
+           display: none;
+       }
+       #repositoresTable tbody {
+           display: flex;
+           flex-direction: column;
+           gap: 12px;
+       }
+       #repositoresTable tr {
+           display: flex;
+           flex-direction: column;
+           background: var(--bg);
+           border-radius: 8px;
+           padding: 12px;
+           border: 1px solid var(--border);
+           position: relative;
+       }
+       #repositoresTable td {
+           border: none !important;
+           padding: 4px 0 !important;
+           font-size: 0.95rem;
+       }
+       #repositoresTable td:nth-child(1) {
+           font-size: 1.1rem;
+           font-weight: bold;
+           color: var(--text);
+       }
+       #repositoresTable td:nth-child(2) {
+           color: var(--text-muted);
+           margin-bottom: 8px;
+       }
+       #repositoresTable td:nth-child(3)::before { content: "📞 "; }
+       #repositoresTable td:nth-child(4)::before { content: "📅 "; }
+       
+       #repositoresTable td:nth-child(5) {
+           display: flex;
+           gap: 12px;
+           margin-top: 10px;
+           justify-content: flex-end;
+           border-top: 1px solid var(--border) !important;
+           padding-top: 10px !important;
+       }
+       #repositoresTable td:nth-child(5) button {
+           padding: 8px 16px !important;
+       }
+
        .top-action-btn {
            padding: 10px !important;
            width: 44px !important;
