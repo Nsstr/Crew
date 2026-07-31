@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1756,6 +1756,12 @@
       0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
       70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
       100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .selected-row {
+      background-color: rgba(15, 106, 253, 0.15) !important;
+      outline: 1px solid rgba(59, 130, 246, 0.4) !important;
+      outline-offset: -1px;
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -8987,6 +8993,31 @@
           });
        });
     }
+
+    // Lógica para selección de fila con clic izquierdo
+    document.addEventListener('click', (e) => {
+        // Ignorar clics que no sean el principal (izquierdo)
+        if (e.button !== 0) return;
+
+        const tr = e.target.closest('tr');
+        if (!tr) return;
+        
+        // No interferir si el clic es en un elemento interactivo o de acción
+        const interactive = e.target.closest('button, input, select, textarea, a, .action-btn, [data-action]');
+        if (interactive) return;
+
+        const wasSelected = tr.classList.contains('selected-row');
+
+        // Quitar selección a cualquier otra fila
+        document.querySelectorAll('tr.selected-row').forEach(row => {
+            row.classList.remove('selected-row');
+        });
+
+        // Alternar selección de la fila actual
+        if (!wasSelected) {
+            tr.classList.add('selected-row');
+        }
+    });
 
   </script>
   <script>
