@@ -3902,22 +3902,30 @@
         }
 
         
+        // Prevenir selección de texto en móviles que levanta el teclado
+        el.style.userSelect = 'none';
+        el.style.webkitUserSelect = 'none';
+
         let touchTimer;
         el.addEventListener('touchstart', e => {
            if (!requireAuth()) return;
            touchTimer = setTimeout(() => {
+              // Desenfoque del elemento activo para cerrar cualquier teclado
+              if (document.activeElement) {
+                 document.activeElement.blur();
+              }
               const touch = e.touches[0];
               const mockEvent = {
-                 preventDefault: () => {},
+                 preventDefault: () => {}, // preventDefault nativo no hace efecto asíncronamente
                  target: e.target,
                  pageX: touch.pageX,
                  pageY: touch.pageY
               };
               handleContextMenu(mockEvent);
            }, 500);
-        }, {passive: true});
+        });
         
-        el.addEventListener('touchmove', () => clearTimeout(touchTimer), {passive: true});
+        el.addEventListener('touchmove', () => clearTimeout(touchTimer));
         el.addEventListener('touchend', () => clearTimeout(touchTimer));
         el.addEventListener('touchcancel', () => clearTimeout(touchTimer));
 
