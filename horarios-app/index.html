@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1158,7 +1158,7 @@
 
        /* Vacaciones Mobile Layout Strict Flow */
        #seccionVacaciones {
-         padding: 16px !important;
+         padding: 80px 16px 16px 16px !important;
          overflow-y: auto !important;
        }
        .vacation-grid {
@@ -2064,7 +2064,7 @@
               <!-- JS -->
             </div>
             <!-- Contenedor dinámico de detalles de vacaciones -->
-            <div id="vacationDetailContainer" style="display: none; padding: 16px; background: rgba(30,41,59,0.9); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; margin-top: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);"></div>
+            <div id="vacationDetailContainer" style="display: none; padding: 16px; background: rgba(30,41,59,0.9); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; margin-top: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); position: relative;"></div>
           </div>
        </div>
        
@@ -6642,7 +6642,8 @@
        
        if (!idsStr || idsStr.length === 0) {
            detailContainer.innerHTML = `
-             <div style="text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+             <button onclick="document.getElementById('vacationDetailContainer').style.display='none'" style="position: absolute; top: 15px; right: 15px; z-index: 10000; background: transparent; border: none; color: #fff; cursor: pointer; padding: 10px; line-height: 1; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">&times;</button>
+             <div style="text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-top: 10px;">
                 Sin novedades para el ${dStr.split('-').reverse().join('/')}
              </div>
            `;
@@ -6653,7 +6654,12 @@
        const ids = idsStr.split(',');
        const targetD = new Date(dStr + "T00:00:00");
        
-       let detailsHTML = `<h4 style="margin: 0 0 12px 0; color: #fff; font-size: 1rem;">Vacaciones del ${dStr.split('-').reverse().join('/')}</h4>`;
+       let detailsHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+             <h4 style="margin: 0; color: #fff; font-size: 1rem;">Vacaciones del ${dStr.split('-').reverse().join('/')}</h4>
+             <button onclick="document.getElementById('vacationDetailContainer').style.display='none'" style="position: absolute; top: 15px; right: 15px; z-index: 10000; background: transparent; border: none; color: #fff; cursor: pointer; padding: 10px; line-height: 1; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">&times;</button>
+          </div>
+       `;
        detailsHTML += `<div style="display: flex; flex-direction: column; gap: 8px;">`;
        
        ids.forEach(id => {
