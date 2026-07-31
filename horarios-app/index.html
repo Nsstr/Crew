@@ -3866,6 +3866,7 @@
 
     function attachScheduleEventListeners() {
       const userHasAccess = checkAccess('modificarHorario') || checkAccess('modificarVacaciones');
+      const isMobileDevice = window.innerWidth <= 768 || 'ontouchstart' in window;
       const inputs = Array.from(document.querySelectorAll('.cell-input'));
       
       inputs.forEach((el, index) => {
@@ -3873,13 +3874,20 @@
         if (el.dataset.disabled === 'true') {
             el.setAttribute('disabled', 'true');
             el.removeAttribute('readonly');
+            el.removeAttribute('tabindex');
         } else {
-            if (userHasAccess) {
+            if (userHasAccess && !isMobileDevice) {
                 el.removeAttribute('disabled');
                 el.removeAttribute('readonly');
+                el.removeAttribute('tabindex');
             } else {
                 el.removeAttribute('disabled');
                 el.setAttribute('readonly', 'true');
+                if (isMobileDevice) {
+                    el.setAttribute('tabindex', '-1');
+                } else {
+                    el.removeAttribute('tabindex');
+                }
             }
         }
 
@@ -3933,6 +3941,10 @@
            if (currentRole === 'visitor') {
               requireEditor(e);
            } else {
+              if (window.innerWidth <= 768 || 'ontouchstart' in window) {
+                  e.target.blur();
+                  return;
+              }
               e.target.select();
            }
         });
