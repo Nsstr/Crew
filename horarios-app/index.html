@@ -2709,8 +2709,8 @@
       // key: legajo, value: { activo: boolean, permisos: { modificarHorario, imprimirPdf, modificarVacaciones, verMetricas, sugeridos, bajarVacaciones } }
       permisosInvitado: {},
       eventos: {}, // key: 'YYYY-MM-DD', value: { tipo, descripcion, color } de Firebase eventos_diarios
-      tawDate: null,
-      armadoDate: null,
+      tawDates: (() => { try { return JSON.parse(localStorage.getItem('tawDates')) || []; } catch(e) { return []; } })(),
+      armadoDates: (() => { try { return JSON.parse(localStorage.getItem('armadoDates')) || []; } catch(e) { return []; } })(),
     };
 
     // Helpers para metadatos de turnos
@@ -4088,8 +4088,8 @@
         const holidayBadge = isHoliday ? `<span class="holiday-badge">Feriado</span>` : '';
         const eventBadge = evento ? `<span class="event-badge" style="background-color:${evento.color};"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ${evento.descripcion}</span>` : '';
         
-        const tawBadge = state.tawDate === dStr ? `<span class="taw-badge">TAW</span>` : '';
-        const armadoBadge = state.armadoDate === dStr ? `<span class="armado-badge">ARMADO</span>` : '';
+        const tawBadge = state.tawDates.includes(dStr) ? `<span class="taw-badge">TAW</span>` : '';
+        const armadoBadge = state.armadoDates.includes(dStr) ? `<span class="armado-badge">ARMADO</span>` : '';
 
         trHead.innerHTML += `<th class="${thClass}" data-header-date="${dStr}" style="text-align: center; ${thBg}">${dayName} ${holidayBadge}${eventBadge}${tawBadge}${armadoBadge}</th>`;
       });
@@ -9105,8 +9105,8 @@
       e.preventDefault();
       activeHeaderDate = th.getAttribute('data-header-date');
       
-      chkTAW.checked = (state.tawDate === activeHeaderDate);
-      chkARMADO.checked = (state.armadoDate === activeHeaderDate);
+      chkTAW.checked = state.tawDates.includes(activeHeaderDate);
+      chkARMADO.checked = state.armadoDates.includes(activeHeaderDate);
       
       headerContextMenu.style.display = 'block';
       headerContextMenu.style.left = e.pageX + 'px';
@@ -9121,20 +9121,26 @@
 
     chkTAW.addEventListener('change', (e) => {
       if (e.target.checked) {
-        state.tawDate = activeHeaderDate;
+        if (!state.tawDates.includes(activeHeaderDate)) {
+          state.tawDates.push(activeHeaderDate);
+        }
       } else {
-        if (state.tawDate === activeHeaderDate) state.tawDate = null;
+        state.tawDates = state.tawDates.filter(d => d !== activeHeaderDate);
       }
+      localStorage.setItem('tawDates', JSON.stringify(state.tawDates));
       renderDesktopView();
       headerContextMenu.style.display = 'none';
     });
 
     chkARMADO.addEventListener('change', (e) => {
       if (e.target.checked) {
-        state.armadoDate = activeHeaderDate;
+        if (!state.armadoDates.includes(activeHeaderDate)) {
+          state.armadoDates.push(activeHeaderDate);
+        }
       } else {
-        if (state.armadoDate === activeHeaderDate) state.armadoDate = null;
+        state.armadoDates = state.armadoDates.filter(d => d !== activeHeaderDate);
       }
+      localStorage.setItem('armadoDates', JSON.stringify(state.armadoDates));
       renderDesktopView();
       headerContextMenu.style.display = 'none';
     });
