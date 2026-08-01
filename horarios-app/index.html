@@ -965,7 +965,7 @@
          width: 100%;
          background: var(--surface);
          z-index: 100;
-         padding: 12px;
+         padding: 8px 12px;
          display: flex;
          flex-direction: row !important;
          justify-content: space-around;
@@ -978,21 +978,24 @@
          width: 100%;
          justify-content: space-between;
          align-items: center;
+         gap: 0.5rem;
        }
        .date-nav button {
-         padding: 0.75rem 1.5rem;
+         padding: 0.5rem 1.25rem;
          font-size: 1.25rem;
-         background: var(--primary) !important;
-         color: white !important;
-         border: none;
-         border-radius: 0.5rem;
+         background: var(--surface) !important;
+         color: #e0f2fe !important;
+         border: 1px solid var(--border);
+         border-radius: 8px;
          -webkit-tap-highlight-color: transparent;
+         transition: background 0.2s, border-color 0.2s;
        }
        .date-nav button:hover,
        .date-nav button:focus,
        .date-nav button:active {
          color: white !important;
-         background: var(--primary-hover) !important;
+         background: var(--surface-hover) !important;
+         border-color: var(--primary) !important;
          outline: none !important;
        }
        .date-nav #weekLabel {
@@ -1725,7 +1728,7 @@
           width: 100%;
           background: var(--surface);
           z-index: 1000;
-          padding: 12px;
+          padding: 8px 12px;
           border-top: 1px solid var(--border);
           box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
           order: unset;
@@ -1734,15 +1737,22 @@
        .date-nav {
           width: 100%;
           justify-content: space-between !important;
+          gap: 0.5rem;
        }
        .date-nav button {
-          padding: 0.75rem 1rem !important;
+          padding: 0.5rem 1rem !important;
           font-size: 1.25rem !important;
-          background: var(--primary) !important;
-          color: white !important;
-          border: none !important;
-          border-radius: 0.5rem !important;
+          background: var(--surface) !important;
+          color: #e0f2fe !important;
+          border: 1px solid var(--border) !important;
+          border-radius: 8px !important;
           -webkit-tap-highlight-color: transparent;
+          transition: background 0.2s, border-color 0.2s;
+       }
+       .date-nav button:active, .date-nav button:hover {
+          background: var(--surface-hover) !important;
+          border-color: var(--primary) !important;
+          color: white !important;
        }
        .date-nav #weekLabel {
           font-size: 1.1rem !important;
