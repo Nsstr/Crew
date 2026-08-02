@@ -7319,12 +7319,12 @@
        window.closeContextMenu();
        inputEl.focus();
        
-       // Trigger change para guardar en Firebase
-       const event = new Event('change', { bubbles: true });
-       inputEl.dispatchEvent(event);
-       
-       // Asegurar que el cursor quede al final del texto "NV/"
-       if (newSlot === "NV/") {
+       // Si tiene un horario completo, forzamos el guardado
+       if (newSlot !== "NV/") {
+          const event = new Event('change', { bubbles: true });
+          inputEl.dispatchEvent(event);
+       } else {
+          // Si es solo NV/, aseguramos que el cursor quede al final para que complete
           setTimeout(() => {
              inputEl.selectionStart = inputEl.selectionEnd = inputEl.value.length;
           }, 0);
