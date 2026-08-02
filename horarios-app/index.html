@@ -8821,7 +8821,6 @@
                             name: file.name,
                             url: downloadURL,
                             path: path
-                        });
                         
                         await updateDoc(doc(db, "colaboradores", currentYearModalCollabId), { saldosVacaciones: collab.saldosVacaciones });
                         
@@ -8844,20 +8843,27 @@
     }
 
     window.forceHardRefresh = function() {
-      // Confirmación nativa removida a petición del usuario para una recarga inmediata.
-      
-      // Preservar estado de sesión y navegación
-      const sessionKeys = ['adminLogged', 'userLoggedIn', 'invitadoLegajo', 'invitadoNombre', 'editorLegajo', 'editorNombre', 'lastDateNav'];
+      // Preservar estado de sesión y navegación, y tags visuales
+      const sessionKeys = ['adminLogged', 'userLoggedIn', 'invitadoLegajo', 'invitadoNombre', 'editorLegajo', 'editorNombre', 'lastDateNav', 'tawDates', 'armadoDates', 'appVersion'];
       const preservedData = {};
+      
       sessionKeys.forEach(key => {
          const val = localStorage.getItem(key);
          if (val !== null) preservedData[key] = val;
       });
 
+      // Preservar claves de Firebase (Auth IndexedDB fallback o localStorage)
+      for (let i = 0; i < localStorage.length; i++) {
+         const key = localStorage.key(i);
+         if (key && key.startsWith('firebase:')) {
+            preservedData[key] = localStorage.getItem(key);
+         }
+      }
+
       localStorage.clear();
       sessionStorage.clear();
       
-      // Restaurar sesión
+      // Restaurar sesión y Firebase
       Object.entries(preservedData).forEach(([key, val]) => {
          localStorage.setItem(key, val);
       });
