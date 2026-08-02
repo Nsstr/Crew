@@ -3096,7 +3096,7 @@
           });
           
           // Suscripción a Tags TAW y ARMADO
-          onSnapshot(doc(db, "config", "tags"), (docSnap) => {
+          onSnapshot(doc(db, "notas_globales", "tags"), (docSnap) => {
              if (docSnap.exists()) {
                 const data = docSnap.data();
                 state.tawDates = data.tawDates || [];
@@ -9299,7 +9299,7 @@
       } else {
         state.tawDates = [];
       }
-      if (!isMockMode) setDoc(doc(db, "config", "tags"), { tawDates: state.tawDates }, { merge: true });
+      if (!isMockMode) setDoc(doc(db, "notas_globales", "tags"), { tawDates: state.tawDates }, { merge: true });
       renderDesktopView();
       headerContextMenu.style.display = 'none';
     });
@@ -9310,7 +9310,7 @@
       } else {
         state.armadoDates = [];
       }
-      if (!isMockMode) setDoc(doc(db, "config", "tags"), { armadoDates: state.armadoDates }, { merge: true });
+      if (!isMockMode) setDoc(doc(db, "notas_globales", "tags"), { armadoDates: state.armadoDates }, { merge: true });
       renderDesktopView();
       headerContextMenu.style.display = 'none';
     });
