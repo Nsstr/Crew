@@ -4061,6 +4061,22 @@
        } else {
            renderDesktopView();
        }
+       
+       if (!window.hasInitialScrolled) {
+           setTimeout(() => {
+               const todayCol = document.querySelector('th.dia-actual, td.dia-actual');
+               const container = document.querySelector('.grid-container');
+               if (todayCol && container) {
+                   const containerWidth = container.clientWidth;
+                   const colLeft = todayCol.offsetLeft;
+                   const colWidth = todayCol.offsetWidth;
+                   // Calculate scroll position to center the column, keeping the fixed left column into account if necessary.
+                   // A simpler approach is to use scrollIntoView
+                   todayCol.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+               }
+           }, 500);
+           window.hasInitialScrolled = true;
+       }
     }
 
     function attachScheduleEventListeners() {
