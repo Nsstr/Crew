@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -336,6 +336,15 @@
     
     .input-absence { border-left: 3px solid var(--text-muted); color: var(--text-muted); }
     .input-error { border: 1px solid var(--danger); background-color: rgba(239, 68, 68, 0.1); color: var(--danger); font-weight: bold; }
+    .cell-input.input-nv { 
+      border: 1px solid var(--danger); 
+      background-color: rgba(239, 68, 68, 0.1); 
+      color: var(--danger); 
+      font-weight: bold; 
+      font-family: 'ui-monospace', 'SFMono-Regular', 'Consolas', 'JetBrains Mono', 'Roboto Mono', monospace;
+      font-size: 1rem !important;
+      letter-spacing: -0.04em;
+    }
     
     .vacation-error {
       background-color: rgba(239, 68, 68, 0.2) !important;
@@ -2691,7 +2700,7 @@
           isNV = true;
           val = nvMatch[1];
           if (val === '') {
-             return { type: 'absence', label: 'NV', class: 'input-absence', hours: 0 };
+             return { type: 'absence', label: 'NV', class: 'input-nv', hours: 0 };
           }
       }
       
@@ -2730,7 +2739,7 @@
            else if (startH < 4) group = 'E';
 
            if (isNV) {
-               return { type: 'work', label: `NV/${formattedLabel}`, start, end, hours: 0, realHours: hours, class: 'input-absence', group, isNV: true };
+               return { type: 'work', label: `NV/${formattedLabel}`, start, end, hours: 0, realHours: hours, class: 'input-nv', group, isNV: true };
            }
 
            return { type: 'work', label: formattedLabel, start, end, hours, class: 'input-work', group };
@@ -5525,9 +5534,9 @@
                       feriadosLibres++;
                    } else {
                       const parsed = parseShift(val);
-                      if (parsed && parsed.type === 'work') {
+                      if (parsed && parsed.type === 'work' && !parsed.isNV) {
                          feriadosTrabajados++;
-                      } else if (isDayOff(val) || isAbsence(val) || (parsed && ['franco', 'libre', 'absence', 'vacation'].includes(parsed.type))) {
+                      } else if (isDayOff(val) || isAbsence(val) || (parsed && (['franco', 'libre', 'absence', 'vacation'].includes(parsed.type) || parsed.isNV))) {
                          feriadosLibres++;
                       }
                    }
@@ -5776,7 +5785,7 @@
                  }
 
                  const parsed = parseShift(val);
-                 if (!isFeriadoNoTrabajado && !isOnVacation && parsed && parsed.type === 'work') monthData.feriadosTrab++;
+                 if (!isFeriadoNoTrabajado && !isOnVacation && parsed && parsed.type === 'work' && !parsed.isNV) monthData.feriadosTrab++;
              }
           }
        });
