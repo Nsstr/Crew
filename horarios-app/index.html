@@ -7349,7 +7349,7 @@
        renderUI();
     };
 
-    window.setNoVieneQuickState = function() {
+    window.setNoVieneQuickState = async function() {
        if (!requireAuth()) return;
        if (!currentContextCell) return;
        
@@ -7369,19 +7369,39 @@
           }
        }
        
-       inputEl.value = newSlot;
-       window.closeContextMenu();
-       inputEl.focus();
+       const collabId = currentContextCell.getAttribute('data-collab');
+       const dateStr = currentContextCell.getAttribute('data-date');
        
-       // Si tiene un horario completo, forzamos el guardado
-       if (newSlot !== "NV/") {
-          const event = new Event('blur', { bubbles: true });
-          inputEl.dispatchEvent(event);
-       } else {
-          // Si es solo NV/, aseguramos que el cursor quede al final para que complete
-          setTimeout(() => {
-             inputEl.selectionStart = inputEl.selectionEnd = inputEl.value.length;
-          }, 0);
+       const obj = getPlanningObj(collabId, dateStr) || {};
+       if (!obj.horarioOriginal) {
+           obj.horarioOriginal = obj.slot || getPlanningSlot(collabId, dateStr) || currentSlot;
+       }
+       
+       obj.slot = newSlot;
+       state.planning[`${collabId}_${dateStr}`] = obj;
+       
+       if (!isMockMode) {
+          try {
+             const docId = `${collabId}_${dateStr}`;
+             setDoc(doc(db, "planificacion", docId), {
+                colaboradorId: collabId,
+                fecha: dateStr,
+                slot: obj.slot,
+                horarioOriginal: obj.horarioOriginal
+             }, { merge: true });
+          } catch(err) {
+             console.error("Error guardando NV quick state:", err);
+          }
+       }
+       window.closeContextMenu();
+       renderUI();
+       
+       // Si es solo NV/, enfocamos por si está en desktop y quiere seguir tipeando
+       if (newSlot === "NV/") {
+           inputEl.focus();
+           setTimeout(() => {
+              inputEl.selectionStart = inputEl.selectionEnd = inputEl.value.length;
+           }, 0);
        }
     };
 
