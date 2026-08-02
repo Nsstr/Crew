@@ -3156,6 +3156,11 @@
                    // Apagar el esqueleto de carga RECIÉN cuando todos los datos están en memoria
                    state.skeletonStartStr = null;
 
+                   // Re-hidratar estados visuales desde localStorage ahora que Auth ya resolvió
+                   // Esto garantiza que TAW y ARMADO se pinten correctamente incluso sin sesión
+                   try { state.tawDates    = JSON.parse(localStorage.getItem('tawDates'))    || []; } catch(e) { state.tawDates    = []; }
+                   try { state.armadoDates = JSON.parse(localStorage.getItem('armadoDates')) || []; } catch(e) { state.armadoDates = []; }
+
                    // Cargar eventos del rango visible
                    const startStr = formatDate(realStartD);
                    const endStr = formatDate(realEndD);
