@@ -2610,7 +2610,7 @@
       auth = getAuth(app);
       
       // Persistencia local explícita solicitada
-      setPersistence(auth, browserLocalPersistence).catch(console.error);
+      await setPersistence(auth, browserLocalPersistence);
 
       // Redirección inteligente y validación
       onAuthStateChanged(auth, async (user) => {
@@ -2642,7 +2642,11 @@
                   if (typeof checkLogin === 'function') {
                      checkLogin();
                   }
-                  if (typeof window.initApp === 'function') {
+
+                  // Si la app ya inicializó (porque entró el estado nulo primero), forzamos repintado
+                  if (window.appInitialized && typeof renderUI === 'function') {
+                     renderUI();
+                  } else if (typeof window.initApp === 'function') {
                      window.initApp();
                   }
                } else {
