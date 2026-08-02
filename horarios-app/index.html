@@ -2362,8 +2362,8 @@
 
   <!-- MODAL GESTION REPOSITORES -->
   <div class="modal-overlay" id="repositoresModal">
-    <div class="modal-content" style="max-width: 900px; width: 90%; flex-direction: row; gap: 20px; display: flex;">
-      <div class="modal-left" style="flex: 1; border-right: 1px solid var(--border); padding-right: 20px;">
+    <div class="modal-content" style="max-width: 1200px; width: 90%; flex-direction: row; gap: 20px; display: flex;">
+      <div class="modal-left" style="flex: 35; border-right: 1px solid var(--border); padding-right: 20px;">
         <div class="modal-header">
           <h2 style="display: flex; align-items: center; gap: 6px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
@@ -2422,12 +2422,12 @@
           </div>
         </form>
       </div>
-      <div class="modal-right" style="flex: 2; overflow-y: auto; padding-left: 20px;">
+      <div class="modal-right" style="flex: 65; overflow-y: auto; padding-left: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
            <h3 style="margin: 0;">Repositores Registrados</h3>
            <button class="close-modal" id="closeRepositoresModal" title="Cerrar modal">&times;</button>
         </div>
-        <div class="table-container">
+        <div class="table-container" style="max-height: 60vh; overflow-y: auto;">
           <table class="data-table" id="repositoresTable">
             <thead>
               <tr>
@@ -9155,8 +9155,8 @@
              tr.innerHTML = `
                 <td>${data.nombre || '-'}</td>
                 <td>${data.empresa || '-'}</td>
-                <td style="display: flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>${data.celular || '-'}</td>
-                <td style="display: flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>${data.diasVisita || '-'}</td>
+                <td style="white-space: nowrap;"><div style="display: flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>${data.celular || '-'}</div></td>
+                <td style="white-space: nowrap;"><div style="display: flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>${data.diasVisita || '-'}</div></td>
                 <td style="white-space: nowrap;" class="repo-actions-td">
                    <button type="button" class="action-btn edit-repo-btn" title="Editar" style="background: transparent; border: none; box-shadow: none; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; padding: 8px;">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
