@@ -2580,7 +2580,7 @@
     // 1. FIREBASE INITIALIZATION
     // Reemplaza con tus credenciales de Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, enableIndexedDbPersistence, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, enableMultiTabIndexedDbPersistence, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
     import { initPermissionsModule, checkAccess, syncPermissionsUI, renderGestionInvitados, loadPermisosInvitado, crearInvitado } from "./admin-permissions.js";
@@ -2607,8 +2607,8 @@
       auth = getAuth(app);
       storage = getStorage(app);
       
-      // Persistencia Local (Firestore IndexedDB) para reducir lecturas
-      enableIndexedDbPersistence(db).catch((err) => {
+      // Persistencia Local Multitap (Firestore IndexedDB) para reducir lecturas
+      enableMultiTabIndexedDbPersistence(db).catch((err) => {
           if (err.code == 'failed-precondition') {
               console.warn("Múltiples pestañas abiertas, la persistencia solo se puede habilitar en una.");
           } else if (err.code == 'unimplemented') {
@@ -3185,6 +3185,7 @@
           await new Promise((resolve) => {
              let firstLoad = true;
              unsubscribePlanning = onSnapshot(q, async (snap) => {
+                console.log("Snapshot detectado", snap.docs.map(d => d.data()));
                 snap.docChanges().forEach((change) => {
                    const data = change.doc.data();
                    if (change.type === "added" || change.type === "modified") {
