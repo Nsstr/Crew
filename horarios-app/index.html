@@ -2795,8 +2795,8 @@
       // key: legajo, value: { activo: boolean, permisos: { modificarHorario, imprimirPdf, modificarVacaciones, verMetricas, sugeridos, bajarVacaciones } }
       permisosInvitado: {},
       eventos: {}, // key: 'YYYY-MM-DD', value: { tipo, descripcion, color } de Firebase eventos_diarios
-      tawDates: [],
-      armadoDates: [],
+      tawDates: (() => { try { return JSON.parse(localStorage.getItem('tawDates')) || []; } catch(e) { return []; } })(),
+      armadoDates: (() => { try { return JSON.parse(localStorage.getItem('armadoDates')) || []; } catch(e) { return []; } })(),
     };
 
     // Helpers para metadatos de turnos
@@ -3095,19 +3095,6 @@
              if(document.getElementById('tableBody')) renderUI();
           });
           
-          // Suscripción a Tags TAW y ARMADO
-          onSnapshot(doc(db, "notas_globales", "tags"), (docSnap) => {
-             if (docSnap.exists()) {
-                const data = docSnap.data();
-                state.tawDates = data.tawDates || [];
-                state.armadoDates = data.armadoDates || [];
-             } else {
-                state.tawDates = [];
-                state.armadoDates = [];
-             }
-             if(document.getElementById('tableBody')) renderUI();
-          });
-          
           // Suscripción a Vacaciones con await inicial
           const vacPromise = new Promise(resolve => {
               onSnapshot(collection(db, "vacaciones"), (snap) => {
@@ -3214,7 +3201,10 @@
                    // Apagar el esqueleto de carga RECIÉN cuando todos los datos están en memoria
                    state.skeletonStartStr = null;
 
-                   // TAW y ARMADO ya se actualizan vía la suscripción config/tags en loadInitialData
+                   // Re-hidratar estados visuales desde localStorage ahora que Auth ya resolvió
+                   // Esto garantiza que TAW y ARMADO se pinten correctamente incluso sin sesión
+                   try { state.tawDates    = JSON.parse(localStorage.getItem('tawDates'))    || []; } catch(e) { state.tawDates    = []; }
+                   try { state.armadoDates = JSON.parse(localStorage.getItem('armadoDates')) || []; } catch(e) { state.armadoDates = []; }
 
                    // Cargar eventos del rango visible
                    const startStr = formatDate(realStartD);
@@ -8971,7 +8961,7 @@
 
     window.forceHardRefresh = function() {
       // Preservar estado de sesión y navegación, y tags visuales
-      const sessionKeys = ['adminLogged', 'userLoggedIn', 'invitadoLegajo', 'invitadoNombre', 'editorLegajo', 'editorNombre', 'lastDateNav'];
+      const sessionKeys = ['adminLogged', 'userLoggedIn', 'invitadoLegajo', 'invitadoNombre', 'editorLegajo', 'editorNombre', 'lastDateNav', 'tawDates', 'armadoDates'];
       const preservedData = {};
       
       sessionKeys.forEach(key => {
@@ -9299,7 +9289,7 @@
       } else {
         state.tawDates = [];
       }
-      if (!isMockMode) setDoc(doc(db, "notas_globales", "tags"), { tawDates: state.tawDates }, { merge: true });
+      localStorage.setItem('tawDates', JSON.stringify(state.tawDates));
       renderDesktopView();
       headerContextMenu.style.display = 'none';
     });
@@ -9310,7 +9300,7 @@
       } else {
         state.armadoDates = [];
       }
-      if (!isMockMode) setDoc(doc(db, "notas_globales", "tags"), { armadoDates: state.armadoDates }, { merge: true });
+      localStorage.setItem('armadoDates', JSON.stringify(state.armadoDates));
       renderDesktopView();
       headerContextMenu.style.display = 'none';
     });
