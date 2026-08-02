@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -4811,7 +4811,7 @@
              const valToday = getPlanningSlot(c.id, dStr);
              const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
              if (parsedToday) {
-                if (parsedToday.group && counts[parsedToday.group] !== undefined) {
+                if (parsedToday.group && counts[parsedToday.group] !== undefined && !parsedToday.isNV) {
                    counts[parsedToday.group]++;
                 }
                 if (parsedToday.type === 'franco' || parsedToday.type === 'libre') {
