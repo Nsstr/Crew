@@ -8821,6 +8821,7 @@
                             name: file.name,
                             url: downloadURL,
                             path: path
+                        });
                         
                         await updateDoc(doc(db, "colaboradores", currentYearModalCollabId), { saldosVacaciones: collab.saldosVacaciones });
                         
