@@ -3079,9 +3079,15 @@
         state.collaborators = mockCollaborators;
       } else {
         try {
-          // Leer colaboradores 1 sola vez (Caché)
-          const colSnap = await getDocs(collection(db, "colaboradores"));
-          state.collaborators = colSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Suscripción a Colaboradores con await inicial
+          const colPromise = new Promise(resolve => {
+              onSnapshot(collection(db, "colaboradores"), (snap) => {
+                 state.collaborators = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                 state.collaborators.sort((a, b) => a.id.localeCompare(b.id));
+                 if(document.getElementById('tableBody')) renderUI();
+                 resolve();
+              });
+          });
           
           // Suscripción Global a Repositores
           onSnapshot(collection(db, "repositores"), (snap) => {
@@ -3089,8 +3095,16 @@
              if(document.getElementById('tableBody')) renderUI();
           });
           
-          const vacSnap = await getDocs(collection(db, "vacaciones"));
-          state.vacations = vacSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Suscripción a Vacaciones con await inicial
+          const vacPromise = new Promise(resolve => {
+              onSnapshot(collection(db, "vacaciones"), (snap) => {
+                 state.vacations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                 if(document.getElementById('tableBody')) renderUI();
+                 resolve();
+              });
+          });
+
+          await Promise.all([colPromise, vacPromise]);
         } catch (e) {
           console.error("Error cargando Firestore:", e);
           state.collaborators = mockCollaborators;
