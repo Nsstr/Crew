@@ -2730,7 +2730,7 @@
            else if (startH < 4) group = 'E';
 
            if (isNV) {
-               return { type: 'absence', label: `NV/${formattedLabel}`, start, end, hours: 0, class: 'input-absence', group };
+               return { type: 'work', label: `NV/${formattedLabel}`, start, end, hours: 0, realHours: hours, class: 'input-absence', group, isNV: true };
            }
 
            return { type: 'work', label: formattedLabel, start, end, hours, class: 'input-work', group };
@@ -3424,18 +3424,19 @@
 
       // 7.5 Límite diario de horas (Máximo 8.5 hs y Mínimo 4 hs por día)
       if (parsedNewSlot && parsedNewSlot.type === 'work') {
-         if (parsedNewSlot.hours > 8.5) {
+         const checkHours = parsedNewSlot.isNV ? parsedNewSlot.realHours : parsedNewSlot.hours;
+         if (checkHours > 8.5) {
             return {
                valid: false,
                type: 'exceso_horas',
-               msg: `Exceso de horas diarias: No se pueden cargar más de 8.5 horas en un solo día. (Turno ingresado: ${parsedNewSlot.hours} hs)`
+               msg: `Exceso de horas diarias: No se pueden cargar más de 8.5 horas en un solo día. (Turno ingresado: ${checkHours} hs)`
             };
          }
-         if (parsedNewSlot.hours < 4) {
+         if (checkHours < 4) {
             return {
                valid: false,
                type: 'exceso_horas',
-               msg: `Mínimo de horas diarias: El turno ingresado (${parsedNewSlot.hours} hs) es inferior al mínimo legal obligatorio de 4 horas por día.`
+               msg: `Mínimo de horas diarias: El turno ingresado (${checkHours} hs) es inferior al mínimo legal obligatorio de 4 horas por día.`
             };
          }
       }
