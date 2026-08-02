@@ -2684,6 +2684,17 @@
       if (!val) return null;
       val = val.toString().trim().toLowerCase();
       
+      // Extraer prefijo NV (No Viene) en distintas variantes: NV, NV/, NV-, NV 14a22, NV14a22
+      let isNV = false;
+      const nvMatch = val.match(/^nv[\/\-\s]*(.*)$/);
+      if (nvMatch) {
+          isNV = true;
+          val = nvMatch[1];
+          if (val === '') {
+             return { type: 'absence', label: 'NV', class: 'input-absence', hours: 0 };
+          }
+      }
+      
       if (val === 'f') return { type: 'franco', label: 'F', class: 'input-franco', hours: 0 };
       if (val === 'v') return { type: 'vacation', label: 'V', class: 'input-absence', hours: 0 };
       if (val === 'e') return { type: 'absence', label: 'E', class: 'input-absence', hours: 0 };
@@ -2717,6 +2728,10 @@
            else if (startH >= 14 && startH <= 19) group = 'T';
            else if (startH >= 20) group = 'N';
            else if (startH < 4) group = 'E';
+
+           if (isNV) {
+               return { type: 'absence', label: `NV/${formattedLabel}`, start, end, hours: 0, class: 'input-absence', group };
+           }
 
            return { type: 'work', label: formattedLabel, start, end, hours, class: 'input-work', group };
         }
