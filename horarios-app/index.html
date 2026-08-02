@@ -9162,11 +9162,9 @@
 
     chkTAW.addEventListener('change', (e) => {
       if (e.target.checked) {
-        if (!state.tawDates.includes(activeHeaderDate)) {
-          state.tawDates.push(activeHeaderDate);
-        }
+        state.tawDates = [activeHeaderDate];
       } else {
-        state.tawDates = state.tawDates.filter(d => d !== activeHeaderDate);
+        state.tawDates = [];
       }
       localStorage.setItem('tawDates', JSON.stringify(state.tawDates));
       renderDesktopView();
@@ -9175,11 +9173,9 @@
 
     chkARMADO.addEventListener('change', (e) => {
       if (e.target.checked) {
-        if (!state.armadoDates.includes(activeHeaderDate)) {
-          state.armadoDates.push(activeHeaderDate);
-        }
+        state.armadoDates = [activeHeaderDate];
       } else {
-        state.armadoDates = state.armadoDates.filter(d => d !== activeHeaderDate);
+        state.armadoDates = [];
       }
       localStorage.setItem('armadoDates', JSON.stringify(state.armadoDates));
       renderDesktopView();
