@@ -3298,26 +3298,62 @@
          }
       }
 
-      // 7.2 Descanso con Franco (>= 35h)
-      if (parsedNewSlot.type === 'work' && prevSlot && prevSlot.type === 'franco') {
-        const prevPrevDateStr = formatDate(addDays(targetDate, -2));
-        const prevPrevVal = getPlanningSlot(collabId, prevPrevDateStr);
-        const prevPrevSlot = parseShift(prevPrevVal);
-        if (prevPrevSlot && prevPrevSlot.type === 'work') {
-           let currAbs = getShiftAbsoluteTimes(dateStr, parsedNewSlot);
-           let prevPrevAbs = getShiftAbsoluteTimes(prevPrevDateStr, prevPrevSlot);
-           let restMs = currAbs.start - prevPrevAbs.end;
-           let restH = restMs / 3600000;
-           if (restH < 35) return { valid: false, type: 'legal', req: '35hs', actual: restH.toFixed(1) };
+      // 7.2 Descanso con día de descanso intermedio (>= 35h)
+      // Cubre: F, LIBRE, V, E, -, y cualquier combinación de estos entre dos turnos trabajados.
+      const isRestDay = (slot) => !slot || slot.type !== 'work';
+
+      // Helper: busca el último turno de trabajo real retrocediendo desde `fromDateStr`
+      // (excluye `fromDateStr` mismo). Devuelve { dateStr, parsedSlot } o null.
+      const findLastWorkDayBefore = (fromDateStr, maxLookback = 14) => {
+        const from = new Date(fromDateStr + 'T00:00:00');
+        for (let i = 1; i <= maxLookback; i++) {
+          const dStr  = formatDate(addDays(from, -i));
+          const slot  = parseShift(getPlanningSlot(collabId, dStr));
+          if (slot && slot.type === 'work') return { dateStr: dStr, parsedSlot: slot };
+          if (slot && !isRestDay(slot)) break; // tipo inesperado, parar
+        }
+        return null;
+      };
+
+      // Helper: busca el próximo turno de trabajo real avanzando desde `fromDateStr`.
+      const findNextWorkDayAfter = (fromDateStr, maxLookforward = 14) => {
+        const from = new Date(fromDateStr + 'T00:00:00');
+        for (let i = 1; i <= maxLookforward; i++) {
+          const dStr  = formatDate(addDays(from, i));
+          const slot  = parseShift(getPlanningSlot(collabId, dStr));
+          if (slot && slot.type === 'work') return { dateStr: dStr, parsedSlot: slot };
+          if (slot && !isRestDay(slot)) break;
+        }
+        return null;
+      };
+
+      // CASO A: Se está guardando un turno de trabajo y el día anterior es descanso.
+      //         Buscamos el último trabajo real hacia atrás para medir el gap total.
+      if (parsedNewSlot.type === 'work' && isRestDay(prevSlot)) {
+        const lastWork = findLastWorkDayBefore(dateStr);
+        if (lastWork) {
+          const currAbs     = getShiftAbsoluteTimes(dateStr, parsedNewSlot);
+          const lastWorkAbs = getShiftAbsoluteTimes(lastWork.dateStr, lastWork.parsedSlot);
+          if (currAbs && lastWorkAbs) {
+            const restH = (currAbs.start - lastWorkAbs.end) / 3600000;
+            if (restH < 35) return { valid: false, type: 'legal', req: '35hs', actual: restH.toFixed(1) };
+          }
         }
       }
-      
-      if (parsedNewSlot.type === 'franco' && prevSlot && prevSlot.type === 'work' && nextSlot && nextSlot.type === 'work') {
-         let prevAbs = getShiftAbsoluteTimes(prevDateStr, prevSlot);
-         let nextAbs = getShiftAbsoluteTimes(nextDateStr, nextSlot);
-         let restMs = nextAbs.start - prevAbs.end;
-         let restH = restMs / 3600000;
-         if (restH < 35) return { valid: false, type: 'legal', req: '35hs', actual: restH.toFixed(1) };
+
+      // CASO B: Se está guardando un día de descanso (F, LIBRE, V, E, -).
+      //         Verificamos el gap entre el último trabajo anterior y el próximo trabajo posterior.
+      if (isRestDay(parsedNewSlot)) {
+        const lastWork = findLastWorkDayBefore(dateStr);
+        const nextWork = findNextWorkDayAfter(dateStr);
+        if (lastWork && nextWork) {
+          const lastWorkAbs = getShiftAbsoluteTimes(lastWork.dateStr, lastWork.parsedSlot);
+          const nextWorkAbs = getShiftAbsoluteTimes(nextWork.dateStr, nextWork.parsedSlot);
+          if (lastWorkAbs && nextWorkAbs) {
+            const restH = (nextWorkAbs.start - lastWorkAbs.end) / 3600000;
+            if (restH < 35) return { valid: false, type: 'legal', req: '35hs', actual: restH.toFixed(1) };
+          }
+        }
       }
 
       // 7.3 Lógica de Feriados: Las validaciones de francos adyacentes a feriados ahora son puramente visuales.
