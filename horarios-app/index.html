@@ -2610,7 +2610,11 @@
       auth = getAuth(app);
       
       // Persistencia local explícita solicitada
-      await setPersistence(auth, browserLocalPersistence);
+      try {
+         await setPersistence(auth, browserLocalPersistence);
+      } catch (err) {
+         console.error("Error setting persistence:", err);
+      }
 
       // Redirección inteligente y validación
       onAuthStateChanged(auth, async (user) => {
