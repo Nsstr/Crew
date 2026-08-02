@@ -1,4 +1,4 @@
-const CACHE_NAME = 'retail-plan-v10';
+const CACHE_NAME = 'retail-plan-v11';
 const ASSETS = [
   './',
   './index.html',
