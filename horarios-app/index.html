@@ -2777,8 +2777,6 @@
     const state = {
       viewRange: 14,
       currentWeekStart: (function() {
-         const saved = localStorage.getItem('lastDateNav');
-         if (saved) return new Date(saved + "T00:00:00");
          const now = new Date();
          const year = now.getFullYear();
          const month = String(now.getMonth() + 1).padStart(2, '0');
