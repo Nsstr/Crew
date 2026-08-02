@@ -7129,6 +7129,7 @@
                         <button id="qs-ASA" style="padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Ausente sin aviso">ASA</button>
                         <button id="qs-LIBRE" style="padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Libre">LIBRE</button>
                         <button id="qs-F" style="padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="Franco">F</button>
+                        <button id="qs-NV" style="padding: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;" title="No Viene">NV</button>
                      </div>
                      <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 6px;">Modificar Horario del Día</label>
                      <div style="display: flex; gap: 4px; align-items: center;">
@@ -7148,6 +7149,7 @@
                document.getElementById('qs-ASA').addEventListener('click', () => window.setQuickState('ASA'));
                document.getElementById('qs-LIBRE').addEventListener('click', () => window.setQuickState('LIBRE'));
                document.getElementById('qs-F').addEventListener('click', () => window.setQuickState('F'));
+               document.getElementById('qs-NV').addEventListener('click', () => window.setNoVieneQuickState());
                document.getElementById('qs-apply').addEventListener('click', () => window.applyCustomSchedule());
            }
 
@@ -7291,6 +7293,42 @@
        }
        window.closeContextMenu();
        renderUI();
+    };
+
+    window.setNoVieneQuickState = function() {
+       if (!requireAuth()) return;
+       if (!currentContextCell) return;
+       
+       let inputEl = currentContextCell.tagName === 'INPUT' ? currentContextCell : currentContextCell.querySelector('input.cell-input');
+       if (!inputEl) return;
+
+       let currentSlot = inputEl.value || "";
+       let newSlot = "";
+       
+       if (currentSlot.trim() === "") {
+          newSlot = "NV/";
+       } else {
+          if (!currentSlot.startsWith("NV/")) {
+             newSlot = "NV/" + currentSlot;
+          } else {
+             newSlot = currentSlot;
+          }
+       }
+       
+       inputEl.value = newSlot;
+       window.closeContextMenu();
+       inputEl.focus();
+       
+       // Trigger change para guardar en Firebase
+       const event = new Event('change', { bubbles: true });
+       inputEl.dispatchEvent(event);
+       
+       // Asegurar que el cursor quede al final del texto "NV/"
+       if (newSlot === "NV/") {
+          setTimeout(() => {
+             inputEl.selectionStart = inputEl.selectionEnd = inputEl.value.length;
+          }, 0);
+       }
     };
 
     window.applyCustomSchedule = async function() {
