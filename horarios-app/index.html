@@ -3327,8 +3327,8 @@
       }
 
       // 7.2 Descanso con día de descanso intermedio (>= 35h)
-      // Cubre: F, LIBRE, V, E, -, y cualquier combinación de estos entre dos turnos trabajados.
-      const isRestDay = (slot) => !slot || slot.type !== 'work';
+      // Cubre: F, LIBRE, V, y celdas vacías (-). Excluye explícitamente ausencias (NV, E) para no disparar validaciones de 35hs en faltas.
+      const isRestDay = (slot) => !slot || ['franco', 'libre', 'vacation', 'none'].includes(slot.type);
 
       // Helper: busca el último turno de trabajo real retrocediendo desde `fromDateStr`
       // (excluye `fromDateStr` mismo). Devuelve { dateStr, parsedSlot } o null.
