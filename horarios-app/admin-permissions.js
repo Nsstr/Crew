@@ -25,9 +25,9 @@ export const PERMISOS_META = {
 
 export const PERMISO_KEYS = Object.keys(PERMISOS_META);
 
-// ─── LISTA FIJA DE INVITADOS AUTORIZADOS ─────────────────────────────────────
-// Estos son los únicos 5 legajos que pueden acceder como rol 'invitado'.
-// La detección del rol en el login se basa en esta lista, no en Firebase.
+// ─── LISTA DE INVITADOS PARA UI DE PERMISOS ─────────────────────────────────────
+// Esta lista se usa temporalmente para renderizar la tabla de permisos en el panel de administración.
+// El login y la asignación de roles ahora se manejan exclusivamente a través de Firebase Auth.
 export const INVITADOS_AUTORIZADOS = {
   '10021755': 'Salazar Torres Carmen Elena',
   '10021393': 'Bazan Rodolfo Fabian',
@@ -215,13 +215,14 @@ export function syncPermissionsUI(forcedRole, forcedLegajo) {
   const role   = forcedRole || _getCurrentRole();
   const legajo = forcedLegajo || _getCurrentLegajo();
 
-  console.log("Sync UI intentando ejecutar para:", legajo);
-  if (!legajo) return;
+  // Sin rol válido: aún no hay sesión, salir silenciosamente.
+  if (!role || role === 'visitor') return;
+
+  // Admin no necesita legajo: checkLogin() ya gestiona su UI completa.
+  if (role === 'admin') return;
 
   const backupBtn = document.getElementById('backupDriveBtn');
   const bellBtn   = document.getElementById('auditBellBtn');
-
-  if (role === 'admin') return; // checkLogin() ya gestiona todo para admin
 
   // Para cualquier rol que no sea admin: ocultar controles exclusivos de admin
   if (backupBtn) backupBtn.style.display = 'none';

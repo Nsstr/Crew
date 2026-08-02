@@ -2572,9 +2572,9 @@
     // Reemplaza con tus credenciales de Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, enableIndexedDbPersistence, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-    import { initPermissionsModule, checkAccess, syncPermissionsUI, renderGestionInvitados, loadPermisosInvitado, crearInvitado, INVITADOS_AUTORIZADOS } from "./admin-permissions.js";
+    import { initPermissionsModule, checkAccess, syncPermissionsUI, renderGestionInvitados, loadPermisosInvitado, crearInvitado } from "./admin-permissions.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCJZeUE4k1XHIyxQ4lRmKvlH0eHeAZky4o",
@@ -2613,16 +2613,62 @@
       setPersistence(auth, browserLocalPersistence).catch(console.error);
 
       // Redirección inteligente y validación
-      onAuthStateChanged(auth, (user) => {
-         if (user || localStorage.getItem('userLoggedIn') === 'true') {
-            if (typeof checkLogin === 'function') {
-               checkLogin();
+      onAuthStateChanged(auth, async (user) => {
+         if (user) {
+            try {
+               const docSnap = await getDoc(doc(db, 'usuarios', user.uid));
+               if (docSnap.exists()) {
+                  const data = docSnap.data();
+                  const rol = data.rol;
+                  const legajo = data.legajo;
+                  const nombre = data.nombre;
+                  
+                  localStorage.setItem('userLoggedIn', 'true');
+                  if (rol === 'admin') {
+                     localStorage.setItem('adminLogged', 'true');
+                     currentRole = 'admin';
+                  } else if (rol === 'invitado') {
+                     localStorage.setItem('invitadoLegajo', legajo);
+                     localStorage.setItem('invitadoNombre', nombre);
+                     currentRole = 'invitado';
+                     currentInvitadoLegajo = legajo;
+                     state.currentInvitadoLegajo = legajo;
+                  } else if (rol === 'editor') {
+                     localStorage.setItem('editorLegajo', legajo);
+                     localStorage.setItem('editorNombre', nombre);
+                     currentRole = 'editor';
+                  }
+                  
+                  if (typeof checkLogin === 'function') {
+                     checkLogin();
+                  }
+                  if (typeof window.initApp === 'function') {
+                     window.initApp();
+                  }
+               } else {
+                  console.warn("Usuario sin rol definido, cerrando sesión.");
+                  signOut(auth);
+               }
+            } catch (err) {
+               console.error("Error al obtener rol:", err);
             }
-         }
+          } else {
+             // Sin sesión: limpiar estado y cargar datos en modo sólo lectura
+             currentRole = 'visitor';
+             currentInvitadoLegajo = null;
+             // NO limpiamos localStorage para no afectar recarga accidental
+             if (typeof checkLogin === 'function') {
+                checkLogin();
+             }
+             if (typeof window.initApp === 'function') {
+                window.initApp();
+             }
+          }
       });
     } catch (e) {
       console.warn("Firebase no configurado, operando en modo Mock.");
       isMockMode = true;
+      setTimeout(() => { if (typeof window.initApp === 'function') window.initApp(); }, 100);
     }
 
     // 2. PARSING Y LÓGICA DE TURNOS
@@ -6813,8 +6859,9 @@
 
     // Helper de seguridad global: bloquea operaciones de escritura si no hay sesión
     function requireAuth() {
-      if (currentRole === 'visitor') {
-        showToast("Acceso denegado", "Es necesario iniciar sesión con tu número de legajo para poder operar.", "warning");
+      // Verificar con Firebase Auth directamente (la fuente de verdad real)
+      const firebaseUser = (typeof auth !== 'undefined' && auth) ? auth.currentUser : null;
+      if (!firebaseUser) {
         if (typeof resetLoginModal === 'function') resetLoginModal();
         const loginModal = document.getElementById('loginModal');
         if (loginModal) {
@@ -6848,14 +6895,8 @@
     const editorModal = document.getElementById('editorModal');
     const userRoleText = document.getElementById('userRoleText');
     
-    if (localStorage.getItem('adminLogged') === 'true') {
-       currentRole = 'admin';
-    } else if (localStorage.getItem('invitadoLegajo')) {
-       currentRole = 'invitado';
-       currentInvitadoLegajo = localStorage.getItem('invitadoLegajo');
-    } else if (localStorage.getItem('editorLegajo')) {
-       currentRole = 'editor';
-    }
+    // Los roles ahora se restauran exclusivamente desde Firebase Auth (onAuthStateChanged).
+    // No se restauran roles desde localStorage para evitar lecturas a Firestore sin autenticación.
 
     // Inicializar módulo de permisos (inyectando todas las dependencias)
     initPermissionsModule({
@@ -7432,133 +7473,93 @@
     });
 
     // ── Detección dinámica al escribir el legajo ──────────────────────────────
-    document.getElementById('loginLegajo').addEventListener('input', (e) => {
-       const leg = e.target.value.trim();
-       const title       = document.getElementById('loginModalTitle');
-       const subtitle    = document.getElementById('loginModalSubtitle');
-       const passWrapper = document.getElementById('loginPassWrapper');
-       const nomDisplay  = document.getElementById('loginNombreDisplay');
-       const nomHidden   = document.getElementById('loginNombreHidden');
-       const submitBtn   = document.getElementById('loginSubmitBtn');
+    const ADMIN_LEGAJO_AUTH = '10045875';
 
-       // Resetear campos secundarios
-       passWrapper.style.display = 'none';
-       nomDisplay.style.display  = 'none';
-       nomDisplay.textContent    = '';
-       nomHidden.value           = '';
+    document.getElementById('loginLegajo').addEventListener('input', (e) => {
+       const leg        = e.target.value.trim();
+       const title      = document.getElementById('loginModalTitle');
+       const subtitle   = document.getElementById('loginModalSubtitle');
+       const passWrapper= document.getElementById('loginPassWrapper');
+       const submitBtn  = document.getElementById('loginSubmitBtn');
 
        if (!leg) {
-          title.textContent    = 'Acceso';
-          title.style.color    = '';
-          subtitle.textContent = 'Ingresá tu número de legajo.';
+          title.textContent     = 'Acceso';
+          title.style.color     = '';
+          subtitle.textContent  = 'Ingresá tu número de legajo.';
+          passWrapper.style.display = 'none';
           submitBtn.textContent = 'Ingresar';
           return;
        }
 
-       if (leg === ADMIN_LEGAJO) {
-          // ── Admin: mostrar campo de contraseña
-          title.textContent    = 'Acceso Administrador';
-          title.style.color    = 'var(--warning)';
-          subtitle.textContent = 'Ingresá tu contraseña de administrador.';
+       if (leg === ADMIN_LEGAJO_AUTH) {
+          // Admin: mostrar campo de contraseña real
+          title.textContent     = 'Acceso Administrador';
+          title.style.color     = 'var(--warning)';
+          subtitle.textContent  = 'Ingresá tu contraseña de administrador.';
           passWrapper.style.display = 'block';
           submitBtn.textContent = 'Ingresar como Admin';
           setTimeout(() => document.getElementById('loginPass').focus(), 50);
-
-       } else if (INVITADOS_AUTORIZADOS[leg]) {
-          // ── Invitado autorizado: mostrar nombre
-          const nombre = INVITADOS_AUTORIZADOS[leg];
-          title.textContent    = 'Acceso Invitado';
-          title.style.color    = 'var(--info)';
-          subtitle.textContent = 'Acceso con permisos configurados por el Administrador.';
-          nomDisplay.textContent   = nombre;
-          nomDisplay.style.display = 'block';
-          nomHidden.value          = nombre;
-          submitBtn.textContent    = 'Ingresar';
-
        } else {
-          // ── Colaborador operativo: buscar en state
-          const collab = state.collaborators.find(c =>
-             String(c.id).trim() === leg || String(c.legajo).trim() === leg
-          );
-          if (collab && collab.name) {
-             title.textContent    = 'Firma de Edición';
-             title.style.color    = 'var(--info)';
-             subtitle.textContent = 'Identificado como colaborador operativo.';
-             nomDisplay.textContent   = collab.name;
-             nomDisplay.style.display = 'block';
-             nomHidden.value          = collab.name;
-             submitBtn.textContent    = 'Firmar';
-          } else {
-             title.textContent    = 'Acceso';
-             title.style.color    = 'var(--danger)';
-             subtitle.textContent = 'Legajo no encontrado en el sistema.';
-             submitBtn.textContent = 'Ingresar';
-          }
+          // Equipo: solo legajo, clave genérica por detrás
+          title.textContent     = 'Acceso al Sistema';
+          title.style.color     = 'var(--info)';
+          subtitle.textContent  = 'Listo. Presioná Ingresar para acceder.';
+          passWrapper.style.display = 'none';
+          submitBtn.textContent = 'Ingresar';
        }
     });
 
     // ── Submit unificado ──────────────────────────────────────────────────────
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
        e.preventDefault();
-       const leg  = document.getElementById('loginLegajo').value.trim();
-       const pass = document.getElementById('loginPass').value.trim();
-       const nom  = document.getElementById('loginNombreHidden').value.trim();
-
+       const leg = document.getElementById('loginLegajo').value.trim();
        if (!leg) return;
 
-       if (leg === ADMIN_LEGAJO) {
-          // ── Flujo Admin
-          if (pass === 'AdminGDN2026') {
-             localStorage.setItem('adminLogged', 'true');
-             localStorage.setItem('userLoggedIn', 'true');
-             currentRole = 'admin';
-             loginModal.style.display = 'none';
-             document.getElementById('loginPass').value = '';
-             checkLogin();
-             showToast('Admin', 'Acceso Administrador concedido.');
-          } else {
-             showToast('Error', 'Contraseña incorrecta.');
-             document.getElementById('loginPass').select();
-          }
+       const isAdmin    = leg === ADMIN_LEGAJO_AUTH;
+       const email      = leg + '@crew.app';
+       const pass       = isAdmin
+          ? document.getElementById('loginPass').value
+          : 'EquipoCrew2026!';
 
-       } else if (INVITADOS_AUTORIZADOS[leg]) {
-          // ── Flujo Invitado
-          if (!nom) { showToast('Error', 'Legajo inválido.'); return; }
-          const permisosData = await loadPermisosInvitado(leg);
-          if (permisosData && permisosData.activo === false) {
-             showToast('Acceso denegado', 'Tu cuenta está inactiva. Contactá al Administrador.');
-             return;
-          }
-          localStorage.setItem('invitadoLegajo', leg);
-          localStorage.setItem('userLoggedIn', 'true');
-          localStorage.setItem('invitadoNombre', nom);
-          currentRole = 'invitado';
-          currentInvitadoLegajo = leg;
-          state.currentInvitadoLegajo = leg;
-          loginModal.style.display = 'none';
-          checkLogin();
-          showToast('Bienvenido/a', nom);
-
-       } else {
-          // ── Flujo Editor clásico
-          if (!nom) { showToast('Error', 'Legajo no encontrado.'); return; }
-          localStorage.setItem('editorNombre', nom);
-          localStorage.setItem('userLoggedIn', 'true');
-          localStorage.setItem('editorLegajo', leg);
-          currentRole = 'editor';
-          loginModal.style.display = 'none';
-          checkLogin();
-          showToast('Firma', `Habilitado como editor: ${nom}`);
+       if (isAdmin && !pass) {
+          showToast('Error', 'Ingresá tu contraseña de administrador.');
+          document.getElementById('loginPass').focus();
+          return;
        }
 
-       // Si habia una celda pendiente de editar, enfocarla
-       if (pendingEditTarget) {
-          pendingEditTarget.focus();
-          pendingEditTarget = null;
+       const submitBtn = document.getElementById('loginSubmitBtn');
+       submitBtn.disabled = true;
+       submitBtn.textContent = 'Ingresando...';
+
+       try {
+          await signInWithEmailAndPassword(auth, email, pass);
+          loginModal.style.display = 'none';
+          document.getElementById('loginPass').value = '';
+          showToast('Bienvenido/a', 'Sesión iniciada correctamente.');
+          if (pendingEditTarget) {
+             pendingEditTarget.focus();
+             pendingEditTarget = null;
+          }
+       } catch (error) {
+          console.error('Error de inicio de sesión:', error);
+          if (isAdmin) {
+             showToast('Error', 'Contraseña de administrador incorrecta.');
+             document.getElementById('loginPass').select();
+          } else {
+             showToast('Acceso denegado', 'Legajo no reconocido. Consultá al Administrador.');
+          }
+       } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = isAdmin ? 'Ingresar como Admin' : 'Ingresar';
        }
     });
 
-    logoutBtn.addEventListener('click', () => {
+    logoutBtn.addEventListener('click', async () => {
+       try {
+          await signOut(auth);
+       } catch(err) {
+          console.error(err);
+       }
        localStorage.clear();
        sessionStorage.clear();
        location.reload();
@@ -7572,14 +7573,9 @@
        const nomDisplay = document.getElementById('editorNombreDisplay');
 
        if (leg) {
-          // Primero buscar en la lista fija de invitados autorizados
-          let editorName = INVITADOS_AUTORIZADOS[leg];
-
-          // Si no está en invitados, buscar en colaboradores del estado
-          if (!editorName) {
-             const collab = state.collaborators.find(c => String(c.id).trim() === leg || String(c.legajo).trim() === leg);
-             if (collab && collab.name) editorName = collab.name;
-          }
+          let editorName = null;
+          const collab = state.collaborators.find(c => String(c.id).trim() === leg || String(c.legajo).trim() === leg);
+          if (collab && collab.name) editorName = collab.name;
 
           if (editorName) {
              nomInput.value = editorName;
@@ -7608,40 +7604,17 @@
           return;
        }
        if (nom && leg) {
-          // ── Detección de rol por lista fija (sin consulta Firebase) ──
-          const esInvitado = Object.prototype.hasOwnProperty.call(INVITADOS_AUTORIZADOS, leg);
+          localStorage.setItem('editorNombre', nom);
+          localStorage.setItem('editorLegajo', leg);
+          currentRole = 'editor';
+          editorModal.style.display = 'none';
+          checkLogin();
+          showToast('Firma', `Habilitado como editor: ${nom}`);
+       }
 
-          if (esInvitado) {
-             // Cargar permisos desde Firebase
-             const permisosData = await loadPermisosInvitado(leg);
-
-             if (permisosData && permisosData.activo === false) {
-                showToast('Acceso denegado', 'Tu cuenta de invitado está inactiva. Contactá al Administrador.');
-                return;
-             }
-             // Si no existe documento en Firebase aún, el invitado accede sin permisos
-             // (el Admin puede configurarlos después)
-             localStorage.setItem('invitadoLegajo', leg);
-             localStorage.setItem('invitadoNombre', nom);
-             currentRole = 'invitado';
-             currentInvitadoLegajo = leg;
-             editorModal.style.display = 'none';
-             checkLogin();
-             showToast('Acceso Invitado', `Bienvenido/a, ${nom}`);
-          } else {
-             // Es un colaborador operativo → flujo de editor clásico
-             localStorage.setItem('editorNombre', nom);
-             localStorage.setItem('editorLegajo', leg);
-             currentRole = 'editor';
-             editorModal.style.display = 'none';
-             checkLogin();
-             showToast('Firma', `Habilitado como editor: ${nom}`);
-          }
-
-          if (pendingEditTarget) {
-             pendingEditTarget.focus();
-             pendingEditTarget = null;
-          }
+       if (pendingEditTarget) {
+          pendingEditTarget.focus();
+          pendingEditTarget = null;
        }
     });
 
@@ -8460,9 +8433,14 @@
     });
 
     // INICIO
-    migrateFechas().then(() => {
-        loadInitialData();
-    });
+    window.appInitialized = false;
+    window.initApp = function() {
+       if (window.appInitialized) return;
+       window.appInitialized = true;
+       migrateFechas().then(() => {
+          loadInitialData();
+       });
+    };
 
     // ============================================================
     // MÓDULO EVENTOS DIARIOS — Modal de gestión
