@@ -7374,7 +7374,7 @@
        
        // Si tiene un horario completo, forzamos el guardado
        if (newSlot !== "NV/") {
-          const event = new Event('change', { bubbles: true });
+          const event = new Event('blur', { bubbles: true });
           inputEl.dispatchEvent(event);
        } else {
           // Si es solo NV/, aseguramos que el cursor quede al final para que complete
