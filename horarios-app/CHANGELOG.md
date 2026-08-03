@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/Nsstr/Crew/compare/v1.1.0...v1.2.0) (2026-08-03)
+
+
+### Features
+
+* inyectar version semantica en UI e integrar release flow ([593e57e](https://github.com/Nsstr/Crew/commit/593e57e0ba75bd9d9b93824643b09ddd2d5d2483))
+
+
+### Bug Fixes
+
+* restaurar script build para Vercel usando version semantica ([4819d5c](https://github.com/Nsstr/Crew/commit/4819d5c7a7efe77418d49346e4abfcccff4f7cda))
+
 ## 1.1.0 (2026-08-03)
 
 
