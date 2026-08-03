@@ -1,11 +1,16 @@
 {
   "name": "horarios-app",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "",
   "main": "import_csv.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "node -e \"require('fs').writeFileSync('version.json', JSON.stringify({version: Date.now().toString()}))\""
+    "release": "standard-version"
+  },
+  "standard-version": {
+    "scripts": {
+      "postbump": "node update_version.js"
+    }
   },
   "keywords": [],
   "author": "",
@@ -14,5 +19,8 @@
   "dependencies": {
     "csv-parse": "^7.0.1",
     "firebase": "^12.16.0"
+  },
+  "devDependencies": {
+    "standard-version": "^9.5.0"
   }
 }
