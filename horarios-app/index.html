@@ -1903,6 +1903,8 @@
           <button id="adminLoginBtn" class="nav-dropdown-item"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> Acceso</button>
           
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
+          
+          <div id="uiVersionDisplay" style="font-size: 0.65rem; color: var(--text-muted); text-align: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);">v...</div>
         </div>
       </div>
     </div>
@@ -9033,6 +9035,17 @@
            const data = await res.json();
            
            if (!data || !data.version) return; 
+           
+           // Actualizar la interfaz si el elemento existe
+           const versionDisplay = document.getElementById('uiVersionDisplay');
+           if (versionDisplay) {
+               // Evitamos mostrar "1722..." viejo. Solo mostramos si parece semántico (ej: 1.0.0).
+               if (data.version.includes('.')) {
+                   versionDisplay.textContent = 'v' + data.version;
+               } else {
+                   versionDisplay.textContent = 'v' + data.version.slice(-6); // fallback temporal
+               }
+           }
            
            if (!currentAppVersion) {
                currentAppVersion = data.version; 
