@@ -3113,6 +3113,7 @@
               onSnapshot(collection(db, "vacaciones"), (snap) => {
                  state.vacations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                  if(document.getElementById('tableBody')) renderUI();
+                 if(typeof window.renderVacationTable === 'function' && document.getElementById('vacationTableBody')) window.renderVacationTable();
                  resolve();
               });
           });
@@ -6742,15 +6743,17 @@
        }
        
        if (editId) {
-          state.vacations = state.vacations.filter(v => v.id !== editId);
+          if (isMockMode) state.vacations = state.vacations.filter(v => v.id !== editId);
           showToast("Éxito", "Vacaciones actualizadas correctamente.");
        } else {
           showToast("Éxito", "Vacaciones registradas correctamente.");
        }
        
-       state.vacations.push(newVac);
+       if (isMockMode) {
+          state.vacations.push(newVac);
+          window.renderVacationTable();
+       }
        document.getElementById('vCancelBtn').click(); // Reset form and mode
-       renderVacationTable();
     });
 
     window.deleteVacation = async function(id) {
@@ -6763,9 +6766,10 @@
              showToast("Error", "No se pudo eliminar de la base de datos.");
              return;
           }
+       } else {
+          state.vacations = state.vacations.filter(v => v.id !== id);
+          window.renderVacationTable();
        }
-       state.vacations = state.vacations.filter(v => v.id !== id);
-       renderVacationTable();
     };
 
     let calCurrentMonth = new Date();
