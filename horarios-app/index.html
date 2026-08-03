@@ -9027,24 +9027,26 @@
     async function checkForAppUpdates() {
        try {
            // Construir ruta absoluta al archivo version.json
-           const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
-           const url = `${window.location.origin}${basePath}/version.json?t=${Date.now()}`;
+           const url = '/version.json?t=' + new Date().getTime();
            
            const res = await fetch(url, { cache: 'no-store' });
-           if (!res.ok) return;
+           if (!res.ok) {
+               const versionDisplay = document.getElementById('uiVersionDisplay');
+               if (versionDisplay) versionDisplay.textContent = 'vError';
+               return;
+           }
            const data = await res.json();
            
-           if (!data || !data.version) return; 
+           if (!data || !data.version) {
+               const versionDisplay = document.getElementById('uiVersionDisplay');
+               if (versionDisplay) versionDisplay.textContent = 'vError';
+               return; 
+           }
            
            // Actualizar la interfaz si el elemento existe
            const versionDisplay = document.getElementById('uiVersionDisplay');
            if (versionDisplay) {
-               // Evitamos mostrar "1722..." viejo. Solo mostramos si parece semántico (ej: 1.0.0).
-               if (data.version.includes('.')) {
-                   versionDisplay.textContent = 'v' + data.version;
-               } else {
-                   versionDisplay.textContent = 'v' + data.version.slice(-6); // fallback temporal
-               }
+               versionDisplay.textContent = 'v' + data.version;
            }
            
            if (!currentAppVersion) {
