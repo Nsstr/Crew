@@ -9026,8 +9026,9 @@
     let currentAppVersion = localStorage.getItem('appVersion');
     async function checkForAppUpdates() {
        try {
-           // Construir ruta absoluta al archivo version.json
-           const url = '/version.json?t=' + new Date().getTime();
+           // Construir ruta dinámica al archivo version.json (soporta subdirectorios como /horarios-app/)
+           const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
+           const url = `${window.location.origin}${basePath}/version.json?t=${new Date().getTime()}`;
            
            const res = await fetch(url, { cache: 'no-store' });
            if (!res.ok) {
