@@ -2124,10 +2124,11 @@
                <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.85rem; table-layout: fixed;">
                  <thead style="position: sticky; top: 0; background: var(--surface); z-index: 2;">
                    <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
-                     <th style="padding: 6px 8px; font-weight: normal; width: 40%;">Colaborador</th>
-                     <th style="padding: 6px 8px; font-weight: normal; width: 25%;">Inicio</th>
+                     <th style="padding: 6px 8px; font-weight: normal; width: 35%;">Colaborador</th>
+                     <th style="padding: 6px 8px; font-weight: normal; width: 20%;">Inicio</th>
                      <th style="padding: 6px 8px; font-weight: normal; width: 15%;">Semanas</th>
-                     <th style="padding: 6px 8px; font-weight: normal; width: 20%;">Acciones</th>
+                     <th style="padding: 6px 8px; font-weight: normal; width: 15%;">Acciones</th>
+                     <th style="padding: 6px 8px; font-weight: normal; width: 15%; text-align: center;">Adjunto</th>
                    </tr>
                  </thead>
                  <tbody id="vacationTableBody">
@@ -6209,6 +6210,12 @@
           const tr = document.createElement('tr');
           tr.style.borderBottom = "1px solid var(--border)";
           const formatDDMMYYYY = (d) => d ? d.split('-').reverse().join('-') : d;
+          const vYear = getVacationYear(v);
+          const hasAttachment = collab && collab.saldosVacaciones && collab.saldosVacaciones[vYear] && collab.saldosVacaciones[vYear].adjuntos && collab.saldosVacaciones[vYear].adjuntos.length > 0;
+          const attachmentIndicator = hasAttachment 
+              ? `<span style="color: var(--success); font-weight: bold; font-size: 1.1rem;" title="${collab.saldosVacaciones[vYear].adjuntos.length} archivo(s) cargado(s) para el periodo ${vYear}">✓</span>`
+              : `<span style="color: var(--text-muted); font-weight: bold;">-</span>`;
+          
           tr.innerHTML = `
             <td style="padding: 6px 8px; display: flex; align-items: center; gap: 0.5rem;">
                <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${color};"></span>
@@ -6219,6 +6226,9 @@
             <td style="padding: 6px 8px;">
                <button type="button" style="padding: 2px 6px; font-size: 0.75rem; margin-right: 4px; border-radius: 4px;" onclick="editVacation('${v.id}')">Editar</button>
                <button type="button" class="btn-danger" style="padding: 2px 6px; font-size: 0.75rem; border-radius: 4px;" onclick="deleteVacation('${v.id}')">Eliminar</button>
+            </td>
+            <td style="padding: 6px 8px; text-align: center; vertical-align: middle;">
+               ${attachmentIndicator}
             </td>
           `;
           tbody.appendChild(tr);
@@ -8847,12 +8857,14 @@
                    await updateDoc(doc(db, "colaboradores", currentYearModalCollabId), { saldosVacaciones: collab.saldosVacaciones });
                    showToast("Adjunto eliminado", "El adjunto ha sido removido.", "info");
                    renderYearAttachments(yearData.adjuntos);
+                   if (typeof renderVacationTable === 'function') renderVacationTable();
                } catch (e) {
                    showToast("Error", "No se pudo eliminar el adjunto.", "error");
                    console.error(e);
                }
             } else {
                renderYearAttachments(yearData.adjuntos);
+               if (typeof renderVacationTable === 'function') renderVacationTable();
             }
         }
     };
@@ -8959,6 +8971,7 @@
                         
                         showToast("Archivo subido", "El adjunto se guardó correctamente.", "success");
                         renderYearAttachments(collab.saldosVacaciones[currentYearModalYear].adjuntos);
+                        if (typeof renderVacationTable === 'function') renderVacationTable();
                         
                         btnUploadYearFile.style.display = 'flex';
                         yearModalUploadProgress.style.display = 'none';
