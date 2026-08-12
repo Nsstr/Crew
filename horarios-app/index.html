@@ -1844,6 +1844,118 @@
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style id="monochromatic-refactor">
+    /* 1. Monocromático Semántico: redefinición de variables a cian y grises */
+    :root {
+      --success: #64748b; /* Gris frío / slate-500 para estados normales o positivos */
+      --warning: rgba(6, 182, 212, 0.4); /* Cian suave para alertas/superposiciones */
+      --danger: rgba(6, 182, 212, 0.9); /* Cian intenso para mayor jerarquía */
+      --info: #334155; /* Gris intermedio */
+    }
+
+    /* 4. Forzar colores monocromáticos en gráficos de calor y celdas con estilos rígidos */
+    .heat-success, 
+    div.heatmap-cell.heat-success,
+    [class*="heat-success"] {
+      background-color: var(--success) !important;
+      color: #f8fafc !important;
+      border: 1px solid rgba(255,255,255,0.1) !important;
+    }
+    
+    .heat-warning, 
+    div.heatmap-cell.heat-warning,
+    [class*="heat-warning"] {
+      background-color: var(--warning) !important;
+      color: #f8fafc !important;
+      border: 1px solid rgba(255,255,255,0.1) !important;
+    }
+    
+    .heat-danger, 
+    div.heatmap-cell.heat-danger,
+    [class*="heat-danger"] {
+      background-color: var(--danger) !important;
+      color: #f8fafc !important;
+      border: 1px solid rgba(255,255,255,0.1) !important;
+    }
+
+    /* Aplastar cualquier div que tenga el color rojo/verde/naranja inyectado via inline style */
+    div[style*="background-color: #ac3a3a"],
+    div[style*="background-color: #d37a47"],
+    div[style*="background-color: #30947a"],
+    div[style*="background: var(--danger)"],
+    div[style*="background: var(--warning)"] {
+      filter: grayscale(100%) sepia(20%) hue-rotate(180deg) saturate(200%) !important;
+    }
+
+    /* 2. Cuadrícula Central: Eliminar micro-indicadores decorativos */
+    .cell-wrapper::after,
+    .cell-wrapper::before,
+    .cell-wrapper.has-comment::after,
+    .cell-wrapper.is-fixed::before,
+    .ot-indicator,
+    .cell-wrapper.has-overtime-pending .ot-indicator,
+    .cell-wrapper.has-overtime-validated .ot-indicator {
+      display: none !important;
+      visibility: hidden !important;
+    }
+
+    /* Texto de códigos de turno limpio, sin fondos coloridos */
+    .cell-input,
+    .input-work,
+    .input-franco,
+    .input-libre,
+    .input-absence,
+    .input-error,
+    .input-nv,
+    .vacation-error,
+    .vacation-warning,
+    .holiday-col {
+      color: #f8fafc !important; /* Blanco puro / gris ultra claro */
+      background-color: transparent !important; /* Fondo transparente para mostrar el degradado subyacente */
+      border-left: none !important; /* Sin bordes gruesos de colores */
+      border-right: none !important;
+      border-top: none !important;
+      border-bottom: none !important;
+    }
+
+    /* Celda activa/seleccionada: sin fondo sólido, solo borde cyan suave */
+    .cell-input:focus,
+    .cell-input:active,
+    .selected-row .cell-input {
+      background-color: transparent !important;
+      border: 1px solid rgba(6, 182, 212, 0.5) !important;
+      outline: none !important;
+      box-shadow: none !important;
+    }
+
+    /* 3. Sección Disponibilidad / Paneles: Tarjetas de saldo sin fondo, solo borde y texto */
+    .dom-badge,
+    .saldo-badge,
+    .holiday-badge,
+    .event-badge,
+    .taw-badge,
+    .armado-badge,
+    .audit-badge,
+    .bento-badge,
+    [class*="-badge"] {
+      background-color: transparent !important;
+      background: transparent !important;
+      border: 1px solid currentColor !important;
+      opacity: 0.8 !important;
+    }
+
+    /* Desaturar puntos/indicadores de estado a gris neutro si no usan las vars */
+    .status-dot,
+    .indicator {
+      filter: grayscale(100%) !important;
+    }
+
+    /* 5. Día actual: eliminar rayas horizontales amarillas */
+    th.dia-actual, td.dia-actual, .dia-actual {
+      border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    }
+  </style>
 </head>
 <body>
   <div class="main-app-nav main-app-nav-grid">
