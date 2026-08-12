@@ -1955,6 +1955,41 @@
       border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
       border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
     }
+
+    /* 6. Calendario de Superposición: Responsividad y Scroll */
+    .vac-cal-container {
+      gap: 0.5rem !important;
+      max-height: calc(100vh - 180px) !important;
+      overflow-y: auto !important;
+      padding-right: 4px !important;
+    }
+    .vac-cal-grid {
+      gap: 2px !important;
+      margin-top: 0.2rem !important;
+    }
+    .vac-cal-cell {
+      height: 18px !important;
+      width: 18px !important;
+      font-size: 0.6rem !important;
+    }
+    .vac-cal-header {
+      margin-bottom: 0.1rem !important;
+      padding-bottom: 0.1rem !important;
+      font-size: 0.8rem !important;
+    }
+    
+    /* Scrollbar Estético para el Calendario */
+    .vac-cal-container::-webkit-scrollbar {
+      width: 6px !important;
+      background: transparent !important;
+    }
+    .vac-cal-container::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1) !important;
+      border-radius: 10px !important;
+    }
+    .vac-cal-container::-webkit-scrollbar-track {
+      background: transparent !important;
+    }
   </style>
 </head>
 <body>
