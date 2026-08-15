@@ -8,7 +8,7 @@ function applyInjections() {
   // 1. Añadir requireAuth
   code = code.replace(
     'let currentInvitadoLegajo = null;',
-    `let currentInvitadoLegajo = null;\n\n    // Helper de seguridad global: bloquea operaciones de escritura si no hay sesión\n    function requireAuth() {\n      if (currentRole === 'visitor') {\n        showToast("Acceso denegado", "Inicia sesión para editar esta información", "warning");\n        return false;\n      }\n      return true;\n    }`
+    `let currentInvitadoLegajo = null;\n\n    // Helper de seguridad global: desactivado, permite todo\n    function requireAuth() {\n      return true;\n    }`
   );
 
   // 2. handleInputChange

@@ -1,37 +1,44 @@
-const CACHE_NAME = 'retail-plan-v1.2.0';
+const CACHE_NAME = 'retail-plan-v2.1.10'; // Subimos la versión para limpiar la anterior
 const ASSETS = [
   './',
   './index.html',
   './favicon.png',
-  './admin-permissions.js'
+  './auth-manager.js'
 ];
 
 self.addEventListener('install', event => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(ASSETS);
-      })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
 });
 
 self.addEventListener('fetch', event => {
-  // Bypass cache for version checking
+  // 1. FILTRO VITAL: Ignorar POST de Firebase y extensiones de Chrome
+  if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) {
+    return; // Deja pasar la petición directo a internet sin guardarla
+  }
+
   if (event.request.url.includes('version.json')) {
     event.respondWith(fetch(event.request));
     return;
   }
 
+  // 2. ESTRATEGIA: RED PRIMERO (Solo para los GET permitidos)
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then(response => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-        return fetch(event.request).catch(() => {
-          // Si falla la red y no está en caché, intentamos devolver el index.html para que no se rompa la PWA
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, responseClone);
+        });
+        return response;
+      })
+      .catch(() => {
+        return caches.match(event.request).then(cachedResponse => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
           if (event.request.mode === 'navigate') {
             return caches.match('./index.html');
           }
@@ -41,12 +48,12 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(self.clients.claim());
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
+          if (cacheName !== CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
