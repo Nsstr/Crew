@@ -3425,6 +3425,7 @@ const state = {
   eventos: {}, // key: 'YYYY-MM-DD', value: { tipo, descripcion, color } de Firebase eventos_diarios
   tawDates: [],
   armadoDates: [],
+  metricsLoadedYears: {}, // Registro de años ya descargados en la sesión
 };
 
 // Helpers para metadatos de turnos
@@ -6734,21 +6735,25 @@ window.renderMetrics = async function () {
     ];
   }
 
-  // 2. Fetch full year from Firestore
-  try {
-    if (!isMockMode) {
-      const q = query(
-        collection(db, "planificacion"),
-        where("fecha", ">=", `${currentMetricsYear}-01-01`),
-        where("fecha", "<=", `${currentMetricsYear}-12-31`),
-      );
-      const snap = await getDocs(q);
-      snap.forEach((doc) => {
-        state.planning[doc.id] = doc.data();
-      });
+  // 2. Fetch full year from Firestore (Cached in memory)
+  if (!state.metricsLoadedYears[currentMetricsYear]) {
+    try {
+      if (!isMockMode) {
+        const q = query(
+          collection(db, "planificacion"),
+          where("fecha", ">=", `${currentMetricsYear}-01-01`),
+          where("fecha", "<=", `${currentMetricsYear}-12-31`)
+        );
+        const snap = await getDocs(q);
+        snap.forEach((doc) => {
+          state.planning[doc.id] = doc.data();
+        });
+        // Marcamos el año como ya cacheado en memoria
+        state.metricsLoadedYears[currentMetricsYear] = true;
+      }
+    } catch (e) {
+      console.error("Firestore metrics fetch error:", e);
     }
-  } catch (e) {
-    console.error("Firestore metrics fetch error:", e);
   }
 
   container.innerHTML = "";
@@ -7032,21 +7037,7 @@ window.openMetricsDetail = async function (collabId) {
           </div>
        `;
 
-  // Fetch employee full history from Firestore
-  try {
-    if (!isMockMode) {
-      const q = query(
-        collection(db, "planificacion"),
-        where("colaboradorId", "==", collabId),
-      );
-      const snap = await getDocs(q);
-      snap.forEach((doc) => {
-        state.planning[doc.id] = doc.data();
-      });
-    }
-  } catch (e) {
-    console.error("Firestore history fetch error:", e);
-  }
+  // The employee full history is already downloaded and cached in state.planning
 
   const isAbsence = (text) => {
     if (!text) return false;
