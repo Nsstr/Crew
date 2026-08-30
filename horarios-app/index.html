@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -2368,6 +2368,41 @@
     table#planningTable td.week-separator-border,
     table#planningTable td.subtotal-day-cell.week-separator-border {
       border-right: 2px solid #64748b !important;
+    }
+    /* Micro-píldoras de cabecera (TAW, ARMADO, Feriados) */
+    .header-micro-badge {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-width: 11px !important;
+      height: 11px !important;
+      padding: 0 2px !important;
+      border-radius: 2px !important;
+      font-size: 7.5px !important;
+      font-weight: 800 !important;
+      line-height: 1 !important;
+      color: #ffffff !important;
+      box-sizing: border-box !important;
+      text-shadow: 0 1px 1px rgba(0,0,0,0.5);
+    }
+
+    /* TAW: Azul eléctrico */
+    .badge-taw {
+      background-color: #2563eb !important;
+      border: 1px solid #60a5fa !important;
+    }
+
+    /* ARMADO: Naranja / Ámbar vibrante */
+    .badge-armado {
+      background-color: #d97706 !important;
+      border: 1px solid #fbbf24 !important;
+    }
+
+    /* Feriado: Rojo intenso */
+    .badge-holiday {
+      background-color: #dc2626 !important;
+      border: 1px solid #f87171 !important;
+      font-size: 7px !important;
     }
   </style>
 </head>
@@ -5199,9 +5234,17 @@ function renderDesktopView() {
     const todayClass = isToday ? "dia-actual today-col " : "";
     
     const thClass = `day-col ${weekClass} ${borderWeekClass} ${todayClass}`;
-    const holidayBadge = isHoliday ? `<span title="Feriado" style="color: var(--danger); font-size: 8px;">★</span>` : "";
-    const tawBadge = state.tawDates.includes(dStr) ? `<span title="TAW" style="color: var(--warning); font-size: 8px;">T</span>` : "";
-    const armadoBadge = state.armadoDates.includes(dStr) ? `<span title="Armado" style="color: var(--info); font-size: 8px;">A</span>` : "";
+    const holidayBadge = isHoliday 
+      ? `<span class="header-micro-badge badge-holiday" title="Feriado">★</span>` 
+      : "";
+
+    const tawBadge = state.tawDates.includes(dStr) 
+      ? `<span class="header-micro-badge badge-taw" title="TAW">T</span>` 
+      : "";
+
+    const armadoBadge = state.armadoDates.includes(dStr) 
+      ? `<span class="header-micro-badge badge-armado" title="ARMADO">A</span>` 
+      : "";
 
     const eventBadge = evento
       ? `<span class="event-icon-btn" onclick="window.showEventInfo('${dStr}')" title="${evento.tipo}: ${evento.descripcion}" style="display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: ${evento.color}; margin-top: 2px;">
