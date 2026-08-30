@@ -3939,6 +3939,12 @@ async function loadWeekPlanning(append = false) {
               if (change.type === "removed") {
                 delete state.planning[`${data.colaboradorId}_${data.fecha}`];
               }
+
+              if (!firstLoad && change.type !== "removed") {
+                if (typeof window.notifyRemoteChange === "function") {
+                  window.notifyRemoteChange();
+                }
+              }
             });
 
             if (firstLoad) {
@@ -11166,57 +11172,36 @@ if (btnUploadYearFile && yearModalFileInput) {
   });
 }
 
-window.forceHardRefresh = function () {
-  // Preservar estado de sesión y navegación, y tags visuales
-  const sessionKeys = [
-    "adminLogged",
-    "userLoggedIn",
-    "invitadoLegajo",
-    "invitadoNombre",
-    "editorLegajo",
-    "editorNombre",
-    "lastDateNav",
-  ];
-  const preservedData = {};
-
-  sessionKeys.forEach((key) => {
-    const val = localStorage.getItem(key);
-    if (val !== null) preservedData[key] = val;
-  });
-
-  // Preservar claves de Firebase (Auth IndexedDB fallback o localStorage)
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith("firebase:")) {
-      preservedData[key] = localStorage.getItem(key);
-    }
+window.forceHardRefresh = async function() {
+  const btn = document.getElementById("btnExecuteHardRefresh");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "Limpiando y actualizando...";
   }
 
-  localStorage.clear();
-  sessionStorage.clear();
-
-  // Restaurar sesión y Firebase
-  Object.entries(preservedData).forEach(([key, val]) => {
-    localStorage.setItem(key, val);
-  });
-
-  if ("caches" in window) {
-    caches.keys().then((names) => {
-      names.forEach((name) => caches.delete(name));
-    });
-  }
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function (registrations) {
-      for (let registration of registrations) {
-        registration.unregister();
+  try {
+    // 1. Desregistrar todos los Service Workers activos
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const registration of registrations) {
+        await registration.unregister();
       }
-    });
+    }
+
+    // 2. Vaciar todo el Cache Storage
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      for (const cacheName of cacheNames) {
+        await caches.delete(cacheName);
+      }
+    }
+  } catch (e) {
+    console.warn("Error durante la limpieza de caché:", e);
   }
 
-  setTimeout(() => {
-    window.location.reload(true);
-  }, 500);
+  // 3. Forzar recarga con bypass de caché
+  const cleanUrl = window.location.origin + window.location.pathname + '?v=' + Date.now();
+  window.location.replace(cleanUrl);
 };
 
 // ==========================================
@@ -11592,6 +11577,55 @@ window.showEventInfo = function(dateStr) {
 };
 
 
+// Variable que guarda la versión local del build
+const CURRENT_APP_BUILD = "2026.08.30.3"; // Incrementar con cada cambio importante
+
+function triggerForcedUpdateModal(title, msg) {
+  const modal = document.getElementById("forcedUpdateModal");
+  if (!modal) return;
+  if (title) document.getElementById("forcedUpdateTitle").textContent = title;
+  if (msg) document.getElementById("forcedUpdateMessage").textContent = msg;
+  modal.style.display = "flex";
+}
+
+// 1. Escuchar si otra persona cambió datos mientras la pestaña estuvo en segundo plano
+let isWindowActive = true;
+let pendingRemoteChanges = false;
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    isWindowActive = true;
+    if (pendingRemoteChanges) {
+      triggerForcedUpdateModal(
+        "Nuevos Horarios Detectados",
+        "Otros usuarios han actualizado la planificación mientras la app estaba en segundo plano. Actualizá para sincronizar la grilla."
+      );
+    }
+  } else {
+    isWindowActive = false;
+  }
+});
+
+// 2. Marcar cambios remotos si la app no está en foco
+window.notifyRemoteChange = function() {
+  if (!isWindowActive) {
+    pendingRemoteChanges = true;
+  }
+};
+
+// 3. Escuchar la versión del sistema en Firestore en tiempo real
+onSnapshot(doc(db, "configuracion", "version_sistema"), (docSnap) => {
+  if (docSnap.exists()) {
+    const remoteBuild = docSnap.data().build;
+    if (remoteBuild && remoteBuild !== CURRENT_APP_BUILD) {
+      triggerForcedUpdateModal(
+        "Nueva Versión Disponible",
+        "Se ha desplegado una actualización obligatoria del sistema. Presiona el botón para cargar las nuevas funciones."
+      );
+    }
+  }
+});
+
 </script>
   <script>
     if ('serviceWorker' in navigator) {
@@ -11604,5 +11638,31 @@ window.showEventInfo = function(dateStr) {
       });
     }
   </script>
+  <!-- MODAL DE BLOQUEO OBLIGATORIO DE ACTUALIZACIÓN -->
+  <div id="forcedUpdateModal" style="display: none; position: fixed; inset: 0; z-index: 2147483647; background: rgba(11, 17, 32, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); align-items: center; justify-content: center; padding: 20px; font-family: 'Plus Jakarta Sans', sans-serif;">
+    <div style="background: #1e293b; border: 1px solid rgba(59, 130, 246, 0.4); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); border-radius: 16px; padding: 32px 24px; max-width: 440px; width: 100%; text-align: center; box-sizing: border-box;">
+      
+      <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        </svg>
+      </div>
+
+      <h2 id="forcedUpdateTitle" style="color: #ffffff; font-size: 1.25rem; font-weight: 700; margin: 0 0 8px;">
+        Actualización Requerida
+      </h2>
+
+      <p id="forcedUpdateMessage" style="color: #94a3b8; font-size: 0.85rem; line-height: 1.5; margin: 0 0 24px;">
+        Se detectaron cambios recientes en los horarios o una nueva versión del sistema. Es necesario actualizar para continuar.
+      </p>
+
+      <button id="btnExecuteHardRefresh" onclick="window.forceHardRefresh()" style="width: 100%; background: #2563eb; color: #ffffff; border: none; padding: 12px 20px; border-radius: 8px; font-size: 0.95rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15"/>
+        </svg>
+        Actualizar Aplicación Ahora
+      </button>
+    </div>
+  </div>
 </body>
 </html>
