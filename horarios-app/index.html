@@ -3315,6 +3315,14 @@ try {
         }
 
         window.applyPermissionsUI();
+
+        // Si es admin, sincronizar la versión del sistema en Firestore
+        if (currentRole === "admin" && !isMockMode) {
+          setDoc(doc(db, "configuracion", "version_sistema"), {
+            build: CURRENT_APP_BUILD,
+            updatedAt: new Date().toISOString()
+          }, { merge: true }).catch(console.error);
+        }
       } catch (error) {
         console.error("Error al leer perfil de Firestore:", error);
         window.userProfile = { rol: "Consulta", email: user.email };
@@ -11613,7 +11621,7 @@ window.showEventInfo = function(dateStr) {
 
 
 // Variable que guarda la versión local del build
-const CURRENT_APP_BUILD = "2026.08.30.3"; // Incrementar con cada cambio importante
+const CURRENT_APP_BUILD = "2026.08.31.1";
 
 function triggerForcedUpdateModal(title, msg) {
   const modal = document.getElementById("forcedUpdateModal");

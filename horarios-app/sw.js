@@ -1,4 +1,5 @@
-const CACHE_NAME = 'retail-plan-v2.1.10'; // Subimos la versión para limpiar la anterior
+const CACHE_VERSION = 'v2026.08.31.1';
+const CACHE_NAME = `crew-app-${CACHE_VERSION}`;
 const ASSETS = [
   './',
   './index.html',
