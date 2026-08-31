@@ -5213,31 +5213,28 @@ function attachScheduleEventListeners() {
         handleContextMenu(e);
       }
     });
-    // 3. Lógica de Pulsación Prolongada (Long-Press) para móviles
-    let longPressTimer = null;
+    // 3. Lógica de Doble Toque (Double Tap) para móviles
+    let lastTapTime = 0;
 
-    table.addEventListener("touchstart", (e) => {
+    table.addEventListener("touchend", (e) => {
       const td = e.target.closest("td.day-cell");
       if (!td) return;
 
       const input = td.querySelector(".cell-input") || e.target.closest(".cell-input");
       if (!input || input.disabled) return;
 
-      // Iniciar temporizador de 500ms para toque prolongado
-      longPressTimer = setTimeout(() => {
-        // Si el usuario mantuvo el dedo quieto por 500ms, abrir menú
-        if (navigator.vibrate) navigator.vibrate(40); // Feedback háptico sutil
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTapTime;
+
+      // Si pasaron menos de 300ms entre toques, se considera doble toque
+      if (tapLength < 300 && tapLength > 0) {
+        e.preventDefault(); // Evita zoom nativo del navegador
+        if (navigator.vibrate) navigator.vibrate(35); // Feedback háptico sutil
         handleContextMenu(e);
-      }, 500);
-    }, { passive: true });
-
-    table.addEventListener("touchend", () => {
-      if (longPressTimer) clearTimeout(longPressTimer);
-    });
-
-    table.addEventListener("touchmove", () => {
-      // Si el usuario hace scroll, cancelar el toque prolongado
-      if (longPressTimer) clearTimeout(longPressTimer);
+        lastTapTime = 0;
+      } else {
+        lastTapTime = currentTime;
+      }
     });
 
     // 3. Listener de flechas de teclado
@@ -11656,7 +11653,7 @@ window.showEventInfo = function(dateStr) {
 
 
 // Variable que guarda la versión local del build
-const CURRENT_APP_BUILD = "2026.08.31.2";
+const CURRENT_APP_BUILD = "2026.08.31.3";
 
 function triggerForcedUpdateModal(title, msg) {
   const modal = document.getElementById("forcedUpdateModal");
