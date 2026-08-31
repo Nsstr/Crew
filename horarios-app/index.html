@@ -11276,28 +11276,28 @@ window.forceHardRefresh = async function() {
   }
 
   try {
-    // 1. Desregistrar todos los Service Workers activos
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      for (const registration of registrations) {
-        await registration.unregister();
-      }
+    // 1. Guardar la versión remota actual en localStorage para que al recargar coincida
+    if (window.latestRemoteBuild) {
+      localStorage.setItem("app_current_build", window.latestRemoteBuild);
     }
 
-    // 2. Vaciar todo el Cache Storage
+    // 2. Desregistrar Service Workers
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) await reg.unregister();
+    }
+
+    // 3. Limpiar Caches de red
     if ('caches' in window) {
-      const cacheNames = await caches.keys();
-      for (const cacheName of cacheNames) {
-        await caches.delete(cacheName);
-      }
+      const keys = await caches.keys();
+      for (const key of keys) await caches.delete(key);
     }
   } catch (e) {
-    console.warn("Error durante la limpieza de caché:", e);
+    console.warn("Error en limpieza de caché:", e);
   }
 
-  // 3. Forzar recarga con bypass de caché
-  const cleanUrl = window.location.origin + window.location.pathname + '?v=' + Date.now();
-  window.location.replace(cleanUrl);
+  // 4. Recarga forzada limpia con query string único
+  window.location.href = window.location.pathname + '?v=' + Date.now();
 };
 
 // ==========================================
@@ -11674,7 +11674,8 @@ window.showEventInfo = function(dateStr) {
 
 
 // Variable que guarda la versión local del build
-const CURRENT_APP_BUILD = "2026.08.31.5";
+const CURRENT_APP_BUILD = "2026.08.31.6";
+const localBuild = localStorage.getItem("app_current_build") || CURRENT_APP_BUILD;
 
 function triggerForcedUpdateModal(title, msg) {
   const modal = document.getElementById("forcedUpdateModal");
@@ -11682,6 +11683,16 @@ function triggerForcedUpdateModal(title, msg) {
   if (title) document.getElementById("forcedUpdateTitle").textContent = title;
   if (msg) document.getElementById("forcedUpdateMessage").textContent = msg;
   modal.style.display = "flex";
+}
+
+function checkVersionMismatch(remoteBuild) {
+  window.latestRemoteBuild = remoteBuild;
+  if (remoteBuild && remoteBuild !== localBuild) {
+    triggerForcedUpdateModal(
+      "Nueva Versión Disponible",
+      "Hay una actualización lista del sistema. Presiona el botón para aplicarla."
+    );
+  }
 }
 
 // 1. Escuchar si otra persona cambió datos mientras la pestaña estuvo en segundo plano
@@ -11711,12 +11722,7 @@ document.addEventListener("visibilitychange", async () => {
         const snap = await getDoc(doc(db, "configuracion", "version_sistema"));
         if (snap.exists()) {
           const remoteBuild = snap.data().build;
-          if (remoteBuild && remoteBuild !== CURRENT_APP_BUILD) {
-            triggerForcedUpdateModal(
-              "Nueva Versión Disponible",
-              "Hay una actualización lista del sistema. Presiona el botón para aplicarla."
-            );
-          }
+          checkVersionMismatch(remoteBuild);
         }
       } catch (e) {
         console.warn("Error al verificar versión en foco:", e);
@@ -11740,12 +11746,7 @@ if (typeof isMockMode !== 'undefined' && !isMockMode && typeof db !== 'undefined
     if (docSnap.exists()) {
       const data = docSnap.data();
       const remoteBuild = data.build;
-      if (remoteBuild && remoteBuild !== CURRENT_APP_BUILD) {
-        triggerForcedUpdateModal(
-          "Nueva Versión Disponible",
-          "Hay una actualización lista del sistema. Presiona el botón para aplicarla."
-        );
-      }
+      checkVersionMismatch(remoteBuild);
     }
   });
 }
