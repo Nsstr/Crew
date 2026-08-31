@@ -11655,11 +11655,24 @@ onSnapshot(doc(db, "configuracion", "version_sistema"), (docSnap) => {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').then((reg) => {
+          
+          // 1. Si al abrir ya hay un worker esperando en segundo plano, disparar el modal
+          if (reg.waiting) {
+            if (typeof triggerForcedUpdateModal === 'function') {
+              triggerForcedUpdateModal(
+                "Nueva Versión Disponible",
+                "Hay una actualización lista. Presiona el botón para aplicarla."
+              );
+            }
+          }
+
+          // 2. Escuchar nuevas instalaciones mientras la app está abierta
           reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
+            if (!newWorker) return;
+
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // Disparar el modal central unificado en lugar del botón pequeño
                 if (typeof triggerForcedUpdateModal === 'function') {
                   triggerForcedUpdateModal(
                     "Nueva Versión Disponible",
@@ -11669,7 +11682,29 @@ onSnapshot(doc(db, "configuracion", "version_sistema"), (docSnap) => {
               }
             });
           });
-        });
+
+          // 3. OBLIGATORIO PARA CELULARES: Forzar chequeo cada vez que el usuario vuelve a la app
+          document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") {
+              reg.update().catch((err) => console.warn("Error al verificar actualización:", err));
+            }
+          });
+
+          // 4. Chequeo periódico cada 5 minutos por si la app queda abierta
+          setInterval(() => {
+            reg.update().catch(() => {});
+          }, 5 * 60 * 1000);
+
+        }).catch((err) => console.warn("SW registration error:", err));
+      });
+
+      // 5. Si el controlador del Service Worker cambia, forzar recarga limpia
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
       });
     }
   </script>
