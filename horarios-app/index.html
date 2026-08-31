@@ -2452,6 +2452,16 @@
     #updateAppBtn {
       display: none !important;
     }
+
+    /* Desactivar menú nativo del sistema al mantener presionado en móviles */
+    .cell-input,
+    .day-cell,
+    td.day-cell,
+    #planningTable td {
+      -webkit-touch-callout: none !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
+    }
   </style>
 </head>
 <body>
@@ -5202,6 +5212,32 @@ function attachScheduleEventListeners() {
         e.preventDefault();
         handleContextMenu(e);
       }
+    });
+    // 3. Lógica de Pulsación Prolongada (Long-Press) para móviles
+    let longPressTimer = null;
+
+    table.addEventListener("touchstart", (e) => {
+      const td = e.target.closest("td.day-cell");
+      if (!td) return;
+
+      const input = td.querySelector(".cell-input") || e.target.closest(".cell-input");
+      if (!input || input.disabled) return;
+
+      // Iniciar temporizador de 500ms para toque prolongado
+      longPressTimer = setTimeout(() => {
+        // Si el usuario mantuvo el dedo quieto por 500ms, abrir menú
+        if (navigator.vibrate) navigator.vibrate(40); // Feedback háptico sutil
+        handleContextMenu(e);
+      }, 500);
+    }, { passive: true });
+
+    table.addEventListener("touchend", () => {
+      if (longPressTimer) clearTimeout(longPressTimer);
+    });
+
+    table.addEventListener("touchmove", () => {
+      // Si el usuario hace scroll, cancelar el toque prolongado
+      if (longPressTimer) clearTimeout(longPressTimer);
     });
 
     // 3. Listener de flechas de teclado
@@ -8897,17 +8933,16 @@ function checkLogin() {
     
     let currentContextCell = null;
 function handleContextMenu(e) {
-  if (e.target.closest('[data-is-repositor="true"]')) {
-    e.preventDefault();
-    return;
-  }
-  e.preventDefault();
+  if (e.cancelable && e.type === "contextmenu") e.preventDefault();
   if (!requireAuth()) return;
   if (!checkAccessWithToast("modificarHorario")) return;
 
-  // Buscar el TD o elemento que posea data-collab y data-date
-  const tdNode = e.target.closest("td.day-cell") || e.target.closest("td");
-  const inputNode = tdNode ? tdNode.querySelector(".cell-input") : e.target.closest(".cell-input");
+  const targetElement = e.touches ? document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY) || e.target : e.target;
+  
+  if (targetElement.closest('[data-is-repositor="true"]')) return;
+
+  const tdNode = targetElement.closest("td.day-cell") || targetElement.closest("td");
+  const inputNode = tdNode ? tdNode.querySelector(".cell-input") : targetElement.closest(".cell-input");
 
   let collabId = (inputNode && inputNode.getAttribute("data-collab")) || (tdNode && tdNode.getAttribute("data-collab"));
   let dateStr = (inputNode && inputNode.getAttribute("data-date")) || (tdNode && tdNode.getAttribute("data-date"));
