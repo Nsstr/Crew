@@ -2404,6 +2404,54 @@
       border: 1px solid #f87171 !important;
       font-size: 7px !important;
     }
+
+    /* 1. Ancho de columna fija izquierda de Colaborador */
+    :root {
+      --col-left-width: 260px !important;
+    }
+
+    table#planningTable th:first-child, 
+    table#planningTable td:first-child,
+    th.collab-col, 
+    td.collab-cell {
+      width: 260px !important;
+      min-width: 260px !important;
+      max-width: 260px !important;
+    }
+
+    /* 2. Columnas de los 28 días (Compactadas para entrar en 1366px) */
+    table#planningTable th:not(:first-child),
+    table#planningTable td:not(:first-child),
+    th.day-col, 
+    td.day-cell {
+      width: auto !important;
+      min-width: 32px !important;
+      max-width: 36px !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+    }
+
+    /* 3. Asegurar que los textos y números dentro de la celda sigan legibles y centrados */
+    .shift-cell .shift-start {
+      font-size: 9.5px !important;
+      line-height: 1 !important;
+    }
+    .shift-cell .shift-end {
+      font-size: 8.5px !important;
+      line-height: 1 !important;
+    }
+    .shift-cell .shift-label {
+      font-size: 9.5px !important;
+    }
+
+    /* 4. Cabecera del día compacta */
+    th.day-col span {
+      letter-spacing: -0.5px;
+    }
+
+    #updateAppBtn {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
@@ -3688,9 +3736,10 @@ const mockCollaborators = [
 // 5. FUNCIONES DE FECHA
 function getStartOfWeek(date) {
   const d = new Date(date);
-  const day = d.getDay();
+  const day = d.getDay(); // 0: Domingo, 1: Lunes, etc.
+  // Si es Domingo (0), retroceder 6 días. Si es otro día, retroceder (day - 1) días.
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.getFullYear(), d.getMonth(), diff);
+  return new Date(d.getFullYear(), d.getMonth(), diff, 0, 0, 0);
 }
 
 function formatDate(date) {
@@ -10312,33 +10361,17 @@ function attachDatepickerJump(triggerEl) {
   if (!triggerEl) return;
   triggerEl.addEventListener("change", async (e) => {
     if (!e.target.value) return;
-    const parts = e.target.value.split("-");
-    const selectedDate = new Date(
-      Date.UTC(parts[0], parts[1] - 1, parts[2], 12, 0, 0),
-    );
+    
+    // 1. Parsear la fecha seleccionada en horario local (evitar desfasajes UTC)
+    const [y, m, d] = e.target.value.split("-");
+    const selectedDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
 
-    if (window.innerWidth <= 768) {
-      state.currentWeekStart = selectedDate;
-      await loadWeekPlanning(false);
-    } else {
-      const currentStart = getStartOfWeek(state.currentWeekStart);
-      const diffMs = selectedDate - currentStart;
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    // 2. FORZAR que el inicio del ciclo sea estrictamente el LUNES de esa semana
+    state.currentWeekStart = getStartOfWeek(selectedDate);
 
-      const colWidth = window.innerWidth <= 768 ? 75 : 120;
-
-      if (diffDays >= 0 && diffDays < (state.viewRange || 7)) {
-        gridContainer.scrollLeft = diffDays * colWidth;
-      } else {
-        state.currentWeekStart = getStartOfWeek(selectedDate);
-        state.viewRange = 14;
-        await loadWeekPlanning(false);
-
-        const targetDayIndex =
-          selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1;
-        gridContainer.scrollLeft = targetDayIndex * colWidth;
-      }
-    }
+    // 3. Recargar la planificación con el ciclo normalizado
+    await loadWeekPlanning();
+    
     e.target.value = "";
   });
 }
@@ -11621,10 +11654,21 @@ onSnapshot(doc(db, "configuracion", "version_sistema"), (docSnap) => {
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then(registration => {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        }).catch(err => {
-          console.log('ServiceWorker registration failed: ', err);
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // Disparar el modal central unificado en lugar del botón pequeño
+                if (typeof triggerForcedUpdateModal === 'function') {
+                  triggerForcedUpdateModal(
+                    "Nueva Versión Disponible",
+                    "Hay una actualización lista. Presiona el botón para aplicarla."
+                  );
+                }
+              }
+            });
+          });
         });
       });
     }
