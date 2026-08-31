@@ -11279,6 +11279,7 @@ window.forceHardRefresh = async function() {
     // 1. Guardar la versión remota actual en localStorage para que al recargar coincida
     if (window.latestRemoteBuild) {
       localStorage.setItem("app_current_build", window.latestRemoteBuild);
+      localStorage.setItem("appVersion", window.latestRemoteBuild);
     }
 
     // 2. Desregistrar Service Workers
@@ -11306,50 +11307,42 @@ window.forceHardRefresh = async function() {
 let currentAppVersion = localStorage.getItem("appVersion");
 async function checkForAppUpdates() {
   try {
-    // Construir ruta dinámica al archivo version.json (soporta subdirectorios como /horarios-app/)
     const basePath = window.location.pathname.substring(
       0,
       window.location.pathname.lastIndexOf("/"),
     );
-    const url = `${window.location.origin}${basePath}/version.json?t=${new Date().getTime()}`;
+    const url = `${window.location.origin}${basePath}/version.json?t=${Date.now()}`;
 
     const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) {
-      const versionDisplay = document.getElementById("uiVersionDisplay");
-      if (versionDisplay) versionDisplay.textContent = "vError";
-      return;
-    }
+    if (!res.ok) return;
     const data = await res.json();
 
-    if (!data || !data.version) {
-      const versionDisplay = document.getElementById("uiVersionDisplay");
-      if (versionDisplay) versionDisplay.textContent = "vError";
-      return;
-    }
+    if (!data || !data.version) return;
 
-    // Actualizar la interfaz si el elemento existe
     const versionDisplay = document.getElementById("uiVersionDisplay");
     if (versionDisplay) {
       versionDisplay.textContent = "v" + data.version;
     }
 
+    let currentAppVersion = localStorage.getItem("appVersion");
+
     if (!currentAppVersion) {
-      currentAppVersion = data.version;
+      currentAppVersion = String(data.version);
       localStorage.setItem("appVersion", currentAppVersion);
-      console.log(
-        `[App Version] Versión inicial cargada y guardada: ${currentAppVersion}`,
-      );
-    } else {
-      console.log(
-        `[App Version] Chequeo periódico. Local: ${currentAppVersion} | Servidor: ${data.version}`,
-      );
-      if (currentAppVersion !== data.version) {
-        console.log(`[App Version] ¡NUEVA VERSIÓN DETECTADA! Mostrando botón.`);
-        document.getElementById("updateAppBtn").style.display = "flex";
+    } else if (String(currentAppVersion) !== String(data.version)) {
+      console.log(`[App Version] ¡NUEVA VERSIÓN DETECTADA! Mostrando modal.`);
+      window.latestRemoteBuild = String(data.version);
+      
+      // DISPARAR EL MODAL FLOTANTE DIRECTAMENTE
+      if (typeof triggerForcedUpdateModal === 'function') {
+        triggerForcedUpdateModal(
+          "Nueva Versión Disponible",
+          "Hay una actualización lista del sistema. Presiona el botón para aplicarla."
+        );
       }
     }
   } catch (e) {
-    console.log("No se pudo comprobar la versión de la app", e);
+    console.warn("No se pudo comprobar la versión de la app", e);
   }
 }
 
@@ -11674,7 +11667,7 @@ window.showEventInfo = function(dateStr) {
 
 
 // Variable que guarda la versión local del build
-const CURRENT_APP_BUILD = "2026.08.31.6";
+const CURRENT_APP_BUILD = "2026.08.31.7";
 const localBuild = localStorage.getItem("app_current_build") || CURRENT_APP_BUILD;
 
 function triggerForcedUpdateModal(title, msg) {
@@ -11707,6 +11700,11 @@ document.addEventListener("visibilitychange", async () => {
         "Nuevos Horarios Detectados",
         "Otros usuarios han actualizado la planificación mientras la app estaba en segundo plano. Actualizá para sincronizar la grilla."
       );
+    }
+
+    // Chequear al instante contra el servidor de Vercel (version.json)
+    if (typeof checkForAppUpdates === 'function') {
+      checkForAppUpdates();
     }
 
     // 1. Chequear Service Worker
