@@ -4835,9 +4835,10 @@ function renderMobileDayView() {
                 <input type="text" class="cell-input" 
                        data-collab="${collab.id}" data-date="${dStr}" 
                        value="${shiftVal}" ${originalScheduleTitle}
-                       style="height: 48px; font-size: 1.25rem; font-weight: 700; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; ${inputDisabled ? "cursor: not-allowed;" : ""}"
+                       readonly inputmode="none" autocomplete="off" autocapitalize="none"
+                       style="height: 48px; font-size: 1.25rem; font-weight: 700; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; cursor: pointer; ${inputDisabled ? "cursor: not-allowed;" : ""}"
                        ${logicDisabled ? 'disabled data-disabled="true"' : ""}
-                       ${!logicDisabled ? 'readonly onclick="openMobileContextMenu(this)"' : ""}>
+                       ${!logicDisabled ? 'onclick="openMobileContextMenu(this)"' : ""}>
               </td>
             `;
 
@@ -5141,23 +5142,33 @@ function attachScheduleEventListeners() {
   const inputs = Array.from(document.querySelectorAll(".cell-input"));
 
   inputs.forEach((el) => {
-    // Limpieza de bloqueos
-    el.removeAttribute("readonly");
-    el.style.userSelect = "text";
-    el.style.webkitUserSelect = "text";
+    // Solo permitir edición libre por teclado físico en escritorio
+    if (!isMobileDevice) {
+      el.removeAttribute("readonly");
+      el.style.userSelect = "text";
+      el.style.webkitUserSelect = "text";
+    } else {
+      // En mobile garantizar que quede bloqueado el teclado virtual
+      el.setAttribute("readonly", "true");
+      el.setAttribute("inputmode", "none");
+    }
 
     // Si ya se adjuntaron listeners en este nodo, saltar
     if (el.dataset.listenersAttached) return;
     el.dataset.listenersAttached = "true";
 
     el.addEventListener("focus", (e) => {
-      e.target.dataset.originalValue = e.target.value.trim();
-      if (!isMobileDevice) {
-        e.target.select();
+      if (isMobileDevice) {
+        e.target.blur(); // Evita que el teclado del teléfono suba y baje
+        return;
       }
+      e.target.dataset.originalValue = e.target.value.trim();
+      e.target.select();
     });
 
-    el.addEventListener("blur", handleInputChange);
+    if (!isMobileDevice) {
+      el.addEventListener("blur", handleInputChange);
+    }
   });
 
   const table = document.getElementById("planningTable");
