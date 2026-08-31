@@ -4643,18 +4643,23 @@ window.toggleCollabDetails = function(collabId, event) {
 window.openMobileProfile = function (collabId) {
   const collab = state.collaborators.find((c) => c.id === collabId);
   if (!collab) return;
-  const cleanName = (collab.name || "Desconocido")
-    .split("(")[0]
-    .split("-")[0]
-    .trim();
-  document.getElementById("pbName").textContent = cleanName;
-  document.getElementById("pbLegajo").textContent =
-    collab.legajo || collab.id || "-";
-  document.getElementById("pbSector").textContent = collab.sector || "-";
-  document.getElementById("pbCarga").textContent = collab.cargaHoraria
-    ? `${collab.cargaHoraria} hs`
-    : "-";
-  document.getElementById("profileBottomSheet").style.display = "block";
+  const sheet = document.getElementById("profileBottomSheet");
+  if (!sheet) return; // Si no está en el DOM, no ejecutar para no arrojar error en consola
+
+  const cleanName = (collab.name || "Desconocido").split("(")[0].split("-")[0].trim();
+  const nameEl = document.getElementById("pbName");
+  if (nameEl) nameEl.textContent = cleanName;
+  
+  const pbLegajo = document.getElementById("pbLegajo");
+  if (pbLegajo) pbLegajo.textContent = collab.legajo || collab.id || "-";
+  
+  const pbSector = document.getElementById("pbSector");
+  if (pbSector) pbSector.textContent = collab.sector || "-";
+  
+  const pbCarga = document.getElementById("pbCarga");
+  if (pbCarga) pbCarga.textContent = collab.cargaHoraria ? `${collab.cargaHoraria} hs` : "-";
+
+  sheet.style.display = "block";
 };
 
 window.openMobileContextMenu = function (inputElement) {
@@ -4849,14 +4854,14 @@ function renderMobileDayView() {
         : "";
 
       cellsHTML += `
-              <td style="padding: 2px; ${cellStyle}">
+              <td class="day-cell" style="padding: 2px; ${cellStyle}">
                 <input type="text" class="cell-input" 
                        data-collab="${collab.id}" data-date="${dStr}" 
                        value="${shiftVal}" ${originalScheduleTitle}
                        readonly inputmode="none" autocomplete="off" autocapitalize="none"
                        style="height: 48px; font-size: 1.25rem; font-weight: 700; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; cursor: pointer; ${inputDisabled ? "cursor: not-allowed;" : ""}"
                        ${logicDisabled ? 'disabled data-disabled="true"' : ""}
-                       ${!logicDisabled ? 'onclick="openMobileContextMenu(this)"' : ""}>
+                       ${!logicDisabled ? 'onclick="window.openMobileContextMenu(this, event)"' : ""}>
               </td>
             `;
 
@@ -8928,17 +8933,33 @@ function checkLogin() {
        }
     }
     
-    let currentContextCell = null;
+let currentContextCell = null;
+window.openMobileContextMenu = function (inputElement, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  if (!requireAuth()) return;
+  handleContextMenu({
+    preventDefault: () => {},
+    stopPropagation: () => {},
+    target: inputElement
+  });
+};
+
 function handleContextMenu(e) {
-  if (e.cancelable && e.type === "contextmenu") e.preventDefault();
+  if (e && e.stopPropagation) e.stopPropagation();
+  if (e && e.preventDefault && e.cancelable) e.preventDefault();
   if (!requireAuth()) return;
   if (!checkAccessWithToast("modificarHorario")) return;
 
-  const targetElement = e.touches ? document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY) || e.target : e.target;
-  
+  const targetElement = (e.touches && e.touches.length > 0)
+    ? document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY) || e.target
+    : e.target;
+
   if (targetElement.closest('[data-is-repositor="true"]')) return;
 
-  const tdNode = targetElement.closest("td.day-cell") || targetElement.closest("td");
+  const tdNode = targetElement.closest("td");
   const inputNode = tdNode ? tdNode.querySelector(".cell-input") : targetElement.closest(".cell-input");
 
   let collabId = (inputNode && inputNode.getAttribute("data-collab")) || (tdNode && tdNode.getAttribute("data-collab"));
