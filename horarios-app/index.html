@@ -3326,13 +3326,7 @@ try {
 
         window.applyPermissionsUI();
 
-        // Si es admin, sincronizar la versión del sistema en Firestore
-        if (currentRole === "admin" && !isMockMode) {
-          setDoc(doc(db, "configuracion", "version_sistema"), {
-            build: CURRENT_APP_BUILD,
-            updatedAt: new Date().toISOString()
-          }, { merge: true }).catch(console.error);
-        }
+
       } catch (error) {
         console.error("Error al leer perfil de Firestore:", error);
         window.userProfile = { rol: "Consulta", email: user.email };
@@ -11268,43 +11262,38 @@ if (btnUploadYearFile && yearModalFileInput) {
   });
 }
 
+// Acción del botón Actualizar
 window.forceHardRefresh = async function() {
   const btn = document.getElementById("btnExecuteHardRefresh");
   if (btn) {
     btn.disabled = true;
-    btn.innerText = "Limpiando y actualizando...";
+    btn.innerText = "Actualizando...";
   }
 
   try {
-    // 1. Guardar la versión remota actual en localStorage para que al recargar coincida
-    if (window.latestRemoteBuild) {
-      localStorage.setItem("app_current_build", window.latestRemoteBuild);
-      localStorage.setItem("appVersion", window.latestRemoteBuild);
+    // 1. Guardar la versión que vino del servidor para que coincida al abrir
+    if (window.pendingUpdateVersion) {
+      localStorage.setItem("appVersion", window.pendingUpdateVersion);
     }
 
-    // 2. Desregistrar Service Workers
+    // 2. Limpiar Service Workers y Caches
     if ('serviceWorker' in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
       for (const reg of regs) await reg.unregister();
     }
-
-    // 3. Limpiar Caches de red
     if ('caches' in window) {
       const keys = await caches.keys();
       for (const key of keys) await caches.delete(key);
     }
-  } catch (e) {
-    console.warn("Error en limpieza de caché:", e);
-  }
+  } catch (e) {}
 
-  // 4. Recarga forzada limpia con query string único
+  // 3. Recarga limpia
   window.location.href = window.location.pathname + '?v=' + Date.now();
 };
 
 // ==========================================
-// DETECCIÓN AUTOMÁTICA DE NUEVAS VERSIONES (version.json)
+// CONTROL UNIFICADO DE VERSIÓN (Vercel version.json)
 // ==========================================
-let currentAppVersion = localStorage.getItem("appVersion");
 async function checkForAppUpdates() {
   try {
     const basePath = window.location.pathname.substring(
@@ -11316,37 +11305,35 @@ async function checkForAppUpdates() {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return;
     const data = await res.json();
-
     if (!data || !data.version) return;
 
+    const serverVer = String(data.version);
+    const localVer = localStorage.getItem("appVersion");
+
     const versionDisplay = document.getElementById("uiVersionDisplay");
-    if (versionDisplay) {
-      versionDisplay.textContent = "v" + data.version;
+    if (versionDisplay) versionDisplay.textContent = "v" + serverVer;
+
+    // Si es la primera vez que entra, registrar la versión actual
+    if (!localVer) {
+      localStorage.setItem("appVersion", serverVer);
+      return;
     }
 
-    let currentAppVersion = localStorage.getItem("appVersion");
-
-    if (!currentAppVersion) {
-      currentAppVersion = String(data.version);
-      localStorage.setItem("appVersion", currentAppVersion);
-    } else if (String(currentAppVersion) !== String(data.version)) {
-      console.log(`[App Version] ¡NUEVA VERSIÓN DETECTADA! Mostrando modal.`);
-      window.latestRemoteBuild = String(data.version);
-      
-      // DISPARAR EL MODAL FLOTANTE DIRECTAMENTE
-      if (typeof triggerForcedUpdateModal === 'function') {
-        triggerForcedUpdateModal(
-          "Nueva Versión Disponible",
-          "Hay una actualización lista del sistema. Presiona el botón para aplicarla."
-        );
-      }
+    // Si el servidor tiene una versión distinta, mostrar el modal
+    if (localVer !== serverVer) {
+      window.pendingUpdateVersion = serverVer;
+      triggerForcedUpdateModal(
+        "Nueva Versión Disponible",
+        "Hay una actualización lista del sistema. Presiona el botón para aplicarla."
+      );
     }
   } catch (e) {
-    console.warn("No se pudo comprobar la versión de la app", e);
+    console.warn("Error al comprobar version.json:", e);
   }
 }
 
-setTimeout(checkForAppUpdates, 5000);
+// Chequeo en carga, al cambiar de pestaña y cada 3 minutos
+setTimeout(checkForAppUpdates, 2000);
 setInterval(checkForAppUpdates, 180000);
 
 // Dropdown Header Menu Logic
@@ -11666,10 +11653,6 @@ window.showEventInfo = function(dateStr) {
 };
 
 
-// Variable que guarda la versión local del build
-const CURRENT_APP_BUILD = "2026.08.31.7";
-const localBuild = localStorage.getItem("app_current_build") || CURRENT_APP_BUILD;
-
 function triggerForcedUpdateModal(title, msg) {
   const modal = document.getElementById("forcedUpdateModal");
   if (!modal) return;
@@ -11678,21 +11661,11 @@ function triggerForcedUpdateModal(title, msg) {
   modal.style.display = "flex";
 }
 
-function checkVersionMismatch(remoteBuild) {
-  window.latestRemoteBuild = remoteBuild;
-  if (remoteBuild && remoteBuild !== localBuild) {
-    triggerForcedUpdateModal(
-      "Nueva Versión Disponible",
-      "Hay una actualización lista del sistema. Presiona el botón para aplicarla."
-    );
-  }
-}
-
 // 1. Escuchar si otra persona cambió datos mientras la pestaña estuvo en segundo plano
 let isWindowActive = true;
 let pendingRemoteChanges = false;
 
-document.addEventListener("visibilitychange", async () => {
+document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     isWindowActive = true;
     if (pendingRemoteChanges) {
@@ -11701,31 +11674,7 @@ document.addEventListener("visibilitychange", async () => {
         "Otros usuarios han actualizado la planificación mientras la app estaba en segundo plano. Actualizá para sincronizar la grilla."
       );
     }
-
-    // Chequear al instante contra el servidor de Vercel (version.json)
-    if (typeof checkForAppUpdates === 'function') {
-      checkForAppUpdates();
-    }
-
-    // 1. Chequear Service Worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistration().then((reg) => {
-        if (reg) reg.update().catch(() => {});
-      });
-    }
-
-    // 2. Chequear versión en Firestore al instante
-    if (typeof isMockMode !== 'undefined' && !isMockMode && typeof db !== 'undefined' && db) {
-      try {
-        const snap = await getDoc(doc(db, "configuracion", "version_sistema"));
-        if (snap.exists()) {
-          const remoteBuild = snap.data().build;
-          checkVersionMismatch(remoteBuild);
-        }
-      } catch (e) {
-        console.warn("Error al verificar versión en foco:", e);
-      }
-    }
+    checkForAppUpdates();
   } else {
     isWindowActive = false;
   }
@@ -11737,17 +11686,6 @@ window.notifyRemoteChange = function() {
     pendingRemoteChanges = true;
   }
 };
-
-// 3. Escuchar la versión del sistema en Firestore en tiempo real
-if (typeof isMockMode !== 'undefined' && !isMockMode && typeof db !== 'undefined' && db) {
-  onSnapshot(doc(db, "configuracion", "version_sistema"), (docSnap) => {
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      const remoteBuild = data.build;
-      checkVersionMismatch(remoteBuild);
-    }
-  });
-}
 
 </script>
   <script>
