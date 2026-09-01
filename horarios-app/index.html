@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -812,10 +812,7 @@
       gap: 1.5rem;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
     }
-    /* Gestión de Invitados ocupa todo el ancho del modal */
-    #gestionInvitadosSection {
-      grid-column: 1 / -1;
-    }
+
     #sugeridosMobileCards { display: none; }
     @media (max-width: 768px) {
        .nav-auth-controls {
@@ -947,7 +944,7 @@
            padding: 1.25rem 1rem !important;
            margin: 0 auto;
        }
-       .modal-left, .modal-right, #gestionInvitadosSection {
+       .modal-left, .modal-right {
            width: 100% !important;
            max-width: 100% !important;
            box-sizing: border-box !important;
@@ -3274,7 +3271,9 @@
           
           <!-- Texto descriptivo superior -->
           <div>
-            <h3 style="margin: 0 0 6px 0; font-size: 1rem; color: #fff;">Crear Evento</h3>
+            <h3 id="eventoFormTitle" style="margin: 0 0 6px 0; font-size: 1rem; color: #fff;">Crear Evento</h3>
+            <!-- Input oculto para guardar el ID si estamos en modo edición -->
+            <input type="hidden" id="eventoEditId" value="">
             <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0; line-height: 1.4;">
               Creá eventos especiales (Inventarios, Reuniones, etc.) para que aparezcan en el encabezado de la grilla.
             </p>
@@ -3335,10 +3334,15 @@
               </label>
             </div>
 
-            <!-- Botón Guardar -->
-            <button onclick="window.saveEvento()" style="background: var(--primary); color: #fff; border: none; border-radius: 6px; padding: 9px; cursor: pointer; font-weight: 700; font-size: 0.85rem; font-family: inherit; width: 100%; transition: background 0.2s; margin-top: 4px;">
-              + Guardar Evento
-            </button>
+            <!-- Botones Guardar y Cancelar -->
+            <div style="display: flex; gap: 8px; margin-top: 4px;">
+              <button type="button" id="eventoSaveBtn" onclick="window.saveEvento()" style="flex: 1; background: var(--primary); color: #fff; border: none; border-radius: 6px; padding: 9px; cursor: pointer; font-weight: 700; font-size: 0.85rem; font-family: inherit;">
+                + Guardar Evento
+              </button>
+              <button type="button" id="eventoCancelBtn" onclick="window.cancelEditEvento()" style="display: none; background: var(--surface-hover); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; cursor: pointer; font-weight: 600; font-size: 0.85rem; font-family: inherit;">
+                Cancelar
+              </button>
+            </div>
           </div>
 
           <div style="font-size: 0.7rem; color: var(--text-muted); text-align: center; opacity: 0.6;">
@@ -3612,11 +3616,7 @@
         </div>
       </div>
       <!-- ── Gestión de Invitados (sección de ancho completo dentro del grid) ── -->
-      <div id="gestionInvitadosSection">
-        <div id="gestionInvitadosContainer">
-          <!-- Tabla inyectada por renderGestionInvitados() al abrir el modal -->
-        </div>
-      </div>
+
     </div>
   </div>
 
@@ -7021,12 +7021,7 @@ document.getElementById("configBtn").addEventListener("click", (e) => {
   document.getElementById("cDeleteBtn").style.display = "none";
   document.getElementById("cSubmitBtn").innerText = "Guardar";
   configModal.classList.add("active");
-  // Renderizar tabla de Gestión de Invitados
-  const invContainer = document.getElementById("gestionInvitadosContainer");
-  // Función renderGestionInvitados eliminada
-  if(typeof window.renderGestionInvitados === 'function') {
-      window.renderGestionInvitados();
-  }
+
 });
 
 document.getElementById("closeConfigModal").addEventListener("click", () => {
@@ -10145,91 +10140,7 @@ logoutBtn.addEventListener("click", () => {
     .catch((err) => console.error("Error al cerrar sesion:", err));
 });
 
-// --- RESTAURACIÓN: GESTIÓN DE INVITADOS ---
-window.renderGestionInvitados = async function() {
-    const container = document.getElementById("gestionInvitadosContainer");
-    if (!container) return;
-    
-    container.innerHTML = "<div style='padding:20px; color:var(--text-muted); text-align:center;'>Cargando invitados...</div>";
-    
-    try {
-        const q = query(collection(db, "usuarios"), where("rol", "==", "Invitado"));
-        const snap = await getDocs(q);
-        
-        let html = `
-        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 20px;">
-            <div style="padding: 15px; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: var(--primary); font-size: 1.1rem;">Gestión de Invitados</h3>
-                <button onclick="window.crearInvitadoRapido()" style="background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.8rem;">+ Nuevo Invitado</button>
-            </div>
-            <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                <thead>
-                    <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);">
-                        <th style="padding: 10px 15px; color: var(--text-muted); font-size: 0.8rem;">Legajo</th>
-                        <th style="padding: 10px 15px; color: var(--text-muted); font-size: 0.8rem;">Nombre</th>
-                        <th style="padding: 10px 15px; color: var(--text-muted); font-size: 0.8rem;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-        
-        if (snap.empty) {
-            html += `<tr><td colspan="3" style="padding: 20px; text-align: center; color: var(--text-muted);">No hay invitados registrados.</td></tr>`;
-        } else {
-            snap.forEach(docSnap => {
-                const data = docSnap.data();
-                html += `
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                        <td style="padding: 10px 15px; font-weight: bold; color: var(--text);">${data.legajo}</td>
-                        <td style="padding: 10px 15px; color: var(--text);">${data.nombre}</td>
-                        <td style="padding: 10px 15px;">
-                            <button onclick="window.eliminarInvitado('${docSnap.id}')" style="background: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;">Eliminar</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-        
-        html += `</tbody></table></div>`;
-        container.innerHTML = html;
-    } catch (e) {
-        container.innerHTML = "<div style='padding:20px; color:var(--danger); text-align:center;'>Error al cargar invitados.</div>";
-    }
-};
 
-window.crearInvitadoRapido = async function() {
-    const legajo = prompt("Ingrese el número de legajo del nuevo invitado:");
-    if (!legajo) return;
-    const nombre = prompt("Ingrese el nombre completo del invitado:");
-    if (!nombre) return;
-
-    const email = legajo + "@crew.app";
-    
-    try {
-        await setDoc(doc(db, "usuarios", email), {
-            legajo: legajo,
-            nombre: nombre,
-            email: email,
-            rol: "Invitado",
-            fechaCreacion: new Date().toISOString()
-        });
-        if(typeof showToast === 'function') showToast("Éxito", "Invitado creado correctamente.");
-        window.renderGestionInvitados();
-    } catch (e) {
-        if(typeof showToast === 'function') showToast("Error", "No se pudo crear el invitado.");
-    }
-};
-
-window.eliminarInvitado = async function(docId) {
-    if (!confirm("¿Seguro que deseas eliminar a este invitado?")) return;
-    try {
-        await deleteDoc(doc(db, "usuarios", docId));
-        if(typeof showToast === 'function') showToast("Éxito", "Invitado eliminado.");
-        window.renderGestionInvitados();
-    } catch (e) {
-        if(typeof showToast === 'function') showToast("Error", "No se pudo eliminar.");
-    }
-};
 
 let pendingEditTarget = null;
 
@@ -11300,11 +11211,13 @@ window.renderEventosList = async function () {
                 <div style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted); align-self: flex-end; margin-bottom: 2px;">${day}</div>`;
 
       dayEvents.forEach((ev) => {
-        cellHtml += `<div style="background: ${ev.color}22; border-left: 3px solid ${ev.color}; border-radius: 4px; padding: 4px; position: relative; font-size: 0.65rem; color: var(--text); line-height: 1.2;">
-                    <div style="font-weight: bold; margin-bottom: 2px; padding-right: 12px; word-break: break-word;">${ev.tipo}</div>
-                    <div style="word-break: break-word; opacity: 0.9;" title="${ev.descripcion}">${ev.descripcion}</div>
-                    <button onclick="window.deleteEvento('${ev.id}')" title="Borrar" style="position: absolute; top: 4px; right: 4px; background: transparent; border: none; color: var(--text); cursor: pointer; font-size: 0.8rem; padding: 0; line-height: 1; opacity: 0.7;">&times;</button>
-                </div>`;
+        const evJsonStr = encodeURIComponent(JSON.stringify(ev));
+        cellHtml += `
+          <div onclick="window.editEvento('${evJsonStr}')" style="background: ${ev.color}22; border-left: 3px solid ${ev.color}; border-radius: 4px; padding: 4px; position: relative; font-size: 0.65rem; color: var(--text); line-height: 1.2; cursor: pointer; transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+            <div style="font-weight: bold; margin-bottom: 2px; padding-right: 12px; word-break: break-word;">${ev.tipo}</div>
+            <div style="word-break: break-word; opacity: 0.9;" title="${ev.descripcion}">${ev.descripcion}</div>
+            <button onclick="event.stopPropagation(); window.deleteEvento('${ev.id}')" title="Borrar" style="position: absolute; top: 4px; right: 4px; background: transparent; border: none; color: var(--text); cursor: pointer; font-size: 0.85rem; padding: 0; line-height: 1; opacity: 0.7;">&times;</button>
+          </div>`;
       });
 
       cellHtml += `</div>`;
@@ -11327,10 +11240,44 @@ window.renderEventosList = async function () {
   }
 };
 
-window.saveEvento = async function() {
+window.editEvento = function (evDataStr) {
+  try {
+    const ev = JSON.parse(decodeURIComponent(evDataStr));
+    document.getElementById("eventoEditId").value = ev.id;
+    document.getElementById("eventoFechaInput").value = ev.id;
+    document.getElementById("eventoFechaFinInput").value = "";
+    document.getElementById("eventoTipoInput").value = ev.tipo || "Inventario";
+    document.getElementById("eventoColorInput").value = ev.color || "#10b981";
+    document.getElementById("eventoDescInput").value = ev.descripcion || "";
+    document.getElementById("eventoTiendaCerradaInput").checked = !!ev.tiendaCerrada;
+
+    document.getElementById("eventoFormTitle").textContent = "Editar Evento";
+    document.getElementById("eventoSaveBtn").textContent = "Actualizar Evento";
+    document.getElementById("eventoCancelBtn").style.display = "block";
+  } catch (err) {
+    console.error("Error al cargar evento para edición:", err);
+  }
+};
+
+window.cancelEditEvento = function () {
+  document.getElementById("eventoEditId").value = "";
+  document.getElementById("eventoFechaInput").value = "";
+  document.getElementById("eventoFechaFinInput").value = "";
+  document.getElementById("eventoTipoInput").value = "Inventario";
+  document.getElementById("eventoColorInput").value = "#10b981";
+  document.getElementById("eventoDescInput").value = "";
+  document.getElementById("eventoTiendaCerradaInput").checked = false;
+
+  document.getElementById("eventoFormTitle").textContent = "Crear Evento";
+  document.getElementById("eventoSaveBtn").textContent = "+ Guardar Evento";
+  document.getElementById("eventoCancelBtn").style.display = "none";
+};
+
+window.saveEvento = async function () {
   if (!requireAuth()) return;
   if (!checkAccessWithToast("gestionarEventos")) return;
 
+  const editId = document.getElementById("eventoEditId").value;
   const fechaInicioStr = document.getElementById("eventoFechaInput").value;
   const fechaFinStr = document.getElementById("eventoFechaFinInput").value || fechaInicioStr;
   const tipo = document.getElementById("eventoTipoInput").value;
@@ -11345,48 +11292,32 @@ window.saveEvento = async function() {
 
   const startD = new Date(fechaInicioStr + "T00:00:00");
   const endD = new Date(fechaFinStr + "T00:00:00");
+  const batch = writeBatch(db);
 
-  if (endD < startD) {
-    showToast("Error", "La fecha de fin no puede ser anterior a la de inicio.");
-    return;
+  // Si editó la fecha y cambió el ID del día original, borrar el anterior
+  if (editId && editId !== fechaInicioStr) {
+    batch.delete(doc(db, "eventos_diarios", editId));
+    delete state.eventos[editId];
   }
 
-  const payload = {
-    tipo,
-    descripcion: descripcion || tipo,
-    color,
-    tiendaCerrada,
-    rangoInicio: fechaInicioStr,
-    rangoFin: fechaFinStr
-  };
+  let curr = new Date(startD);
+  while (curr <= endD) {
+    const dStr = formatDate(curr);
+    const evData = { tipo, descripcion, color, tiendaCerrada };
+    batch.set(doc(db, "eventos_diarios", dStr), evData);
+    state.eventos[dStr] = evData;
+    curr = addDays(curr, 1);
+  }
 
-  if (!isMockMode) {
-    try {
-      const batch = writeBatch(db);
-      let cur = new Date(startD);
-
-      while (cur <= endD) {
-        const curStr = formatDate(cur);
-        const docRef = doc(db, "eventos_diarios", curStr);
-        batch.set(docRef, payload);
-        state.eventos[curStr] = payload;
-        cur = addDays(cur, 1);
-      }
-
-      await batch.commit();
-
-      showToast("Éxito", "Evento guardado correctamente en el rango seleccionado.", "success");
-      document.getElementById("eventoDescInput").value = "";
-      document.getElementById("eventoFechaFinInput").value = "";
-      document.getElementById("eventoTiendaCerradaInput").checked = false;
-      
-      // Recargar vista y lista de eventos
-      if (typeof window.renderEventosList === 'function') await window.renderEventosList();
-      renderUI();
-    } catch (err) {
-      console.error("Error guardando evento por rango:", err);
-      showToast("Error", "No se pudo guardar el evento.");
-    }
+  try {
+    await batch.commit();
+    showToast("Éxito", editId ? "Evento actualizado correctamente." : "Evento guardado.", "success");
+    window.cancelEditEvento();
+    if (typeof window.renderEventosList === 'function') await window.renderEventosList();
+    renderUI();
+  } catch (err) {
+    console.error("Error guardando evento:", err);
+    showToast("Error", "No se pudo guardar el evento.");
   }
 };
 
