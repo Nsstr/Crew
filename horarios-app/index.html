@@ -2462,6 +2462,38 @@
       -webkit-user-select: none !important;
       user-select: none !important;
     }
+    /* Permitir foco, escritura y selección táctil en Sugeridos */
+    #seccionSugeridos,
+    #seccionSugeridos textarea,
+    #seccionSugeridos input,
+    .sugerido-input,
+    #globalNotesTextarea {
+      -webkit-touch-callout: default !important;
+      -webkit-user-select: text !important;
+      user-select: text !important;
+      touch-action: auto !important;
+      pointer-events: auto !important;
+    }
+    /* Fondos alternados por semana en el mapa de calor */
+    .heatmap-row.week-main-bg {
+      background-color: rgba(11, 17, 32, 0.6) !important;
+    }
+
+    .heatmap-row.week-alt-bg {
+      background-color: rgba(36, 51, 74, 0.4) !important;
+    }
+
+    /* Divisor horizontal marcado al final de cada Domingo en el mapa de calor */
+    .heatmap-row.heatmap-week-separator {
+      border-bottom: 2px solid #64748b !important;
+    }
+    table#planningTable th {
+      height: 38px !important;
+      min-height: 38px !important;
+      max-height: 38px !important;
+      padding: 2px 0 !important;
+      vertical-align: middle !important;
+    }
   </style>
 </head>
 <body>
@@ -5359,11 +5391,14 @@ function renderDesktopView() {
          </span>`
       : "";
 
+    const monthStr = monthsArr[d.getMonth()];
+
     trHead.innerHTML += `<th class="${thClass}" data-header-date="${dStr}" style="text-align: center; padding: 2px 0 !important; overflow: hidden !important;">
                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1;">
-                             <span style="font-size: 8.5px; opacity: 0.85;">${weekDaysArr[d.getDay()]}</span>
-                             <span style="font-size: 10px; font-weight: bold; margin-top: 1px;">${dayNumStr}</span>
-                             <div style="display: flex; gap: 2px; align-items: center; height: 11px;">
+                             <span style="font-size: 8px; opacity: 0.8;">${weekDaysArr[d.getDay()]}</span>
+                             <span style="font-size: 9.5px; font-weight: bold; margin-top: 1px;">${dayNumStr}</span>
+                             <span style="font-size: 7.5px; opacity: 0.65; font-weight: 600; letter-spacing: -0.3px; margin-top: 1px;">${monthStr}</span>
+                             <div style="display: flex; gap: 2px; align-items: center; height: 11px; margin-top: 1px;">
                                ${eventBadge}${holidayBadge}${tawBadge}${armadoBadge}
                              </div>
                            </div>
@@ -5454,41 +5489,41 @@ function renderDesktopView() {
 
       // Sunday Tracking (Francos Dominicales) - Lógica ahora delegada a updateDynamicHours
 
-      const cleanName = collab.name.split("(")[0].split("-")[0].trim();
+      // Limpieza y formato compacto: Inicial del Apellido + Nombre (Ej: "F. Guillermo")
+      const rawName = (collab.name || "Desconocido").split("(")[0].split("-")[0].trim();
+      const nameParts = rawName.split(" ").filter(Boolean);
+      let shortName = rawName;
+
+      if (nameParts.length > 1) {
+        const apellidoInicial = nameParts[0].charAt(0).toUpperCase();
+        const restoNombre = nameParts.slice(1).join(" ");
+        shortName = `${apellidoInicial}. ${restoNombre}`;
+      }
 
       let html = `
-          <td class="collab-cell">
-            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; height: 100%; padding: 0 8px; box-sizing: border-box; gap: 6px; flex-wrap: wrap;">
+          <td class="collab-cell" title="${rawName} (Legajo: ${collab.id})">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; height: 100%; padding: 0 6px; box-sizing: border-box; gap: 4px; flex-wrap: nowrap;">
               
               <!-- Contenedor Principal (1 Fila) -->
-              <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+              <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; min-width: 0;">
                 
-                <!-- Nombre e Indicador (Izquierda) -->
-                <div style="display: flex; align-items: center; cursor: pointer; min-width: 0; flex: 1;" onclick="window.toggleCollabDetails('${collab.id}', event)">
-                  <div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; flex-shrink: 0;"></div>
-                  <span style="font-weight: 600; font-size: 0.8rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    ${cleanName}
+                <!-- Nombre Compacto e Indicador (Izquierda) -->
+                <div style="display: flex; align-items: center; cursor: pointer; min-width: 0; flex: 1; overflow: hidden;" onclick="window.toggleCollabDetails('${collab.id}', event)">
+                  <div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; flex-shrink: 0;"></div>
+                  <span style="font-weight: 600; font-size: 0.78rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    ${shortName}
                   </span>
-                  <span id="collab-arrow-${collab.id}" style="font-size: 0.6rem; color: var(--text-muted); padding-left: 4px;">▼</span>
+                  <span id="collab-arrow-${collab.id}" style="font-size: 0.55rem; color: var(--text-muted); padding-left: 3px; flex-shrink: 0;">▼</span>
                 </div>
 
                 <!-- Badges de Horas y Domingos (Derecha) -->
-                <div id="desktop-hours-${collab.id}-left" class="weekly-totals-container" style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
-                  <span id="dom-badge-${collab.id}" class="dom-badge" style="display: flex; align-items: center; justify-content: center; height: 16px; padding: 0 4px; font-size: 0.58rem; border: 1px solid currentColor; border-radius: 3px; font-weight: bold; opacity: 0.9; white-space: nowrap;" title="Domingos"></span>
+                <div id="desktop-hours-${collab.id}-left" class="weekly-totals-container" style="display: flex; align-items: center; gap: 2px; flex-shrink: 0;">
+                  <span id="dom-badge-${collab.id}" class="dom-badge" style="display: flex; align-items: center; justify-content: center; height: 16px; padding: 0 3px; font-size: 0.58rem; border: 1px solid currentColor; border-radius: 3px; font-weight: bold; opacity: 0.9; white-space: nowrap;" title="Domingos"></span>
                   <div id="desktop-hours-w1-${collab.id}"></div>
                   <div id="desktop-hours-w2-${collab.id}"></div>
                   <div id="desktop-hours-w3-${collab.id}"></div>
                   <div id="desktop-hours-w4-${collab.id}"></div>
                 </div>
-              </div>
-
-              <!-- Renglón Inferior: Metadata desplegable (Oculto por defecto) -->
-              <div class="mobile-hours-tag" id="mobile-hours-${collab.id}" style="width: 100%;"></div>
-              <div id="collab-meta-${collab.id}" class="collab-meta" style="display: none; width: 100%; font-size: 0.7rem; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
-                <span>| Leg: ${collab.id} |</span>
-                <span>${collab.pasillo || "Sin Área"} |</span>
-                <span>${collab.hours}h |</span>
-                <span>Esq: ${collab.esquema || "N/A"} |</span>
               </div>
             </div>
           </td>
@@ -6250,7 +6285,7 @@ function renderHeatmap() {
       }
       bHtml += `</div>`;
 
-      blockDays.forEach((d) => {
+      blockDays.forEach((d, dayIndex) => {
         const dStr = formatDate(d);
         const weekDaysArr = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
         const monthsArr = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
@@ -6261,7 +6296,16 @@ function renderHeatmap() {
         const capitalizedLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
         const isSkeleton = state.skeletonStartStr && dStr >= state.skeletonStartStr;
 
-        bHtml += `<div class="heatmap-row ${isSkeleton ? "skeleton-cell" : ""}" data-date="${dStr}">`;
+        // 1. Identificar si es semana alterna (Semana 2 o Semana 4)
+        // En el bloque izquierdo: días 7 a 13 son semana 2.
+        // En el bloque derecho: días 7 a 13 son semana 4.
+        const isAltWeek = dayIndex >= 7 && dayIndex <= 13;
+        const weekBgClass = isAltWeek ? "week-alt-bg" : "week-main-bg";
+
+        // 2. Separador al final de cada domingo (índice 6 y 13 de cada bloque)
+        const isSundaySeparator = (d.getDay() === 0) ? "heatmap-week-separator" : "";
+
+        bHtml += `<div class="heatmap-row ${weekBgClass} ${isSundaySeparator} ${isSkeleton ? "skeleton-cell" : ""}" data-date="${dStr}">`;
         bHtml += `<div class="heatmap-row-label">${capitalizedLabel}</div>`;
 
         const hourlyCounts = {};
@@ -10485,12 +10529,11 @@ window.renderSugeridos = async function () {
         globalNotesTA.value = globalDocSnap.exists()
           ? globalDocSnap.data().texto || ""
           : "";
-        const canEdit =
-          checkAccess("modificarSugeridos") && currentRole !== "visitor";
-        globalNotesTA.readOnly = !canEdit;
-        globalNotesTA.style.background = canEdit ? "var(--bg)" : "#f0f0f0";
-        globalNotesTA.style.color = canEdit ? "var(--text)" : "#333";
-        globalNotesTA.style.cursor = canEdit ? "text" : "not-allowed";
+        globalNotesTA.readOnly = false;
+        globalNotesTA.disabled = false;
+        globalNotesTA.style.background = "var(--bg)";
+        globalNotesTA.style.color = "var(--text)";
+        globalNotesTA.style.cursor = "text";
       }
     } catch (err) {
       console.error("Error al obtener sugerencias:", err);
@@ -10548,13 +10591,11 @@ window.renderSugeridos = async function () {
                     ${shiftText}
                  </div>
                  <div style="grid-column: 1 / -1; grid-row: 2;">
-                    <textarea class="sugeridos-comment" 
+                    <textarea class="sugerido-input" 
                        data-collab="${collab.id}"
-                       placeholder="${isBlocked ? "Inhabilitado (" + shiftText + ")" : "Agregar comentario..."}" 
-                       ${isBlocked ? "disabled" : 'onmousedown="window.requireEditor(event)"'}
-                       ${!isBlocked && currentRole === "visitor" ? "readonly" : ""}
+                       placeholder="Agregar comentario..." 
                        rows="3" 
-                       style="width: 100%; min-height: 80px; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "#fff"}; resize: none; font-size: 0.95rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"}; ${isBlocked ? "cursor: not-allowed;" : ""}">${textValue}</textarea>
+                       style="width: 100%; min-height: 80px; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "#fff"}; resize: none; font-size: 0.95rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"};">${textValue}</textarea>
                     ${authorLabel}
                  </div>
                `;
@@ -10579,13 +10620,11 @@ window.renderSugeridos = async function () {
                     ${shiftText}
                  </td>
                  <td style="padding: 8px 12px;">
-                    <textarea class="sugeridos-comment" 
+                    <textarea class="sugerido-input" 
                        data-collab="${collab.id}"
-                       placeholder="${isBlocked ? "Inhabilitado (Estado: " + shiftText + ")" : "Agregar comentario..."}" 
-                       ${isBlocked ? "disabled" : 'onmousedown="window.requireEditor(event)"'}
-                       ${!isBlocked && currentRole === "visitor" ? "readonly" : ""}
+                       placeholder="Agregar comentario..." 
                        rows="2" 
-                       style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "var(--text)"}; resize: none; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"}; ${isBlocked ? "cursor: not-allowed;" : ""}">${textValue}</textarea>
+                       style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "var(--text)"}; resize: none; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"};">${textValue}</textarea>
                     ${authorLabel}
                  </td>
                `;
@@ -10593,50 +10632,52 @@ window.renderSugeridos = async function () {
     }
   });
 
-  document.querySelectorAll(".sugeridos-comment").forEach((textarea) => {
-    textarea.addEventListener("blur", async (e) => {
-      const val = e.target.value.trim();
-      const collabId = e.target.getAttribute("data-collab");
-      const originalData = sugerenciasGuardadas[collabId];
-      const originalText = originalData ? originalData.texto : "";
-
-      if (val !== originalText && !e.target.readOnly && !e.target.disabled) {
-        // MIDDLEWARE: Verificar permiso antes de escribir sugerencia
-        if (!checkAccessWithToast("modificarSugeridos")) return;
-        let activeLegajo = localStorage.getItem("editorLegajo");
-        if (currentRole === "admin") activeLegajo = "Admin";
-        if (!activeLegajo) return;
-
-        const commentData = {
-          legajo: activeLegajo,
-          fecha: selectedDateStr,
-          colaboradorId: collabId,
-          texto: val,
-          timestamp: new Date().toISOString(),
-        };
-
-        try {
-          await setDoc(
-            doc(db, "sugerencias", `${selectedDateStr}_${collabId}`),
-            commentData,
-          );
-          // Opcional: mostrar un mini toast visual para confirmar guardado
-          if (typeof showToast === "function") {
-            showToast(
-              "Guardado",
-              "Comentario de sugerencia guardado con éxito.",
-              "success",
-            );
-          }
-          sugerenciasGuardadas[collabId] = commentData; // Actualizar cache local
-        } catch (err) {
-          console.error("Error guardando sugerencia:", err);
-          if (typeof showToast === "function") {
-            showToast("Error", "No se pudo guardar la sugerencia.", "error");
-          }
-        }
+  // 1. Textarea Global de Comentarios
+  const globalNotes = document.getElementById("globalNotesTextarea");
+  if (globalNotes) {
+    globalNotes.removeAttribute("readonly");
+    globalNotes.removeAttribute("disabled");
+    globalNotes.onchange = async () => {
+      const dateFilter = document.getElementById("suggestedDateFilter")?.value;
+      if (!dateFilter || !db || typeof isMockMode !== "undefined" && isMockMode) return;
+      try {
+        await setDoc(doc(db, "notas_sugeridos", dateFilter), {
+          fecha: dateFilter,
+          nota: globalNotes.value.trim(),
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (e) {
+        console.warn("Error guardando nota sugeridos:", e);
       }
-    });
+    };
+  }
+
+  // 2. Comentarios individuales por colaborador (Mobile y Desktop)
+  document.querySelectorAll(".sugerido-input").forEach((textarea) => {
+    textarea.removeAttribute("readonly");
+    textarea.removeAttribute("disabled");
+
+    textarea.onblur = async (e) => {
+      const collabId = e.target.dataset.collab;
+      const dateStr = document.getElementById("suggestedDateFilter")?.value;
+      const commentVal = e.target.value.trim();
+      if (!collabId || !dateStr || !db || typeof isMockMode !== "undefined" && isMockMode) return;
+
+      try {
+        const docId = `${collabId}_${dateStr}`;
+        await setDoc(doc(db, "planificacion", docId), {
+          colaboradorId: collabId,
+          fecha: dateStr,
+          comentario: commentVal
+        }, { merge: true });
+
+        const obj = getPlanningObj(collabId, dateStr) || {};
+        obj.comentario = commentVal;
+        state.planning[docId] = obj;
+      } catch (err) {
+        console.warn("Error guardando comentario:", err);
+      }
+    };
   });
 };
 
