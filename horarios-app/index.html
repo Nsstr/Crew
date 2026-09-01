@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -2737,6 +2737,151 @@
     .spin-icon {
       animation: spinBackup 1s linear infinite !important;
     }
+
+    /* Grilla Estricta de Repositores (Desktop) */
+    .repo-summary-cell {
+      background: rgba(15, 23, 42, 0.6) !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+      padding: 4px 16px !important;
+      vertical-align: middle !important;
+    }
+
+    /* Layout con columnas fijas: Empresa (120px) | Días (150px) | Horario (90px) | Repo (95px) | Sup (110px) | Marcas (1fr) */
+    .repo-grid-layout {
+      display: grid !important;
+      grid-template-columns: 120px 150px 90px 95px 110px 1fr !important;
+      align-items: center !important;
+      gap: 10px !important;
+      width: 100% !important;
+    }
+
+    /* Columna 1: Empresa */
+    .repo-col-empresa {
+      font-size: 0.75rem !important;
+      font-weight: 700 !important;
+      color: #38bdf8 !important;
+      background: rgba(56, 189, 248, 0.1) !important;
+      border: 1px solid rgba(56, 189, 248, 0.25) !important;
+      border-radius: 4px !important;
+      padding: 3px 8px !important;
+      text-align: center !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+
+    /* Columna 2: Marcas */
+    .repo-col-marcas {
+      font-size: 0.72rem !important;
+      color: #94a3b8 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      min-width: 0 !important;
+      padding-left: 8px !important;
+      border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+
+    /* Columna 3: Días */
+    .repo-col-dias {
+      display: flex !important;
+      align-items: center !important;
+      gap: 3px !important;
+      justify-content: center !important;
+    }
+
+    .repo-day-chip {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 19px !important;
+      height: 18px !important;
+      border-radius: 3px !important;
+      font-size: 0.6rem !important;
+      font-weight: 700 !important;
+      background: rgba(255, 255, 255, 0.03) !important;
+      border: 1px solid rgba(255, 255, 255, 0.06) !important;
+      color: #475569 !important;
+    }
+
+    .repo-day-chip.active {
+      background: rgba(168, 85, 247, 0.2) !important;
+      border-color: rgba(168, 85, 247, 0.5) !important;
+      color: #d8b4fe !important;
+    }
+
+    /* Columna 4: Horario / Frecuencia */
+    .repo-col-horario {
+      display: flex !important;
+      justify-content: center !important;
+    }
+
+    .repo-schedule-pill {
+      font-size: 0.7rem !important;
+      font-weight: 600 !important;
+      color: #fbbf24 !important;
+      background: rgba(245, 158, 11, 0.1) !important;
+      border: 1px solid rgba(245, 158, 11, 0.25) !important;
+      border-radius: 4px !important;
+      padding: 2px 6px !important;
+      white-space: nowrap !important;
+      text-align: center !important;
+    }
+
+    /* Contenedores de botones con ancho y centrado fijo */
+    .repo-col-repo,
+    .repo-col-sup {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-height: 24px !important;
+    }
+
+    .repo-btn-contact {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 4px !important;
+      height: 22px !important;
+      padding: 0 8px !important;
+      font-size: 0.68rem !important;
+      font-weight: 600 !important;
+      border-radius: 4px !important;
+      text-decoration: none !important;
+      white-space: nowrap !important;
+      box-sizing: border-box !important;
+    }
+
+    .repo-btn-wp {
+      width: 100% !important;
+      color: #22c55e !important;
+      background: rgba(34, 197, 94, 0.1) !important;
+      border: 1px solid rgba(34, 197, 94, 0.3) !important;
+    }
+
+    .repo-sup-box {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      width: 100% !important;
+      height: 22px !important;
+      padding: 0 4px !important;
+      background: rgba(56, 189, 248, 0.08) !important;
+      border: 1px solid rgba(56, 189, 248, 0.25) !important;
+      border-radius: 4px !important;
+      box-sizing: border-box !important;
+      justify-content: space-between !important;
+    }
+
+    .repo-sup-link {
+      display: flex !important;
+      align-items: center !important;
+      padding: 2px !important;
+      text-decoration: none !important;
+      transition: opacity 0.15s !important;
+    }
+    .repo-sup-link:hover { opacity: 0.8 !important; }
   </style>
 </head>
 <body>
@@ -6191,156 +6336,135 @@ function renderDesktopView() {
     tbody.appendChild(trTotals);
   });
 
-  // ── INYECCIÓN DE REPOSITORES EXTERNOS ──
+  // ── INYECCIÓN DE REPOSITORES EXTERNOS (FORMATO SINTÉTICO) ──
   if (state.repositoresData && state.repositoresData.length > 0) {
     const sortedRepos = [...state.repositoresData].sort((a, b) => {
       const empA = (a.empresa || "").toLowerCase();
       const empB = (b.empresa || "").toLowerCase();
-      if (empA < empB) return -1;
-      if (empA > empB) return 1;
-      const nomA = (a.nombre || "").toLowerCase();
-      const nomB = (b.nombre || "").toLowerCase();
-      if (nomA < nomB) return -1;
-      if (nomA > nomB) return 1;
-      return 0;
+      return empA.localeCompare(empB) || (a.nombre || "").localeCompare(b.nombre || "");
     });
 
     const repoHeaderTr = document.createElement("tr");
     repoHeaderTr.className = "area-header-row";
     repoHeaderTr.innerHTML = `
-            <td colspan="${days.length + 1}" style="background: var(--surface); padding: 12px; font-weight: 600; color: var(--primary); text-transform: uppercase; cursor: pointer; border-bottom: 2px solid var(--border);">
-               <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <span>Repositores Externos</span>
-                  <svg class="area-toggle-icon" style="transition: transform 0.3s; transform: rotate(180deg);" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-               </div>
-            </td>
-         `;
-    let reposVisible = true;
+      <td colspan="${days.length + 1}" style="background: var(--surface); padding: 8px 12px; font-weight: 700; color: #38bdf8; text-transform: uppercase; cursor: pointer; border-bottom: 2px solid var(--border); font-size: 0.8rem; user-select: none;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>REPOSITORES EXTERNOS</span>
+            <span style="font-size: 0.68rem; font-weight: 500; color: var(--text-muted); text-transform: none;">(${sortedRepos.length} registrados)</span>
+          </div>
+          <svg class="area-toggle-icon" style="transition: transform 0.3s; transform: rotate(0deg);" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
+      </td>
+    `;
+
+    // Cerrado por defecto para mantener limpia la grilla principal
+    let reposVisible = false;
     repoHeaderTr.addEventListener("click", () => {
       reposVisible = !reposVisible;
       const icon = repoHeaderTr.querySelector(".area-toggle-icon");
-      icon.style.transform = reposVisible ? "rotate(180deg)" : "rotate(0deg)";
+      if (icon) icon.style.transform = reposVisible ? "rotate(180deg)" : "rotate(0deg)";
       document.querySelectorAll(".repo-row").forEach((row) => {
         row.style.display = reposVisible ? "" : "none";
       });
     });
     tbody.appendChild(repoHeaderTr);
 
+    const diasSemana = ["L", "M", "X", "J", "V", "S", "D"];
+
     sortedRepos.forEach((repo) => {
       const repoTr = document.createElement("tr");
       repoTr.className = "collab-row repo-row";
       repoTr.dataset.id = repo.id;
+      repoTr.style.display = "none";
 
-      const contactInfo =
-        "Supervisor: " +
-        (repo.supervisor || "-") +
-        " (" +
-        (repo.telSupervisor || "-") +
-        ") | Marcas: " +
-        (repo.marcas || "-");
-
-      const cleanPhone = (phone) => {
-        if (!phone) return "";
-        if (phone.toLowerCase().trim() === "sin datos") return "";
-        return phone.replace(/[\s\-\(\)]/g, "");
-      };
-
-      const repoPhoneRaw = repo.celular || "";
-      const repoPhone = cleanPhone(repoPhoneRaw);
-      const isRepoPhoneValid = repoPhone.length > 0;
-
-      const supPhoneRaw = repo.telSupervisor || "";
-      const supPhone = cleanPhone(supPhoneRaw);
-      const isSupPhoneValid = supPhone.length > 0;
-
+      const cleanPhone = (phone) => (!phone || phone.toLowerCase().includes("sin") ? "" : phone.replace(/[\s\-\(\)]/g, ""));
+      const repoPhone = cleanPhone(repo.celular);
+      const supPhone = cleanPhone(repo.telSupervisor);
       const supEmailRaw = repo.email || repo.correo || "";
-      const isSupEmailValid =
-        supEmailRaw &&
-        supEmailRaw.toLowerCase().trim() !== "sincorreo@sincorreo.com" &&
-        supEmailRaw.toLowerCase().trim() !== "sin datos";
+      
+      const isRepoPhoneValid = repoPhone.length > 0;
+      const isSupPhoneValid = supPhone.length > 0;
+      const isSupEmailValid = supEmailRaw && !supEmailRaw.toLowerCase().includes("sincorreo") && !supEmailRaw.toLowerCase().includes("sin datos");
 
-      const waIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-message-circle"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>`;
-      const mailIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-mail"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
+      const waIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>`;
+      const mailIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
 
-      const getIconStyle = (isValid, color) =>
-        isValid
-          ? `color: ${color}; cursor: pointer; transition: opacity 0.2s;`
-          : `color: var(--text-muted); opacity: 0.3; pointer-events: none;`;
-
-      let html = `
-               <td class="collab-name-cell" title="${contactInfo}" style="position: relative; background: rgba(255,255,255,0.02); padding-right: 8px;">
-                 <div style="display: flex; align-items: center; justify-content: space-between; height: 100%; width: 100%;">
-                     <div style="display: flex; flex-direction: column; justify-content: center; cursor: help;">
-                        <div style="font-weight: 500; font-size: 0.9rem;">${repo.nombre || "Sin Nombre"}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">${repo.empresa || "Sin Empresa"}</div>
-                     </div>
-                     <div style="display: flex; gap: 10px; align-items: center;">
-                         <!-- Repo WP -->
-                         <a href="https://wa.me/${repoPhone}" target="_blank" title="${isRepoPhoneValid ? "Contactar Repositor" : "Sin Datos"}" style="${getIconStyle(isRepoPhoneValid, "#22c55e")}; display: flex; align-items: center;">
-                             ${waIconSvg}
-                         </a>
-                         
-                         <!-- Sup Block -->
-                         <div style="display: flex; gap: 8px; align-items: center; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);" title="Contacto Supervisor">
-                             <span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 600;">SUP</span>
-                             <a href="https://wa.me/${supPhone}" target="_blank" title="${isSupPhoneValid ? "WhatsApp Supervisor" : "Sin Datos"}" style="${getIconStyle(isSupPhoneValid, "#22c55e")}; display: flex; align-items: center;">
-                                 ${waIconSvg}
-                             </a>
-                             <a href="https://mail.google.com/mail/?view=cm&fs=1&to=${supEmailRaw}" target="_blank" title="${isSupEmailValid ? "Email Supervisor" : "Sin Datos"}" style="${getIconStyle(isSupEmailValid, "#3b82f6")}; display: flex; align-items: center;">
-                                 ${mailIconSvg}
-                             </a>
-                         </div>
-                     </div>
-                 </div>
-               </td>
-             `;
-
-      const diasMap = {
-        1: "L",
-        2: "M",
-        3: "X",
-        4: "J",
-        5: "V",
-        6: "S",
-        0: "D",
-      };
-
-      days.forEach((d) => {
-        const dStr = formatDate(d);
-        const dayLetter = diasMap[d.getDay()];
-        const repoDias = repo.diasVisita || "";
-        const isExpected = repoDias.includes(dayLetter);
-
-        const valRaw = state.planning[repo.id + "_" + dStr];
-        let displayVal = "";
-        if (typeof valRaw === "object" && valRaw !== null) {
-          displayVal = valRaw.slot || valRaw.horario || "";
-        } else if (typeof valRaw === "string") {
-          displayVal = valRaw;
-        }
-        const isHoliday = state.holidays.includes(dStr);
-
-        let bgClass = isHoliday ? "holiday-col" : "";
-        if (isExpected) bgClass += " repo-esperado";
-
-        let placeholderText = "-";
-        if (isExpected && !displayVal) {
-          placeholderText = repo.horario || "Visita";
-        }
-
-        const styleStr =
-          "font-weight: 500; text-align: center; width: 100%; border: none; background: transparent; color: var(--text); cursor: default; pointer-events: none;";
-        const disabledAttr = !userHasAccess
-          ? 'disabled data-disabled="true"'
-          : "";
-
-        html += `
-                   <td class="${bgClass.trim()}" style="position: relative;">
-                     <input type="text" class="cell-input" style="${styleStr}" data-collab="${repo.id}" data-date="${dStr}" data-is-repositor="true" readonly value="${displayVal}" ${disabledAttr} placeholder="${placeholderText}">
-                   </td>
-                 `;
+      // Chips de días L-D
+      const repoDias = repo.diasVisita || "";
+      let chipsHtml = "";
+      diasSemana.forEach((dLetra) => {
+        const isActive = repoDias.includes(dLetra);
+        chipsHtml += `<span class="repo-day-chip ${isActive ? "active" : ""}">${dLetra}</span>`;
       });
-      repoTr.innerHTML = html;
+
+      const repoHorarioStr = repo.horario ? `<span class="repo-schedule-pill">${repo.horario}</span>` : `<span style="color:#475569; font-size:0.7rem;">-</span>`;
+
+      repoTr.innerHTML = `
+        <!-- Columna Fija: Nombre -->
+        <td class="collab-cell" style="padding: 0 10px !important;">
+          <div style="display: flex; align-items: center; width: 100%; height: 100%;">
+            <span style="font-weight: 700; font-size: 0.8rem; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${repo.nombre || "Sin Nombre"}
+            </span>
+          </div>
+        </td>
+
+        <!-- Contenedor Grid con 6 Columnas Fijas -->
+        <td colspan="${days.length}" class="repo-summary-cell">
+          <div class="repo-grid-layout">
+            
+            <!-- 1. Empresa -->
+            <div class="repo-col-empresa" title="${repo.empresa || 'Sin Empresa'}">
+              ${repo.empresa || "Sin Empresa"}
+            </div>
+
+            <!-- 2. Días de Visita -->
+            <div class="repo-col-dias">
+              ${chipsHtml}
+            </div>
+
+            <!-- 3. Horario -->
+            <div class="repo-col-horario">
+              ${repoHorarioStr}
+            </div>
+
+            <!-- 4. Columna Repositor (WhatsApp) -->
+            <div class="repo-col-repo">
+              ${isRepoPhoneValid ? `
+                <a href="https://wa.me/${repoPhone}" target="_blank" title="WhatsApp Repositor" class="repo-btn-contact repo-btn-wp">
+                  ${waIconSvg} Repo
+                </a>` : `<span style="color:#475569; font-size:0.65rem;">-</span>`}
+            </div>
+
+            <!-- 5. Columna Supervisor (WhatsApp + Email) -->
+            <div class="repo-col-sup">
+              ${(isSupPhoneValid || isSupEmailValid) ? `
+                <div class="repo-sup-box" title="Supervisor: ${repo.supervisor || '-'}">
+                  <span style="font-size: 0.58rem; color: #38bdf8; font-weight: 700;">SUP</span>
+                  <div style="display:flex; gap:4px; align-items:center;">
+                    ${isSupPhoneValid ? `
+                      <a href="https://wa.me/${supPhone}" target="_blank" title="WhatsApp Supervisor" class="repo-sup-link" style="color: #22c55e;">
+                        ${waIconSvg}
+                      </a>` : ""}
+                    ${isSupEmailValid ? `
+                      <a href="mailto:${supEmailRaw}" target="_blank" title="Email Supervisor (${supEmailRaw})" class="repo-sup-link" style="color: #38bdf8;">
+                        ${mailIconSvg}
+                      </a>` : ""}
+                  </div>
+                </div>` : `<span style="color:#475569; font-size:0.65rem;">-</span>`}
+            </div>
+
+            <!-- 6. Marcas -->
+            <div class="repo-col-marcas" title="${repo.marcas || ''}">
+              <span style="color:#64748b; font-weight:600; font-size:0.68rem; margin-right:4px;">Marcas:</span>
+              ${repo.marcas || "Sin marcas registradas"}
+            </div>
+
+          </div>
+        </td>
+      `;
+
       tbody.appendChild(repoTr);
     });
   }
