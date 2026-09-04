@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0](https://github.com/Nsstr/Crew/compare/v1.1.0...v1.3.0) (2026-09-04)
+
+
+### Features
+
+* Add Adjunto column to Vacaciones Aprobadas table ([26ef8b0](https://github.com/Nsstr/Crew/commit/26ef8b02e84587621133f3f6fcb0297b605de958))
+* **backup:** add direct link to Google Sheets in success toast ([c961ab4](https://github.com/Nsstr/Crew/commit/c961ab49d16409f6f43547170265513dee7fe517))
+* Enhance multi-day events layout and restyle header badges ([6de3467](https://github.com/Nsstr/Crew/commit/6de3467eedadc8dd2856b537a5ed2752d6075e2c))
+* Fix week backgrounds, restore context menu, add multi-day events ([c4212cf](https://github.com/Nsstr/Crew/commit/c4212cf42efd4e16bf9d8bcc28608ef1047e5f5d))
+* Implement forced update modal for cache and remote changes ([2ba85c0](https://github.com/Nsstr/Crew/commit/2ba85c0ed34c6b459016d60e74f19c5d45134d92))
+* inyectar version semantica en UI e integrar release flow ([593e57e](https://github.com/Nsstr/Crew/commit/593e57e0ba75bd9d9b93824643b09ddd2d5d2483))
+* **planning:** add Undo functionality (Ctrl+Z) for shift changes ([9b723cf](https://github.com/Nsstr/Crew/commit/9b723cf265e67c3dad51191fc0a0c9292cd420db))
+
+
+### Bug Fixes
+
+* **backup:** resolve scope issues, implement robust planning backup, update Apps Script URL ([9a15361](https://github.com/Nsstr/Crew/commit/9a15361dbe200a9c56b35a2b142d3954996b69ab))
+* corregido scroll y despliegue del modal de repositores ([60b800c](https://github.com/Nsstr/Crew/commit/60b800c242d2d7aaac961b8d5074e0f73c16a076))
+* remover salvavidas de renderizado y forzar cache busting estricto para version ([ea443ad](https://github.com/Nsstr/Crew/commit/ea443ad92affa038674989c28a4fc3648d99532d))
+* restaurar basePath dinamico para fetch de version.json en subdirectorios ([8e82fd0](https://github.com/Nsstr/Crew/commit/8e82fd0bd5244d4ad84c8cfb4044859becc4af5d))
+* restaurar script build para Vercel usando version semantica ([4819d5c](https://github.com/Nsstr/Crew/commit/4819d5c7a7efe77418d49346e4abfcccff4f7cda))
+* **ui:** correct version display logic in dropdown menu ([b646522](https://github.com/Nsstr/Crew/commit/b6465222b1dfaeb6a9aee54b32bca5b1cf270868))
+
 ## [1.2.0](https://github.com/Nsstr/Crew/compare/v1.1.0...v1.2.0) (2026-08-03)
 
 
