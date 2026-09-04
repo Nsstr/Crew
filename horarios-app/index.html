@@ -1793,6 +1793,22 @@
       cursor: pointer;
       accent-color: #3b82f6;
     }
+
+    #seccionHorarios,
+    #app-grid-container,
+    #tab-horarios {
+      min-height: 0 !important;
+      flex: 1 1 auto !important;
+      overflow: hidden !important;
+    }
+
+    .grid-container {
+      min-height: 0 !important;
+      height: 100% !important;
+      overflow-y: auto !important;
+      overflow-x: auto !important;
+      overscroll-behavior: contain;
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style id="monochromatic-refactor">
@@ -3463,7 +3479,7 @@
 
   <!-- MODAL GESTION REPOSITORES -->
   <div class="modal-overlay" id="repositoresModal">
-    <div class="modal-content" style="max-width: 1200px; width: 90%; flex-direction: row; gap: 20px; display: flex;">
+    <div class="modal-content" style="max-width: 1100px; width: 94%; height: 85vh; max-height: 85vh; flex-direction: row; gap: 20px; display: flex; overflow: hidden; box-sizing: border-box;">
       <div class="modal-left" style="flex: 35; border-right: 1px solid var(--border); padding-right: 20px;">
         <div class="modal-header">
           <h2 style="display: flex; align-items: center; gap: 6px;">
@@ -3523,12 +3539,12 @@
           </div>
         </form>
       </div>
-      <div class="modal-right" style="flex: 65; overflow-y: auto; padding-left: 20px;">
+      <div class="modal-right" style="flex: 65; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-left: 15px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
            <h3 style="margin: 0;">Repositores Registrados</h3>
            <button class="close-modal" id="closeRepositoresModal" title="Cerrar modal">&times;</button>
         </div>
-        <div class="table-container" style="max-height: 60vh; overflow-y: auto;">
+        <div class="table-container" style="flex: 1; min-height: 0; height: 100%; overflow-y: auto !important; overscroll-behavior: contain;">
           <table class="data-table" id="repositoresTable">
             <thead>
               <tr>
@@ -6377,9 +6393,16 @@ function renderDesktopView() {
       reposVisible = !reposVisible;
       const icon = repoHeaderTr.querySelector(".area-toggle-icon");
       if (icon) icon.style.transform = reposVisible ? "rotate(180deg)" : "rotate(0deg)";
+      
       document.querySelectorAll(".repo-row").forEach((row) => {
-        row.style.display = reposVisible ? "" : "none";
+        row.style.display = reposVisible ? "table-row" : "none";
       });
+      
+      // Forzar recálculo del scroll del contenedor padre
+      const gridScroll = document.querySelector(".grid-container");
+      if (gridScroll && reposVisible) {
+        gridScroll.style.overflowY = "auto";
+      }
     });
     tbody.appendChild(repoHeaderTr);
 
