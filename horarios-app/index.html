@@ -2909,6 +2909,12 @@
     </div>
 
     <div class="main-app-nav-right nav-auth-controls" style="height: 26px;">
+      <button id="undoBtn" title="Deshacer último cambio (Ctrl + Z)" disabled style="background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); padding: 0 0.6rem; height: 100%; display: flex; align-items: center; justify-content: center; cursor: not-allowed; opacity: 0.4; transition: all 0.2s;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7v6h6"></path>
+          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+        </svg>
+      </button>
       <button id="pdfBtn" title="Exportar a PDF" style="display: none; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); padding: 0 0.5rem; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer;">📄</button>
       
       <button id="updateAppBtn" class="top-action-btn" onclick="window.forceHardRefresh()" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--success); padding: 0 0.75rem; height: 100%; border-radius: 0.25rem; cursor: pointer; align-items: center; justify-content: center; gap: 6px; font-weight: 600; font-size: 0.75rem; margin-right: 8px; transition: all 0.2s; animation: pulseUpdate 2s infinite; position: relative;">
@@ -6867,6 +6873,12 @@ async function handleInputChange(e) {
   }
 
   // Preserve metadata
+  // Guardar para deshacer si el valor realmente cambió
+  if (oldValue !== finalValue) {
+    const prevObjSnapshot = getPlanningObj(collabId, dateStr);
+    window.pushUndoAction(collabId, dateStr, { slot: oldValue, obj: prevObjSnapshot });
+  }
+
   let obj = getPlanningObj(collabId, dateStr) || {};
   obj.slot = finalValue;
 
@@ -9679,6 +9691,10 @@ window.setQuickState = async function (stateVal) {
   const collabId = currentContextCell.getAttribute("data-collab");
   const dateStr = currentContextCell.getAttribute("data-date");
 
+  const prevObjSnapshot = getPlanningObj(collabId, dateStr);
+  const prevSlotVal = getPlanningSlot(collabId, dateStr);
+  window.pushUndoAction(collabId, dateStr, { slot: prevSlotVal, obj: prevObjSnapshot });
+
   const obj = getPlanningObj(collabId, dateStr) || {};
   if (!obj.horarioOriginal) {
     obj.horarioOriginal =
@@ -12049,6 +12065,84 @@ window.notifyRemoteChange = function() {
     pendingRemoteChanges = true;
   }
 };
+
+// Pila de deshacer (máximo 30 acciones en la sesión)
+window.undoStack = [];
+
+window.pushUndoAction = function(collabId, dateStr, previousData) {
+  window.undoStack.push({
+    collabId,
+    dateStr,
+    previousSlot: previousData.slot || "",
+    previousObj: previousData.obj ? JSON.parse(JSON.stringify(previousData.obj)) : null
+  });
+
+  if (window.undoStack.length > 30) {
+    window.undoStack.shift();
+  }
+  window.updateUndoButtonUI();
+};
+
+window.updateUndoButtonUI = function() {
+  const btn = document.getElementById("undoBtn");
+  if (!btn) return;
+  if (window.undoStack.length > 0) {
+    btn.disabled = false;
+    btn.style.opacity = "1";
+    btn.style.cursor = "pointer";
+    btn.style.color = "#38bdf8";
+    btn.style.borderColor = "rgba(56, 189, 248, 0.4)";
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = "0.4";
+    btn.style.cursor = "not-allowed";
+    btn.style.color = "var(--text-muted)";
+    btn.style.borderColor = "rgba(255, 255, 255, 0.1)";
+  }
+};
+
+window.undoLastAction = async function() {
+  if (!window.undoStack || window.undoStack.length === 0) return;
+  const action = window.undoStack.pop();
+  window.updateUndoButtonUI();
+
+  const { collabId, dateStr, previousSlot, previousObj } = action;
+  const docId = `${collabId}_${dateStr}`;
+
+  if (!previousSlot && !previousObj) {
+    delete state.planning[docId];
+    if (!isMockMode) {
+      await deleteDoc(doc(db, "planificacion", docId)).catch(console.error);
+    }
+  } else {
+    const restoredObj = previousObj || { slot: previousSlot };
+    state.planning[docId] = restoredObj;
+    if (!isMockMode) {
+      await setDoc(doc(db, "planificacion", docId), {
+        colaboradorId: collabId,
+        fecha: dateStr,
+        ...restoredObj
+      }, { merge: true }).catch(console.error);
+    }
+  }
+
+  showToast("Deshecho", `Turno restaurado para ${dateStr.split("-").reverse().join("/")}`);
+  renderUI();
+};
+
+document.getElementById("undoBtn")?.addEventListener("click", window.undoLastAction);
+
+document.addEventListener("keydown", (e) => {
+  // Ctrl + Z o Cmd + Z (sin Shift y que no esté escribiendo dentro de un input/textarea activo)
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+    const active = document.activeElement;
+    if (active && (active.tagName === "TEXTAREA" || (active.tagName === "INPUT" && !active.classList.contains("cell-input-hidden")))) {
+      return; // Dejar actuar el undo nativo del texto
+    }
+    e.preventDefault();
+    window.undoLastAction();
+  }
+});
 
 </script>
   <script>
