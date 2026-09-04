@@ -3927,6 +3927,7 @@ const state = {
   armadoDates: [],
   metricsLoadedYears: {}, // Registro de años ya descargados en la sesión
 };
+window.state = state;
 
 // Helpers para metadatos de turnos
 function getMonthlyRotationCompliance(collab, currentWeekDays) {
@@ -10613,10 +10614,7 @@ async function generarBackupSheets() {
   const indicator = document.getElementById("globalBackupIndicator");
   const dropdownMenu = document.getElementById("navDropdownMenu");
 
-  // 1. Cerrar dropdown inmediatamente para no estorbar
   if (dropdownMenu) dropdownMenu.style.display = "none";
-
-  // 2. Mostrar píldora flotante global
   if (indicator) indicator.style.display = "flex";
 
   const originalHTML = btn ? btn.innerHTML : "";
@@ -10626,33 +10624,69 @@ async function generarBackupSheets() {
     btn.style.color = "#38bdf8";
   }
 
-  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxQ-HYUql7hIe7DUSzRjjQjiFSAxDFrLpXrhMPhKwqmB53DTV_b7BVmIP_QO79QHeWw/exec";
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwLXSomMfz4aOUvwohrNXCrWoz57k9ms3degl0RAUV1ke9Zvx1ofqb_-g3das7OAy5B/exec";
   const SPREADSHEET_ID = "1X3T8JIQ6APN8Gc3z7vVxz3rCEoiRRgSAUY4HIljm604";
 
-  try {
-    const payload = {
-      spreadsheetId: SPREADSHEET_ID,
-      collaborators: state.collaborators || [],
-      planning: state.planning || {},
-      vacations: state.vacations || [],
-      repositores: state.repositoresData || [],
-      eventos: state.eventos || {},
-      timestamp: new Date().toISOString()
-    };
+  // Obtener estado global seguro
+  const appState = window.state || (typeof state !== "undefined" ? state : {});
 
+  // Extraer fecha actual de navegación
+  let currentNavDate = new Date().toISOString().split("T")[0];
+  if (appState.currentWeekStart) {
+    const d = new Date(appState.currentWeekStart);
+    currentNavDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  // Recolectar turnos: primero de appState.planning; si está vacío, del DOM visible
+  let planningData = {};
+  if (appState.planning && Object.keys(appState.planning).length > 0) {
+    planningData = { ...appState.planning };
+  }
+
+  // Backup complementario desde las celdas activas
+  document.querySelectorAll(".cell-input[data-collab][data-date]").forEach((input) => {
+    const cId = input.getAttribute("data-collab");
+    const dStr = input.getAttribute("data-date");
+    const val = input.value.replace("*", "").trim();
+    if (cId && dStr && val && val !== "-") {
+      if (!planningData[`${cId}_${dStr}`]) {
+        planningData[`${cId}_${dStr}`] = { slot: val };
+      }
+    }
+  });
+
+  const payload = {
+    spreadsheetId: SPREADSHEET_ID,
+    collaborators: appState.collaborators || [],
+    planning: planningData,
+    vacations: appState.vacations || [],
+    repositores: appState.repositoresData || [],
+    eventos: appState.eventos || {},
+    timestamp: currentNavDate
+  };
+
+  console.log(">>> [BACKUP] Total de registros planning a enviar:", Object.keys(planningData).length);
+  console.log(">>> [BACKUP] Enviando payload:", payload);
+
+  try {
     const res = await fetch(WEB_APP_URL, {
       method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain" },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload)
     });
 
-    showToast("Backup Exitoso", "La copia de seguridad se guardó correctamente en Google Drive.", "success");
+    const resText = await res.text();
+    console.log(">>> [BACKUP] Respuesta Apps Script:", resText);
+
+    if (resText.includes("ERROR")) {
+      showToast("Aviso de Sheets", resText, "warning");
+    } else {
+      showToast("Backup Exitoso", "Sincronizado correctamente con Google Sheets.", "success");
+    }
   } catch (err) {
-    console.error("Error al generar backup:", err);
-    showToast("Error de Backup", "No se pudo sincronizar la copia con Drive.", "error");
+    console.error(">>> [BACKUP] Error de conexión:", err);
+    showToast("Error de Backup", "No se pudo conectar con Google Sheets.", "error");
   } finally {
-    // 3. Ocultar indicador flotante y restaurar botón
     if (indicator) indicator.style.display = "none";
     if (btn) {
       btn.disabled = false;
@@ -10791,44 +10825,29 @@ window.renderSugeridos = async function () {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tzOffset = tomorrow.getTimezoneOffset() * 60000;
-    const localISOTime = new Date(tomorrow - tzOffset)
-      .toISOString()
-      .slice(0, -1)
-      .split("T")[0];
+    const localISOTime = new Date(tomorrow - tzOffset).toISOString().slice(0, -1).split("T")[0];
     dateInput.value = localISOTime;
   }
 
   const selectedDateStr = dateInput.value;
   const tbody = document.getElementById("sugeridosTableBody");
-  tbody.innerHTML =
-    '<tr><td colspan="3" style="text-align:center; padding:20px; color:var(--text-muted);">Cargando sugerencias...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:var(--text-muted);">Cargando sugerencias...</td></tr>';
 
   let sugerenciasGuardadas = {};
   if (typeof isMockMode === "undefined" || !isMockMode) {
     try {
-      // Adaptado para usar Firestore v9 en base a los imports de tu proyecto
-      const q = query(
-        collection(db, "sugerencias"),
-        where("fecha", "==", selectedDateStr),
-      );
+      const q = query(collection(db, "sugerencias"), where("fecha", "==", selectedDateStr));
       const snap = await getDocs(q);
       snap.forEach((d) => {
         sugerenciasGuardadas[d.data().colaboradorId] = d.data();
       });
 
-      // OBTENER NOTAS GLOBALES
+      // NOTAS GLOBALES
       const globalDocRef = doc(db, "notas_globales", selectedDateStr);
       const globalDocSnap = await getDoc(globalDocRef);
       const globalNotesTA = document.getElementById("globalNotesTextarea");
       if (globalNotesTA) {
-        globalNotesTA.value = globalDocSnap.exists()
-          ? globalDocSnap.data().texto || ""
-          : "";
-        globalNotesTA.readOnly = false;
-        globalNotesTA.disabled = false;
-        globalNotesTA.style.background = "var(--bg)";
-        globalNotesTA.style.color = "var(--text)";
-        globalNotesTA.style.cursor = "text";
+        globalNotesTA.value = globalDocSnap.exists() ? (globalDocSnap.data().texto || globalDocSnap.data().nota || "") : "";
       }
     } catch (err) {
       console.error("Error al obtener sugerencias:", err);
@@ -10841,136 +10860,99 @@ window.renderSugeridos = async function () {
   const isMobile = window.innerWidth <= 768;
   const forbiddenStates = ["VAC", "V", "SUS", "FRANCO", "F", "LIBRE", "-"];
 
-  console.log(
-    "Intentando renderizar tarjetas móviles. isMobile:",
-    isMobile,
-    "cardsContainer:",
-    !!cardsContainer,
-  );
-
   state.collaborators.forEach((collab) => {
-    const isVac =
-      state.vacations &&
-      state.vacations.some(
-        (vac) =>
-          vac.colaboradorId === collab.id &&
-          selectedDateStr >= vac.startDate &&
-          selectedDateStr <= vac.endDate,
-      );
+    const isVac = state.vacations && state.vacations.some(
+      (vac) => vac.colaboradorId === collab.id && selectedDateStr >= vac.startDate && selectedDateStr <= vac.endDate
+    );
 
     const rawTurno = getPlanningSlot(collab.id, selectedDateStr) || "-";
     const shiftText = isVac ? "V" : rawTurno;
     const isBlocked = forbiddenStates.includes(shiftText.toUpperCase().trim());
-
     const cleanName = collab.name.split("(")[0].split("-")[0].trim();
 
     const savedData = sugerenciasGuardadas[collab.id];
     const textValue = savedData ? savedData.texto : "";
-    const authorLabel =
-      savedData && savedData.legajo
-        ? `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; text-align: right;">Escrito por: <span style="color: var(--primary); font-weight: bold;">${savedData.legajo}</span></div>`
-        : "";
+    const authorLabel = savedData && savedData.legajo
+      ? `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; text-align: right;">Escrito por: <span style="color: var(--primary); font-weight: bold;">${savedData.legajo}</span></div>`
+      : "";
 
     if (isMobile && cardsContainer) {
       const card = document.createElement("div");
       card.className = "mobile-card";
       card.innerHTML = `
-                 <div style="grid-column: 1; grid-row: 1; display: flex; flex-direction: column; gap: 2px;">
-                    <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1;">L. ${collab.id}</div>
-                    <div style="font-weight: bold; font-size: 1rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${cleanName}</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted); gap: 0.4rem; display: flex;">
-                        <span>${collab.pasillo}</span><span style="opacity:0.6;">(${collab.hours}h)</span>
-                    </div>
-                 </div>
-                 <div style="grid-column: 2; grid-row: 1; text-align: right; font-size: 1.05rem; color: ${isBlocked ? "var(--info)" : "var(--text)"}; font-weight: 500;">
-                    ${shiftText}
-                 </div>
-                 <div style="grid-column: 1 / -1; grid-row: 2;">
-                    <textarea class="sugerido-input" 
-                       data-collab="${collab.id}"
-                       placeholder="Agregar comentario..." 
-                       rows="3" 
-                       style="width: 100%; min-height: 80px; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "#fff"}; resize: none; font-size: 0.95rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"};">${textValue}</textarea>
-                    ${authorLabel}
-                 </div>
-               `;
+        <div style="grid-column: 1; grid-row: 1; display: flex; flex-direction: column; gap: 2px;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1;">L. ${collab.id}</div>
+          <div style="font-weight: bold; font-size: 1rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${cleanName}</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); gap: 0.4rem; display: flex;">
+            <span>${collab.pasillo}</span><span style="opacity:0.6;">(${collab.hours}h)</span>
+          </div>
+        </div>
+        <div style="grid-column: 2; grid-row: 1; text-align: right; font-size: 1.05rem; color: ${isBlocked ? "var(--info)" : "var(--text)"}; font-weight: 500;">
+          ${shiftText}
+        </div>
+        <div style="grid-column: 1 / -1; grid-row: 2;">
+          <textarea class="sugerido-input sugeridos-comment" 
+            data-collab="${collab.id}"
+            placeholder="Agregar comentario..." 
+            rows="3" 
+            style="width: 100%; min-height: 80px; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "#fff"}; resize: none; font-size: 0.95rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"};">${textValue}</textarea>
+          ${authorLabel}
+        </div>
+      `;
       cardsContainer.appendChild(card);
     } else {
       const tr = document.createElement("tr");
       tr.style.borderBottom = "1px solid var(--border)";
       tr.innerHTML = `
-                 <td style="padding: 8px 12px; width: 350px;">
-                    <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
-                       <div style="font-size: 0.7em; color: var(--text-muted); line-height: 1;">L. ${collab.id}</div>
-                       <div style="font-weight: bold; font-size: 0.95em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">
-                          ${cleanName}
-                       </div>
-                       <div class="collab-meta" style="font-size: 0.8em; display: flex; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted);">
-                          <span>${collab.pasillo}</span>
-                          <span style="opacity: 0.6;">(${collab.hours}h)</span>
-                       </div>
-                    </div>
-                 </td>
-                 <td style="padding: 8px 12px; text-align: center; font-weight: 500; font-size: 0.9rem; color: ${isBlocked ? "var(--info)" : "var(--text)"};">
-                    ${shiftText}
-                 </td>
-                 <td style="padding: 8px 12px;">
-                    <textarea class="sugerido-input" 
-                       data-collab="${collab.id}"
-                       placeholder="Agregar comentario..." 
-                       rows="2" 
-                       style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "var(--text)"}; resize: none; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"};">${textValue}</textarea>
-                    ${authorLabel}
-                 </td>
-               `;
+        <td style="padding: 8px 12px; width: 350px;">
+          <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+            <div style="font-size: 0.7em; color: var(--text-muted); line-height: 1;">L. ${collab.id}</div>
+            <div style="font-weight: bold; font-size: 0.95em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${cleanName}</div>
+            <div class="collab-meta" style="font-size: 0.8em; display: flex; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted);">
+              <span>${collab.pasillo}</span>
+              <span style="opacity: 0.6;">(${collab.hours}h)</span>
+            </div>
+          </div>
+        </td>
+        <td style="padding: 8px 12px; text-align: center; font-weight: 500; font-size: 0.9rem; color: ${isBlocked ? "var(--info)" : "var(--text)"};">
+          ${shiftText}
+        </td>
+        <td style="padding: 8px 12px;">
+          <textarea class="sugerido-input sugeridos-comment" 
+            data-collab="${collab.id}"
+            placeholder="Agregar comentario..." 
+            rows="2" 
+            style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "var(--text)"}; resize: none; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"};">${textValue}</textarea>
+          ${authorLabel}
+        </td>
+      `;
       tbody.appendChild(tr);
     }
   });
 
-  // 1. Textarea Global de Comentarios
-  const globalNotes = document.getElementById("globalNotesTextarea");
-  if (globalNotes) {
-    globalNotes.removeAttribute("readonly");
-    globalNotes.removeAttribute("disabled");
-    globalNotes.onchange = async () => {
-      const dateFilter = document.getElementById("suggestedDateFilter")?.value;
-      if (!dateFilter || !db || typeof isMockMode !== "undefined" && isMockMode) return;
-      try {
-        await setDoc(doc(db, "notas_sugeridos", dateFilter), {
-          fecha: dateFilter,
-          nota: globalNotes.value.trim(),
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      } catch (e) {
-        console.warn("Error guardando nota sugeridos:", e);
-      }
-    };
-  }
-
-  // 2. Comentarios individuales por colaborador (Mobile y Desktop)
+  // Guardado en tiempo real en colección sugerencias
   document.querySelectorAll(".sugerido-input").forEach((textarea) => {
-    textarea.removeAttribute("readonly");
-    textarea.removeAttribute("disabled");
-
     textarea.onblur = async (e) => {
       const collabId = e.target.dataset.collab;
       const dateStr = document.getElementById("suggestedDateFilter")?.value;
       const commentVal = e.target.value.trim();
-      if (!collabId || !dateStr || !db || typeof isMockMode !== "undefined" && isMockMode) return;
+      if (!collabId || !dateStr || !db) return;
 
       try {
         const docId = `${collabId}_${dateStr}`;
-        await setDoc(doc(db, "planificacion", docId), {
-          colaboradorId: collabId,
-          fecha: dateStr,
-          comentario: commentVal
-        }, { merge: true });
-
-        const obj = getPlanningObj(collabId, dateStr) || {};
-        obj.comentario = commentVal;
-        state.planning[docId] = obj;
+        if (commentVal === "") {
+          await deleteDoc(doc(db, "sugerencias", docId));
+        } else {
+          await setDoc(doc(db, "sugerencias", docId), {
+            colaboradorId: collabId,
+            fecha: dateStr,
+            texto: commentVal,
+            legajo: currentInvitadoLegajo || localStorage.getItem("editorLegajo") || "Admin",
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        }
       } catch (err) {
-        console.warn("Error guardando comentario:", err);
+        console.error("Error guardando sugerencia:", err);
       }
     };
   });
