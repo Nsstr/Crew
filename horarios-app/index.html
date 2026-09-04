@@ -2952,7 +2952,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v...
+            Versión: v1.2.2
           </div>
         </div>
       </div>
@@ -3696,10 +3696,11 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const versionDisplay = document.getElementById("uiVersionDisplay");
-  if (!versionDisplay) return;
-  const currentVer = localStorage.getItem("appVersion") || (typeof CURRENT_APP_BUILD !== 'undefined' ? CURRENT_APP_BUILD : "1.0.0");
-  versionDisplay.textContent = "Versión: v" + currentVer;
+  const APP_VERSION = "v1.2.2";
+  const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
+  if (versionDisplay) {
+    versionDisplay.textContent = `Versión: ${APP_VERSION}`;
+  }
 }
 
 // Ejecutar de inmediato al cargar
