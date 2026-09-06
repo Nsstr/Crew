@@ -2993,7 +2993,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.3.1
+            Versión: v1.3.2
           </div>
         </div>
       </div>
@@ -3768,7 +3768,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.3.1";
+  const APP_VERSION = "v1.3.2";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5534,14 +5534,9 @@ function renderMobileDayView() {
     }
   }
 
-  if (areasOrderMobile.length > 0) {
-    const firstArea = areasOrderMobile.find(
-      (a) => groupedCollabsMobile[a] && groupedCollabsMobile[a].length > 0,
-    );
-    if (firstArea) {
-      const headerEl = document.getElementById("mobileAreaHeader");
-      if (headerEl) headerEl.textContent = firstArea;
-    }
+  const headerEl = document.getElementById("mobileAreaHeader");
+  if (headerEl) {
+    headerEl.textContent = targetArea;
   }
 
   if (!window._mobileScrollAttached) {
@@ -5588,73 +5583,108 @@ function renderMobileCoverageDashboard(targetDate) {
   }
   dashboard.style.display = "grid";
 
-  let dStr = formatDate(targetDate);
+  const dStr = formatDate(targetDate);
 
   const isTiendaCerrada =
     state.eventos[dStr] && state.eventos[dStr].tiendaCerrada;
   if (isTiendaCerrada) {
     dashboard.style.display = "block";
     dashboard.innerHTML = `
-               <div style="width: 100%; text-align: center; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border: 1px solid var(--danger);">
-                   <span style="font-size: 1.1rem; font-weight: 800; color: var(--danger); letter-spacing: 1px;">TIENDA CERRADA</span>
-               </div>
-           `;
+      <div style="width: 100%; text-align: center; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border: 1px solid var(--danger);">
+        <span style="font-size: 1.1rem; font-weight: 800; color: var(--danger); letter-spacing: 1px;">TIENDA CERRADA</span>
+      </div>
+    `;
     return;
   }
 
+  // 1. Identificar área activa
+  const selectEl = document.getElementById("areaSelector");
+  const activeArea = (selectEl ? selectEl.value : null) || state.currentArea || "Disponibilidad";
+  const isCajas = activeArea === "Linea de Cajas";
+
+  // 2. Conteo de personal por hora para el área activa
   const hourlyCounts = Array(24).fill(0);
+  const prevDateStr = formatDate(addDays(targetDate, -1));
+
   state.collaborators.forEach((collab) => {
     const collabArea = collab.area || "Disponibilidad";
-    if (collabArea !== "Disponibilidad") return;
-
-    const shiftVal = getPlanningSlot(collab.id, dStr);
-    if (!shiftVal) return;
+    if (collabArea !== activeArea) return;
 
     let isOnVacationToday = false;
+    let isOnVacationPrev = false;
     const targetDToday = new Date(dStr + "T00:00:00");
+    const targetDPrev = new Date(prevDateStr + "T00:00:00");
+
     for (let vac of state.vacations || []) {
       if (vac.colaboradorId === collab.id) {
         const vacStart = new Date(vac.startDate + "T00:00:00");
         const vacEnd = new Date(vac.endDate + "T00:00:00");
-        if (targetDToday >= vacStart && targetDToday <= vacEnd)
-          isOnVacationToday = true;
+        if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
+        if (targetDPrev >= vacStart && targetDPrev <= vacEnd) isOnVacationPrev = true;
       }
     }
-    if (isOnVacationToday) return;
 
-    const lower = shiftVal.toLowerCase();
-    if (
-      lower === "f" ||
-      lower === "v" ||
-      lower === "libre" ||
-      lower === "vacaciones"
-    )
-      return;
+    const shiftValToday = getPlanningSlot(collab.id, dStr);
+    const objToday = getPlanningObj(collab.id, dStr) || {};
+    const parsedToday = (!isOnVacationToday && shiftValToday) ? parseShift(shiftValToday, objToday.tardanzaMinutosTotales || 0) : null;
 
-    const parsed = parseShift(shiftVal);
-    if (parsed && parsed.type === "work") {
-      for (let h = 0; h <= 23; h++) {
-        if (parsed.end <= parsed.start) {
-          if (h >= parsed.start) hourlyCounts[h]++;
+    const shiftValPrev = getPlanningSlot(collab.id, prevDateStr);
+    const parsedPrev = (!isOnVacationPrev && shiftValPrev) ? parseShift(shiftValPrev) : null;
+
+    for (let h = 0; h <= 23; h++) {
+      if (parsedToday && parsedToday.type === "work") {
+        if (parsedToday.end <= parsedToday.start) {
+          if (h >= parsedToday.start) hourlyCounts[h]++;
         } else {
-          if (h >= parsed.start && h < parsed.end) hourlyCounts[h]++;
+          if (h >= parsedToday.start && h < parsedToday.end) hourlyCounts[h]++;
+        }
+      }
+      if (parsedPrev && parsedPrev.type === "work") {
+        if (parsedPrev.end <= parsedPrev.start) {
+          if (h < parsedPrev.end) hourlyCounts[h]++;
         }
       }
     }
   });
 
+  // 3. Renderizado de bloques horarios
   let blocksHTML = "";
   for (let h = 0; h <= 23; h++) {
-    let count = hourlyCounts[h];
-    let colorStr = count >= 2 ? "#22c55e" : "#ef4444";
-    let hStr = h.toString().padStart(2, "0") + ":00";
+    const count = hourlyCounts[h];
+    const hStr = String(h).padStart(2, "0") + ":00";
 
-    blocksHTML += `
-             <div class="mobile-cov-block">
-               <span class="mobile-cov-time">${hStr}</span>
-               <span class="mobile-cov-val" style="color: ${colorStr}; text-shadow: 0 0 10px ${colorStr}60;">${count}</span>
-             </div>
-           `;
+    if (isCajas) {
+      const req = (state.demandaCajas && state.demandaCajas[dStr]) ? (state.demandaCajas[dStr][h] || 0) : 0;
+      const diff = count - req;
+
+      let colorStr = "#94a3b8";
+      if (req > 0) {
+        if (diff >= 0) colorStr = "#22c55e";
+        else if (diff === -1) colorStr = "#f59e0b";
+        else colorStr = "#ef4444";
+      } else if (count > 0) {
+        colorStr = "#22c55e";
+      }
+
+      blocksHTML += `
+        <div class="mobile-cov-block" title="${hStr} | Pide Recaudaciones: ${req} - Disponibles: ${count}">
+          <span class="mobile-cov-time">${hStr}</span>
+          <div style="display: flex; align-items: baseline; justify-content: center; gap: 2px; line-height: 1.1;">
+            <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 600;" title="Pide">${req}</span>
+            <span style="font-size: 0.65rem; color: #475569;">/</span>
+            <span style="font-size: 0.95rem; font-weight: 900; color: ${colorStr}; text-shadow: 0 0 8px ${colorStr}40;" title="Tenemos">${count}</span>
+          </div>
+        </div>
+      `;
+    } else {
+      let colorStr = count >= 2 ? "#22c55e" : (count === 1 ? "#f59e0b" : "#ef4444");
+      blocksHTML += `
+        <div class="mobile-cov-block" title="${hStr} | Disponibles: ${count}">
+          <span class="mobile-cov-time">${hStr}</span>
+          <span class="mobile-cov-val" style="color: ${colorStr}; text-shadow: 0 0 10px ${colorStr}60;">${count}</span>
+        </div>
+      `;
+    }
   }
   dashboard.innerHTML = blocksHTML;
 }
@@ -7154,9 +7184,9 @@ collabForm.addEventListener("submit", async (e) => {
     domingosAcordados: parseInt(document.getElementById("cDoms").value),
     pasillo: document.getElementById("cPasillo").value.trim(),
     numeroOperador: document.getElementById("cNumeroOperador").value.trim() ? parseInt(document.getElementById("cNumeroOperador").value.trim(), 10) : null,
-    url_carpeta_comprobantes: document
-      .getElementById("cFolderUrl")
-      .value.trim(),
+    url_carpeta_comprobantes: document.getElementById("cFolderUrl")
+      ? document.getElementById("cFolderUrl").value.trim()
+      : (existingCollab.url_carpeta_comprobantes || ""),
     fechaAlta: document.getElementById("cFechaAlta").value,
     fechaNacimiento: document.getElementById("cFechaNacimiento").value || "",
     area: document.getElementById("cArea").value,
