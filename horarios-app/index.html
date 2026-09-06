@@ -582,7 +582,7 @@
       display: flex;
       flex-direction: column;
       gap: 1rem;
-      z-index: 10000;
+      z-index: 100000 !important;
       align-items: center;
       width: max-content;
       max-width: 90vw;
@@ -1858,12 +1858,27 @@
     .cell-wrapper::after,
     .cell-wrapper::before,
     .cell-wrapper.has-comment::after,
-    .cell-wrapper.is-fixed::before,
     .ot-indicator,
     .cell-wrapper.has-overtime-pending .ot-indicator,
     .cell-wrapper.has-overtime-validated .ot-indicator {
       display: none !important;
       visibility: hidden !important;
+    }
+
+    .cell-wrapper.is-fixed::before {
+      content: "" !important;
+      display: block !important;
+      visibility: visible !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 0 !important;
+      height: 0 !important;
+      border-style: solid !important;
+      border-width: 7px 7px 0 0 !important;
+      border-color: #38bdf8 transparent transparent transparent !important;
+      pointer-events: none !important;
+      z-index: 10 !important;
     }
 
     /* Texto de códigos de turno limpio, sin fondos coloridos */
@@ -2442,9 +2457,9 @@
     table#planningTable td:not(:first-child),
     th.day-col, 
     td.day-cell {
-      width: auto !important;
+      width: calc((100% - 260px) / 28) !important;
       min-width: 32px !important;
-      max-width: 36px !important;
+      max-width: none !important;
       padding: 0 !important;
       box-sizing: border-box !important;
     }
@@ -2901,10 +2916,15 @@
     }
     .repo-sup-link:hover { opacity: 0.8 !important; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <div class="main-app-nav main-app-nav-grid">
     <div class="main-app-nav-left app-tabs">
+      <select id="areaSelector" style="background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.8rem; font-family: inherit; font-weight: 600; cursor: pointer;">
+        <option value="Disponibilidad">Disponibilidad</option>
+        <option value="Linea de Cajas">Línea de Cajas</option>
+      </select>
       <button class="app-tab-btn active" id="tabHorarios" onclick="switchTab('horarios')">Grid Semanal</button>
       <button class="app-tab-btn" id="suggestedTabBtn" onclick="switchTab('sugeridos')">Sugeridos</button>
       <button class="app-tab-btn" id="vacationTabBtn" onclick="switchTab('vacaciones')" style="display: none;">Plan Anual Vacaciones</button>
@@ -2957,6 +2977,11 @@
           
           <button id="repositoresNavBtn" class="nav-dropdown-item" title="Gestión de Repositores" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg> Gestión de Repositores</button>
           
+          <button id="btnImportarRecaudaciones" class="nav-dropdown-item" style="display: none;" title="Curva Teórica de Cajas">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Curva Recaudaciones
+          </button>
+          
           <button id="hardRefreshBtn" class="nav-dropdown-item" onclick="window.forceHardRefresh()" title="Nueva Version de la App"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg> Actualizar Version</button>
           
           <div class="nav-dropdown-divider"></div>
@@ -2968,7 +2993,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.2.3
+            Versión: v1.3.1
           </div>
         </div>
       </div>
@@ -3282,6 +3307,29 @@
    </div>
 
   <!-- MODAL GESTIÓN DE EVENTOS DIARIOS -->
+  <!-- RECAUDACIONES MODAL -->
+<div class="modal-overlay" id="recaudacionesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 99999; justify-content: center; align-items: center;">
+  <div class="modal-content" style="max-width: 500px; padding: 25px; border-radius: 12px; display: flex; flex-direction: column; gap: 20px; background: var(--surface);">
+    <h2 style="margin: 0; font-size: 1.25rem; font-weight: 600; color: var(--text);">Importar Curva de Recaudaciones</h2>
+    
+    <div id="recaudacionesDropzone" style="border: 2px dashed var(--border); border-radius: 8px; padding: 40px 20px; text-align: center; cursor: pointer; transition: border-color 0.2s;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 10px; color: var(--primary);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <p style="margin: 0; font-size: 0.9rem; color: var(--text-muted);">Arrastra aquí el archivo Excel mensual (.xlsx) o haz clic para seleccionar</p>
+      <input type="file" id="recaudacionesFileInput" accept=".xlsx, .xls" style="display: none;" />
+    </div>
+
+    <div id="recaudacionesPreview" style="display: none; max-height: 200px; overflow-y: auto; background: var(--bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border);">
+      <p style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 600; color: var(--text);">Días detectados (<span id="recaudacionesCount">0</span>):</p>
+      <ul id="recaudacionesList" style="margin: 0; padding-left: 20px; font-size: 0.8rem; color: var(--text-muted);"></ul>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+      <button id="closeRecaudacionesModal" class="btn" style="background: transparent; border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 6px; cursor: pointer;">Cancelar</button>
+      <button id="btnConfirmarRecaudaciones" class="btn" style="background: var(--primary); color: #fff; border: none; display: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">Guardar en BD</button>
+    </div>
+  </div>
+</div>
+
   <div class="login-overlay" id="eventosModal" style="display: none; z-index: 99999;">
     <div class="login-content" style="max-width: 1050px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
       <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0; position: sticky; top: 0; z-index: 20;">
@@ -3608,6 +3656,14 @@
           </div>
         </div>
         <div class="form-group">
+          <label>Fecha de Nacimiento (Cumpleaños)</label>
+          <input type="date" id="cFechaNacimiento">
+        </div>
+        <div class="form-group">
+          <label>Nº de Operador (Cajas / Opcional)</label>
+          <input type="number" id="cNumeroOperador" placeholder="Ej: 449" min="1">
+        </div>
+        <div class="form-group">
           <label>Pasillo Asignado</label>
           <input type="text" id="cPasillo" required>
         </div>
@@ -3712,7 +3768,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.2.3";
+  const APP_VERSION = "v1.3.1";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -3931,6 +3987,7 @@ let unsubscribePlanning = null;
 
 // 3. ESTADO DE LA APLICACIÓN (Caché local)
 const state = {
+  currentArea: localStorage.getItem("crew_selected_area") || "Disponibilidad",
   viewRange: 14,
   currentWeekStart: (function () {
     const now = new Date();
@@ -4338,18 +4395,25 @@ async function loadInitialData() {
         if (document.getElementById("tableBody")) renderUI();
       });
 
-      // Suscripción a Tags TAW y ARMADO
-      onSnapshot(doc(db, "notas_globales", "tags"), (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          state.tawDates = data.tawDates || [];
-          state.armadoDates = data.armadoDates || [];
-        } else {
-          state.tawDates = [];
-          state.armadoDates = [];
-        }
-        if (document.getElementById("tableBody")) renderUI();
-      });
+      // Suscripción a Tags TAW y ARMADO por área
+      window.subscribeTagsByArea = function() {
+        if (window.unsubscribeTags) window.unsubscribeTags();
+        const currentArea = state.currentArea || "Disponibilidad";
+        const docId = `tags_${currentArea.replace(/\s+/g, "_")}`;
+
+        window.unsubscribeTags = onSnapshot(doc(db, "notas_globales", docId), (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            state.tawDates = Array.isArray(data.tawDates) ? data.tawDates : [];
+            state.armadoDates = Array.isArray(data.armadoDates) ? data.armadoDates : [];
+          } else {
+            state.tawDates = [];
+            state.armadoDates = [];
+          }
+          if (document.getElementById("tableBody")) window.renderUI();
+        });
+      };
+      window.subscribeTagsByArea();
 
       // Suscripción a Vacaciones con await inicial
       const vacPromise = new Promise((resolve) => {
@@ -4374,10 +4438,9 @@ async function loadInitialData() {
   }
 
   // Llenar selectores
-  const vCollabSelect = document.getElementById("vCollab");
-  vCollabSelect.innerHTML = state.collaborators
-    .map((c) => `<option value="${c.id}">${c.name}</option>`)
-    .join("");
+  if (typeof window.updateVacationCollabSelect === "function") {
+    window.updateVacationCollabSelect();
+  }
 
   const vImputacion = document.getElementById("vImputacion");
   if (vImputacion) {
@@ -4388,8 +4451,6 @@ async function loadInitialData() {
     }
     vImputacion.innerHTML = impHtml;
   }
-
-  renderSaldosVacaciones();
 
   // Orden por id o jerarquía para mantener estructura
   state.collaborators.sort((a, b) => a.id.localeCompare(b.id));
@@ -4489,6 +4550,19 @@ async function loadWeekPlanning(append = false) {
               const startStr = formatDate(realStartD);
               const endStr = formatDate(realEndD);
               await loadEventos(startStr, endStr);
+              
+              if (window.unsubscribeDemandaCajas) window.unsubscribeDemandaCajas();
+              window.unsubscribeDemandaCajas = onSnapshot(
+                query(collection(db, "demanda_cajas"), where("fecha", ">=", startStr), where("fecha", "<=", endStr)),
+                (demandaSnap) => {
+                  if (!state.demandaCajas) state.demandaCajas = {};
+                  demandaSnap.docs.forEach(doc => {
+                    state.demandaCajas[doc.id] = doc.data().curva;
+                  });
+                  if (document.getElementById("tableBody")) window.renderUI();
+                }
+              );
+              
               resolve();
             }
 
@@ -5085,6 +5159,7 @@ window.toggleCollabDetails = function(collabId, event) {
       ${collab.name}
     </div>
     <div><strong style="color: #94a3b8;">Legajo:</strong> ${collab.id}</div>
+    ${collab.numeroOperador ? `<div><strong style="color: #94a3b8;">Nº Operador:</strong> ${collab.numeroOperador}</div>` : ""}
     <div><strong style="color: #94a3b8;">Pasillo / Sector:</strong> ${collab.pasillo || 'Sin asignar'}</div>
     <div><strong style="color: #94a3b8;">Esquema:</strong> ${collab.esquema || 'Rotativo'}</div>
     <div><strong style="color: #94a3b8;">Carga Horaria:</strong> ${collab.hours}hs semanales</div>
@@ -5205,136 +5280,126 @@ function renderMobileDayView() {
 
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
-  const areasOrderMobile = [
-    "Disponibilidad",
-    "AP",
-    "Calidad",
-    "Linea de Cajas",
-    "Perecederos",
-    "Limpieza",
-    "RRHH",
-    "Gerentes",
-    "Direccion",
-  ];
-  const groupedCollabsMobile = {};
-  state.collaborators.forEach((c) => {
-    const area = c.area || "Disponibilidad";
-    if (!groupedCollabsMobile[area]) groupedCollabsMobile[area] = [];
-    groupedCollabsMobile[area].push(c);
-  });
-  Object.keys(groupedCollabsMobile).forEach((k) => {
-    if (!areasOrderMobile.includes(k)) areasOrderMobile.push(k);
-  });
-
-  areasOrderMobile.forEach((areaName) => {
-    if (
-      !groupedCollabsMobile[areaName] ||
-      groupedCollabsMobile[areaName].length === 0
-    )
-      return;
-
-    const areaHeaderTr = document.createElement("tr");
-    areaHeaderTr.style.backgroundColor = "var(--surface)";
-    areaHeaderTr.innerHTML = `
-           <td colspan="2" style="padding: 8px 12px; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); border-top: 1px solid var(--border); letter-spacing: 0.5px;">
-             ${areaName}
-           </td>
-         `;
-    tbody.appendChild(areaHeaderTr);
-
-    groupedCollabsMobile[areaName].forEach((collab) => {
-      const tr = document.createElement("tr");
-      tr.style.willChange = "transform";
-      tr.setAttribute("data-area", areaName);
-
-      const targetDToday = new Date(dStr + "T00:00:00");
-      let isOnVacationToday = false;
-      for (let vac of state.vacations || []) {
-        if (vac.colaboradorId === collab.id) {
-          const vacStart = new Date(vac.startDate + "T00:00:00");
-          const vacEnd = new Date(vac.endDate + "T00:00:00");
-          if (targetDToday >= vacStart && targetDToday <= vacEnd)
-            isOnVacationToday = true;
-        }
+  const targetArea = state.currentArea || "Disponibilidad";
+  const activeAreaCollabs = state.collaborators
+    .filter(c => (c.area || "Disponibilidad") === targetArea)
+    .sort((a, b) => {
+      if (targetArea === "Linea de Cajas") {
+        const isRollerA = (a.pasillo || "").toLowerCase().trim() === "roller";
+        const isRollerB = (b.pasillo || "").toLowerCase().trim() === "roller";
+        if (!isRollerA && isRollerB) return -1;
+        if (isRollerA && !isRollerB) return 1;
       }
-
-      if (isOnVacationToday) {
-        tr.style.background = "rgba(234, 179, 8, 0.1)";
-        tr.style.opacity = "0.7";
-      }
-      if (!collab.name) {
-        collab.name = "Desconocido";
-      }
-      const cleanName = collab.name.split("(")[0].split("-")[0].trim();
-      const nameParts = cleanName.split(" ");
-      const apeF = nameParts[0] || "-";
-      const nomF = nameParts.slice(1).join(" ") || "";
-
-      let avatarStr = "";
-      if (nameParts.length > 1) {
-        avatarStr = apeF.charAt(0).toUpperCase() + nomF.charAt(0).toUpperCase();
-      } else {
-        avatarStr =
-          apeF.charAt(0).toUpperCase() +
-          (apeF.length > 1 ? apeF.charAt(1).toUpperCase() : "");
-      }
-
-      let cellsHTML = `
-              <td style="cursor: pointer; padding: 2px !important;" onclick="openMobileProfile('${collab.id}')">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                  <div class="avatar" style="width: 24px; height: 24px; font-size: 0.7rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">${avatarStr}</div>
-                  <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap;">
-                    <span style="font-weight: 600; font-size: 0.85rem; text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${apeF}</span>
-                    <span style="font-size: 0.7rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${nomF}</span>
-                  </div>
-                </div>
-              </td>
-            `;
-
-      let shiftVal = getPlanningSlot(collab.id, dStr);
-      if (isOnVacationToday) shiftVal = "V";
-
-      const isTiendaCerrada = evento && evento.tiendaCerrada;
-      if (isTiendaCerrada) shiftVal = "LIBRE";
-
-      let originalScheduleTitle = "";
-      let obj = getPlanningObj(collab.id, dStr);
-      if (
-        obj &&
-        obj.horarioOriginal &&
-        obj.horarioOriginal !== shiftVal &&
-        !isOnVacationToday &&
-        !isTiendaCerrada
-      ) {
-        shiftVal += " *";
-        originalScheduleTitle = `title="Horario original: ${obj.horarioOriginal}"`;
-      }
-
-      let logicDisabled = isOnVacationToday || isTiendaCerrada;
-      let inputDisabled = logicDisabled || !userHasAccess;
-      let cellStyle = isTiendaCerrada
-        ? "background-color: rgba(100, 116, 139, 0.2);"
-        : "";
-
-      cellsHTML += `
-              <td class="day-cell" style="padding: 2px; ${cellStyle}">
-                <input type="text" class="cell-input" 
-                       data-collab="${collab.id}" data-date="${dStr}" 
-                       value="${shiftVal}" ${originalScheduleTitle}
-                       readonly inputmode="none" autocomplete="off" autocapitalize="none"
-                       style="height: 48px; font-size: 1.25rem; font-weight: 700; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; cursor: pointer; ${inputDisabled ? "cursor: not-allowed;" : ""}"
-                       ${logicDisabled ? 'disabled data-disabled="true"' : ""}
-                       ${!logicDisabled ? 'onclick="window.openMobileContextMenu(this, event)"' : ""}>
-              </td>
-            `;
-
-      tr.innerHTML = cellsHTML;
-      tbody.appendChild(tr);
+      return (a.id || "").localeCompare(b.id || "", undefined, { numeric: true });
     });
+
+  const areaHeaderTr = document.createElement("tr");
+  areaHeaderTr.style.backgroundColor = "var(--surface)";
+  areaHeaderTr.innerHTML = `
+         <td colspan="2" style="padding: 8px 12px; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); border-top: 1px solid var(--border); letter-spacing: 0.5px;">
+           ${targetArea}
+         </td>
+       `;
+  tbody.appendChild(areaHeaderTr);
+
+  activeAreaCollabs.forEach((collab) => {
+    const tr = document.createElement("tr");
+    tr.style.willChange = "transform";
+    tr.setAttribute("data-area", targetArea);
+
+    const targetDToday = new Date(dStr + "T00:00:00");
+    let isOnVacationToday = false;
+    for (let vac of state.vacations || []) {
+      if (vac.colaboradorId === collab.id) {
+        const vacStart = new Date(vac.startDate + "T00:00:00");
+        const vacEnd = new Date(vac.endDate + "T00:00:00");
+        if (targetDToday >= vacStart && targetDToday <= vacEnd)
+          isOnVacationToday = true;
+      }
+    }
+
+    if (isOnVacationToday) {
+      tr.style.background = "rgba(234, 179, 8, 0.1)";
+      tr.style.opacity = "0.7";
+    }
+    if (!collab.name) {
+      collab.name = "Desconocido";
+    }
+    const cleanName = collab.name.split("(")[0].split("-")[0].trim();
+    const nameParts = cleanName.split(" ");
+    const apeF = nameParts[0] || "-";
+    const nomF = nameParts.slice(1).join(" ") || "";
+
+    let avatarStr = "";
+    if (nameParts.length > 1) {
+      avatarStr = apeF.charAt(0).toUpperCase() + nomF.charAt(0).toUpperCase();
+    } else {
+      avatarStr =
+        apeF.charAt(0).toUpperCase() +
+        (apeF.length > 1 ? apeF.charAt(1).toUpperCase() : "");
+    }
+
+    const opBadge = collab.numeroOperador 
+      ? `<span style="font-size: 0.65rem; font-weight: 700; color: #38bdf8; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 4px; padding: 1px 5px; margin-left: 5px; display: inline-flex; align-items: center;">Op. ${collab.numeroOperador}</span>`
+      : "";
+
+    let cellsHTML = `
+            <td style="cursor: pointer; padding: 2px !important;" onclick="openMobileProfile('${collab.id}')">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div class="avatar" style="width: 24px; height: 24px; font-size: 0.7rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">${avatarStr}</div>
+                <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap;">
+                  <span style="font-weight: 600; font-size: 0.85rem; text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">
+                    ${apeF}${opBadge}
+                  </span>
+                  <span style="font-size: 0.7rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${nomF}</span>
+                </div>
+              </div>
+            </td>
+          `;
+
+    let shiftVal = getPlanningSlot(collab.id, dStr);
+    if (isOnVacationToday) shiftVal = "V";
+
+    const isTiendaCerrada = evento && evento.tiendaCerrada;
+    if (isTiendaCerrada) shiftVal = "LIBRE";
+
+    let originalScheduleTitle = "";
+    let obj = getPlanningObj(collab.id, dStr);
+    if (
+      obj &&
+      obj.horarioOriginal &&
+      obj.horarioOriginal !== shiftVal &&
+      !isOnVacationToday &&
+      !isTiendaCerrada
+    ) {
+      shiftVal += " *";
+      originalScheduleTitle = `title="Horario original: ${obj.horarioOriginal}"`;
+    }
+
+    let logicDisabled = isOnVacationToday || isTiendaCerrada;
+    let inputDisabled = logicDisabled || !userHasAccess;
+    let cellStyle = isTiendaCerrada
+      ? "background-color: rgba(100, 116, 139, 0.2);"
+      : "";
+
+    cellsHTML += `
+            <td class="day-cell" style="padding: 2px; ${cellStyle}">
+              <input type="text" class="cell-input" 
+                     data-collab="${collab.id}" data-date="${dStr}" 
+                     value="${shiftVal}" ${originalScheduleTitle}
+                     readonly inputmode="none" autocomplete="off" autocapitalize="none"
+                     style="height: 48px; font-size: 1.25rem; font-weight: 700; width: 100%; margin: 0; display: block; border-radius: 6px; text-align: center; border: 1px solid var(--border); box-sizing: border-box; opacity: 1 !important; cursor: pointer; ${inputDisabled ? "cursor: not-allowed;" : ""}"
+                     ${logicDisabled ? 'disabled data-disabled="true"' : ""}
+                     ${!logicDisabled ? 'onclick="window.openMobileContextMenu(this, event)"' : ""}>
+            </td>
+          `;
+
+    tr.innerHTML = cellsHTML;
+    tbody.appendChild(tr);
   });
 
   // ── INYECCIÓN DE REPOSITORES EXTERNOS (MÓVIL) ──
-  if (state.repositoresData && state.repositoresData.length > 0) {
+  if (state.currentArea !== "Linea de Cajas" && state.repositoresData && state.repositoresData.length > 0) {
     const sortedRepos = [...state.repositoresData].sort((a, b) => {
       const empA = (a.empresa || "").toLowerCase();
       const empB = (b.empresa || "").toLowerCase();
@@ -5594,7 +5659,7 @@ function renderMobileCoverageDashboard(targetDate) {
   dashboard.innerHTML = blocksHTML;
 }
 
-function renderUI() {
+window.renderUI = function renderUI() {
   if (window.innerWidth <= 768) {
     renderMobileDayView();
     renderMobileCoverageDashboard(state.currentWeekStart);
@@ -5767,6 +5832,28 @@ function renderDesktopView() {
     focusDate = activeEl.getAttribute("data-date");
   }
 
+  const selectEl = document.getElementById("areaSelector");
+  const targetArea = (selectEl ? selectEl.value : null) || state.currentArea || "Disponibilidad";
+  state.currentArea = targetArea;
+
+  const activeAreaCollabs = state.collaborators
+    .filter(c => (c.area || "Disponibilidad") === targetArea)
+    .sort((a, b) => {
+      if (targetArea === "Linea de Cajas") {
+        const isRollerA = (a.pasillo || "").toLowerCase().trim() === "roller";
+        const isRollerB = (b.pasillo || "").toLowerCase().trim() === "roller";
+        if (!isRollerA && isRollerB) return -1;
+        if (isRollerA && !isRollerB) return 1;
+      }
+      return (a.id || "").localeCompare(b.id || "", undefined, { numeric: true });
+    });
+
+  const areasOrderDesktop = [targetArea];
+  const groupedCollabsDesktop = { [targetArea]: activeAreaCollabs };
+
+  const tbody = document.getElementById("tableBody");
+  tbody.innerHTML = ""; // Vaciar siempre antes de renderizar
+
   const days = getWeekDays();
 
   // Header Date
@@ -5828,6 +5915,11 @@ function renderDesktopView() {
          </span>`
       : "";
 
+    const bdCollabs = activeAreaCollabs.filter(c => c.fechaNacimiento && c.fechaNacimiento.slice(5) === dStr.slice(5));
+    const birthdayBadge = bdCollabs.length > 0 
+      ? `<span class="header-micro-badge badge-cumple" title="Cumpleaños: ${bdCollabs.map(c => c.name).join(', ')}" style="font-size: 10px; cursor: help;">🎂</span>`
+      : "";
+
     const monthStr = monthsArr[d.getMonth()];
 
     trHead.innerHTML += `<th class="${thClass}" data-header-date="${dStr}" style="text-align: center; padding: 2px 0 !important; overflow: hidden !important;">
@@ -5836,17 +5928,11 @@ function renderDesktopView() {
                              <span style="font-size: 9.5px; font-weight: bold; margin-top: 1px;">${dayNumStr}</span>
                              <span style="font-size: 7.5px; opacity: 0.65; font-weight: 600; letter-spacing: -0.3px; margin-top: 1px;">${monthStr}</span>
                              <div style="display: flex; gap: 2px; align-items: center; height: 11px; margin-top: 1px;">
-                               ${eventBadge}${holidayBadge}${tawBadge}${armadoBadge}
+                               ${eventBadge}${holidayBadge}${tawBadge}${armadoBadge}${birthdayBadge}
                              </div>
                            </div>
                          </th>`;
   });
-
-  // Table Body
-  const tbody = document.getElementById("tableBody");
-  tbody.innerHTML = "";
-
-  // (Fila de Total Francos global eliminada para pasar a subtotales por área)
 
   const abandonmentMap = calculateAbandonment();
 
@@ -5855,60 +5941,14 @@ function renderDesktopView() {
     state.holidays.includes(formatDate(d)),
   );
 
-  const areasOrderDesktop = [
-    "Disponibilidad",
-    "AP",
-    "Calidad",
-    "Linea de Cajas",
-    "Perecederos",
-    "Limpieza",
-    "RRHH",
-    "Gerentes",
-    "Direccion",
-  ];
-  const groupedCollabsDesktop = {};
-  state.collaborators.forEach((c) => {
-    const area = c.area || "Disponibilidad";
-    if (!groupedCollabsDesktop[area]) groupedCollabsDesktop[area] = [];
-    groupedCollabsDesktop[area].push(c);
-  });
-  Object.keys(groupedCollabsDesktop).forEach((k) => {
-    if (!areasOrderDesktop.includes(k)) areasOrderDesktop.push(k);
-  });
+  if (trHead.firstElementChild) {
+    trHead.firstElementChild.textContent = targetArea.toUpperCase();
+  }
 
   let absoluteRowIndex = 0;
-  areasOrderDesktop.forEach((areaName, index) => {
-    if (
-      !groupedCollabsDesktop[areaName] ||
-      groupedCollabsDesktop[areaName].length === 0
-    )
-      return;
 
-    if (index === 0) {
-      if (trHead.firstElementChild) {
-        trHead.firstElementChild.textContent = areaName.toUpperCase();
-      }
-    } else {
-      // 1. Heatmap Row para esta área
-      const heatmapTr = document.createElement("tr");
-      heatmapTr.innerHTML = `<td colspan="${days.length + 1}" style="padding: 10px 0; background: var(--bg); position: sticky; left: 0;">
-               <div class="top-heatmap-area" style="margin: 0; width: 100%; border-radius: 0;">
-                  <div class="heatmap-grid" id="heatmapGrid_${areaName.replace(/\s+/g, "")}"></div>
-               </div>
-            </td>`;
-      tbody.appendChild(heatmapTr);
-
-      // 2. Date Header Row (Copia exacta del thead global)
-      const dateTr = document.createElement("tr");
-      dateTr.innerHTML = trHead.innerHTML;
-      if (dateTr.firstElementChild) {
-        dateTr.firstElementChild.textContent = areaName.toUpperCase();
-      }
-      tbody.appendChild(dateTr);
-    }
-
-    groupedCollabsDesktop[areaName].forEach((collab) => {
-      absoluteRowIndex++;
+  activeAreaCollabs.forEach((collab) => {
+    absoluteRowIndex++;
       const currentRowIndex = absoluteRowIndex;
       const tr = document.createElement("tr");
       tr.style.willChange = "transform";
@@ -5936,6 +5976,10 @@ function renderDesktopView() {
         const restoNombre = nameParts.slice(1).join(" ");
         shortName = `${apellidoInicial}. ${restoNombre}`;
       }
+      
+      const todayMMDD = formatDate(new Date()).slice(5);
+      const isBirthdayToday = collab.fechaNacimiento && collab.fechaNacimiento.slice(5) === todayMMDD;
+      const birthdayIcon = isBirthdayToday ? `<span title="¡Hoy es su cumpleaños! 🥳" style="margin-left: 4px; font-size: 0.85rem; cursor: help; display: inline-flex; animation: pulse 2s infinite;">🥳</span>` : "";
 
       let html = `
           <td class="collab-cell" title="${rawName} (Legajo: ${collab.id})">
@@ -5948,7 +5992,7 @@ function renderDesktopView() {
                 <div style="display: flex; align-items: center; cursor: pointer; min-width: 0; flex: 1; overflow: hidden;" onclick="window.toggleCollabDetails('${collab.id}', event)">
                   <div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; flex-shrink: 0;"></div>
                   <span style="font-weight: 600; font-size: 0.78rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    ${shortName}
+                    ${shortName}${birthdayIcon}
                   </span>
                   <span id="collab-arrow-${collab.id}" style="font-size: 0.55rem; color: var(--text-muted); padding-left: 3px; flex-shrink: 0;">▼</span>
                 </div>
@@ -6353,20 +6397,18 @@ function renderDesktopView() {
 
     // Inyectar fila de totales por área
     const areaTotalsHTML = renderAreaCounters(
-      areaName,
-      groupedCollabsDesktop[areaName],
+      targetArea,
+      activeAreaCollabs,
       days,
     );
     const trTotals = document.createElement("tr");
     trTotals.className = "area-totals-row";
-    trTotals.dataset.area = areaName;
-    trTotals.innerHTML = areaTotalsHTML;
+    trTotals.dataset.area = targetArea;
     trTotals.innerHTML = areaTotalsHTML;
     tbody.appendChild(trTotals);
-  });
 
   // ── INYECCIÓN DE REPOSITORES EXTERNOS (FORMATO SINTÉTICO) ──
-  if (state.repositoresData && state.repositoresData.length > 0) {
+  if (state.currentArea !== "Linea de Cajas" && state.repositoresData && state.repositoresData.length > 0) {
     const sortedRepos = [...state.repositoresData].sort((a, b) => {
       const empA = (a.empresa || "").toLowerCase();
       const empB = (b.empresa || "").toLowerCase();
@@ -6674,27 +6716,19 @@ function renderAreaCounters(areaName, collabs, days) {
 }
 
 function renderHeatmap() {
+  const selectEl = document.getElementById("areaSelector");
+  const activeArea = (selectEl ? selectEl.value : null) || state.currentArea || "Disponibilidad";
+
   const allDays = getWeekDays();
   const startIndex = window.currentHeatmapStartIndex || 0;
   // Usar los 28 días exactos
   const days = allDays;
 
-  const areasToRender = ["Disponibilidad"];
-  if (typeof groupedCollabsDesktop !== "undefined") {
-    Object.keys(groupedCollabsDesktop).forEach((k) => {
-      if (k !== "Disponibilidad") areasToRender.push(k);
-    });
-  }
-
   // Bloque izquierdo toma los primeros 14 días, bloque derecho los últimos 14
   const days1 = days.slice(0, 14);
   const days2 = days.slice(14, 28);
 
-  areasToRender.forEach((areaName) => {
-    const gridId =
-      areaName === "Disponibilidad"
-        ? "heatmapGrid"
-        : `heatmapGrid_${areaName.replace(/\s+/g, "")}`;
+  const gridId = "heatmapGrid";
     const grid = document.getElementById(gridId);
     if (!grid) return;
 
@@ -6736,7 +6770,7 @@ function renderHeatmap() {
 
         state.collaborators.forEach((c) => {
           const collabArea = c.area || "Disponibilidad";
-          if (collabArea !== areaName) return;
+          if (collabArea !== activeArea) return;
 
           const objForTardanza = getPlanningObj(c.id, dStr) || {};
           const valToday = getPlanningSlot(c.id, dStr);
@@ -6776,10 +6810,33 @@ function renderHeatmap() {
 
         for (let h = 0; h <= 23; h++) {
           const count = hourlyCounts[h];
+          let cellText = count;
           let heatClass = "heat-danger";
-          if (count >= 3) heatClass = "heat-success";
-          else if (count >= 1) heatClass = "heat-warning";
-          bHtml += `<div class="heatmap-cell ${heatClass}" title="${h}h: ${count} personas">${count}</div>`;
+          let tooltip = `${h}h: ${count} personas`;
+
+          if (activeArea === "Linea de Cajas") {
+            const req = state.demandaCajas && state.demandaCajas[dStr] ? state.demandaCajas[dStr][h] || 0 : 0;
+            const diff = count - req;
+            
+            if (req > 0) {
+              if (diff >= 0) heatClass = "heat-success";
+              else if (diff === -1) heatClass = "heat-warning";
+              else heatClass = "heat-danger";
+              cellText = (diff > 0 ? "+" : "") + diff;
+              tooltip = `${h}h: Disp ${count} | Req ${req} | Bal ${cellText}`;
+            } else {
+              if (count > 0) heatClass = "heat-success";
+              else heatClass = "heat-danger";
+              cellText = count;
+              tooltip = `${h}h: ${count} personas`;
+            }
+          } else {
+            if (count >= 3) heatClass = "heat-success";
+            else if (count >= 1) heatClass = "heat-warning";
+            else heatClass = "heat-danger";
+          }
+          
+          bHtml += `<div class="heatmap-cell ${heatClass}" title="${tooltip}">${cellText}</div>`;
         }
         bHtml += `</div>`;
       });
@@ -6789,7 +6846,6 @@ function renderHeatmap() {
     };
 
     grid.innerHTML = generateBlockHtml(days1) + generateBlockHtml(days2);
-  });
 }
 
 // 10. INTERACCION Y GUARDADO
@@ -7097,10 +7153,12 @@ collabForm.addEventListener("submit", async (e) => {
     hours: parseInt(document.getElementById("cHours").value),
     domingosAcordados: parseInt(document.getElementById("cDoms").value),
     pasillo: document.getElementById("cPasillo").value.trim(),
+    numeroOperador: document.getElementById("cNumeroOperador").value.trim() ? parseInt(document.getElementById("cNumeroOperador").value.trim(), 10) : null,
     url_carpeta_comprobantes: document
       .getElementById("cFolderUrl")
       .value.trim(),
     fechaAlta: document.getElementById("cFechaAlta").value,
+    fechaNacimiento: document.getElementById("cFechaNacimiento").value || "",
     area: document.getElementById("cArea").value,
   };
 
@@ -7189,7 +7247,9 @@ window.editCollab = function (id) {
   document.getElementById("cHours").value = c.hours;
   document.getElementById("cDoms").value = c.domingosAcordados || 0;
   document.getElementById("cPasillo").value = c.pasillo;
+  document.getElementById("cNumeroOperador").value = c.numeroOperador || "";
   document.getElementById("cFechaAlta").value = c.fechaAlta || "";
+  document.getElementById("cFechaNacimiento").value = c.fechaNacimiento || "";
   document.getElementById("cArea").value = c.area || "Disponibilidad";
 
   document.getElementById("cCancelBtn").style.display = "block";
@@ -8127,6 +8187,33 @@ window.openMetricsDetail = async function (collabId) {
   // Modal was displayed at the beginning of the function with the loader.
 };
 
+window.updateVacationCollabSelect = function() {
+  const vCollabSelect = document.getElementById("vCollab");
+  if (!vCollabSelect) return;
+  const targetArea = state.currentArea || "Disponibilidad";
+  const collabsArea = state.collaborators.filter(c => (c.area || "Disponibilidad") === targetArea);
+  
+  vCollabSelect.innerHTML = collabsArea
+    .map(c => `<option value="${c.id}">${c.name}</option>`)
+    .join("");
+  
+  if (typeof renderSaldosVacaciones === "function") renderSaldosVacaciones();
+};
+
+window.updateAreaVisibility = function() {
+  const isCajas = state.currentArea === "Linea de Cajas";
+  
+  const suggestedTabBtn = document.getElementById("suggestedTabBtn");
+  if (suggestedTabBtn) {
+    suggestedTabBtn.style.display = isCajas ? "none" : "inline-block";
+  }
+  
+  const btnImportar = document.getElementById("btnImportarRecaudaciones");
+  if (btnImportar) {
+    btnImportar.style.display = (state.currentArea === "Linea de Cajas") ? "flex" : "none";
+  }
+};
+
 window.switchTab = function (tabId) {
   document
     .querySelectorAll(".app-tab-btn")
@@ -8157,8 +8244,10 @@ window.switchTab = function (tabId) {
 
   if (tabId === "vacaciones") {
     if (seccionVacaciones) seccionVacaciones.style.display = "flex";
+    if (typeof updateVacationCollabSelect === 'function') updateVacationCollabSelect();
+    if (typeof renderVacationTable === 'function') renderVacationTable();
+    if (typeof renderVacationCalendar === 'function') renderVacationCalendar();
     renderSaldosVacaciones();
-    renderVacationTable();
   } else if (tabId === "metricas") {
     if (seccionMetricas) seccionMetricas.style.display = "block";
     renderMetrics();
@@ -8279,12 +8368,18 @@ window.renderVacationTable = function renderVacationTable() {
   if (!tbody) return;
   tbody.innerHTML = "";
 
+  const targetArea = state.currentArea || "Disponibilidad";
+  const collabsAreaIds = new Set(
+    state.collaborators.filter(c => (c.area || "Disponibilidad") === targetArea).map(c => c.id)
+  );
+  let areaVacations = state.vacations.filter(v => collabsAreaIds.has(v.colaboradorId));
+
   const filterSelect = document.getElementById("vFilterYear");
   const currentSelection = filterSelect ? filterSelect.value : "Todos";
 
   if (filterSelect) {
     const years = [
-      ...new Set(state.vacations.map((v) => getVacationYear(v))),
+      ...new Set(areaVacations.map((v) => getVacationYear(v))),
     ].sort((a, b) => b - a);
     let currentYear = new Date().getFullYear();
     let optionsHtml = '<option value="Todos">Todos</option>';
@@ -8308,9 +8403,9 @@ window.renderVacationTable = function renderVacationTable() {
   }
 
   const selectedYear = filterSelect ? filterSelect.value : "Todos";
-  let filteredVacations = state.vacations;
+  let filteredVacations = areaVacations;
   if (selectedYear !== "Todos") {
-    filteredVacations = state.vacations.filter(
+    filteredVacations = areaVacations.filter(
       (v) => getVacationYear(v).toString() === selectedYear,
     );
   }
@@ -8919,6 +9014,9 @@ document
 
     if (!collabId || !startDateStr || !weeks) return;
 
+    const targetCollabObj = state.collaborators.find(c => c.id === collabId);
+    const targetCollabArea = targetCollabObj ? (targetCollabObj.area || "Disponibilidad") : "Disponibilidad";
+
     let startD = new Date(startDateStr + "T00:00:00");
     const isHistoricalYear = startD.getFullYear() < new Date().getFullYear();
 
@@ -8992,6 +9090,10 @@ document
 
       state.vacations.forEach((v) => {
         if (editId && v.id === editId) return; // Ignorar el registro que se está editando
+
+        const iterCollabObj = state.collaborators.find(c => c.id === v.colaboradorId);
+        const iterCollabArea = iterCollabObj ? (iterCollabObj.area || "Disponibilidad") : "Disponibilidad";
+        if (iterCollabArea !== targetCollabArea) return;
 
         const vStart = new Date(v.startDate + "T00:00:00");
         const vEnd = new Date(v.endDate + "T00:00:00");
@@ -9103,6 +9205,11 @@ window.renderVacationCalendar = function () {
 
   container.innerHTML = "";
 
+  const targetArea = state.currentArea || "Disponibilidad";
+  const collabsAreaIds = new Set(
+    state.collaborators.filter(c => (c.area || "Disponibilidad") === targetArea).map(c => c.id)
+  );
+
   // Generar 6 meses en grilla 2x3
   for (let i = 0; i < 6; i++) {
     const mDate = new Date(
@@ -9150,6 +9257,7 @@ window.renderVacationCalendar = function () {
       const onVacation = [];
       const onVacationIds = [];
       state.vacations.forEach((v) => {
+        if (!collabsAreaIds.has(v.colaboradorId)) return;
         const vStart = new Date(v.startDate + "T00:00:00");
         const vEnd = new Date(v.endDate + "T00:00:00");
         if (dTarget >= vStart && dTarget <= vEnd) {
@@ -9973,6 +10081,14 @@ async function autoSaveContextMenu() {
   obj.tardanzaConfirmada = document.getElementById("cellTardanzaCheck").checked;
   obj.horaExtraValidada = document.getElementById("cellOvertimeCheck").checked;
 
+  const isFixed = document.getElementById("cellFixedInput").checked;
+  obj.fijado = isFixed;
+  if (isFixed && !obj.fechaFijado) {
+    obj.fechaFijado = new Date().toLocaleDateString("es-AR");
+  } else if (!isFixed) {
+    delete obj.fechaFijado;
+  }
+
   state.planning[`${collabId}_${dateStr}`] = obj;
 
   if (!isMockMode) {
@@ -9985,6 +10101,8 @@ async function autoSaveContextMenu() {
           fecha: dateStr,
           slot: obj.slot,
           comentario: obj.comentario,
+          fijado: !!obj.fijado,
+          fechaFijado: obj.fechaFijado || null,
           tardanzaTexto: obj.tardanzaTexto || "",
           tardanzaMinutosTotales: obj.tardanzaMinutosTotales || 0,
           tardanzaConfirmada: obj.tardanzaConfirmada || false,
@@ -10923,7 +11041,9 @@ window.renderSugeridos = async function () {
   const isMobile = window.innerWidth <= 768;
   const forbiddenStates = ["VAC", "V", "SUS", "FRANCO", "F", "LIBRE", "-"];
 
-  state.collaborators.forEach((collab) => {
+  const sugeridosCollabs = state.collaborators.filter(c => (c.area || "Disponibilidad") === "Disponibilidad");
+
+  sugeridosCollabs.forEach((collab) => {
     const isVac = state.vacations && state.vacations.some(
       (vac) => vac.colaboradorId === collab.id && selectedDateStr >= vac.startDate && selectedDateStr <= vac.endDate
     );
@@ -10967,28 +11087,28 @@ window.renderSugeridos = async function () {
       const tr = document.createElement("tr");
       tr.style.borderBottom = "1px solid var(--border)";
       tr.innerHTML = `
-        <td style="padding: 8px 12px; width: 350px;">
-          <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
-            <div style="font-size: 0.7em; color: var(--text-muted); line-height: 1;">L. ${collab.id}</div>
-            <div style="font-weight: bold; font-size: 0.95em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${cleanName}</div>
-            <div class="collab-meta" style="font-size: 0.8em; display: flex; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted);">
-              <span>${collab.pasillo}</span>
-              <span style="opacity: 0.6;">(${collab.hours}h)</span>
-            </div>
-          </div>
-        </td>
-        <td style="padding: 8px 12px; text-align: center; font-weight: 500; font-size: 0.9rem; color: ${isBlocked ? "var(--info)" : "var(--text)"};">
-          ${shiftText}
-        </td>
-        <td style="padding: 8px 12px;">
-          <textarea class="sugerido-input sugeridos-comment" 
-            data-collab="${collab.id}"
-            placeholder="Agregar comentario..." 
-            rows="2" 
-            style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "var(--text)"}; resize: none; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"};">${textValue}</textarea>
-          ${authorLabel}
-        </td>
-      `;
+  <td style="padding: 6px 10px; width: 32%; vertical-align: top;">
+    <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+      <div style="font-size: 0.7em; color: var(--text-muted); line-height: 1;">L. ${collab.id}</div>
+      <div style="font-weight: bold; font-size: 0.9em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${cleanName}</div>
+      <div class="collab-meta" style="font-size: 0.75em; display: flex; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted);">
+        <span>${collab.pasillo || ""}</span>
+        <span style="opacity: 0.6;">(${collab.hours || 48}h)</span>
+      </div>
+    </div>
+  </td>
+  <td style="padding: 6px 10px; width: 16%; text-align: center; vertical-align: middle; font-weight: 600; font-size: 0.9rem; color: ${isBlocked ? "var(--info)" : "var(--text)"};">
+    ${shiftText || "-"}
+  </td>
+  <td style="padding: 6px 10px; width: 52%; vertical-align: top;">
+    <textarea class="sugerido-input sugeridos-comment" 
+      data-collab="${collab.id}"
+      placeholder="Agregar comentario..." 
+      rows="2" 
+      style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "var(--text)"}; resize: none; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"};">${textValue}</textarea>
+    ${authorLabel ? `<div style="font-size: 0.65rem; color: var(--text-muted); text-align: right; margin-top: 2px;">${authorLabel}</div>` : ""}
+  </td>
+`;
       tbody.appendChild(tr);
     }
   });
@@ -11149,6 +11269,218 @@ document.getElementById("eventosNavBtn").addEventListener("click", (e) => {
   if (dropdownMenu) dropdownMenu.style.display = "none";
   window.openEventosModal();
 });
+
+const dropzone = document.getElementById("recaudacionesDropzone");
+const fileInput = document.getElementById("recaudacionesFileInput");
+const btnConfirmar = document.getElementById("btnConfirmarRecaudaciones");
+const previewContainer = document.getElementById("recaudacionesPreview");
+let parsedRecaudacionesData = null;
+
+if (dropzone && fileInput) {
+  dropzone.onclick = () => fileInput.click();
+
+  dropzone.ondragover = (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = "var(--primary)";
+  };
+  dropzone.ondragleave = () => {
+    dropzone.style.borderColor = "var(--border)";
+  };
+  dropzone.ondrop = (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = "var(--border)";
+    if (e.dataTransfer.files.length > 0) {
+      if (typeof handleRecaudacionesFile === "function") {
+        handleRecaudacionesFile(e.dataTransfer.files[0]);
+      }
+    }
+  };
+
+  fileInput.onchange = (e) => {
+    if (e.target.files.length > 0) {
+      if (typeof handleRecaudacionesFile === "function") {
+        handleRecaudacionesFile(e.target.files[0]);
+      }
+    }
+  };
+}
+
+document.getElementById("closeRecaudacionesModal")?.addEventListener("click", () => {
+  const modal = document.getElementById("recaudacionesModal");
+  if (modal) {
+    modal.classList.remove("active");
+    modal.style.display = "none";
+  }
+});
+
+document.getElementById("btnImportarRecaudaciones")?.addEventListener("click", () => {
+  const modal = document.getElementById("recaudacionesModal");
+  if (modal) {
+    modal.classList.add("active");
+    modal.style.display = "flex";
+  }
+});
+
+btnConfirmar?.addEventListener("click", async () => {
+  if (parsedRecaudacionesData && typeof window.guardarDemandaRecaudaciones === "function") {
+    await window.guardarDemandaRecaudaciones(parsedRecaudacionesData);
+  }
+});
+
+window.handleRecaudacionesFile = function(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array", cellDates: true });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
+
+      console.log("Procesando Excel Cajas. Filas leídas:", json.length);
+
+      // 1. Buscar la fila de encabezado que contiene 'Fecha' y las horas 0..23
+      let headerRowIndex = -1;
+      let dateColIndex = -1;
+      let hourColIndices = []; // Índices de las 24 horas
+
+      for (let r = 0; r < Math.min(json.length, 15); r++) {
+        const row = json[r];
+        if (!row || !Array.isArray(row)) continue;
+
+        const fIdx = row.findIndex(c => String(c).toLowerCase().includes("fecha"));
+        if (fIdx !== -1) {
+          headerRowIndex = r;
+          dateColIndex = fIdx;
+
+          // Detectar columnas de las horas 0 a 23 en esa fila o siguientes
+          for (let h = 0; h < 24; h++) {
+            const hIdx = row.findIndex((c, idx) => idx > fIdx && (c === h || c === String(h) || c === `${h}.0` || c === `${h}:00`));
+            if (hIdx !== -1) hourColIndices.push(hIdx);
+          }
+          break;
+        }
+      }
+
+      // Si no detectó los índices de horas por nombre, asumir contiguos a partir de la columna siguiente a Día
+      if (hourColIndices.length < 24 && dateColIndex !== -1) {
+        hourColIndices = [];
+        const startHCol = dateColIndex + 2; // Saltea 'Fecha' y 'Día'
+        for (let h = 0; h < 24; h++) {
+          hourColIndices.push(startHCol + h);
+        }
+      }
+
+      console.log(`Columna Fecha: ${dateColIndex} | Columnas Horas detectadas: ${hourColIndices.length}`);
+
+      const parsedDays = {};
+
+      // 2. Iterar filas de datos a partir del encabezado
+      for (let r = (headerRowIndex !== -1 ? headerRowIndex + 1 : 0); r < json.length; r++) {
+        const row = json[r];
+        if (!row || row.length === 0) continue;
+
+        // Extraer celda de fecha
+        let cellVal = dateColIndex !== -1 ? row[dateColIndex] : null;
+        if (!cellVal) {
+          // Si no la encuentra en dateColIndex, escanear toda la fila por un patrón de fecha
+          cellVal = row.find(c => {
+            const str = String(c).trim();
+            return /^\d{4}-\d{2}-\d{2}/.test(str) || /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(str);
+          });
+        }
+
+        if (!cellVal) continue;
+
+        let dateStr = null;
+        const trimmed = String(cellVal).trim();
+
+        if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+          dateStr = trimmed.slice(0, 10);
+        } else if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(trimmed)) {
+          const parts = trimmed.split(/[\/\-]/);
+          const yr = parts[2].length === 2 ? "20" + parts[2] : parts[2].slice(0, 4);
+          dateStr = `${yr}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+        }
+
+        if (dateStr) {
+          const curva = [];
+          for (let h = 0; h < 24; h++) {
+            const colIdx = hourColIndices[h];
+            const valH = colIdx !== undefined ? parseFloat(row[colIdx]) : 0;
+            curva.push(isNaN(valH) ? 0 : Math.round(valH));
+          }
+          parsedDays[dateStr] = curva;
+        }
+      }
+
+      const dayKeys = Object.keys(parsedDays).sort();
+      console.log("Días procesados con éxito:", dayKeys);
+
+      if (dayKeys.length === 0) {
+        showToast("Formato no reconocido", "No se encontraron fechas válidas en las filas del archivo.", "warning");
+        return;
+      }
+
+      parsedRecaudacionesData = parsedDays;
+
+      // Mostrar previsualización en el modal
+      const preview = document.getElementById("recaudacionesPreview");
+      const list = document.getElementById("recaudacionesList");
+      const countEl = document.getElementById("recaudacionesCount");
+      const btnConfirmar = document.getElementById("btnConfirmarRecaudaciones");
+
+      if (preview && list && countEl && btnConfirmar) {
+        countEl.textContent = dayKeys.length;
+        list.innerHTML = dayKeys.map(k => {
+          const totalCajas = parsedDays[k].reduce((a, b) => a + b, 0);
+          return `<li style="padding: 2px 0;"><strong>${k}</strong>: ${totalCajas} turnos teóricos</li>`;
+        }).join("");
+        preview.style.display = "block";
+        btnConfirmar.style.display = "inline-flex";
+      }
+      showToast("Excel Procesado", `Se detectaron ${dayKeys.length} días de demanda de cajas.`, "success");
+    } catch (err) {
+      console.error("Error al procesar archivo:", err);
+      showToast("Error de Lectura", "Ocurrió un error al interpretar el Excel.", "danger");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+// 3. Función para guardar en Firestore
+window.guardarDemandaRecaudaciones = async function(parsedDays) {
+  if (!parsedDays || Object.keys(parsedDays).length === 0) return;
+  try {
+    const batch = writeBatch(db);
+    let count = 0;
+
+    for (const [dateStr, curva] of Object.entries(parsedDays)) {
+      const docRef = doc(db, "demanda_cajas", dateStr);
+      batch.set(docRef, { fecha: dateStr, curva: curva }, { merge: true });
+      count++;
+    }
+
+    await batch.commit();
+
+    if (!state.demandaCajas) state.demandaCajas = {};
+    Object.assign(state.demandaCajas, parsedDays);
+
+    showToast("Curva Guardada", `Se sincronizaron ${count} días en la base de datos.`, "success");
+
+    const modal = document.getElementById("recaudacionesModal");
+    if (modal) {
+      modal.classList.remove("active");
+      modal.style.display = "none";
+    }
+
+    renderHeatmap();
+  } catch (err) {
+    console.error("Error guardando en Firestore:", err);
+    showToast("Error de Guardado", "No se pudo guardar la demanda en Firestore.", "danger");
+  }
+};
 
 window.openEventosModal = async function () {
   document.getElementById("eventosModal").style.display = "flex";
@@ -12001,8 +12333,19 @@ document.getElementById("tableHeader").addEventListener("contextmenu", (e) => {
   chkARMADO.checked = state.armadoDates.includes(activeHeaderDate);
 
   headerContextMenu.style.display = "block";
-  headerContextMenu.style.left = e.pageX + "px";
-  headerContextMenu.style.top = e.pageY + "px";
+  
+  const menuWidth = 140; // Ancho estimado del menú contextual
+  const padding = 10;
+  let posX = e.pageX;
+  let posY = e.pageY;
+
+  // Si desborda por el margen derecho de la ventana, desplegar hacia la izquierda del cursor
+  if (e.clientX + menuWidth > window.innerWidth) {
+    posX = e.pageX - menuWidth;
+  }
+
+  headerContextMenu.style.left = `${Math.max(padding, posX)}px`;
+  headerContextMenu.style.top = `${posY}px`;
 });
 
 document.addEventListener("click", (e) => {
@@ -12013,32 +12356,32 @@ document.addEventListener("click", (e) => {
 
 chkTAW.addEventListener("change", (e) => {
   if (e.target.checked) {
-    state.tawDates = [activeHeaderDate];
+    state.tawDates = [activeHeaderDate]; // Se mueve exclusivamente al nuevo día
   } else {
     state.tawDates = [];
   }
-  if (!isMockMode)
-    setDoc(
-      doc(db, "notas_globales", "tags"),
-      { tawDates: state.tawDates },
-      { merge: true },
-    );
+  
+  const currentArea = state.currentArea || "Disponibilidad";
+  const docId = `tags_${currentArea.replace(/\s+/g, "_")}`;
+  if (!isMockMode) {
+    setDoc(doc(db, "notas_globales", docId), { tawDates: state.tawDates }, { merge: true });
+  }
   renderDesktopView();
   headerContextMenu.style.display = "none";
 });
 
 chkARMADO.addEventListener("change", (e) => {
   if (e.target.checked) {
-    state.armadoDates = [activeHeaderDate];
+    state.armadoDates = [activeHeaderDate]; // Se mueve exclusivamente al nuevo día
   } else {
     state.armadoDates = [];
   }
-  if (!isMockMode)
-    setDoc(
-      doc(db, "notas_globales", "tags"),
-      { armadoDates: state.armadoDates },
-      { merge: true },
-    );
+
+  const currentArea = state.currentArea || "Disponibilidad";
+  const docId = `tags_${currentArea.replace(/\s+/g, "_")}`;
+  if (!isMockMode) {
+    setDoc(doc(db, "notas_globales", docId), { armadoDates: state.armadoDates }, { merge: true });
+  }
   renderDesktopView();
   headerContextMenu.style.display = "none";
 });
@@ -12247,5 +12590,39 @@ document.addEventListener("keydown", (e) => {
       </button>
     </div>
   </div>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        const areaSel = document.getElementById("areaSelector");
+        if (areaSel) {
+          if (typeof state !== 'undefined' && state.currentArea) {
+            areaSel.value = state.currentArea;
+          }
+          areaSel.addEventListener("change", (e) => {
+            const nuevaArea = e.target.value;
+            state.currentArea = nuevaArea;
+            localStorage.setItem("crew_selected_area", nuevaArea);
+          
+            if (typeof updateAreaVisibility === "function") {
+              updateAreaVisibility();
+            }
+          
+            if (typeof window.subscribeTagsByArea === "function") {
+              window.subscribeTagsByArea();
+            }
+          
+            const secVac = document.getElementById("seccionVacaciones");
+            if (secVac && secVac.style.display !== "none") {
+              if (typeof updateVacationCollabSelect === "function") updateVacationCollabSelect();
+              if (typeof renderVacationTable === "function") renderVacationTable();
+              if (typeof renderVacationCalendar === "function") renderVacationCalendar();
+            } else {
+              window.renderUI();
+            }
+          });
+        }
+      }, 1000);
+    });
+  </script>
 </body>
 </html>
