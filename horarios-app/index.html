@@ -3012,7 +3012,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.3.4
+            Versión: v1.3.5
           </div>
         </div>
       </div>
@@ -3787,7 +3787,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.3.4";
+  const APP_VERSION = "v1.3.5";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -3918,6 +3918,50 @@ function parseShift(val, tardanzaMinutosTotales = 0) {
   if (val === "libre" || val === "l")
     return { type: "libre", label: "LIBRE", class: "input-libre", hours: 0 };
   if (val === "-") return { type: "none", label: "", class: "", hours: 0 };
+
+  // Soporte de Turno Cortado (ej: 10a14/19a23)
+  if (val.includes("/")) {
+    const parts = val.split("/").map((p) => p.trim());
+    if (parts.length === 2 && parts[0] && parts[1]) {
+      const p1 = parseShift(parts[0], tardanzaMinutosTotales);
+      const p2 = parseShift(parts[1], 0); // La tardanza aplica al ingreso del primer tramo
+
+      if (p1 && p1.type === "work" && p2 && p2.type === "work") {
+        const totalHours = p1.hours + p2.hours;
+        const totalRealHours = (p1.realHours !== undefined ? p1.realHours : p1.hours) + 
+                               (p2.realHours !== undefined ? p2.realHours : p2.hours);
+        const formattedLabel = `${p1.label.replace(/^nv\//i, "")}/${p2.label.replace(/^nv\//i, "")}`;
+
+        if (isNV || p1.isNV || p2.isNV) {
+          return {
+            type: "work",
+            label: `NV/${formattedLabel}`,
+            start: p1.start,
+            end: p2.end,
+            hours: 0,
+            realHours: totalRealHours,
+            class: "input-nv",
+            group: p1.group,
+            isNV: true,
+            isCortado: true,
+            tramos: [p1, p2],
+          };
+        }
+
+        return {
+          type: "work",
+          label: formattedLabel,
+          start: p1.start,
+          end: p2.end,
+          hours: totalHours,
+          class: "input-work",
+          group: p1.group,
+          isCortado: true,
+          tramos: [p1, p2],
+        };
+      }
+    }
+  }
 
   const match = val.match(/^(\d{1,2})(?::(\d{2}))?a(\d{1,2})(?::(\d{2}))?$/);
   if (match) {
@@ -6440,9 +6484,20 @@ function renderDesktopView() {
         const vacPrefix = isOnVacation ? '<span class="vac-prefix">V.</span>' : '';
         let displayHtml = "";
         let cleanValForMatch = displayVal.replace('*', '').trim();
+        let matchCortado = cleanValForMatch.match(/^(\d{1,2}(?::\d{2})?(?:a|-)\d{1,2}(?::\d{2})?)\s*\/\s*(\d{1,2}(?::\d{2})?(?:a|-)\d{1,2}(?::\d{2})?)$/i);
         let matchHorario = cleanValForMatch.match(/^(\d{1,2}(?::\d{2})?)\s*(?:a|-)\s*(\d{1,2}(?::\d{2})?)$/i);
         
-        if (matchHorario) {
+        if (matchCortado) {
+          const isModified = displayVal.includes('*');
+          const tcPrefix = isTiendaCerrada ? '<span class="badge-tc" title="Tienda Cerrada" style="margin-bottom:0;">TC</span>' : '';
+          displayHtml = `
+            <div class="shift-cell ${finalInputClass.replace('input-empty', '')} ${isOnVacation ? 'shift-cell-vacation' : ''}">
+              ${tcPrefix}
+              <span class="shift-start" style="font-size: 8.5px !important; line-height: 1 !important;">${vacPrefix}${matchCortado[1]}${isModified ? '<span style="color:var(--primary);">*</span>' : ''}</span>
+              <span class="shift-end" style="font-size: 8px !important; line-height: 1 !important;">${matchCortado[2]}</span>
+            </div>
+          `;
+        } else if (matchHorario) {
           // Micro-celda de turno normal (con asterisco si fue modificado)
           const isModified = displayVal.includes('*');
           const tcPrefix = isTiendaCerrada ? '<span class="badge-tc" title="Tienda Cerrada">TC</span>' : '';
@@ -6889,19 +6944,31 @@ function renderHeatmap() {
             const valPrev = getPlanningSlot(c.id, prevDateStr);
             const parsedPrev = parseShift(valPrev);
 
-            for (let h = 0; h <= 23; h++) {
-              if (!isOnVacationToday && parsedToday && parsedToday.type === "work") {
-                if (parsedToday.end <= parsedToday.start) {
-                  if (h >= parsedToday.start) hourlyCounts[h]++;
-                } else {
-                  if (h >= parsedToday.start && h < parsedToday.end) hourlyCounts[h]++;
+            const applyShiftToHours = (shift, isPrev) => {
+              if (!shift || shift.type !== "work") return;
+              const tramosList = shift.isCortado && shift.tramos ? shift.tramos : [shift];
+              tramosList.forEach((tr) => {
+                for (let h = 0; h <= 23; h++) {
+                  if (!isPrev) {
+                    if (tr.end <= tr.start) {
+                      if (h >= tr.start) hourlyCounts[h]++;
+                    } else {
+                      if (h >= tr.start && h < tr.end) hourlyCounts[h]++;
+                    }
+                  } else {
+                    if (tr.end <= tr.start) {
+                      if (h < tr.end) hourlyCounts[h]++;
+                    }
+                  }
                 }
-              }
-              if (!isOnVacationPrev && parsedPrev && parsedPrev.type === "work") {
-                if (parsedPrev.end <= parsedPrev.start) {
-                  if (h < parsedPrev.end) hourlyCounts[h]++;
-                }
-              }
+              });
+            };
+
+            if (!isOnVacationToday) {
+              applyShiftToHours(parsedToday, false);
+            }
+            if (!isOnVacationPrev) {
+              applyShiftToHours(parsedPrev, true);
             }
           });
         }
