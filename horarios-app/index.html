@@ -2220,6 +2220,25 @@
       background-color: #141c2b !important;
     }
 
+    /* Columna completa en días de Tienda Cerrada */
+    table#planningTable th.tienda-cerrada-col,
+    table#planningTable td.tienda-cerrada-col {
+      background-color: rgba(71, 85, 105, 0.35) !important;
+    }
+
+    .badge-tc {
+      display: inline-block;
+      font-size: 8px;
+      font-weight: 800;
+      color: #f87171;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 2px;
+      padding: 0 2px;
+      line-height: 1;
+      margin-bottom: 1px;
+    }
+
     /* Evitar que clases residuales tapen el fondo */
     .sunday-col,
     td.sunday-cell {
@@ -2993,7 +3012,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.3.3
+            Versión: v1.3.4
           </div>
         </div>
       </div>
@@ -3768,7 +3787,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.3.3";
+  const APP_VERSION = "v1.3.4";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -4851,24 +4870,56 @@ function validateTurn(collabId, dateStr, parsedNewSlot) {
     }
   }
 
-  // 7.5 Límite diario de horas (Máximo 8.5 hs y Mínimo 4 hs por día)
+  // 7.5 Límite diario de horas y horas extras (LCT / Art. 92 TER)
   if (parsedNewSlot && parsedNewSlot.type === "work") {
     const checkHours = parsedNewSlot.isNV
       ? parsedNewSlot.realHours
       : parsedNewSlot.hours;
-    if (checkHours > 8.5) {
-      return {
-        valid: false,
-        type: "exceso_horas",
-        msg: `Exceso de horas diarias: No se pueden cargar más de 8.5 horas en un solo día. (Turno ingresado: ${checkHours} hs)`,
-      };
-    }
+
+    // Mínimo legal por turno de trabajo
     if (checkHours < 4) {
       return {
         valid: false,
         type: "exceso_horas",
         msg: `Mínimo de horas diarias: El turno ingresado (${checkHours} hs) es inferior al mínimo legal obligatorio de 4 horas por día.`,
       };
+    }
+
+    // Techo absoluto de jornada (LCT Art. 197 - descanso mínimo entre jornadas)
+    if (checkHours > 12) {
+      return {
+        valid: false,
+        type: "exceso_horas",
+        msg: `Límite legal absoluto excedido: La jornada máxima no puede superar las 12 horas diarias para garantizar el descanso de Ley (Turno ingresado: ${checkHours} hs).`,
+      };
+    }
+
+    // Contratos de jornada reducida (<= 30hs semanales)
+    if (collab && collab.hours <= 30) {
+      const targetDateObj = new Date(dateStr + "T00:00:00");
+      const weekStartStr = formatDate(getStartOfWeek(targetDateObj));
+      const weeklyHoursSinEsteDia = calculateWeeklyHours(collabId, weekStartStr, dateStr);
+
+      const horasDisponiblesContrato = Math.max(0, collab.hours - weeklyHoursSinEsteDia);
+      const horasExtrasEnEsteDia = Math.max(0, checkHours - horasDisponiblesContrato);
+
+      // Si el turno activa o contiene horas extras semanales, no puede superar 8.5 hs ese día
+      if (horasExtrasEnEsteDia > 0 && checkHours > 8.5) {
+        return {
+          valid: false,
+          type: "exceso_horas",
+          msg: `Tope en horas extras: Para contratos de ${collab.hours}hs, un día que incluye horas extras no puede superar las 8.5 horas totales (Turno ingresado: ${checkHours} hs).`,
+        };
+      }
+
+      // Jornada contractual regular: permite hasta 9 hs si son ordinarias
+      if (checkHours > 9 && horasExtrasEnEsteDia === 0) {
+        return {
+          valid: false,
+          type: "exceso_horas",
+          msg: `Jornada ordinaria excedida: La jornada regular máxima es de 9 horas diarias (Turno ingresado: ${checkHours} hs).`,
+        };
+      }
     }
   }
 
@@ -5343,16 +5394,33 @@ function renderMobileDayView() {
       ? `<span style="font-size: 0.65rem; font-weight: 700; color: #38bdf8; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 4px; padding: 1px 5px; margin-left: 5px; display: inline-flex; align-items: center;">Op. ${collab.numeroOperador}</span>`
       : "";
 
+    const isCollabBirthday = collab.fechaNacimiento && collab.fechaNacimiento.slice(5) === dStr.slice(5);
+    const birthdayBadge = isCollabBirthday ? `
+      <div style="display: inline-flex; align-items: center; gap: 4px; background: rgba(236, 72, 153, 0.15); border: 1px solid rgba(236, 72, 153, 0.4); border-radius: 4px; padding: 2px 6px; margin-left: auto; flex-shrink: 0;" title="¡Hoy es su cumpleaños!">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 12 20 22 4 22 4 12"></polyline>
+          <rect x="2" y="7" width="20" height="5"></rect>
+          <line x1="12" y1="22" x2="12" y2="7"></line>
+          <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+          <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+        </svg>
+        <span style="font-size: 0.65rem; font-weight: 700; color: #f472b6; letter-spacing: 0.2px; text-transform: uppercase;">Cumple</span>
+      </div>
+    ` : '';
+
     let cellsHTML = `
-            <td style="cursor: pointer; padding: 2px !important;" onclick="openMobileProfile('${collab.id}')">
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <div class="avatar" style="width: 24px; height: 24px; font-size: 0.7rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">${avatarStr}</div>
-                <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap;">
-                  <span style="font-weight: 600; font-size: 0.85rem; text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">
-                    ${apeF}${opBadge}
-                  </span>
-                  <span style="font-size: 0.7rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${nomF}</span>
+            <td style="cursor: pointer; padding: 2px 6px !important;" onclick="openMobileProfile('${collab.id}')">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden;">
+                  <div class="avatar" style="width: 24px; height: 24px; font-size: 0.7rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">${avatarStr}</div>
+                  <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap; min-width: 0;">
+                    <span style="font-weight: 600; font-size: 0.85rem; text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">
+                      ${apeF}${opBadge}
+                    </span>
+                    <span style="font-size: 0.7rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${nomF}</span>
+                  </div>
                 </div>
+                ${birthdayBadge}
               </div>
             </td>
           `;
@@ -5361,7 +5429,7 @@ function renderMobileDayView() {
     if (isOnVacationToday) shiftVal = "V";
 
     const isTiendaCerrada = evento && evento.tiendaCerrada;
-    if (isTiendaCerrada) shiftVal = "LIBRE";
+    // No pisar shiftVal si la tienda está cerrada; permitir cargar el horario correspondiente
 
     let originalScheduleTitle = "";
     let obj = getPlanningObj(collab.id, dStr);
@@ -5376,7 +5444,7 @@ function renderMobileDayView() {
       originalScheduleTitle = `title="Horario original: ${obj.horarioOriginal}"`;
     }
 
-    let logicDisabled = isOnVacationToday || isTiendaCerrada;
+    let logicDisabled = isOnVacationToday;
     let inputDisabled = logicDisabled || !userHasAccess;
     let cellStyle = isTiendaCerrada
       ? "background-color: rgba(100, 116, 139, 0.2);"
@@ -5926,7 +5994,9 @@ function renderDesktopView() {
     const isToday = dStr === todayStr;
     const todayClass = isToday ? "dia-actual today-col " : "";
     
-    const thClass = `day-col ${weekClass} ${borderWeekClass} ${todayClass}`;
+    const isTiendaCerradaHoy = state.eventos[dStr] && state.eventos[dStr].tiendaCerrada;
+    const tcClass = isTiendaCerradaHoy ? " tienda-cerrada-col" : "";
+    const thClass = `day-col ${weekClass} ${borderWeekClass} ${todayClass}${tcClass}`;
     const holidayBadge = isHoliday 
       ? `<span class="header-micro-badge badge-holiday" title="Feriado">★</span>` 
       : "";
@@ -6007,10 +6077,6 @@ function renderDesktopView() {
         shortName = `${apellidoInicial}. ${restoNombre}`;
       }
       
-      const todayMMDD = formatDate(new Date()).slice(5);
-      const isBirthdayToday = collab.fechaNacimiento && collab.fechaNacimiento.slice(5) === todayMMDD;
-      const birthdayIcon = isBirthdayToday ? `<span title="¡Hoy es su cumpleaños! 🥳" style="margin-left: 4px; font-size: 0.85rem; cursor: help; display: inline-flex; animation: pulse 2s infinite;">🥳</span>` : "";
-
       let html = `
           <td class="collab-cell" title="${rawName} (Legajo: ${collab.id})">
             <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; height: 100%; padding: 0 6px; box-sizing: border-box; gap: 4px; flex-wrap: nowrap;">
@@ -6022,7 +6088,7 @@ function renderDesktopView() {
                 <div style="display: flex; align-items: center; cursor: pointer; min-width: 0; flex: 1; overflow: hidden;" onclick="window.toggleCollabDetails('${collab.id}', event)">
                   <div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; flex-shrink: 0;"></div>
                   <span style="font-weight: 600; font-size: 0.78rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    ${shortName}${birthdayIcon}
+                    ${shortName}
                   </span>
                   <span id="collab-arrow-${collab.id}" style="font-size: 0.55rem; color: var(--text-muted); padding-left: 3px; flex-shrink: 0;">▼</span>
                 </div>
@@ -6140,6 +6206,7 @@ function renderDesktopView() {
         const mondayStr = formatDate(getStartOfWeek(d));
         const dStr = formatDate(d);
         const isHoliday = state.holidays.includes(dStr);
+        const isTiendaCerrada = !!(state.eventos[dStr] && state.eventos[dStr].tiendaCerrada);
 
         let isOnVacation = false;
         const targetD = new Date(dStr + "T00:00:00");
@@ -6196,14 +6263,7 @@ function renderDesktopView() {
         let inputClass = "input-empty";
         let isDisabled = false;
 
-        const isTiendaCerrada =
-          state.eventos[dStr] && state.eventos[dStr].tiendaCerrada;
-
-        if (isTiendaCerrada) {
-          val = "LIBRE";
-          inputClass = "input-libre";
-          isDisabled = true;
-        } else if (isPreVacationSunday) {
+        if (isPreVacationSunday) {
           val = "FRANCO";
           inputClass = "input-franco-locked";
           isDisabled = true;
@@ -6309,11 +6369,14 @@ function renderDesktopView() {
 
         const borderWeekClass = (dayIndex === 6 || dayIndex === 13 || dayIndex === 20) ? "week-separator-border" : "";
 
+        const tcCellClass = isTiendaCerrada ? " tienda-cerrada-col" : "";
+
         let finalWrapperClass =
           wrapperClass +
           (isSkeleton ? " skeleton-cell" : "") +
           " day-cell " + weekClass + " " + borderWeekClass +
-          todayClass;
+          todayClass +
+          tcCellClass;
 
         // Validar descanso diario de 12 horas para turnos ya cargados
         let hasRestError = false;
@@ -6382,8 +6445,10 @@ function renderDesktopView() {
         if (matchHorario) {
           // Micro-celda de turno normal (con asterisco si fue modificado)
           const isModified = displayVal.includes('*');
+          const tcPrefix = isTiendaCerrada ? '<span class="badge-tc" title="Tienda Cerrada">TC</span>' : '';
           displayHtml = `
             <div class="shift-cell ${finalInputClass.replace('input-empty', '')} ${isOnVacation ? 'shift-cell-vacation' : ''}">
+              ${tcPrefix}
               <span class="shift-start">${vacPrefix}${matchHorario[1]}${isModified ? '<span style="color:var(--primary);">*</span>' : ''}</span>
               <span class="shift-end">${matchHorario[2]}</span>
             </div>
@@ -6409,7 +6474,7 @@ function renderDesktopView() {
         }
 
         html += `
-            <td class="${isHoliday ? "holiday-col" : ""} ${finalWrapperClass} ${additionalCellClass} day-cell" ${titleAttr} data-collab="${collab.id}" data-date="${dStr}" style="position: relative;">
+            <td class="${isHoliday ? "holiday-col" : ""} ${finalWrapperClass} ${additionalCellClass} day-cell" ${titleAttr} data-collab="${collab.id}" data-date="${dStr}" style="position: relative; ${eventoCellStyle}">
               <div class="ot-indicator"></div>
               
               <!-- Presentación visual (Apilada) -->
@@ -6798,45 +6863,48 @@ function renderHeatmap() {
         const hourlyCounts = {};
         for (let h = 0; h <= 23; h++) hourlyCounts[h] = 0;
 
-        state.collaborators.forEach((c) => {
-          const collabArea = c.area || "Disponibilidad";
-          if (collabArea !== activeArea) return;
+        const isTiendaCerradaHoy = state.eventos[dStr] && state.eventos[dStr].tiendaCerrada;
+        if (!isTiendaCerradaHoy) {
+          state.collaborators.forEach((c) => {
+            const collabArea = c.area || "Disponibilidad";
+            if (collabArea !== activeArea) return;
 
-          const objForTardanza = getPlanningObj(c.id, dStr) || {};
-          const valToday = getPlanningSlot(c.id, dStr);
-          const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
+            const objForTardanza = getPlanningObj(c.id, dStr) || {};
+            const valToday = getPlanningSlot(c.id, dStr);
+            const parsedToday = parseShift(valToday, objForTardanza.tardanzaMinutosTotales || 0);
 
-          const targetDToday = new Date(dStr + "T00:00:00");
-          const targetDPrev = new Date(prevDateStr + "T00:00:00");
-          let isOnVacationToday = false;
-          let isOnVacationPrev = false;
-          for (let vac of state.vacations) {
-            if (vac.colaboradorId === c.id) {
-              const vacStart = new Date(vac.startDate + "T00:00:00");
-              const vacEnd = new Date(vac.endDate + "T00:00:00");
-              if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
-              if (targetDPrev >= vacStart && targetDPrev <= vacEnd) isOnVacationPrev = true;
-            }
-          }
-
-          const valPrev = getPlanningSlot(c.id, prevDateStr);
-          const parsedPrev = parseShift(valPrev);
-
-          for (let h = 0; h <= 23; h++) {
-            if (!isOnVacationToday && parsedToday && parsedToday.type === "work") {
-              if (parsedToday.end <= parsedToday.start) {
-                if (h >= parsedToday.start) hourlyCounts[h]++;
-              } else {
-                if (h >= parsedToday.start && h < parsedToday.end) hourlyCounts[h]++;
+            const targetDToday = new Date(dStr + "T00:00:00");
+            const targetDPrev = new Date(prevDateStr + "T00:00:00");
+            let isOnVacationToday = false;
+            let isOnVacationPrev = false;
+            for (let vac of state.vacations) {
+              if (vac.colaboradorId === c.id) {
+                const vacStart = new Date(vac.startDate + "T00:00:00");
+                const vacEnd = new Date(vac.endDate + "T00:00:00");
+                if (targetDToday >= vacStart && targetDToday <= vacEnd) isOnVacationToday = true;
+                if (targetDPrev >= vacStart && targetDPrev <= vacEnd) isOnVacationPrev = true;
               }
             }
-            if (!isOnVacationPrev && parsedPrev && parsedPrev.type === "work") {
-              if (parsedPrev.end <= parsedPrev.start) {
-                if (h < parsedPrev.end) hourlyCounts[h]++;
+
+            const valPrev = getPlanningSlot(c.id, prevDateStr);
+            const parsedPrev = parseShift(valPrev);
+
+            for (let h = 0; h <= 23; h++) {
+              if (!isOnVacationToday && parsedToday && parsedToday.type === "work") {
+                if (parsedToday.end <= parsedToday.start) {
+                  if (h >= parsedToday.start) hourlyCounts[h]++;
+                } else {
+                  if (h >= parsedToday.start && h < parsedToday.end) hourlyCounts[h]++;
+                }
+              }
+              if (!isOnVacationPrev && parsedPrev && parsedPrev.type === "work") {
+                if (parsedPrev.end <= parsedPrev.start) {
+                  if (h < parsedPrev.end) hourlyCounts[h]++;
+                }
               }
             }
-          }
-        });
+          });
+        }
 
         for (let h = 0; h <= 23; h++) {
           const count = hourlyCounts[h];
@@ -6992,6 +7060,18 @@ async function handleInputChange(e) {
   let obj = getPlanningObj(collabId, dateStr) || {};
   obj.slot = finalValue;
 
+  // Validación automática de Horas Extras al escribir directo en la celda
+  if (parsedNew && parsedNew.type === "work") {
+    const otInfo = calculateOvertimeInfo(collabId, dateStr, parsedNew);
+    if (otInfo && checkAccess("modificarHorario")) {
+      obj.horaExtraValidada = true;
+    } else if (!otInfo) {
+      obj.horaExtraValidada = false;
+    }
+  } else if (!parsedNew || parsedNew.type !== "work") {
+    obj.horaExtraValidada = false;
+  }
+
   if (finalValue === "") {
     delete state.planning[`${collabId}_${dateStr}`];
   } else {
@@ -7042,6 +7122,7 @@ async function handleInputChange(e) {
           colaboradorId: collabId,
           fecha: dateStr,
           slot: finalValue,
+          horaExtraValidada: obj.horaExtraValidada || false,
         },
         { merge: true },
       );
@@ -9610,7 +9691,17 @@ function handleContextMenu(e) {
             <input type="time" id="ctxTimeIn">
             <span style="color: #64748b; font-size: 0.75rem;">a</span>
             <input type="time" id="ctxTimeOut">
-            <button type="button" id="qs-apply" class="ctx-apply-btn">Aplicar</button>
+          </div>
+
+          <div id="ctxOvertimeBlock" class="ctx-row-card" style="display: none; flex-direction: column; align-items: stretch; border-color: rgba(245, 158, 11, 0.3); margin-top: 6px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem;">
+              <span style="color: #94a3b8;">Horas extras detectadas:</span>
+              <span id="ctxOvertimeExcess" style="font-weight: 700; color: #fbbf24;"></span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+              <label for="cellOvertimeCheck" style="font-size: 0.72rem; cursor: pointer;">Validar como Hora Extra</label>
+              <input type="checkbox" id="cellOvertimeCheck" style="cursor: pointer;">
+            </div>
           </div>
         </div>
 
@@ -9627,17 +9718,6 @@ function handleContextMenu(e) {
           </div>
         </div>
 
-        <div id="ctxOvertimeBlock" class="ctx-row-card" style="display: none; flex-direction: column; align-items: stretch; border-color: rgba(245, 158, 11, 0.3);">
-          <div style="display: flex; justify-content: space-between; font-size: 0.72rem;">
-            <span style="color: #94a3b8;">Extras proyectadas:</span>
-            <span id="ctxOvertimeExcess" style="font-weight: 700; color: #fbbf24;"></span>
-          </div>
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
-            <label for="cellOvertimeCheck" style="font-size: 0.72rem;">Validar como Hora Extra</label>
-            <input type="checkbox" id="cellOvertimeCheck" style="cursor: pointer;">
-          </div>
-        </div>
-
         <div id="ctxInventarioBlock" class="ctx-row-card" style="display: none;">
           <label id="ctxInventarioLabel" for="cellInventarioInput">Evento Especial</label>
           <input type="checkbox" id="cellInventarioInput" style="cursor: pointer;">
@@ -9645,9 +9725,10 @@ function handleContextMenu(e) {
 
         <div class="ctx-comment-box">
           <textarea id="cellCommentInput" placeholder="Escribir comentario u observación..."></textarea>
-          <div class="ctx-comment-actions">
-            <button type="button" class="ctx-btn-action ctx-btn-delete" onclick="window.deleteCellComment()">Borrar</button>
-            <button type="button" id="saveCellDetailsBtn" class="ctx-btn-action ctx-btn-save">Guardar</button>
+          <div style="margin-top: 8px;">
+            <button type="button" id="saveCellDetailsBtn" style="width: 100%; background: #10b981; color: #ffffff; border: none; border-radius: 8px; padding: 10px 14px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: background 0.2s; display: flex; justify-content: center; align-items: center; text-align: center;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+              Guardar Cambios
+            </button>
           </div>
         </div>
       `;
@@ -9661,7 +9742,6 @@ function handleContextMenu(e) {
       document.getElementById("qs-LIBRE").onclick = () => window.setQuickState("LIBRE");
       document.getElementById("qs-F").onclick = () => window.setQuickState("F");
       document.getElementById("qs-NV").onclick = () => window.setNoVieneQuickState();
-      document.getElementById("qs-apply").onclick = () => window.applyCustomSchedule();
       document.getElementById("saveCellDetailsBtn").onclick = async () => {
         const saved = await autoSaveContextMenu();
         if (saved !== false) {
@@ -9695,37 +9775,11 @@ function handleContextMenu(e) {
     document.getElementById("cellTardanzaCheck").checked =
       !!obj.tardanzaConfirmada;
 
-    // Overtime info
-    const currentSlotForOt =
-      obj.slot ||
-      getPlanningSlot(collabId, dateStr) ||
-      (currentContextCell ? currentContextCell.value : "");
-    const parsedOt = parseShift(currentSlotForOt);
-    const otInfo = calculateOvertimeInfo(collabId, dateStr, parsedOt);
-    const ctxOtBlock = document.getElementById("ctxOvertimeBlock");
-    if (otInfo) {
-      ctxOtBlock.style.display = "flex";
-      // Contrato y Proyectado no existen en el nuevo diseño, pero si existieran los llenamos
-      const contractEl = document.getElementById("ctxOvertimeContract");
-      if (contractEl) contractEl.textContent = otInfo.contract + " hs";
-      const projectedEl = document.getElementById("ctxOvertimeProjected");
-      if (projectedEl) projectedEl.textContent = otInfo.projected + " hs";
-      
-      const excessEl = document.getElementById("ctxOvertimeExcess");
-      if (excessEl) excessEl.textContent = otInfo.excess + " hs";
-      
-      document.getElementById("cellOvertimeCheck").checked =
-        !!obj.horaExtraValidada;
-    } else {
-      ctxOtBlock.style.display = "none";
-      document.getElementById("cellOvertimeCheck").checked = false;
-    }
-
     // Pre-fill Schedule Modifiers if slot is a time range
     let currentSlot =
       obj.slot ||
       getPlanningSlot(collabId, dateStr) ||
-      currentContextCell.value;
+      (currentContextCell ? currentContextCell.value : "");
     if (typeof currentSlot === "string") {
       currentSlot = currentSlot.replace("*", "").trim();
     }
@@ -9745,6 +9799,57 @@ function handleContextMenu(e) {
         document.getElementById("ctxTimeOut").value =
           `${tOutH.padStart(2, "0")}:${tOutM}`;
       }
+    }
+
+    // Overtime calculation helper from inputs or slot
+    const updateOtFromTimeInputs = () => {
+      const tIn = document.getElementById("ctxTimeIn").value;
+      const tOut = document.getElementById("ctxTimeOut").value;
+      const otBlock = document.getElementById("ctxOvertimeBlock");
+      const otCheck = document.getElementById("cellOvertimeCheck");
+      const otExcess = document.getElementById("ctxOvertimeExcess");
+      if (!otBlock || !otCheck) return;
+
+      let parsedSlotForCalc = null;
+      if (tIn && tOut) {
+        const fmtIn = tIn.replace(/^0/, "").replace(/:00$/, "");
+        const fmtOut = tOut.replace(/^0/, "").replace(/:00$/, "");
+        parsedSlotForCalc = parseShift(`${fmtIn}a${fmtOut}`);
+      } else {
+        const fallbackSlot =
+          obj.slot ||
+          getPlanningSlot(collabId, dateStr) ||
+          (currentContextCell ? currentContextCell.value : "");
+        parsedSlotForCalc = parseShift(fallbackSlot);
+      }
+
+      const info = calculateOvertimeInfo(collabId, dateStr, parsedSlotForCalc);
+      if (info) {
+        otBlock.style.display = "flex";
+        if (otExcess) otExcess.textContent = info.excess + " hs";
+        otCheck.checked = true;
+      } else {
+        otBlock.style.display = "none";
+        otCheck.checked = false;
+      }
+    };
+
+    document.getElementById("ctxTimeIn").oninput = updateOtFromTimeInputs;
+    document.getElementById("ctxTimeOut").oninput = updateOtFromTimeInputs;
+
+    // Overtime info inicial al abrir
+    const parsedOt = parseShift(currentSlot);
+    const otInfo = calculateOvertimeInfo(collabId, dateStr, parsedOt);
+    const ctxOtBlock = document.getElementById("ctxOvertimeBlock");
+    if (otInfo) {
+      ctxOtBlock.style.display = "flex";
+      const excessEl = document.getElementById("ctxOvertimeExcess");
+      if (excessEl) excessEl.textContent = otInfo.excess + " hs";
+      document.getElementById("cellOvertimeCheck").checked =
+        obj.horaExtraValidada !== undefined ? !!obj.horaExtraValidada : true;
+    } else {
+      ctxOtBlock.style.display = "none";
+      document.getElementById("cellOvertimeCheck").checked = false;
     }
 
     // Mostrar/ocultar bloque de inventario según si hay evento ese día
@@ -10077,8 +10182,17 @@ async function autoSaveContextMenu() {
     }
   }
 
-  const slotValue =
-    getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+  // Si se ingresaron horarios en la cápsula de horario, usarlos como nuevo slot
+  const timeInVal = document.getElementById("ctxTimeIn") ? document.getElementById("ctxTimeIn").value : "";
+  const timeOutVal = document.getElementById("ctxTimeOut") ? document.getElementById("ctxTimeOut").value : "";
+  let slotValue = getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+
+  if (timeInVal && timeOutVal) {
+    const formattedTimeIn = timeInVal.replace(/^0/, "").replace(/:00$/, "");
+    const formattedTimeOut = timeOutVal.replace(/^0/, "").replace(/:00$/, "");
+    slotValue = `${formattedTimeIn}a${formattedTimeOut}`;
+  }
+
   const parsedWithNewTardanza = parseShift(slotValue, tardanzaMins);
 
   const validation = validateTurn(collabId, dateStr, parsedWithNewTardanza);
@@ -10091,11 +10205,21 @@ async function autoSaveContextMenu() {
   }
 
   const obj = getPlanningObj(collabId, dateStr) || {};
-  const oldSlot = obj.slot || currentContextCell.value;
+  const oldSlot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
   const oldComment = obj.comentario || "";
 
-  obj.slot =
-    obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
+  if (timeInVal && timeOutVal && slotValue !== oldSlot && !obj.horarioOriginal) {
+    obj.horarioOriginal = oldSlot;
+  }
+
+  obj.slot = slotValue;
+  if (currentContextCell.tagName === "INPUT") {
+    currentContextCell.value = slotValue;
+  } else {
+    const cellInp = currentContextCell.querySelector("input.cell-input");
+    if (cellInp) cellInp.value = slotValue;
+  }
+
   obj.comentario = document.getElementById("cellCommentInput").value.trim();
 
   if (oldSlot !== obj.slot || oldComment !== obj.comentario) {
@@ -10119,6 +10243,11 @@ async function autoSaveContextMenu() {
     delete obj.fechaFijado;
   }
 
+  const inventarioEl = document.getElementById("cellInventarioInput");
+  if (inventarioEl) {
+    obj.esInventario = !!inventarioEl.checked;
+  }
+
   state.planning[`${collabId}_${dateStr}`] = obj;
 
   if (!isMockMode) {
@@ -10130,6 +10259,7 @@ async function autoSaveContextMenu() {
           colaboradorId: collabId,
           fecha: dateStr,
           slot: obj.slot,
+          horarioOriginal: obj.horarioOriginal || null,
           comentario: obj.comentario,
           fijado: !!obj.fijado,
           fechaFijado: obj.fechaFijado || null,
@@ -10137,6 +10267,7 @@ async function autoSaveContextMenu() {
           tardanzaMinutosTotales: obj.tardanzaMinutosTotales || 0,
           tardanzaConfirmada: obj.tardanzaConfirmada || false,
           horaExtraValidada: obj.horaExtraValidada || false,
+          esInventario: obj.esInventario || false,
         },
         { merge: true },
       );
@@ -10145,6 +10276,7 @@ async function autoSaveContextMenu() {
     }
   }
   renderUI();
+  return true;
 }
 
 document
