@@ -2944,10 +2944,11 @@
         <option value="Disponibilidad">Disponibilidad</option>
         <option value="Linea de Cajas">Línea de Cajas</option>
       </select>
-      <button class="app-tab-btn active" id="tabHorarios" onclick="switchTab('horarios')">Grid Semanal</button>
+      <button class="app-tab-btn active" id="tabHorarios" data-alias="tabNavGrid" onclick="switchTab('horarios')">Grid Semanal</button>
       <button class="app-tab-btn" id="suggestedTabBtn" onclick="switchTab('sugeridos')">Sugeridos</button>
+      <button class="app-tab-btn" id="productividadTabBtn" onclick="switchTab('productividad')" style="display: none;">Productividad Cajas</button>
       <button class="app-tab-btn" id="vacationTabBtn" onclick="switchTab('vacaciones')" style="display: none;">Plan Anual Vacaciones</button>
-      <button class="app-tab-btn" id="metricsTabBtn" onclick="switchTab('metricas')" style="display: none;">Dashboard Métricas</button>
+      <button class="app-tab-btn" id="tabNavDashboard" data-alias="metricsTabBtn" onclick="switchTab('metricas')" style="display: none;">Dashboard Métricas</button>
     </div>
     
     <div class="main-app-nav-center date-nav-container" id="dateNavigationContainer">
@@ -3307,12 +3308,55 @@
       </div>
                <div id="sugeridosMobileCards" style="display: none;"></div>
          <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 8px;">
-         <label for="globalNotesTextarea" style="font-weight: bold; color: var(--text);">Comentarios</label>
-         <textarea id="globalNotesTextarea" rows="3" placeholder="Agregar comentario global para este día..." style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); font-family: inherit; resize: vertical; box-sizing: border-box; color: var(--text);"></textarea>
-      </div>
-   </div>
+          <label for="globalNotesTextarea" style="font-weight: bold; color: var(--text);">Comentarios</label>
+          <textarea id="globalNotesTextarea" rows="3" placeholder="Agregar comentario global para este día..." style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); font-family: inherit; resize: vertical; box-sizing: border-box; color: var(--text);"></textarea>
+       </div>
+    </div>
 
-   <!-- MODAL DE HISTORIAL ANUAL CONSOLIDADO -->
+    <!-- SECCION PRODUCTIVIDAD CAJAS -->
+    <div id="seccionProductividad" style="display: none; padding: 16px 20px; background: var(--bg); height: 100%; overflow-y: auto; flex-direction: column; gap: 16px; box-sizing: border-box;">
+      
+      <!-- Barra de Acciones y Filtros -->
+      <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <h2 style="margin: 0; font-size: 1.1rem; color: #38bdf8; font-weight: 700;">Productividad - Línea de Cajas</h2>
+          <select id="prodMesSelector" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 0.85rem; font-weight: 600;">
+            <option value="2026-09">Septiembre 2026</option>
+            <option value="2026-08">Agosto 2026</option>
+            <option value="2026-07">Julio 2026</option>
+          </select>
+          <select id="prodSegmentoSelector" onchange="window.renderProductividad()" style="background: var(--bg); color: #38bdf8; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 0.85rem; font-weight: 700;">
+            <option value="cajeros">Cajeros Titulares (Reporte Oficial)</option>
+            <option value="apoyo">Apoyo / Vendedores (Fallo de Caja)</option>
+            <option value="rollers">Rollers (Supervisión)</option>
+            <option value="intertiendas">🏆 Clásico San Juan (1092 vs 1081 vs 1006)</option>
+            <option value="extracash">💵 Extra Cash · Dispersión de Efectivo</option>
+            <option value="todos">Todos los Operadores (Consolidado)</option>
+          </select>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" id="btnCargarProductividadModal" onclick="window.abrirModalProductividad()" style="background: var(--surface-hover); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
+            📥 Cargar Datos (CSV / Pegar)
+          </button>
+          <button type="button" id="btnExportarPlacas" onclick="window.exportarPlacasWhatsApp()" class="primary" style="padding: 6px 12px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+            🖼️ Exportar Placas WhatsApp
+          </button>
+          <button type="button" id="btnImprimirLibroNovedades" onclick="window.imprimirLibroNovedades()" style="background: #1e293b; color: #f8fafc; border: 1px solid #475569; border-radius: 6px; padding: 6px 12px; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+            📄 Imprimir para Novedades (PDF)
+          </button>
+        </div>
+      </div>
+
+      <!-- Lienzo Bento Grid (Previsualización) -->
+      <div id="prodLienzoContainer" style="display: flex; flex-direction: column; gap: 16px; flex: 1;">
+        <div style="text-align: center; color: var(--text-muted); padding: 60px 20px; font-size: 0.9rem; border: 1px dashed var(--border); border-radius: 8px;">
+          No hay datos de productividad cargados para este período. Presiona <strong>"Cargar Datos"</strong> para importar la información.
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL DE HISTORIAL ANUAL CONSOLIDADO -->
    <div id="metricsDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; font-family: inherit;">
       <div style="background: var(--surface); width: 900px; max-width: 95%; max-height: 90vh; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;">
          <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--bg);">
@@ -3787,7 +3831,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.3.5";
+  const APP_VERSION = "v1.3.6";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -4076,6 +4120,21 @@ const state = {
   metricsLoadedYears: {}, // Registro de años ya descargados en la sesión
 };
 window.state = state;
+try {
+  state.productividad = JSON.parse(localStorage.getItem('crew_productividad_data') || '{}');
+} catch (e) {
+  state.productividad = {};
+}
+try {
+  state.productividadDistrital = JSON.parse(localStorage.getItem('crew_productividad_distrito') || '{}');
+} catch (e) {
+  state.productividadDistrital = {};
+}
+try {
+  state.extraCash = JSON.parse(localStorage.getItem('crew_extracash') || '{}');
+} catch (e) {
+  state.extraCash = {};
+}
 
 // Helpers para metadatos de turnos
 function getMonthlyRotationCompliance(collab, currentWeekDays) {
@@ -4477,6 +4536,35 @@ async function loadInitialData() {
         });
       };
       window.subscribeTagsByArea();
+
+      // Suscripción a colección productividad_cajas
+      onSnapshot(collection(db, "productividad_cajas"), (snap) => {
+        state.productividad = state.productividad || {};
+        state.productividadDistrital = state.productividadDistrital || {};
+        state.extraCash = state.extraCash || {};
+
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
+          const id = docSnap.id; // ej: "2026-09_avance", "2026-09_distrito", "2026-09_extracash"
+          
+          if (id.includes("_distrito")) {
+            const periodo = id.replace("_distrito", "");
+            state.productividadDistrital[periodo] = data;
+          } else if (id.includes("_extracash")) {
+            const periodo = id.replace("_extracash", "");
+            state.extraCash[periodo] = data;
+          } else {
+            const periodo = id.split("_")[0];
+            state.productividad[periodo] = data;
+          }
+        });
+
+        // Re-renderizar si la sección está visible
+        const secProd = document.getElementById("seccionProductividad");
+        if (secProd && secProd.style.display !== "none") {
+          if (typeof window.renderProductividad === "function") window.renderProductividad();
+        }
+      });
 
       // Suscripción a Vacaciones con await inicial
       const vacPromise = new Promise((resolve) => {
@@ -8379,16 +8467,37 @@ window.updateVacationCollabSelect = function() {
 };
 
 window.updateAreaVisibility = function() {
-  const isCajas = state.currentArea === "Linea de Cajas";
+  const currentArea = (state.selectedArea || state.currentArea || document.getElementById("areaSelector")?.value || "").trim();
+  const isCajas = currentArea === "Linea de Cajas" || currentArea === "Línea de Cajas";
   
   const suggestedTabBtn = document.getElementById("suggestedTabBtn");
   if (suggestedTabBtn) {
     suggestedTabBtn.style.display = isCajas ? "none" : "inline-block";
   }
+
+  const productividadTabBtn = document.getElementById("productividadTabBtn");
+  if (productividadTabBtn) {
+    productividadTabBtn.style.display = isCajas ? "inline-block" : "none";
+  }
   
+  const tabDashboard = document.getElementById("tabNavDashboard") || document.getElementById("metricsTabBtn");
+  if (tabDashboard) {
+    if (isCajas) {
+      tabDashboard.style.display = "none";
+      const secMetricas = document.getElementById("seccionMetricas");
+      if (secMetricas && secMetricas.style.display !== "none") {
+        if (typeof window.switchTab === "function") {
+          window.switchTab("productividad");
+        }
+      }
+    } else {
+      tabDashboard.style.display = "inline-block";
+    }
+  }
+
   const btnImportar = document.getElementById("btnImportarRecaudaciones");
   if (btnImportar) {
-    btnImportar.style.display = (state.currentArea === "Linea de Cajas") ? "flex" : "none";
+    btnImportar.style.display = isCajas ? "flex" : "none";
   }
 };
 
@@ -8399,8 +8508,9 @@ window.switchTab = function (tabId) {
 
   let btnId = "tabHorarios";
   if (tabId === "vacaciones") btnId = "vacationTabBtn";
-  else if (tabId === "metricas") btnId = "metricsTabBtn";
+  else if (tabId === "metricas") btnId = document.getElementById("tabNavDashboard") ? "tabNavDashboard" : "metricsTabBtn";
   else if (tabId === "sugeridos") btnId = "suggestedTabBtn";
+  else if (tabId === "productividad") btnId = "productividadTabBtn";
 
   const btn = document.getElementById(btnId);
   if (btn) btn.classList.add("active");
@@ -8409,12 +8519,14 @@ window.switchTab = function (tabId) {
   const seccionVacaciones = document.getElementById("seccionVacaciones");
   const seccionMetricas = document.getElementById("seccionMetricas");
   const seccionSugeridos = document.getElementById("seccionSugeridos");
+  const seccionProductividad = document.getElementById("seccionProductividad");
   const navCenter = document.getElementById("dateNavigationContainer");
 
   if (seccionHorarios) seccionHorarios.style.display = "none";
   if (seccionVacaciones) seccionVacaciones.style.display = "none";
   if (seccionMetricas) seccionMetricas.style.display = "none";
   if (seccionSugeridos) seccionSugeridos.style.display = "none";
+  if (seccionProductividad) seccionProductividad.style.display = "none";
 
   if (navCenter) {
     navCenter.style.visibility = tabId === "horarios" ? "visible" : "hidden";
@@ -8432,7 +8544,10 @@ window.switchTab = function (tabId) {
   } else if (tabId === "sugeridos") {
     if (seccionSugeridos) seccionSugeridos.style.display = "flex";
     window.renderSugeridos();
-  } else if (tabId === "horarios") {
+  } else if (tabId === "productividad") {
+    if (seccionProductividad) seccionProductividad.style.display = "flex";
+    if (typeof window.renderProductividad === "function") window.renderProductividad();
+  } else if (tabId === "horarios" || tabId === "grid") {
     if (seccionHorarios) seccionHorarios.style.display = "flex";
     renderUI();
   }
@@ -9679,6 +9794,7 @@ function checkLogin() {
        if (navToggleBtn) {
            navToggleBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> App Pública <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
        }
+       if (typeof updateAreaVisibility === 'function') updateAreaVisibility();
     }
     
 let currentContextCell = null;
@@ -11459,6 +11575,9 @@ window.appInitialized = false;
 window.initApp = function () {
   if (window.appInitialized) return;
   window.appInitialized = true;
+  if (typeof window.updateAreaVisibility === "function") {
+    window.updateAreaVisibility();
+  }
   migrateFechas().then(() => {
     loadInitialData();
   });
@@ -12753,6 +12872,1729 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// ── Módulo de Productividad de Cajas ──
+window.abrirModalProductividad = function() {
+  const modal = document.getElementById("prodCargaModal");
+  if (!modal) return;
+  const mesPrincipal = document.getElementById("prodMesSelector");
+  const mesModal = document.getElementById("prodModalPeriodoSelect");
+  if (mesPrincipal && mesModal) {
+    mesModal.value = mesPrincipal.value;
+  }
+  modal.style.display = "flex";
+  modal.classList.add("active");
+};
+
+window.renderProductividad = function() {
+  const container = document.getElementById("prodLienzoContainer");
+  if (!container) return;
+
+  const selector = document.getElementById("prodMesSelector");
+  const periodoKey = selector ? selector.value : "2026-09";
+  const [anio, mes] = periodoKey.split("-").map(Number);
+  const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const periodoNombre = (mes >= 1 && mes <= 12) ? `${nombresMeses[mes - 1]} ${anio}` : periodoKey;
+
+  const segmentoSelector = document.getElementById("prodSegmentoSelector");
+  const segmento = segmentoSelector ? segmentoSelector.value : "cajeros";
+
+  // ── BRANCH: RENDERIZADO INTERTIENDAS SAN JUAN ──
+  if (segmento === "intertiendas") {
+    const dataDistrito = (state.productividadDistrital && state.productividadDistrital[periodoKey]) 
+      ? state.productividadDistrital[periodoKey] 
+      : null;
+
+    // Extraer datos con soporte para estructura directa o anidada
+    const tiendasObj = (dataDistrito && dataDistrito.tiendas) ? dataDistrito.tiendas : {};
+    
+    // Si no hay datos, o para garantizar valores por defecto según el reporte oficial:
+    const t1092 = tiendasObj["1092"] || {
+      tiendaId: "1092",
+      nombre: "San Juan Norte / Capital",
+      itemsPorHora: 748,
+      duracionTR: 2.66,
+      unidadesTicket: 33.1
+    };
+
+    const t1081 = tiendasObj["1081"] || {
+      tiendaId: "1081",
+      nombre: "Rawson San Juan",
+      itemsPorHora: 700,
+      duracionTR: 2.07,
+      unidadesTicket: 24.2
+    };
+
+    const t1006 = tiendasObj["1006"] || {
+      tiendaId: "1006",
+      nombre: "San Juan / Rivadavia",
+      itemsPorHora: 630,
+      duracionTR: 2.23,
+      unidadesTicket: 23.4
+    };
+
+    const totalDist = (dataDistrito && (dataDistrito.distritoTotal || dataDistrito.totalDistrito)) || {
+      tiendaId: "total",
+      nombre: "Promedio Distrito",
+      itemsPorHora: 709,
+      duracionTR: 2.42,
+      unidadesTicket: 28.7
+    };
+
+    // Ventaja vs Distrito
+    const ventajaDistrito = t1092.itemsPorHora - totalDist.itemsPorHora; // 748 - 709 = +39 u/h
+
+    // Ordenar tiendas de San Juan por velocidad (para definir puntero y secundarias)
+    const sanJuanList = [t1092, t1081, t1006].sort((a, b) => b.itemsPorHora - a.itemsPorHora);
+    const lider = sanJuanList[0];
+    const secundarias = sanJuanList.slice(1);
+
+    const htmlIntertiendas = `
+      <!-- ENCABEZADO REGIONAL DISTRITAL -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Promedio Distrito Cuyo</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: #38bdf8; margin-top: 2px;">
+            ${totalDist.itemsPorHora} <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">u/h</span>
+          </div>
+        </div>
+
+        <div style="background: var(--surface); border: 1px solid rgba(251, 191, 36, 0.4); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: #fbbf24; text-transform: uppercase; font-weight: 700;">👑 Puntero Provincial</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: #fbbf24; margin-top: 2px;">
+            Sucursal ${lider.tiendaId} <span style="font-size: 0.85rem; font-weight: 700; color: #10b981;">(${lider.itemsPorHora} u/h)</span>
+          </div>
+        </div>
+
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Ventaja Líder vs Distrito</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: #10b981; margin-top: 2px;">
+            ${ventajaDistrito >= 0 ? '+' + ventajaDistrito : ventajaDistrito} <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">u/h</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PLACA BENTO INTERTIENDAS REGIONAL (FORMATO VERTICAL WHATSAPP) -->
+      <div style="display: flex; justify-content: center; width: 100%;">
+        <div id="placaIntertiendas" data-alias="placaClasicoSanJuan" style="background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px 16px; width: 100%; max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 15px 35px rgba(0,0,0,0.6);">
+          
+          <!-- Microcabecera -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
+            <div>
+              <div style="font-size: 0.65rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px;">
+                COMPETITIVIDAD REGIONAL · SAN JUAN
+              </div>
+              <div style="font-size: 1.05rem; font-weight: 900; color: #fbbf24; margin-top: 2px; letter-spacing: 0.2px;">
+                🏆 EL CLÁSICO DE SAN JUAN
+              </div>
+              <div style="font-size: 0.68rem; color: #cbd5e1; font-weight: 600;">
+                ${periodoNombre.toUpperCase()}
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <span style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 14px; text-transform: uppercase;">
+                Línea de Cajas
+              </span>
+            </div>
+          </div>
+
+          <!-- TARJETA SUPERIOR DESTACADA: 1° PUESTO PROVINCIAL -->
+          <div style="background: linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%); border: 2px solid #fbbf24; border-radius: 12px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 25px rgba(251, 191, 36, 0.15); position: relative; overflow: hidden;">
+            <div style="position: absolute; right: -8px; top: -12px; font-size: 5rem; opacity: 0.05; font-weight: 900; color: #fbbf24; pointer-events: none;">
+              #1
+            </div>
+            <div>
+              <div style="display: inline-flex; align-items: center; gap: 4px; background: #fbbf24; color: #0f172a; font-size: 0.68rem; font-weight: 900; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.4px;">
+                🥇 1° PUESTO PROVINCIAL · PUNTERO
+              </div>
+              <div style="font-size: 1.18rem; font-weight: 900; color: #ffffff; margin-top: 6px;">
+                Sucursal ${lider.tiendaId} <span style="font-size: 0.9rem; font-weight: 700; color: #cbd5e1;">· ${lider.nombre}</span>
+              </div>
+              <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
+                <span>TR: <strong style="color: #f8fafc;">${(Number(lider.duracionTR || lider.duracionMinutos) || 0).toFixed(2)}m</strong> · Ticket: <strong style="color: #f8fafc;">${(Number(lider.unidadesTicket || lider.unidadesPorTicket) || 0).toFixed(1)} u.</strong></span>
+                <span style="color: #10b981; font-weight: 700;">+${ventajaDistrito} u/h vs Distrito</span>
+              </div>
+            </div>
+            <div style="text-align: right; z-index: 1;">
+              <div style="font-size: 2.2rem; font-weight: 900; color: #10b981; line-height: 1;">
+                ${lider.itemsPorHora}
+              </div>
+              <div style="font-size: 0.68rem; font-weight: 700; color: #fbbf24; text-transform: uppercase; margin-top: 2px;">
+                ítems / hora
+              </div>
+            </div>
+          </div>
+
+          <!-- COMPARATIVA CON LAS OTRAS SUCURSALES DE SAN JUAN (APILADAS VERTICALMENTE) -->
+          <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+            ${secundarias.map((tienda, idx) => {
+              const medallas = ['🥈 2° PUESTO', '🥉 3° PUESTO'];
+              const difVsLider = tienda.itemsPorHora - lider.itemsPorHora;
+              const trFormatted = (Number(tienda.duracionTR || tienda.duracionMinutos) || 0).toFixed(2);
+              const ticketFormatted = (Number(tienda.unidadesTicket || tienda.unidadesPorTicket) || 0).toFixed(1);
+              const colorDiff = idx === 0 ? '#f59e0b' : '#ef4444';
+              return `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-size: 0.72rem; color: #94a3b8; font-weight: 600;">${medallas[idx] || 'SEGUIMIENTO'}</div>
+                    <div style="font-size: 0.95rem; font-weight: 700; color: #f8fafc;">
+                      Sucursal ${tienda.tiendaId} <span style="font-size: 0.75rem; color: #94a3b8; font-weight: normal;">· ${tienda.nombre}</span>
+                    </div>
+                    <div style="font-size: 0.68rem; color: #64748b; margin-top: 2px;">
+                      TR: ${trFormatted}m · Ticket: ${ticketFormatted} u.
+                    </div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 1.25rem; font-weight: 800; color: #38bdf8; line-height: 1;">
+                      ${tienda.itemsPorHora} <span style="font-size: 0.7rem; font-weight: 600;">u/h</span>
+                    </div>
+                    <div style="font-size: 0.68rem; font-weight: 700; color: ${colorDiff}; margin-top: 2px;">
+                      ${difVsLider} u/h vs líder
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- COMPARATIVA CON PROMEDIO DISTRITAL -->
+          <div style="background: rgba(56, 189, 248, 0.06); border: 1px dashed rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.15rem;">📊</span>
+              <div>
+                <div style="font-size: 0.74rem; font-weight: 800; color: #38bdf8; text-transform: uppercase;">
+                  Promedio Consolidado Distrito
+                </div>
+                <div style="font-size: 0.66rem; color: #94a3b8;">
+                  Todas las sucursales Cuyo (${(Number(totalDist.duracionTR || totalDist.duracionMinutos) || 0).toFixed(2)}m TR · ${(Number(totalDist.unidadesTicket || totalDist.unidadesPorTicket) || 0).toFixed(1)} u/tkt)
+                </div>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-size: 1.15rem; font-weight: 900; color: #f8fafc;">${totalDist.itemsPorHora}</span>
+              <span style="font-size: 0.68rem; color: var(--text-muted);"> u/h</span>
+            </div>
+          </div>
+
+          <!-- FOOTER Y FIRMA MOTIVACIONAL -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; margin-top: 2px;">
+            <div style="font-size: 0.72rem; font-weight: 800; color: #fbbf24; letter-spacing: 0.4px;">
+              ✨ Orgullo 1092 · San Juan
+            </div>
+            <div style="font-size: 0.62rem; color: #64748b;">
+              Control de Gestión Retail
+            </div>
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = htmlIntertiendas;
+    return;
+  }
+
+  // ── BRANCH: RENDERIZADO EXTRA CASH (DISPERSIÓN DE EFECTIVO) ──
+  if (segmento === "extracash") {
+    const dataExtraCash = (state.extraCash && state.extraCash[periodoKey]) 
+      ? state.extraCash[periodoKey] 
+      : null;
+
+    if (!dataExtraCash || !dataExtraCash.items || dataExtraCash.items.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; color: var(--text-muted); padding: 60px 20px; font-size: 0.9rem; border: 1px dashed var(--border); border-radius: 8px;">
+          No hay datos de <strong>Extra Cash</strong> cargados para el período <strong>${periodoNombre}</strong>.<br>
+          Presiona <strong>"Cargar Datos"</strong> y selecciona <em>Extra Cash</em> para importar la matriz diaria.
+        </div>
+      `;
+      return;
+    }
+
+    const formatPesos = (val) => "$" + (Number(val) || 0).toLocaleString("es-AR");
+    const formatPesosM = (val) => {
+      const num = Number(val) || 0;
+      if (num >= 1000000) {
+        return "$" + (num / 1000000).toFixed(1).replace(".", ",") + " M";
+      }
+      return formatPesos(num);
+    };
+
+    const totalTienda = dataExtraCash.totalTienda || 0;
+
+    // Helper de clasificación
+    const classifyOperadorExtraCash = (cajeroId) => {
+      const collabs = (window.state && window.state.collaborators) || [];
+      const col = collabs.find(c => 
+        String(c.numeroOperador) === String(cajeroId) || String(c.id) === String(cajeroId)
+      );
+
+      if (!col || (col.area && col.area !== "Linea de Cajas")) {
+        return "apoyo";
+      }
+
+      const pasillo = (col.pasillo || "").toLowerCase().trim();
+      const esquema = (col.esquema || "").toLowerCase().trim();
+      if (pasillo.includes("roller") || esquema.includes("roller")) {
+        return "roller";
+      }
+
+      return "cajero";
+    };
+
+    // Subfiltro opcional dentro de Extra Cash (por defecto cajeros titulares)
+    const subFiltroEC = (window._subFiltroExtraCash || "cajeros");
+
+    // Clasificar lista completa
+    const itemsClasificados = dataExtraCash.items.map(it => {
+      const tipo = it.tipoOperador || classifyOperadorExtraCash(it.cajeroId);
+      return { ...it, tipoOperador: tipo };
+    });
+
+    // Excluir Rollers y Vendedores del ranking público por defecto
+    const cajerosTitularesExtraCash = itemsClasificados
+      .filter(item => item.tipoOperador === "cajero" && item.totalMonto > 0)
+      .sort((a, b) => b.totalMonto - a.totalMonto);
+
+    const rollersExtraCash = itemsClasificados
+      .filter(item => item.tipoOperador === "roller" && item.totalMonto > 0)
+      .sort((a, b) => b.totalMonto - a.totalMonto);
+
+    const apoyoExtraCash = itemsClasificados
+      .filter(item => item.tipoOperador === "apoyo" && item.totalMonto > 0)
+      .sort((a, b) => b.totalMonto - a.totalMonto);
+
+    let listaActiva = cajerosTitularesExtraCash;
+    let labelRanking = "Cajeros Titulares (Reporte Oficial)";
+    if (subFiltroEC === "rollers") {
+      listaActiva = rollersExtraCash;
+      labelRanking = "Rollers (Supervisión)";
+    } else if (subFiltroEC === "apoyo") {
+      listaActiva = apoyoExtraCash;
+      labelRanking = "Apoyo / Vendedores";
+    } else if (subFiltroEC === "todos") {
+      listaActiva = itemsClasificados.filter(item => item.totalMonto > 0).sort((a, b) => b.totalMonto - a.totalMonto);
+      labelRanking = "Todos los Operadores (Consolidado)";
+    }
+
+    const cajerosActivos = cajerosTitularesExtraCash.length || 1;
+    const promedioCajero = Math.round(totalTienda / (itemsClasificados.filter(i => i.totalMonto > 0).length || 1));
+
+    const podioExtra = listaActiva.slice(0, 3);
+    const restoDotacion = listaActiva.slice(3);
+
+    const microCabeceraEC = `
+      <div style="font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px;">
+        LÍNEA DE CAJAS · DISPERSIÓN DE EFECTIVO · ${periodoNombre.toUpperCase()}
+      </div>
+    `;
+
+    const htmlExtraCash = `
+      <!-- ENCABEZADO KPI SUPERIOR TIENDA -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+        <div style="background: var(--surface); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: #10b981; text-transform: uppercase; font-weight: 700;">Total Dispersado Tienda</div>
+          <div style="font-size: 1.8rem; font-weight: 900; color: #10b981; margin-top: 2px;">
+            ${formatPesos(totalTienda)}
+          </div>
+          <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">
+            ${formatPesosM(totalTienda)} entregados en sucursal
+          </div>
+        </div>
+
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Cajeros Titulares Activos</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: #38bdf8; margin-top: 2px;">
+            ${cajerosTitularesExtraCash.length} <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">titulares</span>
+          </div>
+          <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">
+            Promedio: ${formatPesos(promedioCajero)}
+          </div>
+        </div>
+
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Líder de Dispersión #1</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: #fbbf24; margin-top: 2px;">
+            ${cajerosTitularesExtraCash.length > 0 ? formatPesos(cajerosTitularesExtraCash[0].totalMonto) : '$0'}
+          </div>
+          <div style="font-size: 0.7rem; color: #cbd5e1; font-weight: 600; margin-top: 2px;">
+            ${cajerosTitularesExtraCash.length > 0 ? (cajerosTitularesExtraCash[0].nombre || 'Cajero ' + cajerosTitularesExtraCash[0].cajeroId) : '-'}
+          </div>
+        </div>
+      </div>
+
+      <!-- SELECTOR DE SUB-FILTRO EXTRA CASH (OPCIONAL) -->
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px;">
+        <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">Ver dotación:</label>
+        <select onchange="window._subFiltroExtraCash = this.value; window.renderProductividad();" style="background: var(--surface); color: #38bdf8; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+          <option value="cajeros" ${subFiltroEC === "cajeros" ? "selected" : ""}>Cajeros Titulares (Exclusivo)</option>
+          <option value="apoyo" ${subFiltroEC === "apoyo" ? "selected" : ""}>Apoyo / Vendedores</option>
+          <option value="rollers" ${subFiltroEC === "rollers" ? "selected" : ""}>Rollers</option>
+          <option value="todos" ${subFiltroEC === "todos" ? "selected" : ""}>Todos los Operadores</option>
+        </select>
+      </div>
+
+      <!-- PLACA BENTO VERTICAL EXTRA CASH (OPTIMIZADA PARA WHATSAPP) -->
+      <div style="display: flex; justify-content: center; width: 100%;">
+        <div id="placaExtraCash" data-alias="placaExtraCashPodio" style="background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 20px 18px 16px; width: 100%; max-width: 440px; margin: 0 auto; height: auto !important; min-height: fit-content; max-height: none !important; overflow: visible !important; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 15px 35px rgba(0,0,0,0.6);">
+          
+          <!-- Encabezado de la Placa -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 10px;">
+            <div>
+              ${microCabeceraEC}
+              <div style="font-size: 1.05rem; font-weight: 900; color: #fbbf24; margin-top: 2px;">
+                💵 CUADRO DE HONOR · EXTRA CASH
+              </div>
+              <div style="font-size: 0.68rem; color: #94a3b8; font-weight: 600;">
+                ${labelRanking}
+              </div>
+            </div>
+            <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 4px 10px; font-weight: 800; color: #10b981; font-size: 0.95rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center;">
+              ${formatPesosM(totalTienda)}
+            </div>
+          </div>
+
+          <!-- PODIO TOP 3 (MAYOR VOLUMEN ENTREGADO) -->
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${podioExtra.map((c, idx) => {
+              const medallas = ['🥇 1° PUESTO', '🥈 2° PUESTO', '🥉 3° PUESTO'];
+              const colores = ['#fbbf24', '#cbd5e1', '#d97706'];
+              const pctTotal = totalTienda > 0 ? ((c.totalMonto / totalTienda) * 100).toFixed(1) : 0;
+              return `
+                <div style="background: #1e293b; border: 1px solid ${colores[idx]}40; border-left: 4px solid ${colores[idx]}; border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-size: 0.65rem; font-weight: 800; color: ${colores[idx]}; text-transform: uppercase;">
+                      ${medallas[idx]}
+                    </div>
+                    <div style="font-weight: 700; font-size: 0.95rem; color: #ffffff; margin-top: 2px;">
+                      ${c.nombre || 'Cajero ' + c.cajeroId}
+                    </div>
+                    <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 2px;">
+                      Cajero #${c.cajeroId} · <strong style="color: #38bdf8;">${pctTotal}%</strong> del total tienda
+                    </div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 1.35rem; font-weight: 900; color: #10b981; line-height: 1;">
+                      ${formatPesos(c.totalMonto)}
+                    </div>
+                    <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">efectivo entregado</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- LISTA DE DOTACIÓN (RESTO DE CAJERO TITULARES ORDENADOS DE MAYOR A MENOR) -->
+          ${restoDotacion.length > 0 ? `
+            <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; margin-top: 2px;">
+              <div style="font-size: 0.68rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
+                Dotación Activa (${restoDotacion.length} cajeros)
+              </div>
+              <div style="height: auto; max-height: none; overflow: visible; display: flex; flex-direction: column; gap: 6px;">
+                ${restoDotacion.map((c, idx) => {
+                  const pct = totalTienda > 0 ? ((c.totalMonto / totalTienda) * 100).toFixed(1) : 0;
+                  return `
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 7px 10px; display: flex; justify-content: space-between; align-items: center;">
+                      <div>
+                        <div style="font-weight: 600; font-size: 0.8rem; color: #f8fafc;">
+                          <span style="color: #64748b; font-size: 0.7rem; margin-right: 4px;">#${idx + 4}</span>
+                          ${c.nombre || 'Cajero ' + c.cajeroId}
+                        </div>
+                        <div style="font-size: 0.64rem; color: var(--text-muted);">
+                          #${c.cajeroId} · ${pct}% tienda
+                        </div>
+                      </div>
+                      <div style="text-align: right;">
+                        <div style="font-weight: 800; font-size: 0.92rem; color: #10b981;">
+                          ${formatPesos(c.totalMonto)}
+                        </div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- FOOTER Y FIRMA INSTITUCIONAL -->
+          <div style="margin-top: 16px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #64748b; position: static; width: 100%;">
+            <span style="font-weight: 800; color: #10b981; letter-spacing: 0.4px;">💵 Servicio Extra Cash · San Juan</span>
+            <span>Control de Gestión y Tesorería</span>
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = htmlExtraCash;
+    return;
+  }
+
+  const dataPeriodo = (state.productividad && state.productividad[periodoKey]) ? state.productividad[periodoKey] : null;
+
+  if (!dataPeriodo || !dataPeriodo.items || dataPeriodo.items.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 60px 20px; font-size: 0.9rem; border: 1px dashed var(--border); border-radius: 8px;">
+        No hay datos de productividad cargados para este período. Presiona <strong>"Cargar Datos"</strong> para importar la información.
+      </div>
+    `;
+    return;
+  }
+
+  // Helper para clasificar cada operador en tiempo real cruzando con state.collaborators
+  const classifyOperador = (item) => {
+    const collabs = (window.state && window.state.collaborators) || [];
+    // 1. Buscar en colaboradores
+    const col = collabs.find(c => 
+      String(c.numeroOperador) === String(item.cajeroId) || String(c.id) === String(item.cajeroId)
+    );
+
+    // 2. Si no existe o no es de Línea de Cajas -> Es Apoyo / Vendedor
+    if (!col || (col.area && col.area !== "Linea de Cajas")) {
+      return "apoyo";
+    }
+
+    // 3. Si es de Línea de Cajas, verificar si es Roller
+    const pasillo = (col.pasillo || "").toLowerCase().trim();
+    const esquema = (col.esquema || "").toLowerCase().trim();
+    if (pasillo.includes("roller") || esquema.includes("roller")) {
+      return "roller";
+    }
+
+    // 4. Cajero titular de dotación
+    return "cajero";
+  };
+
+  // Mapear clasificación
+  const itemsBase = dataPeriodo.items.map(it => {
+    const tipo = classifyOperador(it);
+    return {
+      ...it,
+      tipoOperador: tipo,
+      isRoller: tipo === "roller"
+    };
+  });
+
+  // Filtrar según el segmento seleccionado
+  let itemsFiltrados = [];
+  if (segmento === "cajeros") {
+    itemsFiltrados = itemsBase.filter(c => c.tipoOperador === "cajero");
+  } else if (segmento === "apoyo") {
+    itemsFiltrados = itemsBase.filter(c => c.tipoOperador === "apoyo");
+  } else if (segmento === "rollers") {
+    itemsFiltrados = itemsBase.filter(c => c.tipoOperador === "roller");
+  } else {
+    itemsFiltrados = itemsBase;
+  }
+  itemsFiltrados.sort((a, b) => b.itemsPorHora - a.itemsPorHora);
+
+  if (itemsFiltrados.length === 0) {
+    const labelsSegmento = {
+      cajeros: "Cajeros Titulares",
+      apoyo: "Apoyo / Vendedores",
+      rollers: "Rollers",
+      todos: "Operadores"
+    };
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 60px 20px; font-size: 0.9rem; border: 1px dashed var(--border); border-radius: 8px;">
+        No se encontraron registros clasificados como <strong>${labelsSegmento[segmento] || segmento}</strong> para este período.
+      </div>
+    `;
+    return;
+  }
+
+  // 3. Cálculo de mes anterior y diferencias de productividad
+  const prevDate = new Date(anio, mes - 2, 1);
+  const prevPeriodoKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+  const dataPeriodoPrevio = (state.productividad && state.productividad[prevPeriodoKey]) ? state.productividad[prevPeriodoKey] : null;
+
+  const items = itemsFiltrados.map(c => {
+    let diff = null;
+    let prevItem = null;
+    if (dataPeriodoPrevio && dataPeriodoPrevio.items) {
+      prevItem = dataPeriodoPrevio.items.find(p => String(p.cajeroId) === String(c.cajeroId));
+      if (prevItem && prevItem.itemsPorHora !== undefined) {
+        diff = c.itemsPorHora - prevItem.itemsPorHora;
+      }
+    }
+    return { ...c, diff, prevItemsPorHora: prevItem ? prevItem.itemsPorHora : null };
+  });
+
+  // Identificar al cajero con "Mayor Crecimiento" (aquel con mayor diff > 0)
+  const crecimientos = items.filter(c => typeof c.diff === 'number' && c.diff > 0);
+  const mayorCrecimiento = crecimientos.length > 0 
+    ? [...crecimientos].sort((a, b) => b.diff - a.diff)[0] 
+    : null;
+
+  // Helper para badge de tendencia
+  const renderTrendBadge = (diff) => {
+    if (diff === null || diff === undefined) return '';
+    if (diff > 0) {
+      return `<span style="font-size: 0.68rem; font-weight: 700; color: #10b981; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 1px 4px; margin-left: 6px;">↗ +${diff} u/h</span>`;
+    } else if (diff < 0) {
+      return `<span style="font-size: 0.68rem; font-weight: 700; color: #ef4444; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 1px 4px; margin-left: 6px;">↘ ${diff} u/h</span>`;
+    }
+    return `<span style="font-size: 0.68rem; font-weight: 600; color: #94a3b8; margin-left: 6px;">→ =</span>`;
+  };
+
+  const meta = 600;
+
+  // Cálculos globales basados exclusivamente en items filtrados
+  const totalCajeros = items.length;
+  const sumaItems = items.reduce((acc, c) => acc + c.itemsPorHora, 0);
+  const promedioGeneral = Math.round(sumaItems / (totalCajeros || 1));
+  const enMetaCount = items.filter(c => c.itemsPorHora >= meta).length;
+  const pctEnMeta = Math.round((enMetaCount / (totalCajeros || 1)) * 100);
+
+  // Clasificación por rendimiento
+  const podio = items.slice(0, 3);
+  const enMeta = items.filter(c => c.itemsPorHora >= meta).slice(3);
+  const criticos = items.filter(c => c.itemsPorHora < meta).sort((a, b) => a.itemsPorHora - b.itemsPorHora); // Peores primero
+
+  // Helper nombres limpios
+  const getShortName = (name) => {
+    if (!name) return "Cajero";
+    const parts = name.trim().split(" ");
+    return parts.length > 1 ? `${parts[0]} ${parts[1].charAt(0)}.` : parts[0];
+  };
+
+  const isRollerMode = segmento === "rollers";
+  const isApoyoMode = segmento === "apoyo";
+
+  const subtituloContexto = isApoyoMode 
+    ? `Línea de Cajas · Refuerzos y Apoyo Operativo · ${periodoNombre}`
+    : `Línea de Cajas · ${periodoNombre}`;
+
+  const microCabeceraContexto = `
+    <div style="font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px;">
+      ${subtituloContexto}
+    </div>
+  `;
+
+  const footerInstitucional = `
+    <div style="font-size: 0.6rem; color: #475569; text-align: right; margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px;">
+      Control de Gestión y Productividad Retail
+    </div>
+  `;
+
+  // Títulos y subtítulos dinámicos según el segmento
+  let placa1Titulo = '🏆 LÍDERES DE SERVICIO · Cuadro de Honor';
+  let placa1Sub = 'Máxima velocidad de escaneo y atención';
+  if (isApoyoMode) {
+    placa1Titulo = '🤝 REFUERZOS DESTACADOS · Cuadro de Honor';
+    placa1Sub = 'Mayor rendimiento en apoyo de cajas';
+  } else if (isRollerMode) {
+    placa1Titulo = '🏆 LÍDERES DE SERVICIO · Cuadro de Honor';
+    placa1Sub = 'Rollers Destacados';
+  }
+
+  let placa2Titulo = '✨ EQUIPO EN ESTÁNDAR · Rendimiento Óptimo';
+  let placa2Sub = 'Cumplimiento de meta operativa (≥ 600 u/h)';
+  if (isApoyoMode) {
+    placa2Titulo = '✨ APOYO EN ESTÁNDAR · Rendimiento Óptimo (≥ 600 u/h)';
+    placa2Sub = 'Refuerzos en meta operativa';
+  }
+
+  let placa3Titulo = '🎯 FOCO OPERATIVO · Plan de Aceleración';
+  let placa3Sub = 'Seguimiento de agilidad y tiempos (< 600 u/h)';
+  if (isApoyoMode) {
+    placa3Titulo = '🎯 SEGUIMIENTO DE REFUERZOS · Tiempos y Agilidad';
+    placa3Sub = 'Refuerzos con oportunidad de optimización (< 600 u/h)';
+  } else if (isRollerMode) {
+    placa3Titulo = '🛡️ SUPERVISIÓN Y RITMO OPERATIVO · Rollers';
+    placa3Sub = 'Métricas de rotación y soporte en línea de cajas';
+  }
+
+  let etiquetaPromedio = 'Sucursal';
+  if (isRollerMode) etiquetaPromedio = 'Rollers';
+  else if (isApoyoMode) etiquetaPromedio = 'Refuerzos';
+  else if (segmento === 'todos') etiquetaPromedio = 'General';
+
+  let html = '';
+
+  if (isRollerMode) {
+    // Modo Rollers: Estructura ejecutiva de 2 placas
+    const rollersEnMeta = items.filter(c => c.itemsPorHora >= meta);
+    const rollersBajoMeta = items.filter(c => c.itemsPorHora < meta).sort((a, b) => a.itemsPorHora - b.itemsPorHora);
+
+    html = `
+      <!-- ENCABEZADO DEL REPORTE -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Promedio Rollers</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: ${promedioGeneral >= meta ? '#10b981' : '#38bdf8'}; margin-top: 2px;">
+            ${promedioGeneral} <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">u/h</span>
+          </div>
+        </div>
+
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Cumplimiento Meta (600)</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: ${pctEnMeta >= 70 ? '#10b981' : '#f59e0b'}; margin-top: 2px;">
+            ${pctEnMeta}% <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">(${enMetaCount}/${totalCajeros})</span>
+          </div>
+        </div>
+
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Supervisión Rollers</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: #38bdf8; margin-top: 2px;">
+            ${rollersBajoMeta.length} <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">bajo meta</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTENEDOR DE 2 PLACAS BENTO PARA ROLLERS -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; align-items: start;">
+        
+        <!-- PLACA 1: DESEMPEÑO Y ROTACIÓN EN CAJAS (ROLLERS EN META) -->
+        <div id="placaPodio" style="background: #0f172a; border: 1px solid #334155; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+          ${microCabeceraContexto}
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
+            <span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">🛡️ SUPERVISIÓN Y RITMO OPERATIVO · Rollers</span>
+            <span style="font-size: 0.68rem; color: var(--text-muted);">Rendimiento de líderes en caja (≥ 600 u/h)</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; padding-right: 4px;">
+            ${rollersEnMeta.length === 0 ? `<div style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:20px;">Sin rollers en meta en este período.</div>` : ''}
+            ${rollersEnMeta.map(c => `
+              <div style="background: #1e293b; border: 1px solid #334155; border-left: 4px solid #38bdf8; border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.92rem; color: #ffffff; display: flex; align-items: center; flex-wrap: wrap;">
+                    ${c.nombre || 'Roller ' + c.cajeroId}
+                    ${renderTrendBadge(c.diff)}
+                  </div>
+                  <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 3px;">
+                    TR: <strong style="color:#f8fafc;">${c.duracionMinutos} min</strong> · Prom: <strong style="color:#f8fafc;">${c.unidadesPorTicket} u.</strong>
+                  </div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 1.4rem; font-weight: 900; color: #10b981; line-height: 1;">${c.itemsPorHora}</div>
+                  <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: 600;">ítems/hora</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          ${mayorCrecimiento ? `
+            <div style="margin-top: 4px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-size: 0.68rem; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 0.4px;">⚡ MAYOR EVOLUCIÓN MENSUAL</div>
+                <div style="font-size: 0.88rem; font-weight: 700; color: #f8fafc; margin-top: 1px;">${mayorCrecimiento.nombre || 'Roller ' + mayorCrecimiento.cajeroId}</div>
+              </div>
+              <div style="text-align: right;">
+                <span style="font-size: 0.95rem; font-weight: 900; color: #10b981;">+${mayorCrecimiento.diff}</span>
+                <span style="font-size: 0.68rem; font-weight: 600; color: var(--text-muted);">u/h</span>
+              </div>
+            </div>
+          ` : ''}
+          ${footerInstitucional}
+        </div>
+
+        <!-- PLACA 2: FOCO TÉCNICO Y TIEMPOS DE ATENCIÓN -->
+        <div id="placaCriticos" style="background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+          ${microCabeceraContexto}
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
+            <span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">🎯 ANÁLISIS DE TIEMPOS · Soporte Operativo</span>
+            <span style="font-size: 0.68rem; color: #38bdf8;">Seguimiento de tiempos de atención y desvíos</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; padding-right: 4px;">
+            ${rollersBajoMeta.length === 0 ? `
+              <div style="color:#10b981; font-size:0.85rem; font-weight:600; text-align:center; padding:30px 16px;">
+                ✓ Ritmo de supervisión consolidado. Todos los rollers operaron por encima de la meta.
+              </div>
+            ` : ''}
+            ${rollersBajoMeta.map(c => `
+              <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-left: 4px solid #38bdf8; border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.88rem; color: #7dd3fc; display: flex; align-items: center; flex-wrap: wrap;">
+                    ${c.nombre || 'Roller ' + c.cajeroId}
+                    ${renderTrendBadge(c.diff)}
+                  </div>
+                  <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 3px;">
+                    TR: <strong style="color:#7dd3fc;">${c.duracionMinutos} min</strong> · Prom: ${c.unidadesPorTicket} u.
+                  </div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 1.25rem; font-weight: 900; color: #38bdf8; line-height: 1;">${c.itemsPorHora}</div>
+                  <div style="font-size: 0.62rem; color: #38bdf8; font-weight: 600;">u/h</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          ${footerInstitucional}
+        </div>
+
+      </div>
+    `;
+  } else {
+    // Formato estándar de 3 placas Bento (Cajeros, Apoyo, Todos)
+    html = `
+      <!-- ENCABEZADO DEL REPORTE -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Promedio ${etiquetaPromedio}</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: ${promedioGeneral >= meta ? '#10b981' : (isApoyoMode ? '#38bdf8' : '#ef4444')}; margin-top: 2px;">
+            ${promedioGeneral} <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">u/h</span>
+          </div>
+        </div>
+
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Cumplimiento Meta (600)</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: ${pctEnMeta >= 70 ? '#10b981' : '#f59e0b'}; margin-top: 2px;">
+            ${pctEnMeta}% <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">(${enMetaCount}/${totalCajeros})</span>
+          </div>
+        </div>
+
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">${isApoyoMode ? 'Refuerzos en Foco' : 'Zona de Alerta'}</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: ${isApoyoMode ? '#38bdf8' : '#ef4444'}; margin-top: 2px;">
+            ${criticos.length} <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">${isApoyoMode ? 'bajo meta' : 'cajeros'}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTENEDOR DE LAS 3 PLACAS BENTO -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start;">
+        
+        <!-- PLACA 1: CUADRO DE HONOR -->
+        <div id="placaPodio" style="background: #0f172a; border: 1px solid #334155; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+          ${microCabeceraContexto}
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
+            <span style="font-size: 0.85rem; font-weight: 800; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px;">${placa1Titulo}</span>
+            <span style="font-size: 0.68rem; color: var(--text-muted);">${placa1Sub}</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${podio.map((c, idx) => {
+              const medallas = ['🥇 1° Puesto', '🥈 2° Puesto', '🥉 3° Puesto'];
+              const colores = ['#fbbf24', '#cbd5e1', '#d97706'];
+              const prefix = isApoyoMode ? 'Operador ' : 'Cajero ';
+              return `
+                <div style="background: #1e293b; border: 1px solid ${colores[idx]}40; border-left: 4px solid ${colores[idx]}; border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-size: 0.65rem; font-weight: 800; color: ${colores[idx]}; text-transform: uppercase;">${medallas[idx]}</div>
+                    <div style="font-weight: 700; font-size: 0.95rem; color: #ffffff; display: flex; align-items: center; flex-wrap: wrap;">
+                      ${c.nombre || prefix + c.cajeroId}
+                      ${renderTrendBadge(c.diff)}
+                    </div>
+                    <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 2px;">
+                      TR: <strong style="color:#f8fafc;">${c.duracionMinutos}m</strong> · Ticket: <strong style="color:#f8fafc;">${c.unidadesPorTicket} u.</strong>
+                    </div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 1.5rem; font-weight: 900; color: #10b981; line-height: 1;">${c.itemsPorHora}</div>
+                    <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: 600;">ítems/hora</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          ${mayorCrecimiento ? `
+            <div style="margin-top: 4px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-size: 0.68rem; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 0.4px;">⚡ MAYOR EVOLUCIÓN MENSUAL</div>
+                <div style="font-size: 0.88rem; font-weight: 700; color: #f8fafc; margin-top: 1px;">${mayorCrecimiento.nombre || (isApoyoMode ? 'Operador ' : 'Cajero ') + mayorCrecimiento.cajeroId}</div>
+              </div>
+              <div style="text-align: right;">
+                <span style="font-size: 0.95rem; font-weight: 900; color: #10b981;">+${mayorCrecimiento.diff}</span>
+                <span style="font-size: 0.68rem; font-weight: 600; color: var(--text-muted);">u/h</span>
+              </div>
+            </div>
+          ` : ''}
+          ${footerInstitucional}
+        </div>
+
+        <!-- PLACA 2: EN ESTÁNDAR -->
+        <div id="placaObjetivo" style="background: #0f172a; border: 1px solid #334155; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+          ${microCabeceraContexto}
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
+            <span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">${placa2Titulo}</span>
+            <span style="font-size: 0.68rem; color: var(--text-muted);">${placa2Sub}</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 6px; width: 100%;">
+            ${enMeta.length === 0 ? `<div style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:20px;">Sin ${isApoyoMode ? 'refuerzos' : 'cajeros'} adicionales en meta.</div>` : ''}
+            ${enMeta.map(c => {
+              const prefix = isApoyoMode ? 'Operador ' : 'Cajero ';
+              return `
+                <div style="background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <span style="font-weight: 600; font-size: 0.82rem; color: #f8fafc;">${c.nombre || prefix + c.cajeroId}</span>
+                    ${renderTrendBadge(c.diff)}
+                    <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;">TR: ${c.duracionMinutos}m</div>
+                  </div>
+                  <div style="font-weight: 800; font-size: 0.95rem; color: #38bdf8;">${c.itemsPorHora} <span style="font-size: 0.65rem; font-weight: normal; color: var(--text-muted);">u/h</span></div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          ${footerInstitucional}
+        </div>
+
+        <!-- PLACA 3: SEGUIMIENTO / OPORTUNIDAD DE MEJORA -->
+        <div id="placaCriticos" style="background: #0f172a; border: 1px solid ${isApoyoMode ? 'rgba(56, 189, 248, 0.4)' : 'rgba(239, 68, 68, 0.4)'}; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+          ${microCabeceraContexto}
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
+            <span style="font-size: 0.85rem; font-weight: 800; color: ${isApoyoMode ? '#38bdf8' : '#f87171'}; text-transform: uppercase; letter-spacing: 0.5px;">
+              ${placa3Titulo}
+            </span>
+            <span style="font-size: 0.68rem; color: ${isApoyoMode ? '#38bdf8' : '#f87171'};">
+              ${placa3Sub}
+            </span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 6px; max-height: 380px; overflow-y: auto; padding-right: 4px;">
+            ${criticos.length === 0 ? `
+              <div style="color:var(--success); font-size:0.8rem; text-align:center; padding:20px;">
+                ${isApoyoMode ? '¡Excelente! Todos los refuerzos alcanzaron la meta operativa.' : '✓ Estándar global alcanzado. El 100% de la dotación superó el objetivo operativo.'}
+              </div>
+            ` : ''}
+            ${criticos.map(c => {
+              const prefix = isApoyoMode ? 'Operador ' : 'Cajero ';
+              const bgBox = isApoyoMode ? 'rgba(56, 189, 248, 0.08)' : 'rgba(239, 68, 68, 0.08)';
+              const borderBox = isApoyoMode ? 'rgba(56, 189, 248, 0.25)' : 'rgba(239, 68, 68, 0.25)';
+              const colorTitle = isApoyoMode ? '#7dd3fc' : '#fca5a5';
+              const colorNumber = isApoyoMode ? '#38bdf8' : '#ef4444';
+              return `
+                <div style="background: ${bgBox}; border: 1px solid ${borderBox}; border-radius: 6px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-weight: 700; font-size: 0.82rem; color: ${colorTitle}; display: flex; align-items: center; flex-wrap: wrap;">
+                      ${c.nombre || prefix + c.cajeroId}
+                      ${renderTrendBadge(c.diff)}
+                    </div>
+                    <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 1px;">
+                      TR: <strong style="color:${colorTitle};">${c.duracionMinutos} min</strong> · Prom: ${c.unidadesPorTicket} u.
+                    </div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 1.15rem; font-weight: 900; color: ${colorNumber}; line-height: 1;">${c.itemsPorHora}</div>
+                    <div style="font-size: 0.62rem; color: ${colorNumber}; font-weight: 600;">u/h</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          ${footerInstitucional}
+        </div>
+
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+};
+
+window.exportarPlacasWhatsApp = async function() {
+  // Asegurar que html2canvas esté disponible
+  if (typeof html2canvas === "undefined") {
+    try {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("No se pudo cargar la librería html2canvas."));
+        document.head.appendChild(script);
+      });
+    } catch (err) {
+      console.error(err);
+      if (window.showToast) window.showToast("Error", "No se pudo cargar html2canvas.", "danger");
+      return;
+    }
+  }
+
+  const mesSelector = document.getElementById("prodMesSelector");
+  const segmentoSelector = document.getElementById("prodSegmentoSelector");
+  const periodo = mesSelector ? mesSelector.value : "periodo";
+  const segmento = segmentoSelector ? segmentoSelector.value : "cajeros";
+  const isRoller = segmento === "rollers";
+  const isApoyo = segmento === "apoyo";
+  const isIntertiendas = segmento === "intertiendas";
+  const isExtraCash = segmento === "extracash";
+
+  // Identificar placas a capturar según el segmento
+  let placas = [];
+  if (isExtraCash) {
+    const elExtra = document.getElementById("placaExtraCash") || document.getElementById("placaExtraCashPodio");
+    if (elExtra) {
+      placas.push({ el: elExtra, nombre: `Placa_ExtraCash_${periodo}.png` });
+    }
+    const elDist = document.getElementById("placaExtraCashDistribucion");
+    if (elDist && elDist !== elExtra) {
+      placas.push({ el: elDist, nombre: `Placa_ExtraCash_Distribucion_${periodo}.png` });
+    }
+  } else if (isIntertiendas) {
+    placas = [
+      { el: document.getElementById("placaIntertiendas") || document.getElementById("placaClasicoSanJuan"), nombre: `Productividad_Clasico_SanJuan_${periodo}.png` }
+    ];
+  } else if (isRoller) {
+    placas = [
+      { el: document.getElementById("placaPodio"), nombre: `Productividad_Rollers_Desempeño_${periodo}.png` },
+      { el: document.getElementById("placaCriticos"), nombre: `Productividad_Rollers_Analisis_Tiempos_${periodo}.png` }
+    ];
+  } else {
+    let placa3Nombre = `Placa_3_Mejora_${periodo}.png`;
+    if (isApoyo) placa3Nombre = `Placa_3_Apoyo_${periodo}.png`;
+
+    placas = [
+      { el: document.getElementById("placaPodio"), nombre: `Placa_1_Podio_${segmento}_${periodo}.png` },
+      { el: document.getElementById("placaObjetivo"), nombre: `Placa_2_En_Objetivo_${segmento}_${periodo}.png` },
+      { el: document.getElementById("placaCriticos"), nombre: placa3Nombre }
+    ];
+  }
+
+  placas = placas.filter(p => p.el && p.el.offsetWidth > 0 && p.el.offsetHeight > 0);
+
+  if (placas.length === 0) {
+    if (window.showToast) {
+      window.showToast("Sin placas", "No hay placas disponibles para exportar.", "warning");
+    } else {
+      alert("No hay placas disponibles para exportar.");
+    }
+    return;
+  }
+
+  if (window.showToast) {
+    window.showToast("Generando Placas", "Procesando imágenes de alta resolución...", "info");
+  }
+
+  try {
+    for (let i = 0; i < placas.length; i++) {
+      const p = placas[i];
+      const elemento = p.el;
+
+      // Respaldar y garantizar expansión total sin cortes ni scrollbars
+      const prevMaxHeight = elemento.style.maxHeight;
+      const prevHeight = elemento.style.height;
+      const prevOverflow = elemento.style.overflow;
+      elemento.style.setProperty('max-height', 'none', 'important');
+      elemento.style.setProperty('height', 'auto', 'important');
+      elemento.style.setProperty('overflow', 'visible', 'important');
+
+      // Respaldar y expandir subcontenedores con scroll interno si existieran
+      const subScrollables = elemento.querySelectorAll('[style*="overflow"], [style*="max-height"]');
+      const prevSubStyles = [];
+      subScrollables.forEach(sub => {
+        prevSubStyles.push({
+          el: sub,
+          maxHeight: sub.style.maxHeight,
+          height: sub.style.height,
+          overflow: sub.style.overflow
+        });
+        sub.style.setProperty('max-height', 'none', 'important');
+        sub.style.setProperty('height', 'auto', 'important');
+        sub.style.setProperty('overflow', 'visible', 'important');
+      });
+
+      // Clon o captura con estilos fijos para calidad nítida
+      const canvas = await html2canvas(elemento, {
+        scale: 2,
+        backgroundColor: "#0f172a",
+        useCORS: true,
+        logging: false,
+        scrollY: 0,
+        scrollX: 0
+      });
+
+      // Restaurar estilos de subcontenedores y contenedor principal
+      subScrollables.forEach((sub, idx) => {
+        if (prevSubStyles[idx]) {
+          sub.style.maxHeight = prevSubStyles[idx].maxHeight;
+          sub.style.height = prevSubStyles[idx].height;
+          sub.style.overflow = prevSubStyles[idx].overflow;
+        }
+      });
+      elemento.style.maxHeight = prevMaxHeight;
+      elemento.style.height = prevHeight;
+      elemento.style.overflow = prevOverflow;
+
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = p.nombre;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Pequeña pausa secuencial para permitir que el navegador maneje las descargas
+      if (i < placas.length - 1) {
+        await new Promise(r => setTimeout(r, 400));
+      }
+    }
+
+    if (window.showToast) {
+      let cantidadDescargada = "Las 3 placas";
+      if (isExtraCash) cantidadDescargada = "La placa de Extra Cash";
+      else if (isIntertiendas) cantidadDescargada = "La placa Clásico San Juan";
+      else if (isRoller) cantidadDescargada = "Las 2 placas de Rollers";
+
+      window.showToast(
+        "Placas generadas",
+        `${cantidadDescargada} se descargó en formato PNG lista para WhatsApp`,
+        "success"
+      );
+    }
+  } catch (err) {
+    console.error("Error exportando placas:", err);
+    if (window.showToast) {
+      window.showToast("Error al exportar", "Hubo un problema al generar las imágenes.", "danger");
+    }
+  }
+};
+
+window.imprimirLibroNovedades = function() {
+  window.print();
+};
+
+window.parseProductividadDistrital = function(rawText) {
+  if (!rawText) return null;
+
+  // Limpieza de caracteres BOM y nulos de UTF-16
+  const clean = rawText.replace(/\x00/g, "").replace(/^\uFEFF/, "").trim();
+  const lines = clean.split(/\r\n|\n/).filter(l => l.trim().length > 0);
+
+  // Helper para separar columnas respetando comillas
+  const parseCSVLine = (text) => {
+    const p = [];
+    let cur = "";
+    let inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '"') {
+        inQ = !inQ;
+      } else if (c === ',' && !inQ) {
+        p.push(cur.replace(/^"|"$/g, "").trim());
+        cur = "";
+      } else {
+        cur += c;
+      }
+    }
+    p.push(cur.replace(/^"|"$/g, "").trim());
+    return p;
+  };
+
+  const resultado = {
+    tipo: "distrito",
+    tiendas: {},
+    distritoTotal: null
+  };
+
+  lines.forEach((line) => {
+    const cols = parseCSVLine(line);
+    if (cols.length < 5) return;
+
+    const firstCol = (cols[0] || "").trim().toLowerCase();
+    
+    // Si es cabecera, omitir
+    if (firstCol.includes("tienda")) return;
+
+    // Columna 2: Ítems por hora (en fila Total es 709)
+    const itemsHora = parseInt((cols[2] || "").replace(/\D/g, ""), 10) || 0;
+    
+    // Columna 9: Duración TR Minutos (en fila Total es 2,42 min, NUNCA la col 5 de 4.636 horas)
+    const duracionTR = parseFloat((cols[9] || "0").replace(",", ".")) || 0;
+    
+    // Columna 14: Unidades x Ticket Prom (en fila Total es 28,7)
+    const ticketProm = parseFloat((cols[14] || "0").replace(",", ".")) || 0;
+
+    const dataObj = {
+      tiendaId: cols[0].trim(),
+      nombre: (cols[1] || "").trim() || (firstCol === "total" ? "Promedio Distrito" : "Sucursal " + cols[0]),
+      itemsPorHora: itemsHora,
+      duracionTR: duracionTR,
+      unidadesTicket: ticketProm,
+      duracionMinutos: duracionTR,
+      unidadesPorTicket: ticketProm
+    };
+
+    if (firstCol === "total") {
+      resultado.distritoTotal = dataObj;
+    } else if (["1092", "1081", "1006"].includes(cols[0].trim())) {
+      resultado.tiendas[cols[0].trim()] = dataObj;
+    } else if (cols[0].trim().length > 0) {
+      resultado.tiendas[cols[0].trim()] = dataObj;
+    }
+  });
+
+  // Asegurar compatibilidad hacia atrás con estructuras anteriores si fuera necesario
+  const sanJuanKeys = ["1092", "1081", "1006"];
+  const nombresTiendas = {
+    "1092": "San Juan Norte / Capital",
+    "1081": "Rawson San Juan",
+    "1006": "San Juan / Rivadavia"
+  };
+  resultado.tiendasSanJuan = sanJuanKeys.map(code => {
+    return resultado.tiendas[code] || {
+      tiendaId: code,
+      nombre: nombresTiendas[code] || `Sucursal ${code}`,
+      itemsPorHora: 0,
+      duracionTR: 0,
+      unidadesTicket: 0,
+      duracionMinutos: 0,
+      unidadesPorTicket: 0
+    };
+  });
+  resultado.totalDistrito = resultado.distritoTotal || {
+    tiendaId: "total",
+    nombre: "Promedio Distrito",
+    itemsPorHora: 0,
+    duracionTR: 0,
+    unidadesTicket: 0,
+    duracionMinutos: 0,
+    unidadesPorTicket: 0
+  };
+
+  return resultado;
+};
+
+window.parseExtraCashData = function(rawText) {
+  if (!rawText || !rawText.trim()) return null;
+
+  // Limpieza de caracteres BOM y nulos de UTF-16
+  const clean = rawText.replace(/\x00/g, "").replace(/^\uFEFF/, "").trim();
+  const lines = clean.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) return null;
+
+  // Detectar delimitador inspeccionando las primeras líneas
+  const sample = lines.slice(0, 5).join("\n");
+  const countTabs = (sample.match(/\t/g) || []).length;
+  const countSemicolons = (sample.match(/;/g) || []).length;
+  const countCommas = (sample.match(/,/g) || []).length;
+
+  let delimiter = ",";
+  if (countTabs > countCommas && countTabs > countSemicolons) {
+    delimiter = "\t";
+  } else if (countSemicolons > countCommas && countSemicolons > countTabs) {
+    delimiter = ";";
+  }
+
+  // Separar columnas respetando comillas
+  const parseLine = (text) => {
+    const p = [];
+    let cur = "";
+    let inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '"') {
+        inQ = !inQ;
+      } else if (c === delimiter && !inQ) {
+        p.push(cur.replace(/^"|"$/g, "").trim());
+        cur = "";
+      } else {
+        cur += c;
+      }
+    }
+    p.push(cur.replace(/^"|"$/g, "").trim());
+    return p;
+  };
+
+  // Helper para parsear montos en pesos: elimina $, paréntesis, puntos, comas decimales y signos negativos
+  const parseMonto = (val) => {
+    if (!val) return 0;
+    // Si viene en formato (1.234.567) o $1.234.567 o 1234567,00
+    let s = String(val).replace(/[\$\(\)\s]/g, "").trim();
+    // Si tiene coma decimal (ej: 1234,50), separar enteros
+    if (s.includes(",")) {
+      s = s.split(",")[0];
+    }
+    const cleanNum = s.replace(/\./g, "").replace(/[^0-9]/g, "");
+    return parseInt(cleanNum, 10) || 0;
+  };
+
+  const collabs = (window.state && window.state.collaborators) || [];
+  const items = [];
+  let totalTienda = 0;
+  let headers = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const cols = parseLine(lines[i]);
+    if (!cols || cols.length === 0) continue;
+
+    const firstCol = (cols[0] || "").trim();
+    const firstColLower = firstCol.toLowerCase();
+
+    // Guardar cabecera para los días si existe
+    if (firstColLower.includes("cajero") || firstColLower.includes("operador") || firstColLower.includes("legajo") || firstColLower.includes("fecha")) {
+      headers = cols;
+      continue;
+    }
+
+    // Detectar fila "Total" general de tienda
+    if (firstColLower.startsWith("total") || firstColLower.includes("total general") || firstColLower.includes("tienda")) {
+      const lastCol = cols[cols.length - 1];
+      const montoTotal = parseMonto(lastCol);
+      if (montoTotal > 0) {
+        totalTienda = montoTotal;
+      }
+      continue;
+    }
+
+    // Verificar si es fila de cajero (código numérico en col 0 o match numérico)
+    const cajeroMatch = firstCol.match(/^\d+/);
+    if (!cajeroMatch) continue;
+
+    const cajeroId = cajeroMatch[0];
+    const totalMonto = parseMonto(cols[cols.length - 1]);
+
+    // Extraer montos diarios si hay columnas intermedias
+    const montosDiarios = [];
+    for (let c = 1; c < cols.length - 1; c++) {
+      const diaMonto = parseMonto(cols[c]);
+      montosDiarios.push(diaMonto);
+    }
+
+    // Cruzar con state.collaborators para nombre y apellido
+    const found = collabs.find(col => {
+      const matchOp = col.numeroOperador && String(col.numeroOperador).trim() === String(cajeroId).trim();
+      const matchId = col.id && String(col.id).trim() === String(cajeroId).trim();
+      return matchOp || matchId;
+    });
+
+    let nombre = "";
+    if (found) {
+      nombre = found.name || found.nombre || "";
+    } else {
+      // Si la columna 1 tiene texto que parece nombre
+      if (cols.length > 2 && isNaN(cols[1].replace(/[\s\.\,]/g, "")) && cols[1].length > 2) {
+        nombre = cols[1].trim();
+      } else {
+        nombre = "Operador " + cajeroId;
+      }
+    }
+
+    // Clasificar operador según sus datos en state.collaborators
+    let tipoOperador = "cajero";
+    if (!found || (found.area && found.area !== "Linea de Cajas")) {
+      tipoOperador = "apoyo";
+    } else {
+      const pasillo = (found.pasillo || "").toLowerCase().trim();
+      const esquema = (found.esquema || "").toLowerCase().trim();
+      if (pasillo.includes("roller") || esquema.includes("roller")) {
+        tipoOperador = "roller";
+      } else {
+        tipoOperador = "cajero";
+      }
+    }
+
+    items.push({
+      cajeroId: cajeroId,
+      nombre: nombre,
+      totalMonto: totalMonto,
+      montosDiarios: montosDiarios,
+      tipoOperador: tipoOperador
+    });
+  }
+
+  // Si totalTienda no vino explícito, sumar el de todos los cajeros
+  if (totalTienda === 0 && items.length > 0) {
+    totalTienda = items.reduce((acc, it) => acc + it.totalMonto, 0);
+  }
+
+  // Ordenar de mayor a menor por total entregado
+  items.sort((a, b) => b.totalMonto - a.totalMonto);
+
+  const cajerosActivos = items.filter(it => it.totalMonto > 0).length || items.length || 1;
+  const promedioPorCajero = Math.round(totalTienda / cajerosActivos);
+
+  return {
+    tipo: "extracash",
+    totalTienda: totalTienda,
+    cajerosActivos: cajerosActivos,
+    promedioPorCajero: promedioPorCajero,
+    items: items,
+    fechaCarga: new Date().toISOString()
+  };
+};
+
+window.parseProductividadData = function(rawText) {
+  if (!rawText || !rawText.trim()) return [];
+
+  const lines = rawText.split(/\r\n|\n|\r/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) return [];
+
+  // Detectar delimitador inspeccionando las primeras líneas
+  const sample = lines.slice(0, 5).join("\n");
+  const countTabs = (sample.match(/\t/g) || []).length;
+  const countSemicolons = (sample.match(/;/g) || []).length;
+  const countCommas = (sample.match(/,/g) || []).length;
+
+  let delimiter = "\t";
+  if (countSemicolons > countTabs && countSemicolons > countCommas) {
+    delimiter = ";";
+  } else if (countCommas > countTabs && countCommas > countSemicolons) {
+    delimiter = ",";
+  }
+
+  // Parsear cada fila respetando posibles comillas
+  const parseLine = (line) => {
+    const regex = new RegExp(`(?:^|${delimiter})(?:"([^"]*(?:""[^"]*)*)"|([^"${delimiter}]*))`, "g");
+    const cells = [];
+    let match;
+    while ((match = regex.exec(line)) !== null) {
+      let val = match[1] !== undefined ? match[1].replace(/""/g, '"') : match[2];
+      cells.push((val || "").trim());
+    }
+    return cells;
+  };
+
+  const headerCells = parseLine(lines[0]).map(c => c.toLowerCase());
+  
+  // Buscar índices de columnas
+  let idxCajero = headerCells.findIndex(c => c.includes("cajero") || c.includes("operador") || c.includes("legajo") || c.includes("nº"));
+  let idxNombre = headerCells.findIndex(c => c.includes("nombre") || c.includes("colaborador") || c.includes("empleado"));
+  let idxItemsHora = headerCells.findIndex(c => (c.includes("item") || c.includes("art") || c.includes("prod")) && c.includes("hora"));
+  let idxDuracion = headerCells.findIndex(c => c.includes("duracion") || c.includes("duración") || c.includes("tiempo") || c.includes("minuto") || c.includes("tr"));
+  let idxUnidadesTicket = headerCells.findIndex(c => (c.includes("unidad") || c.includes("unid") || c.includes("item") || c.includes("art")) && (c.includes("ticket") || c.includes("tkt")));
+
+  // Fallbacks posicionales si los encabezados varían
+  if (idxCajero === -1) idxCajero = 0;
+  if (idxItemsHora === -1) {
+    idxItemsHora = headerCells.findIndex((c, i) => i !== idxCajero && (c.includes("item") || c.includes("hora")));
+    if (idxItemsHora === -1 && headerCells.length > 1) idxItemsHora = 1;
+  }
+  if (idxDuracion === -1 && headerCells.length > 2) idxDuracion = 2;
+  if (idxUnidadesTicket === -1 && headerCells.length > 3) idxUnidadesTicket = 3;
+
+  const results = [];
+  const collabs = (window.state && window.state.collaborators) || [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue;
+
+    const row = parseLine(line);
+    const firstCell = (row[0] || "").toLowerCase();
+
+    // Omitir cabeceras intermedias o filas de total
+    if (firstCell.startsWith("total") || firstCell.includes("promedio") || firstCell === "cajero") {
+      continue;
+    }
+
+    const rawCajero = (row[idxCajero] || "").trim();
+    if (!rawCajero) continue;
+
+    // Extraer identificador numérico de operador/cajero
+    const cajeroMatch = rawCajero.match(/\d+/);
+    const cajeroId = cajeroMatch ? cajeroMatch[0] : rawCajero;
+
+    // Items x Hora
+    let rawItems = row[idxItemsHora] || "";
+    let itemsPorHora = parseInt(rawItems.toString().replace(/\./g, "").replace(/,/g, "").trim(), 10) || 0;
+
+    // Duracion TR Minutos
+    let rawDuracion = row[idxDuracion] || "";
+    let duracionTR = parseFloat(rawDuracion.toString().replace(/\./g, "").replace(",", ".").trim()) || 0;
+
+    // Unidades x Ticket Prom
+    let rawUnidades = row[idxUnidadesTicket] || "";
+    let unidadesTicket = parseFloat(rawUnidades.toString().replace(/\./g, "").replace(",", ".").trim()) || 0;
+
+    // Buscar primero en state.collaborators si coincide numeroOperador == cajeroId o id == cajeroId
+    const found = collabs.find(c => {
+      const matchOp = c.numeroOperador && String(c.numeroOperador).trim() === String(cajeroId).trim();
+      const matchId = c.id && String(c.id).trim() === String(cajeroId).trim();
+      return matchOp || matchId;
+    });
+
+    let nombre = "";
+    let isRoller = false;
+
+    if (found) {
+      nombre = found.name || found.nombre || "";
+      isRoller = (found.pasillo || "").toLowerCase().trim() === "roller";
+    } else {
+      isRoller = false;
+      // Verificar la última columna. Si contiene números con coma/punto (ej: "36,0" o "37,3"), no usarla como nombre; asignar "Operador " + cajeroId. Solo tomarla si contiene letras.
+      if (idxNombre !== -1 && row[idxNombre] && /[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(row[idxNombre])) {
+        nombre = row[idxNombre];
+      } else {
+        const lastCell = row[row.length - 1] ? row[row.length - 1].trim() : "";
+        if (lastCell && /[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(lastCell) && !/^\d+([.,]\d+)?$/.test(lastCell)) {
+          nombre = lastCell;
+        } else if (rawCajero.length > cajeroId.length && /[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(rawCajero)) {
+          nombre = rawCajero;
+        } else {
+          nombre = `Operador ${cajeroId}`;
+        }
+      }
+    }
+
+    results.push({
+      cajeroId,
+      nombre,
+      itemsPorHora,
+      duracionMinutos: duracionTR,
+      unidadesPorTicket: unidadesTicket,
+      collabId: found ? found.id : null,
+      isRoller
+    });
+  }
+
+  // Ordenar descendente por itemsPorHora
+  results.sort((a, b) => b.itemsPorHora - a.itemsPorHora);
+  return results;
+};
+
+// Listeners e interacción del Modal de Carga de Productividad
+document.addEventListener("DOMContentLoaded", () => {
+  const btnCargar = document.getElementById("btnCargarProductividadModal");
+  const modalCarga = document.getElementById("prodCargaModal");
+  const mesSelector = document.getElementById("prodMesSelector");
+  const modalPeriodoSelect = document.getElementById("prodModalPeriodoSelect");
+  const fileInput = document.getElementById("prodFileInput");
+  const pasteInput = document.getElementById("prodPasteInput");
+  const btnProcesar = document.getElementById("btnProcesarProductividad");
+
+  if (btnCargar && modalCarga) {
+    btnCargar.addEventListener("click", () => {
+      window.abrirModalProductividad();
+    });
+  }
+
+  if (fileInput && pasteInput) {
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const ext = file.name.split(".").pop().toLowerCase();
+      if (ext === "xlsx" || ext === "xls") {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const data = new Uint8Array(evt.target.result);
+            if (typeof XLSX !== "undefined") {
+              const workbook = XLSX.read(data, { type: "array" });
+              const firstSheet = workbook.SheetNames[0];
+              const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[firstSheet]);
+              pasteInput.value = csv;
+            } else {
+              if (window.showToast) window.showToast("Error", "Librería XLSX no disponible.", "danger");
+            }
+          } catch (err) {
+            console.error("Error leyendo Excel de productividad:", err);
+            if (window.showToast) window.showToast("Error", "No se pudo leer el archivo Excel.", "danger");
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          pasteInput.value = evt.target.result;
+        };
+        reader.readAsText(file, "UTF-8");
+      }
+    });
+  }
+
+  if (btnProcesar) {
+    btnProcesar.addEventListener("click", () => {
+      const text = pasteInput ? pasteInput.value : "";
+      const periodoKey = modalPeriodoSelect ? modalPeriodoSelect.value : (mesSelector ? mesSelector.value : "2026-09");
+      const tipoRaw = document.getElementById("prodModalTipoSelect") ? document.getElementById("prodModalTipoSelect").value : "cajeros_avance";
+
+      // Inspeccionar primeras líneas para detección inteligente del contenido
+      const firstLines = text.split(/\r\n|\n|\r/).map(l => l.trim()).filter(Boolean).slice(0, 4);
+      const seemsLikeDistrito = firstLines.some(l => {
+        const lower = l.toLowerCase();
+        return lower.startsWith("tienda") || lower.includes("1092") || lower.includes("1081") || lower.includes("1006");
+      });
+
+      // Determinar la ruta a seguir (explícita o auto-corregida de forma inteligente)
+      const seemsLikeExtraCash = tipoRaw === "extracash" || firstLines.some(l => {
+        const lower = l.toLowerCase();
+        return lower.includes("extra cash") || lower.includes("extracash") || lower.includes("dispersion") || lower.includes("dispersión");
+      });
+
+      if (seemsLikeExtraCash) {
+        const ecData = window.parseExtraCashData(text);
+        if (!ecData || !ecData.items || ecData.items.length === 0) {
+          if (window.showToast) {
+            window.showToast("Sin datos", "No se detectaron registros válidos de Extra Cash.", "warning");
+          } else {
+            alert("No se detectaron registros válidos de Extra Cash.");
+          }
+          return;
+        }
+
+        state.extraCash = state.extraCash || {};
+        state.extraCash[periodoKey] = ecData;
+
+        try {
+          localStorage.setItem("crew_extracash", JSON.stringify(state.extraCash));
+        } catch (err) {
+          console.warn("No se pudo guardar Extra Cash en localStorage:", err);
+        }
+
+        // Persistir en Firestore
+        try {
+          if (typeof db !== "undefined" && typeof setDoc === "function" && typeof doc === "function") {
+            const docId = `${periodoKey}_extracash`;
+            setDoc(doc(db, "productividad_cajas", docId), ecData, { merge: true }).catch(e => console.warn("Error guardando Extra Cash en Firestore:", e));
+          }
+        } catch (err) {
+          console.warn("Error en setDoc Extra Cash:", err);
+        }
+
+        if (modalCarga) modalCarga.style.display = "none";
+        if (pasteInput) pasteInput.value = "";
+        if (fileInput) fileInput.value = "";
+
+        if (mesSelector) mesSelector.value = periodoKey;
+
+        // Auto-seleccionar "extracash" en el selector de segmento
+        const segSelector = document.getElementById("prodSegmentoSelector");
+        if (segSelector) segSelector.value = "extracash";
+
+        if (typeof window.renderProductividad === "function") {
+          window.renderProductividad();
+        }
+
+        if (window.showToast) {
+          window.showToast(
+            "Extra Cash Procesado",
+            `Total dispersado: $${ecData.totalTienda.toLocaleString('es-AR')} (${ecData.items.length} operadores).`,
+            "success"
+          );
+        }
+        return;
+      }
+
+      let isDistritoMode = tipoRaw === "distrito";
+      if (!isDistritoMode && seemsLikeDistrito) {
+        // El usuario pegó archivo distrital pero tenía seleccionado cajeros
+        isDistritoMode = true;
+      } else if (isDistritoMode && !seemsLikeDistrito && firstLines.some(l => l.toLowerCase().includes("cajero") || l.toLowerCase().includes("operador") || l.toLowerCase().includes("legajo"))) {
+        // El usuario pegó archivo de cajeros pero tenía seleccionado distrito
+        isDistritoMode = false;
+      }
+
+      if (isDistritoMode) {
+        const distData = window.parseProductividadDistrital(text);
+        if (!distData || (!distData.tiendas["1092"] && !distData.distritoTotal && (!distData.tiendasSanJuan || distData.tiendasSanJuan.length === 0))) {
+          if (window.showToast) {
+            window.showToast("Sin datos de distrito", "No se pudieron procesar las tiendas de San Juan.", "warning");
+          } else {
+            alert("No se pudieron procesar las tiendas de San Juan.");
+          }
+          return;
+        }
+
+        state.productividadDistrital = state.productividadDistrital || {};
+        state.productividadDistrital[periodoKey] = distData;
+
+        try {
+          localStorage.setItem("crew_productividad_distrito", JSON.stringify(state.productividadDistrital));
+        } catch (err) {
+          console.warn("No se pudo guardar distrito en localStorage:", err);
+        }
+
+        // Persistir en Firestore
+        try {
+          if (typeof db !== "undefined" && typeof setDoc === "function" && typeof doc === "function") {
+            const docId = `${periodoKey}_distrito`;
+            setDoc(doc(db, "productividad_cajas", docId), distData, { merge: true }).catch(e => console.warn("Error guardando distrito en Firestore:", e));
+          }
+        } catch (err) {
+          console.warn("Error en setDoc distrito:", err);
+        }
+
+        if (modalCarga) modalCarga.style.display = "none";
+        if (pasteInput) pasteInput.value = "";
+        if (fileInput) fileInput.value = "";
+
+        if (mesSelector) mesSelector.value = periodoKey;
+
+        // Auto-seleccionar "intertiendas" para previsualizar de inmediato el clásico
+        const segSelector = document.getElementById("prodSegmentoSelector");
+        if (segSelector) segSelector.value = "intertiendas";
+
+        if (typeof window.renderProductividad === "function") {
+          window.renderProductividad();
+        }
+
+        if (window.showToast) {
+          window.showToast(
+            "Distrito Procesado",
+            "Datos de 1092, 1081 y 1006 actualizados correctamente.",
+            "success"
+          );
+        }
+        return;
+      }
+
+      // Ruta para cajeros 1092
+      const items = window.parseProductividadData(text);
+      if (!items || items.length === 0) {
+        if (window.showToast) {
+          window.showToast("Sin datos", "No se detectaron filas válidas para procesar.", "warning");
+        } else {
+          alert("No se detectaron datos de productividad válidos.");
+        }
+        return;
+      }
+
+      const tipoGuardado = tipoRaw === "cajeros_cierre" ? "cierre" : "avance";
+
+      state.productividad = state.productividad || {};
+      const prodData = {
+        periodo: periodoKey,
+        tipo: tipoGuardado,
+        fechaCarga: new Date().toISOString(),
+        items
+      };
+      state.productividad[periodoKey] = prodData;
+
+      try {
+        localStorage.setItem("crew_productividad_data", JSON.stringify(state.productividad));
+      } catch (err) {
+        console.warn("No se pudo guardar en localStorage:", err);
+      }
+
+      // Persistir en Firestore
+      try {
+        if (typeof db !== "undefined" && typeof setDoc === "function" && typeof doc === "function") {
+          const docId = `${periodoKey}_${tipoGuardado}`;
+          setDoc(doc(db, "productividad_cajas", docId), prodData, { merge: true }).catch(e => console.warn("Error guardando productividad en Firestore:", e));
+        }
+      } catch (err) {
+        console.warn("Error en setDoc productividad:", err);
+      }
+
+      if (modalCarga) modalCarga.style.display = "none";
+      if (pasteInput) pasteInput.value = "";
+      if (fileInput) fileInput.value = "";
+
+      if (mesSelector) {
+        mesSelector.value = periodoKey;
+      }
+
+      // Si estaba en intertiendas, volver al reporte oficial de cajeros
+      const segSelector = document.getElementById("prodSegmentoSelector");
+      if (segSelector && segSelector.value === "intertiendas") {
+        segSelector.value = "cajeros";
+      }
+
+      if (typeof window.renderProductividad === "function") {
+        window.renderProductividad();
+      }
+
+      if (window.showToast) {
+        window.showToast(
+          "Productividad 1092 guardada",
+          `Productividad 1092 guardada (${items.length} cajeros procesados).`,
+          "success"
+        );
+      }
+    });
+  }
+
+  if (mesSelector) {
+    mesSelector.addEventListener("change", () => {
+      if (typeof window.renderProductividad === "function") {
+        window.renderProductividad();
+      }
+    });
+  }
+});
+
 </script>
   <script>
     if ('serviceWorker' in navigator) {
@@ -12842,29 +14684,112 @@ document.addEventListener("keydown", (e) => {
           }
           areaSel.addEventListener("change", (e) => {
             const nuevaArea = e.target.value;
+            state.selectedArea = nuevaArea;
             state.currentArea = nuevaArea;
             localStorage.setItem("crew_selected_area", nuevaArea);
           
+            const isCajas = nuevaArea === "Linea de Cajas" || nuevaArea === "Línea de Cajas";
+            const tabDashboard = document.getElementById("tabNavDashboard") || document.getElementById("metricsTabBtn");
+
+            if (isCajas) {
+              if (tabDashboard) tabDashboard.style.display = "none";
+            } else {
+              if (tabDashboard) tabDashboard.style.display = "inline-block";
+            }
+
             if (typeof updateAreaVisibility === "function") {
               updateAreaVisibility();
+            }
+
+            // Ocultar todas las secciones secundarias
+            const secciones = [
+              document.getElementById("seccionProductividad"),
+              document.getElementById("seccionDashboard"),
+              document.getElementById("seccionMetricas"),
+              document.getElementById("seccionSugerido"),
+              document.getElementById("seccionSugeridos"),
+              document.getElementById("seccionVacaciones")
+            ];
+            secciones.forEach(sec => { if (sec) sec.style.display = "none"; });
+
+            // Mostrar la sección principal del Grid
+            const seccionGrid = document.getElementById("seccionHorarios") || document.getElementById("seccionGrid") || document.getElementById("mainGridContainer") || document.querySelector(".grid-container");
+            if (seccionGrid) {
+              seccionGrid.style.display = ""; // Restablecer visibilidad
+            }
+
+            // Contenedor de navegación por fechas visible para Grid
+            const navCenter = document.getElementById("dateNavigationContainer");
+            if (navCenter) {
+              navCenter.style.visibility = "visible";
+            }
+
+            // Actualizar clases activas en los botones de navegación superiores
+            document.querySelectorAll(".tab-btn, .nav-tab, .app-tab-btn, header nav button").forEach(btn => btn.classList.remove("active"));
+            const btnGrid = document.getElementById("tabHorarios") || document.getElementById("tabNavGrid") || document.querySelector('[data-tab="grid"]') || Array.from(document.querySelectorAll("button")).find(b => b.textContent.includes("Grid Semanal"));
+            if (btnGrid) {
+              btnGrid.classList.add("active");
             }
           
             if (typeof window.subscribeTagsByArea === "function") {
               window.subscribeTagsByArea();
             }
           
-            const secVac = document.getElementById("seccionVacaciones");
-            if (secVac && secVac.style.display !== "none") {
-              if (typeof updateVacationCollabSelect === "function") updateVacationCollabSelect();
-              if (typeof renderVacationTable === "function") renderVacationTable();
-              if (typeof renderVacationCalendar === "function") renderVacationCalendar();
-            } else {
-              window.renderUI();
-            }
+            // Disparar renderizado del Grid para el área seleccionada
+            if (typeof window.renderDesktopView === "function") window.renderDesktopView();
+            if (typeof window.renderMobileView === "function") window.renderMobileView();
+            if (typeof window.renderGrid === "function") window.renderGrid();
+            if (typeof window.renderUI === "function") window.renderUI();
           });
         }
       }, 1000);
     });
   </script>
+
+  <!-- MODAL CARGAR PRODUCTIVIDAD -->
+  <div class="modal-overlay" id="prodCargaModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+    <div class="modal-content" style="max-width: 650px; width: 92%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+        <h3 style="margin: 0; color: #38bdf8; font-size: 1.1rem; font-weight: 700;">Importar Reporte de Productividad</h3>
+        <button type="button" onclick="document.getElementById('prodCargaModal').style.display='none'" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+      </div>
+
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div style="flex: 1;">
+          <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600;">Período a imputar:</label>
+          <select id="prodModalPeriodoSelect" style="width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 0.85rem; font-weight: 600;">
+            <option value="2026-09">Septiembre 2026</option>
+            <option value="2026-08">Agosto 2026</option>
+            <option value="2026-07">Julio 2026</option>
+          </select>
+        </div>
+        <div style="flex: 1;">
+          <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600;">Tipo de reporte:</label>
+          <select id="prodModalTipoSelect" style="width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 0.85rem; font-weight: 600;">
+            <option value="cajeros_avance">Cajeros 1092 · Avance Semanal</option>
+            <option value="cajeros_cierre">Cajeros 1092 · Cierre Mensual Definitivo</option>
+            <option value="distrito">🏆 Distrito Vinagre · Comparativa Tiendas San Juan</option>
+            <option value="extracash">💵 Extra Cash (Dispersión Diaria / Total)</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600;">Pegar contenido copiado de Excel / CSV:</label>
+        <textarea id="prodPasteInput" placeholder="Copiá las celdas del reporte en Excel o el archivo CSV y pegalas directamente acá..." style="width: 100%; height: 160px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 0.78rem; font-family: monospace; resize: vertical; box-sizing: border-box;"></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <label style="font-size: 0.75rem; color: var(--primary); cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          📁 O subir archivo (.csv / .xlsx)
+          <input type="file" id="prodFileInput" accept=".csv,.xlsx,.xls,.txt" style="display: none;">
+        </label>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" onclick="document.getElementById('prodCargaModal').style.display='none'" style="background: transparent; border: 1px solid var(--border); color: var(--text); padding: 7px 14px; border-radius: 6px; font-size: 0.8rem; cursor: pointer;">Cancelar</button>
+          <button type="button" id="btnProcesarProductividad" class="primary" style="padding: 7px 18px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer;">Procesar y Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
