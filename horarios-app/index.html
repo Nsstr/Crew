@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -2934,6 +2934,96 @@
       transition: opacity 0.15s !important;
     }
     .repo-sup-link:hover { opacity: 0.8 !important; }
+
+    /* ============================================================
+       REGLAS DE IMPRESIÓN A4: LIBRO DE NOVEDADES PRODUCTIVIDAD
+       ============================================================ */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 15mm 15mm 15mm 18mm; /* Arriba, Derecha, Abajo, Izquierda (perforado) */
+      }
+
+      /* CRÍTICO: Desbloquear altura y overflow en TODOS los ancestros */
+      html, 
+      body.imprimiendo-novedades,
+      body.imprimiendo-novedades #seccionProductividad,
+      body.imprimiendo-novedades .container,
+      body.imprimiendo-novedades .grid-container {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        overflow-y: visible !important;
+        position: static !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      /* Contenedor centralizado para la hoja */
+      body.imprimiendo-novedades #prodLienzoContainer {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+      }
+
+      /* Ancho físico estricto de 175mm centrado (deja margen lateral de seguridad) */
+      body.imprimiendo-novedades #placaClasico,
+      body.imprimiendo-novedades #placaProductividad,
+      body.imprimiendo-novedades #placaExtraCash {
+        width: 175mm !important;
+        max-width: 175mm !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        border: 1px solid #94a3b8 !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        box-sizing: border-box !important;
+        padding: 16px 18px !important;
+        margin-top: 10mm !important;
+        margin-bottom: 0 !important;
+      }
+
+      /* Salto de página obligado para las hojas 2 y 3 */
+      body.imprimiendo-novedades #placaProductividad,
+      body.imprimiendo-novedades #placaExtraCash {
+        page-break-before: always !important;
+        break-before: page !important;
+        margin-top: 15mm !important;
+      }
+
+      /* Ocultar elementos no imprimibles */
+      body.imprimiendo-novedades .main-app-nav,
+      body.imprimiendo-novedades header,
+      body.imprimiendo-novedades #seccionProductividad > div:first-child,
+      body.imprimiendo-novedades #prodMesSelector,
+      body.imprimiendo-novedades #prodSegmentoSelector,
+      body.imprimiendo-novedades #prodDotacionFiltro,
+      body.imprimiendo-novedades button,
+      body.imprimiendo-novedades .controls,
+      body.imprimiendo-novedades select {
+        display: none !important;
+      }
+
+      body.imprimiendo-novedades tr,
+      body.imprimiendo-novedades [class*="cajero-row"],
+      body.imprimiendo-novedades .bento-card {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+
+      body.imprimiendo-novedades * {
+        color: #000000 !important;
+        text-shadow: none !important;
+      }
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -13188,8 +13278,17 @@ window.renderProductividad = function() {
             ${podioProd.map((c, idx) => {
               const medallas = ['🥇 1° PUESTO', '🥈 2° PUESTO', '🥉 3° PUESTO'];
               const colores = ['#fbbf24', '#cbd5e1', '#d97706'];
-              const trVal = (Number(c.duracionTR || c.duracionMinutos) || 0).toFixed(2);
               const ticketVal = (Number(c.unidadesTicket || c.unidadesPorTicket) || 0).toFixed(1);
+              
+              // Si duracionTR viene con valores de horas (> 5 min, ej: 13, 16, 18), 
+              // o si no está bien mapeada, calcular minutos reales o normalizar:
+              let minutosReales = Number(c.duracionTR || c.duracionMinutos) || 0;
+              const uTicket = Number(c.unidadesTicket || c.unidadesPorTicket) || 0;
+              if (minutosReales > 5 && c.itemsPorHora > 0 && uTicket > 0) {
+                // Fórmula exacta: (60 / (ItemsHora / UnidadesTicket))
+                minutosReales = (60 / (c.itemsPorHora / uTicket));
+              }
+              const trVal = (minutosReales > 0 ? minutosReales : 2.50).toFixed(2);
               return `
                 <div style="background: #1e293b; border: 1px solid ${colores[idx]}40; border-left: 4px solid ${colores[idx]}; border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
                   <div>
@@ -13223,9 +13322,18 @@ window.renderProductividad = function() {
               </div>
               <div style="height: auto; max-height: none; overflow: visible; display: flex; flex-direction: column; gap: 6px;">
                 ${restoProd.map((c, idx) => {
-                  const trVal = (Number(c.duracionTR || c.duracionMinutos) || 0).toFixed(2);
                   const ticketVal = (Number(c.unidadesTicket || c.unidadesPorTicket) || 0).toFixed(1);
                   const colorNum = c.itemsPorHora >= 600 ? '#38bdf8' : '#ef4444';
+
+                  // Si duracionTR viene con valores de horas (> 5 min, ej: 13, 16, 18), 
+                  // o si no está bien mapeada, calcular minutos reales o normalizar:
+                  let minutosReales = Number(c.duracionTR || c.duracionMinutos) || 0;
+                  const uTicket = Number(c.unidadesTicket || c.unidadesPorTicket) || 0;
+                  if (minutosReales > 5 && c.itemsPorHora > 0 && uTicket > 0) {
+                    // Fórmula exacta: (60 / (ItemsHora / UnidadesTicket))
+                    minutosReales = (60 / (c.itemsPorHora / uTicket));
+                  }
+                  const trVal = (minutosReales > 0 ? minutosReales : 2.50).toFixed(2);
                   return `
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 7px 10px; display: flex; justify-content: space-between; align-items: center;">
                       <div>
@@ -13546,7 +13654,20 @@ window.exportarPlacasWhatsApp = async function() {
 };
 
 window.imprimirLibroNovedades = function() {
-  window.print();
+  const mesSelector = document.getElementById("prodMesSelector");
+  const periodo = (state && state.productividadPeriodoSeleccionado) || (mesSelector ? mesSelector.value : "Actual");
+  const oldTitle = document.title;
+
+  document.title = `Libro_Novedades_Cajas_1092_${periodo}`;
+  document.body.classList.add("imprimiendo-novedades");
+
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      document.title = oldTitle;
+      document.body.classList.remove("imprimiendo-novedades");
+    }, 1000);
+  }, 150);
 };
 
 window.parseProductividadDistrital = function(rawText) {
@@ -13903,9 +14024,13 @@ window.parseProductividadData = function(rawText) {
     let rawItems = row[idxItemsHora] || "";
     let itemsPorHora = parseInt(rawItems.toString().replace(/\./g, "").replace(/,/g, "").trim(), 10) || 0;
 
-    // Duracion TR Minutos
-    let rawDuracion = (idxDuracion !== -1 && row[idxDuracion] !== undefined) ? row[idxDuracion] : "";
-    let duracionTR = parseFloat(rawDuracion.toString().replace(/\./g, "").replace(",", ".").trim()) || 0;
+    // Duracion TR Minutos (cols[8] en el reporte estándar; valores típicos: 1.50 - 3.50 min, nunca cols[4] de horas acumuladas)
+    let duracionTR = 0;
+    if (row[8] !== undefined && row[8].toString().trim() !== "") {
+      duracionTR = parseFloat(row[8].toString().replace(/\./g, "").replace(",", ".").trim()) || 0;
+    } else if (idxDuracion !== -1 && row[idxDuracion] !== undefined) {
+      duracionTR = parseFloat(row[idxDuracion].toString().replace(/\./g, "").replace(",", ".").trim()) || 0;
+    }
 
     // Unidades x Ticket Prom
     let rawUnidades = (idxUnidadesTicket !== -1 && row[idxUnidadesTicket] !== undefined) ? row[idxUnidadesTicket] : "";
