@@ -139,24 +139,18 @@
       margin: 0 !important;
     }
 
+    /* Contenedor principal de la grilla */
     .grid-container {
-      background: rgba(30, 41, 59, 0.7);
-      width: 100% !important;
-      max-width: 100%;
-      box-sizing: border-box;
-      overflow-x: auto !important;
-      overflow-y: auto !important;
-      display: block !important;
-      flex: 1;
+      min-height: 0;
       height: 100%;
-      position: relative;
-      scroll-behavior: auto;
+      max-height: 100%;
+      overflow-x: auto;
+      overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior: auto;
+      touch-action: pan-x pan-y;
+      background: rgba(30, 41, 59, 0.7);
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-      padding-bottom: 5px;
-      margin-bottom: -5px;
-      padding-right: 0 !important;
-      margin-right: 0 !important;
     }
     
     /* New Grid Alignment Classes */
@@ -1718,33 +1712,34 @@
           font-size: 1.1rem !important;
        }
        html, body {
-         height: 100% !important;
-         min-height: 100% !important;
-         overflow-y: auto !important;
-         overflow-x: hidden !important;
-         -webkit-overflow-scrolling: touch !important;
+         height: 100%;
+         min-height: 100%;
+         overflow-y: auto;
+         overflow-x: hidden;
+         -webkit-overflow-scrolling: touch;
        }
 
        #seccionHorarios,
        #app-grid-container,
        #tab-horarios {
-         height: auto !important;
-         min-height: 100% !important;
-         overflow: visible !important;
-         flex: none !important;
+         height: auto;
+         min-height: 100%;
+         overflow: visible;
+         flex: none;
        }
 
        .grid-container {
-         height: auto !important;
-         max-height: none !important;
-         overflow-y: visible !important;
-         overflow-x: auto !important;
-         touch-action: auto !important;
-         padding-bottom: 90px !important; /* Espacio para que la barra inferior flotante no tape filas */
+         height: auto;
+         max-height: none;
+         overflow-y: visible;
+         overflow-x: auto;
+         touch-action: auto;
+         padding-bottom: 95px; /* Evita que la barra inferior flotante tape registros */
        }
 
        table#planningTable {
-         touch-action: auto !important;
+         touch-action: auto;
+         min-width: 100%;
        }
     }
 
@@ -1823,17 +1818,20 @@
     #seccionHorarios,
     #app-grid-container,
     #tab-horarios {
-      min-height: 0 !important;
-      flex: 1 1 auto !important;
-      overflow: hidden !important;
+      min-height: 0;
+      flex: 1 1 auto;
+      overflow: hidden;
     }
 
     .grid-container {
-      min-height: 0 !important;
-      height: 100% !important;
-      overflow-y: auto !important;
-      overflow-x: auto !important;
-      overscroll-behavior: contain;
+      min-height: 0;
+      height: 100%;
+      max-height: 100%;
+      overflow-x: auto;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: auto;
+      touch-action: pan-x pan-y;
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -3129,7 +3127,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.3.5
+            Versión: v1.4.0
           </div>
         </div>
       </div>
@@ -3945,7 +3943,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.3.9";
+  const APP_VERSION = "v1.4.0";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -14464,59 +14462,60 @@ document.addEventListener("DOMContentLoaded", () => {
             state.selectedArea = nuevaArea;
             state.currentArea = nuevaArea;
             localStorage.setItem("crew_selected_area", nuevaArea);
-          
+
             const isCajas = nuevaArea === "Linea de Cajas" || nuevaArea === "Línea de Cajas";
             const tabDashboard = document.getElementById("tabNavDashboard") || document.getElementById("metricsTabBtn");
 
-            if (isCajas) {
-              if (tabDashboard) tabDashboard.style.display = "none";
-            } else {
-              if (tabDashboard) tabDashboard.style.display = "inline-block";
+            if (tabDashboard) {
+              tabDashboard.style.display = isCajas ? "none" : "inline-block";
             }
 
             if (typeof updateAreaVisibility === "function") {
               updateAreaVisibility();
             }
 
-            // Ocultar todas las secciones secundarias
+            // Ocultar vistas secundarias
             const secciones = [
               document.getElementById("seccionProductividad"),
               document.getElementById("seccionDashboard"),
               document.getElementById("seccionMetricas"),
-              document.getElementById("seccionSugerido"),
               document.getElementById("seccionSugeridos"),
               document.getElementById("seccionVacaciones")
             ];
             secciones.forEach(sec => { if (sec) sec.style.display = "none"; });
 
-            // Mostrar la sección principal del Grid
-            const seccionGrid = document.getElementById("seccionHorarios") || document.getElementById("seccionGrid") || document.getElementById("mainGridContainer") || document.querySelector(".grid-container");
+            // Restablecer sección principal de horarios
+            const seccionGrid = document.getElementById("seccionHorarios");
             if (seccionGrid) {
-              seccionGrid.style.display = ""; // Restablecer visibilidad
+              seccionGrid.style.display = "flex";
             }
 
-            // Contenedor de navegación por fechas visible para Grid
             const navCenter = document.getElementById("dateNavigationContainer");
             if (navCenter) {
               navCenter.style.visibility = "visible";
             }
 
-            // Actualizar clases activas en los botones de navegación superiores
-            document.querySelectorAll(".tab-btn, .nav-tab, .app-tab-btn, header nav button").forEach(btn => btn.classList.remove("active"));
-            const btnGrid = document.getElementById("tabHorarios") || document.getElementById("tabNavGrid") || document.querySelector('[data-tab="grid"]') || Array.from(document.querySelectorAll("button")).find(b => b.textContent.includes("Grid Semanal"));
+            document.querySelectorAll(".tab-btn, .nav-tab, .app-tab-btn").forEach(btn => btn.classList.remove("active"));
+            const btnGrid = document.getElementById("tabHorarios");
             if (btnGrid) {
               btnGrid.classList.add("active");
             }
-          
+
             if (typeof window.subscribeTagsByArea === "function") {
               window.subscribeTagsByArea();
             }
-          
-            // Disparar renderizado del Grid para el área seleccionada
-            if (typeof window.renderDesktopView === "function") window.renderDesktopView();
-            if (typeof window.renderMobileView === "function") window.renderMobileView();
-            if (typeof window.renderGrid === "function") window.renderGrid();
-            if (typeof window.renderUI === "function") window.renderUI();
+
+            // Renderizar grilla de forma unificada
+            if (typeof window.renderUI === "function") {
+              window.renderUI();
+            }
+
+            // Restablecer posición de visualización
+            const container = document.querySelector(".grid-container");
+            if (container) {
+              container.scrollTop = 0;
+              container.scrollLeft = 0;
+            }
           });
         }
       }, 1000);
