@@ -3107,6 +3107,11 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg> Auditoría <span id="auditBadge" class="audit-badge" style="display: none; position: relative; margin-left: auto; top: 0; right: 0; transform: none;">0</span>
           </button>
           
+          <button id="breakAuditNavBtn" class="nav-dropdown-item" title="Auditoría de Descansos y Breaks" onclick="window.openBreakAuditModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 
+            Control de Descansos
+          </button>
+          
           <button id="configBtn" class="nav-dropdown-item" title="Gestión de Dotación" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> Gestionar Colaboradores</button>
           
           <button id="repositoresNavBtn" class="nav-dropdown-item" title="Gestión de Repositores" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg> Gestión de Repositores</button>
@@ -3127,7 +3132,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.4.0
+            Versión: v1.4.1
           </div>
         </div>
       </div>
@@ -3943,7 +3948,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.4.0";
+  const APP_VERSION = "v1.4.1";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -3977,6 +3982,13 @@ try {
 
   enableMultiTabIndexedDbPersistence(db).catch(() => {});
   setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+  // Exposición en window para módulos de auditoría y servicios desacoplados
+  window.db = db;
+  window.setDoc = setDoc;
+  window.getDoc = getDoc;
+  window.doc = doc;
+  window.collection = collection;
 
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -14567,5 +14579,2017 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     </div>
   </div>
+
+  <!-- MODAL DE AUDITORÍA DE DESCANSOS (BREAKS) -->
+  <div class="modal-overlay" id="breakAuditModal" style="display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(5px); padding: 15px; box-sizing: border-box;">
+    <div class="modal-content" style="max-width: 1320px; width: 96vw; max-height: 92vh; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.75);">
+      
+      <!-- Encabezado del Modal (Línea 1: Ultra-Compacta, sin espacios muertos) -->
+      <div style="position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; border-bottom: 1px solid var(--border); background: var(--surface); gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 28px; height: 28px; border-radius: 6px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); display: flex; align-items: center; justify-content: center;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <h3 style="margin: 0; color: #f8fafc; font-size: 0.95rem; font-weight: 700; letter-spacing: -0.01em;">Auditoría y Control de Descansos (Breaks)</h3>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <!-- Selector de Fecha Global (Input nativo de fecha) -->
+          <div style="display: flex; align-items: center; gap: 6px; background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px;">
+            <label for="breakDateFilter" style="font-size: 0.76rem; color: #94a3b8; font-weight: 600; white-space: nowrap;">📅 Fecha:</label>
+            <input type="date" id="breakDateFilter" style="background: var(--bg); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 4px; padding: 4px 8px; font-size: 0.78rem; font-weight: 700; cursor: pointer; outline: none; min-width: 130px; color-scheme: dark;">
+          </div>
+
+          <!-- Selector de Área (Tamaño ergonómico y cómodo) -->
+          <div style="display: flex; align-items: center; gap: 6px; background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px;">
+            <label for="breakAreaSelector" style="font-size: 0.76rem; color: #94a3b8; font-weight: 600; white-space: nowrap;">Área:</label>
+            <select id="breakAreaSelector" style="background: var(--bg); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 4px; padding: 4px 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; outline: none;">
+              <option value="Linea de Cajas">🛒 Línea de Cajas (Cruce POS + TAW)</option>
+              <option value="Disponibilidad">📦 Disponibilidad (Solo TAW Reloj)</option>
+            </select>
+          </div>
+
+          <button type="button" id="breakAuditCloseBtn" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; line-height: 1; padding: 0 4px; border-radius: 4px;">&times;</button>
+        </div>
+      </div>
+
+      <!-- Barra de Solapas, KPIs y Filtros (Línea 2: Sticky, Botones Ergonómicos con Cero Espacio Muerto) -->
+      <div style="position: sticky; top: 43px; z-index: 10; display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; border-bottom: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; gap: 8px;">
+        <!-- Solapas de Navegación con buen tamaño de clic -->
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button type="button" id="tabBtnBreakCruce" class="tab-btn active" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border); background: var(--primary); color: #fff; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+            📊 Matriz y Alertas
+          </button>
+          <button type="button" id="tabBtnBreakIngesta" class="tab-btn" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px;">
+            📥 Ingesta de Reportes
+          </button>
+          <button type="button" id="tabBtnBreakConfig" class="tab-btn" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px;">
+            ⚙️ Convenios
+          </button>
+        </div>
+
+        <!-- Semáforo de KPIs Nítido y Compacto -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; display: flex; align-items: center; gap: 5px;">
+            <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">Total:</span>
+            <span id="kpiBreakTotal" style="font-size: 0.82rem; font-weight: 700; color: var(--text);">0</span>
+          </div>
+          <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 4px 8px; display: flex; align-items: center; gap: 5px;">
+            <span style="font-size: 0.7rem; color: #34d399; font-weight: 600;">🟢 En Regla:</span>
+            <span id="kpiBreakEnRegla" style="font-size: 0.82rem; font-weight: 700; color: #34d399;">0</span>
+          </div>
+          <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 4px 8px; display: flex; align-items: center; gap: 5px;">
+            <span style="font-size: 0.7rem; color: #fbbf24; font-weight: 600;">🟡 Límite:</span>
+            <span id="kpiBreakAlLimite" style="font-size: 0.82rem; font-weight: 700; color: #fbbf24;">0</span>
+          </div>
+          <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; padding: 4px 8px; display: flex; align-items: center; gap: 5px;">
+            <span style="font-size: 0.7rem; color: #f87171; font-weight: 600;">🔴 Exceso:</span>
+            <span id="kpiBreakExceso" style="font-size: 0.82rem; font-weight: 700; color: #f87171;">0</span>
+          </div>
+        </div>
+
+        <!-- Filtros y Acciones con Botones Ergonómicos -->
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <select id="breakFilterEstado" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 0.76rem; font-weight: 600; cursor: pointer;">
+            <option value="todos">Todos los estados</option>
+            <option value="exceso">🔴 Solo Excesos</option>
+            <option value="limite">🟡 Al Límite</option>
+            <option value="ok">🟢 En Regla</option>
+          </select>
+          <input type="text" id="breakFilterSearch" placeholder="Buscar colaborador..." style="background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; font-size: 0.76rem; width: 165px;">
+          <button type="button" id="btnExportarBreakCSV" style="background: rgba(51, 65, 85, 0.6); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+            📥 Exportar CSV
+          </button>
+          <button type="button" id="btnLimpiarDatosAuditoria" style="background: rgba(51, 65, 85, 0.5); border: 1px solid var(--border); color: #cbd5e1; padding: 5px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; cursor: pointer;">
+            🔄 Limpiar Filtros
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuerpo del Modal con Scroll (Sin márgenes muertos) -->
+      <div style="flex: 1; overflow-y: auto; padding: 8px 14px; display: flex; flex-direction: column; gap: 8px;">
+        
+        <!-- PESTAÑA 1: RESULTADOS DE CRUCE Y SEMÁFORO -->
+        <div id="breakTabContentCruce" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+
+          <!-- Tabla de Resultados (Expansión Máxima con 13 columnas exactas - Fit-to-Window) -->
+          <div style="border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; overflow-y: auto; background: rgba(15, 23, 42, 0.5); flex: 1; min-height: 500px; width: 100%; box-sizing: border-box;">
+            <table id="tablaAuditoriaBreaks" style="width: 100%; min-width: 1020px; table-layout: fixed; border-collapse: collapse; font-size: 0.76rem; text-align: left;">
+              <thead>
+                <tr style="background: rgba(30, 41, 59, 0.85); color: #cbd5e1; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 2;">
+                  <th style="width: 90px; padding: 7px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Estado</th>
+                  <th style="width: 110px; padding: 7px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Nº Op / Leg</th>
+                  <th style="width: 175px; padding: 7px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Colaborador</th>
+                  <th style="width: 60px; padding: 7px 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Jornada</th>
+                  <th style="width: 75px; padding: 7px 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Salida Caja</th>
+                  <th style="width: 75px; padding: 7px 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Regreso Caja</th>
+                  <th style="width: 75px; padding: 7px 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Tiempo Real</th>
+                  <th style="width: 55px; padding: 7px 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Tope</th>
+                  <th style="width: 75px; padding: 7px 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Exceso Caja</th>
+                  <th style="width: 75px; padding: 7px 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c4b5fd;">Salida TAW</th>
+                  <th style="width: 75px; padding: 7px 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c4b5fd;">Regreso TAW</th>
+                  <th style="width: 75px; padding: 7px 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fbbf24;">Exceso TAW</th>
+                  <th style="width: 75px; padding: 7px 4px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f87171;">Exceso Real</th>
+                </tr>
+              </thead>
+              <tbody id="tablaAuditoriaBreaksBody">
+                <tr>
+                  <td colspan="13" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    No hay registros cargados. Pegá o subí los reportes en la solapa <strong>"📥 Ingesta de Reportes"</strong> para iniciar el cruce.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 2: INGESTA DE REPORTES (REPORTE 25 Y TAW) -->
+        <div id="breakTabContentIngesta" style="display: none; flex-direction: column; gap: 10px;">
+          <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 12px; font-size: 0.76rem; color: #bae6fd; line-height: 1.4;">
+            💡 <strong>Ingesta Independiente y Cruce Inteligente:</strong><br>
+            • <strong>Parte Diario TAW (Mensual):</strong> Se procesa una única vez para todo el mes e indexa todas las fichadas en una base global (`taw_mensual`).<br>
+            • <strong>Reporte 25 (Diario):</strong> Se carga por día operativo. Al procesarlo, cruza automáticamente con las fichadas de la fecha seleccionada en el TAW mensual.
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <!-- Cuadro 1: Reporte 25 Diario -->
+            <div style="display: flex; flex-direction: column; gap: 6px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.4);">DIARIO</span>
+                  <label style="font-size: 0.8rem; font-weight: 700; color: #38bdf8;">Reporte 25 (Salidas y Regresos POS)</label>
+                </div>
+                <span id="badgeCountR25" style="font-size: 0.7rem; background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); border-radius: 4px; padding: 1px 6px;">0 líneas</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <p style="font-size: 0.72rem; color: var(--text-muted); margin: 0;">Marcas de salida/regreso de caja (DIA, OP, HORA).</p>
+                <label style="font-size: 0.73rem; color: #38bdf8; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 4px; padding: 2px 8px;">
+                  📁 Subir Excel/CSV
+                  <input type="file" id="breakFileR25" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
+                </label>
+              </div>
+              <textarea id="breakInputR25" placeholder="Pegá acá las filas del Reporte 25 diario o subí el archivo..." style="width: 100%; height: 105px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 0.75rem; font-family: monospace; resize: vertical; box-sizing: border-box;"></textarea>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                <button type="button" id="btnLimpiarR25" style="background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 5px 10px; border-radius: 4px; font-size: 0.74rem; cursor: pointer;">Limpiar R25</button>
+                <button type="button" id="btnProcesarCrucesBreak" style="background: #2563eb; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                  ⚡ Procesar R25 del Día
+                </button>
+              </div>
+            </div>
+
+            <!-- Cuadro 2: Parte Diario TAW Mensual -->
+            <div style="display: flex; flex-direction: column; gap: 6px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="background: rgba(167, 139, 250, 0.2); color: #c4b5fd; font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(167, 139, 250, 0.4);">MENSUAL GLOBAL</span>
+                  <label style="font-size: 0.8rem; font-weight: 700; color: #a78bfa;">Parte Diario TAW (Reloj Fichajes Mes)</label>
+                </div>
+                <span id="badgeCountTAW" style="font-size: 0.7rem; background: rgba(167,139,250,0.15); color: #c4b5fd; border: 1px solid rgba(167,139,250,0.3); border-radius: 4px; padding: 1px 6px;">0 fichadas indexadas</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <p style="font-size: 0.72rem; color: var(--text-muted); margin: 0;">Base permanente del mes (Legajo, Fecha, Exceso/Cant).</p>
+                <label style="font-size: 0.73rem; color: #a78bfa; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600; background: rgba(167, 139, 250, 0.1); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 4px; padding: 2px 8px;">
+                  📁 Subir Excel/CSV
+                  <input type="file" id="breakFileTAW" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
+                </label>
+              </div>
+              <textarea id="breakInputTAW" placeholder="Pegá acá las filas del Parte TAW de todo el mes o subí el archivo mensual..." style="width: 100%; height: 105px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 0.75rem; font-family: monospace; resize: vertical; box-sizing: border-box;"></textarea>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                <button type="button" id="btnLimpiarTAW" style="background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 5px 10px; border-radius: 4px; font-size: 0.74rem; cursor: pointer;">Limpiar TAW</button>
+                <button type="button" id="btnGuardarTAWMensual" style="background: #7c3aed; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                  💾 Indexar TAW Mensual
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 3: CONFIGURACIÓN DE PARÁMETROS Y CONVENIOS -->
+        <div id="breakTabContentConfig" style="display: none; flex-direction: column; gap: 14px;">
+          <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+              <h4 style="margin: 0; color: #f8fafc; font-size: 0.9rem; font-weight: 700;">⏱️ Tiempo de Traslado (Ida y Vuelta)</h4>
+              <span style="font-size: 0.75rem; color: #10b981; font-weight: 600;">✓ Guardado automático</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Minutos de traslado por tramo:</label>
+                <input type="number" id="cfgBreakTraslado" step="0.5" min="0" value="3.5" style="width: 80px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 0.85rem; font-weight: 700; text-align: center;">
+              </div>
+              <div style="font-size: 0.8rem; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 5px 10px;">
+                Total tolerancia traslado (x2): <strong id="cfgBreakTrasladoTotal">7</strong> minutos
+              </div>
+            </div>
+          </div>
+
+          <!-- Matriz de Contratos -->
+          <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+              <h4 style="margin: 0; color: #f8fafc; font-size: 0.9rem; font-weight: 700;">📋 Tolerancias por Tipo de Contrato (Horas Mensuales / Semanales)</h4>
+              <p style="margin: 3px 0 0; color: var(--text-muted); font-size: 0.72rem;">Definí los minutos de descanso por ley y los minutos adicionales otorgados por sindicato/comercio.</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;" id="cfgBreakContratosContainer">
+              <!-- Se renderizan dinámicamente -->
+            </div>
+          </div>
+
+          <!-- Notas Gremiales -->
+          <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 0.85rem; font-weight: 700; color: #f8fafc;">📝 Notas Gremiales / Actas de Comercio</label>
+            <p style="font-size: 0.72rem; color: var(--text-muted); margin: 0;">Registro de acuerdos internos, homologaciones de comercio o pautas de tolerancia acordadas con el delegado.</p>
+            <textarea id="cfgBreakNotas" placeholder="Escribí acá las notas y resoluciones de actas de comercio..." style="width: 100%; height: 90px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 0.78rem; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Pie de página del modal -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid var(--border); background: rgba(15, 23, 42, 0.6);">
+        <span style="font-size: 0.72rem; color: var(--text-muted);">
+          Auditoría de Descansos · Módulo de Fiscalización Línea de Cajas
+        </span>
+        <button type="button" onclick="const m=document.getElementById('breakAuditModal'); if(m){ m.classList.remove('active'); m.style.display='none'; }" style="background: transparent; border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 6px; font-size: 0.8rem; cursor: pointer;">
+          Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // MÓDULO DE AUDITORÍA DE DESCANSOS (BREAKS) & MOTOR DE CRUCE
+    // =========================================================================
+    const defaultBreakConfig = {
+      trasladoMinutos: 3.5, // Por tramo (ida y vuelta = 7 min)
+      contratos: {
+        "72": { legal: 15, sindicato: 5 },
+        "96": { legal: 15, sindicato: 5 },
+        "120": { legal: 15, sindicato: 5 },
+        "192": { legal: 30, sindicato: 5 } // 48h semanales
+      },
+      notasGremiales: "Acuerdo gremial Empleados de Comercio - Refrigerio en línea de cajas."
+    };
+    window.breakConfig = JSON.parse(localStorage.getItem("crew_break_config")) || defaultBreakConfig;
+
+    (function() {
+      const STORAGE_KEY = "crew_break_config";
+      const STORAGE_DATA_KEY = "crew_break_audit_data";
+      const STORAGE_TAW_KEY = "crew_taw_monthly";
+
+      let globalTawMap = {}; // Clave: `${legajo}_${fecha}`
+
+      function loadGlobalTawMap() {
+        try {
+          const raw = localStorage.getItem(STORAGE_TAW_KEY);
+          if (raw) {
+            globalTawMap = JSON.parse(raw) || {};
+          }
+        } catch(e) {
+          globalTawMap = {};
+        }
+        updateTawBadgeCount();
+      }
+
+      function updateTawBadgeCount() {
+        const badge = document.getElementById("badgeCountTAW");
+        if (badge) {
+          const count = Object.keys(globalTawMap || {}).length;
+          badge.textContent = `${count} fichadas indexadas`;
+        }
+      }
+
+      function saveGlobalTawMap(newMap) {
+        globalTawMap = newMap || {};
+        try {
+          localStorage.setItem(STORAGE_TAW_KEY, JSON.stringify(globalTawMap));
+        } catch(e) {}
+        updateTawBadgeCount();
+        syncTawMonthlyToFirestore(globalTawMap);
+      }
+
+      function syncTawMonthlyToFirestore(tawMap) {
+        const firestoreDb = window.db;
+        const fnSetDoc = window.setDoc;
+        const fnDoc = window.doc;
+        if (!firestoreDb || typeof fnSetDoc !== "function" || typeof fnDoc !== "function") return;
+
+        // Agrupar fichadas por período YYYY-MM
+        const periodos = {};
+        Object.values(tawMap).forEach(entry => {
+          let periodo = "general";
+          const docId = toFirestoreDocId(entry.fecha);
+          if (docId && docId.length >= 7) {
+            periodo = docId.substring(0, 7); // "YYYY-MM"
+          }
+          if (!periodos[periodo]) periodos[periodo] = {};
+          const k = `${entry.legajo}_${entry.fecha}`.toLowerCase();
+          periodos[periodo][k] = entry;
+        });
+
+        Object.keys(periodos).forEach(per => {
+          const payload = {
+            periodo: per,
+            totalFichadas: Object.keys(periodos[per]).length,
+            fichadas: periodos[per],
+            actualizadoEn: new Date().toISOString()
+          };
+          try {
+            fnSetDoc(fnDoc(firestoreDb, "taw_mensual", per), payload, { merge: true })
+              .catch(err => console.warn(`Error guardando TAW mensual en Firestore [${per}]:`, err));
+          } catch(err) {
+            console.warn(`Error en setDoc taw_mensual [${per}]:`, err);
+          }
+        });
+      }
+
+      function getBreakConfig() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return window.breakConfig || defaultBreakConfig;
+          const parsed = JSON.parse(raw);
+          const merged = {
+            trasladoMinutos: typeof parsed.trasladoMinutos === 'number' ? parsed.trasladoMinutos : defaultBreakConfig.trasladoMinutos,
+            contratos: { ...defaultBreakConfig.contratos, ...(parsed.contratos || {}) },
+            notasGremiales: typeof parsed.notasGremiales === 'string' ? parsed.notasGremiales : defaultBreakConfig.notasGremiales
+          };
+          window.breakConfig = merged;
+          return merged;
+        } catch(e) {
+          console.warn("Error leyendo crew_break_config, usando default", e);
+          window.breakConfig = defaultBreakConfig;
+          return defaultBreakConfig;
+        }
+      }
+
+      function saveBreakConfig(cfg) {
+        try {
+          window.breakConfig = cfg;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+          // Recálculo incondicional e instantáneo del motor de auditoría
+          const inR25 = (document.getElementById("breakInputR25")?.value || "").trim();
+          const inTAW = (document.getElementById("breakInputTAW")?.value || "").trim();
+          if (inR25 || inTAW) {
+            if (typeof processAuditoria === "function") {
+              processAuditoria(true);
+            }
+          } else if (currentAuditRows && currentAuditRows.length > 0) {
+            // Re-evaluar topes y semáforos sobre filas en memoria
+            const toleranciaTraslado = (cfg.trasladoMinutos || 3.5) * 2;
+            currentAuditRows.forEach(r => {
+              const norma = getContractNorma(r.contrato ? r.contrato.replace("hs", "") : "", cfg);
+              r.topePermitido = norma.legal + norma.sindicato + toleranciaTraslado;
+              r.normaSindicato = norma.sindicato;
+              r.normaLegal = norma.legal;
+              if (r.tiempoRealCaja !== null && r.tiempoRealCaja !== undefined) {
+                r.excesoCaja = Math.max(0, r.tiempoRealCaja - r.topePermitido);
+              }
+              if (r.excesoCaja > 0 || r.excesoNetoTAW > 0) {
+                r.semaforo = "exceso";
+              } else if ((r.tiempoRealCaja !== null && r.tiempoRealCaja >= (r.topePermitido - 3)) || (r.excesoTAWReporte > 0 && r.excesoNetoTAW === 0)) {
+                r.semaforo = "limite";
+              } else {
+                r.semaforo = "ok";
+              }
+            });
+            saveAuditData(currentAuditRows);
+            if (typeof renderTableResults === "function") {
+              renderTableResults();
+            }
+          }
+        } catch(e) {
+          console.error("Error guardando crew_break_config", e);
+        }
+      }
+
+      let currentAuditRows = [];
+
+      // Función auxiliar para convertir cualquier formato de fecha a YYYY-MM-DD para Firestore Doc ID
+      function toFirestoreDocId(dateVal) {
+        if (!dateVal) return "";
+        const s = String(dateVal).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const norm = normalizeDateStr(s);
+        if (norm && norm.includes("/")) {
+          const p = norm.split("/");
+          if (p.length === 3) {
+            const yyyy = p[2].length === 4 ? p[2] : (p[2].length === 2 ? `20${p[2]}` : p[2]);
+            const mm = p[1].padStart(2, "0");
+            const dd = p[0].padStart(2, "0");
+            return `${yyyy}-${mm}-${dd}`;
+          }
+        }
+        return "";
+      }
+
+      function loadSavedAuditData() {
+        try {
+          const raw = localStorage.getItem(STORAGE_DATA_KEY);
+          if (raw) {
+            currentAuditRows = JSON.parse(raw) || [];
+          }
+        } catch(e) {
+          currentAuditRows = [];
+        }
+      }
+
+      // Guardar localmente y sincronizar en Firestore agrupado por fecha con sobreescritura segura (merge: true)
+      function saveAuditData(rows) {
+        currentAuditRows = rows;
+        try {
+          localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(rows));
+        } catch(e) {}
+
+        // Sincronizar en Firestore en la colección 'auditoria_breaks'
+        syncAuditDataToFirestore(rows);
+      }
+
+      function syncAuditDataToFirestore(rows) {
+        if (!rows || rows.length === 0) return;
+        const firestoreDb = window.db;
+        const fnSetDoc = window.setDoc;
+        const fnDoc = window.doc;
+
+        if (!firestoreDb || typeof fnSetDoc !== "function" || typeof fnDoc !== "function") {
+          return;
+        }
+
+        // Agrupar filas por fecha (docId: YYYY-MM-DD)
+        const groups = {};
+        rows.forEach(r => {
+          const docId = toFirestoreDocId(r.dia);
+          if (!docId) return;
+          if (!groups[docId]) {
+            groups[docId] = {
+              fecha: docId,
+              fechaFormatted: normalizeDateStr(r.dia),
+              area: r.area || "Linea de Cajas",
+              filas: []
+            };
+          }
+          // Sanitizar fila para Firestore
+          const cleanRow = {
+            dia: r.dia || "",
+            op: r.op || "-",
+            legajo: r.legajo || "-",
+            nombre: r.nombre || "",
+            contrato: r.contrato || "",
+            salida: r.salida || "-",
+            regreso: r.regreso || "-",
+            salidaTAW: r.salidaTAW || "-",
+            regresoTAW: r.regresoTAW || "-",
+            tiempoRealCaja: r.tiempoRealCaja ?? null,
+            topePermitido: r.topePermitido || 0,
+            excesoCaja: r.excesoCaja || 0,
+            excesoTAWReporte: r.excesoTAWReporte || 0,
+            excesoNetoTAW: r.excesoNetoTAW || 0,
+            excesoRealTAW: r.excesoRealTAW || r.excesoNetoTAW || 0,
+            normaSindicato: r.normaSindicato || 0,
+            normaLegal: r.normaLegal || 0,
+            semaforo: r.semaforo || "ok",
+            area: r.area || "Linea de Cajas"
+          };
+          groups[docId].filas.push(cleanRow);
+        });
+
+        // Guardar cada fecha en auditoria_breaks de forma segura e independiente
+        Object.keys(groups).forEach(fechaDocId => {
+          const groupData = groups[fechaDocId];
+          const payload = {
+            fecha: fechaDocId,
+            fechaFormatted: groupData.fechaFormatted,
+            filas: groupData.filas,
+            totalRegistros: groupData.filas.length,
+            actualizadoEn: new Date().toISOString()
+          };
+
+          try {
+            fnSetDoc(fnDoc(firestoreDb, "auditoria_breaks", fechaDocId), payload, { merge: true })
+              .catch(err => console.warn(`Error guardando auditoría de breaks en Firestore [${fechaDocId}]:`, err));
+          } catch(err) {
+            console.warn(`Error en setDoc auditoria_breaks [${fechaDocId}]:`, err);
+          }
+        });
+      }
+
+      // Carga histórica en tiempo real desde Firestore para una fecha dada (YYYY-MM-DD)
+      async function loadAuditDataFromFirestore(fechaStr) {
+        if (!fechaStr) return;
+        const firestoreDb = window.db;
+        const fnGetDoc = window.getDoc;
+        const fnDoc = window.doc;
+
+        if (!firestoreDb || typeof fnGetDoc !== "function" || typeof fnDoc !== "function") {
+          return;
+        }
+
+        const docId = toFirestoreDocId(fechaStr);
+        if (!docId) return;
+
+        try {
+          const docRef = fnDoc(firestoreDb, "auditoria_breaks", docId);
+          const snap = await fnGetDoc(docRef);
+          if (snap && snap.exists()) {
+            const data = snap.data();
+            const remoteFilas = Array.isArray(data.filas) ? data.filas : [];
+            if (remoteFilas.length > 0) {
+              // Combinar con currentAuditRows evitando duplicados de esa fecha
+              const otherDateRows = (currentAuditRows || []).filter(r => toFirestoreDocId(r.dia) !== docId);
+              currentAuditRows = otherDateRows.concat(remoteFilas);
+              try {
+                localStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(currentAuditRows));
+              } catch(e) {}
+              if (typeof renderTableResults === "function") {
+                renderTableResults();
+              }
+            }
+          }
+        } catch(err) {
+          console.warn(`Error cargando auditoría histórica desde Firestore para fecha ${docId}:`, err);
+        }
+      }
+
+      function parseTimeToMinutes(timeVal) {
+        if (timeVal === null || timeVal === undefined || timeVal === "") return null;
+        
+        // Manejar números puros (fracción decimal de Excel: ej. 0.88333 = 21:12)
+        if (typeof timeVal === "number" || (!isNaN(timeVal) && !String(timeVal).includes(":") && !isNaN(parseFloat(timeVal)))) {
+          const num = parseFloat(timeVal);
+          if (num >= 0 && num <= 1) {
+            // Fracción de día de 24hs de Excel
+            return Math.round(num * 1440);
+          } else if (num > 1 && num < 1440) {
+            // Ya son minutos del día
+            return Math.round(num);
+          }
+        }
+
+        const clean = String(timeVal).trim();
+        const parts = clean.split(":");
+        if (parts.length >= 2) {
+          const h = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          if (!isNaN(h) && !isNaN(m)) return h * 60 + m;
+        }
+        return null;
+      }
+
+      function normalizeTimeToHHMM(timeVal) {
+        if (timeVal === null || timeVal === undefined || timeVal === "") return "";
+        if (typeof timeVal === "number" || (!isNaN(timeVal) && !String(timeVal).includes(":") && !isNaN(parseFloat(timeVal)))) {
+          const num = parseFloat(timeVal);
+          if (num >= 0 && num <= 1) {
+            const totalMins = Math.round(num * 1440);
+            const h = Math.floor(totalMins / 60) % 24;
+            const m = totalMins % 60;
+            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          }
+        }
+        const clean = String(timeVal).trim();
+        const parts = clean.split(":");
+        if (parts.length >= 2) {
+          return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`;
+        }
+        return clean;
+      }
+
+      function addMinutesToHHMM(timeStr, minutesToAdd) {
+        if (!timeStr || timeStr === "-") return "-";
+        const totalMins = parseTimeToMinutes(timeStr);
+        if (totalMins === null || isNaN(totalMins)) return "-";
+        const sum = (totalMins + (parseFloat(minutesToAdd) || 0)) % 1440;
+        const normalized = (sum + 1440) % 1440;
+        const h = Math.floor(normalized / 60);
+        const m = Math.round(normalized % 60);
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      }
+
+      // Función para convertir seriales numéricos de Excel (ej: 46275) a DD/MM/YYYY
+      function normalizeDateStr(dateVal) {
+        if (!dateVal) return "";
+        if (typeof dateVal === "number" || (!isNaN(dateVal) && !String(dateVal).includes("/") && !String(dateVal).includes("-") && !isNaN(parseFloat(dateVal)))) {
+          const num = parseFloat(dateVal);
+          if (num > 30000 && num < 60000) {
+            const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+            const msPerDay = 86400000;
+            const targetDate = new Date(excelEpoch.getTime() + Math.round(num) * msPerDay);
+            const d = String(targetDate.getUTCDate()).padStart(2, "0");
+            const m = String(targetDate.getUTCMonth() + 1).padStart(2, "0");
+            const y = targetDate.getUTCFullYear();
+            return `${d}/${m}/${y}`;
+          }
+        }
+        const s = String(dateVal).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+          const [y, m, d] = s.split("-");
+          return `${d}/${m}/${y}`;
+        }
+        if (/^\d{1,2}\/\d{1,2}$/.test(s)) {
+          const [d, m] = s.split("/");
+          const currYear = new Date().getFullYear();
+          return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${currYear}`;
+        }
+        return s;
+      }
+
+      // Función para obtener ventana de fechas contiguas [fecha, fecha-1, fecha+1] para cruces por día vencido
+      function getAdjacentDates(dateStr) {
+        const norm = normalizeDateStr(dateStr);
+        if (!norm || !norm.includes("/")) return [norm];
+        const parts = norm.split("/");
+        if (parts.length !== 3) return [norm];
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+        const dt = new Date(year, month, day);
+        if (isNaN(dt.getTime())) return [norm];
+
+        const prevDt = new Date(dt.getTime() - 86400000);
+        const nextDt = new Date(dt.getTime() + 86400000);
+        const fmt = dObj => `${String(dObj.getDate()).padStart(2, "0")}/${String(dObj.getMonth() + 1).padStart(2, "0")}/${dObj.getFullYear()}`;
+        return [norm, fmt(prevDt), fmt(nextDt)];
+      }
+
+      function formatMinutes(min) {
+        if (min === null || isNaN(min)) return "-";
+        const h = Math.floor(Math.abs(min) / 60);
+        const m = Math.round(Math.abs(min) % 60);
+        const sign = min < 0 ? "-" : "";
+        if (h === 0) return `${sign}${m}m`;
+        return `${sign}${h}h ${m}m`;
+      }
+
+      function parseDelimitedLines(text) {
+        return text.split(/\r?\n/)
+          .map(l => l.trim())
+          .filter(l => l.length > 0)
+          .map(l => {
+            if (l.includes("\t")) return l.split("\t").map(c => c.trim());
+            if (l.includes(";")) return l.split(";").map(c => c.trim());
+            return l.split(",").map(c => c.trim());
+          });
+      }
+
+      function renderConfigUI() {
+        const cfg = getBreakConfig();
+        const inputTraslado = document.getElementById("cfgBreakTraslado");
+        const spanTotalTraslado = document.getElementById("cfgBreakTrasladoTotal");
+        const areaNotas = document.getElementById("cfgBreakNotas");
+        const container = document.getElementById("cfgBreakContratosContainer");
+
+        if (inputTraslado) inputTraslado.value = cfg.trasladoMinutos;
+        if (spanTotalTraslado) spanTotalTraslado.textContent = (cfg.trasladoMinutos * 2).toFixed(1).replace(".0", "");
+        if (areaNotas) areaNotas.value = cfg.notasGremiales || "";
+
+        if (container) {
+          container.innerHTML = "";
+          Object.keys(cfg.contratos).forEach(cKey => {
+            const item = cfg.contratos[cKey] || { legal: 0, sindicato: 0 };
+            const card = document.createElement("div");
+            card.style.cssText = "background: rgba(30, 41, 59, 0.7); border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px;";
+            card.innerHTML = `
+              <div style="font-weight: 700; color: #38bdf8; font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px;">
+                Contrato ${cKey} hs
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+                <span style="color: var(--text-muted);">Legal:</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <input type="number" class="cfg-contrato-legal" data-key="${cKey}" value="${item.legal}" style="width: 55px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; font-size: 0.8rem; text-align: center;">
+                  <span style="color: var(--text-muted); font-size: 0.7rem;">min</span>
+                </div>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+                <span style="color: var(--text-muted);">Adicional Sindicato:</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <input type="number" class="cfg-contrato-sind" data-key="${cKey}" value="${item.sindicato}" style="width: 55px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; font-size: 0.8rem; text-align: center;">
+                  <span style="color: var(--text-muted); font-size: 0.7rem;">min</span>
+                </div>
+              </div>
+            `;
+            container.appendChild(card);
+          });
+        }
+      }
+
+      function attachConfigListeners() {
+        const inputTraslado = document.getElementById("cfgBreakTraslado");
+        if (inputTraslado) {
+          inputTraslado.addEventListener("input", (e) => {
+            const val = parseFloat(e.target.value) || 0;
+            const spanTotal = document.getElementById("cfgBreakTrasladoTotal");
+            if (spanTotal) spanTotal.textContent = (val * 2).toFixed(1).replace(".0", "");
+            const cfg = getBreakConfig();
+            cfg.trasladoMinutos = val;
+            saveBreakConfig(cfg);
+            // Recálculo incondicional
+            processAuditoria(true);
+          });
+        }
+
+        const areaNotas = document.getElementById("cfgBreakNotas");
+        if (areaNotas) {
+          areaNotas.addEventListener("input", (e) => {
+            const cfg = getBreakConfig();
+            cfg.notasGremiales = e.target.value;
+            saveBreakConfig(cfg);
+          });
+        }
+
+        const container = document.getElementById("cfgBreakContratosContainer");
+        if (container) {
+          container.addEventListener("input", (e) => {
+            const target = e.target;
+            const cKey = target.getAttribute("data-key");
+            if (!cKey) return;
+            const cfg = getBreakConfig();
+            if (!cfg.contratos[cKey]) cfg.contratos[cKey] = { legal: 0, sindicato: 0 };
+
+            if (target.classList.contains("cfg-contrato-legal")) {
+              cfg.contratos[cKey].legal = parseFloat(target.value) || 0;
+            } else if (target.classList.contains("cfg-contrato-sind")) {
+              cfg.contratos[cKey].sindicato = parseFloat(target.value) || 0;
+            }
+            saveBreakConfig(cfg);
+            // Recálculo incondicional
+            processAuditoria(true);
+          });
+        }
+      }
+
+      function findCollaborator(identifier) {
+        if (!identifier) return null;
+        const idStr = String(identifier).trim().toLowerCase();
+        const collabs = (typeof state !== 'undefined' && Array.isArray(state.collaborators)) ? state.collaborators : [];
+        return collabs.find(c => {
+          const matchOp = c.numeroOperador && String(c.numeroOperador).trim().toLowerCase() === idStr;
+          const matchId = c.id && String(c.id).trim().toLowerCase() === idStr;
+          const matchName = c.name && c.name.toLowerCase().includes(idStr);
+          return matchOp || matchId || matchName;
+        }) || null;
+      }
+
+      function getContractNorma(collabHours, cfg) {
+        if (!collabHours) return { legal: 30, sindicato: 10 }; // Default estándar
+        const hoursNum = parseFloat(collabHours);
+        
+        // Mapear horas semanales / mensuales
+        if (hoursNum <= 18 || hoursNum === 72) return cfg.contratos["72"] || { legal: 15, sindicato: 5 };
+        if (hoursNum <= 24 || hoursNum === 96) return cfg.contratos["96"] || { legal: 20, sindicato: 10 };
+        if (hoursNum <= 36 || hoursNum === 120) return cfg.contratos["120"] || { legal: 30, sindicato: 10 };
+        return cfg.contratos["192"] || { legal: 45, sindicato: 15 };
+      }
+
+      // Funciones de lectura y parseo de archivos Excel/CSV con XLSX
+      function readFileToTable(file, callback) {
+        if (!file) return;
+        const reader = new FileReader();
+        const ext = file.name.split('.').pop().toLowerCase();
+        const isExcel = ext === "xlsx" || ext === "xls";
+
+        reader.onload = function(e) {
+          try {
+            if (isExcel || typeof XLSX !== "undefined") {
+              const data = new Uint8Array(e.target.result);
+              const workbook = XLSX.read(data, { type: "array", raw: false });
+              const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+              const rawData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
+              callback(rawData);
+            } else {
+              const text = new TextDecoder("utf-8").decode(e.target.result);
+              callback(parseDelimitedLines(text));
+            }
+          } catch(err) {
+            console.error("Error leyendo archivo con XLSX", err);
+            // Fallback texto plano
+            const textReader = new FileReader();
+            textReader.onload = function(evt) {
+              callback(parseDelimitedLines(evt.target.result));
+            };
+            textReader.readAsText(file);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      function cleanVal(v) {
+        if (v === null || v === undefined) return "";
+        return String(v).trim();
+      }
+
+      // -------------------------------------------------------------
+      // PARSER GENERAL DE PARTE DIARIO TAW (MENSUAL / MULTIFECHA)
+      // Extrae e indexa todas las fichadas con formato ${legajo}_${fecha}
+      // Deducción gremial fija: Math.max(0, excesoReporte - 5)
+      // -------------------------------------------------------------
+      function parseTawRowsToMap(rowsTAW) {
+        const parsedMap = {};
+        if (!rowsTAW || rowsTAW.length === 0) return parsedMap;
+
+        let colLegajoIdx = -1;
+        let colCantIdx = -1;
+        let colFechaIdx = -1;
+        let colHoraIdx = -1;
+        let colNombreIdx = -1;
+        let colNovedadIdx = -1;
+
+        // Palabras clave de descarte inmediato (Antibasura)
+        const palabrasBasura = [
+          "WAL-MART", "WALMART", "ASISTENCIA", "PÁGINA", "PAGINA", "CONTINÚA", "CONTINUA",
+          "USUARIO", "ALFABÉTICO", "ALFABETICO", "LEGAJO TOTAL", "SUCESOS", "ENTRE LOS DÍAS",
+          "ENTRE LOS DIAS", "V2.1.62", "PARTE DIARIO", "TOTAL GENERAL", "HORARIO", "RELOJ",
+          "SISTEMA", "EMPRESA", "LISTADO DE NOVEDADES"
+        ];
+
+        let colSalidaIdx = -1;
+        let colRegresoIdx = -1;
+
+        // Detección de cabeceras inspeccionando las primeras 20 filas
+        let startIdx = 0;
+        let foundHeader = false;
+        for (let r = 0; r < Math.min(20, rowsTAW.length); r++) {
+          const rowUpper = rowsTAW[r].map(c => cleanVal(c).toUpperCase());
+          const legIdx = rowUpper.findIndex(h => h.includes("LEGAJO") || h.includes("LEGAJ") || h === "LEG");
+          let cantIdx = rowUpper.findIndex(h => h === "CANT." || h === "CANT");
+          if (cantIdx === -1) {
+            cantIdx = rowUpper.findIndex(h => h.includes("EXCESO") || h.includes("MINUTOS") || h.includes("TARDE") || h.includes("CANT"));
+          }
+          const fechaIdx = rowUpper.findIndex(h => h.includes("FECHA") || h.includes("DIA") || h.includes("DÍA"));
+          const horaIdx = rowUpper.findIndex(h => h === "HORA" || h === "REGRESO" || h.includes("HORA") || h.includes("REGRESO"));
+          const nomIdx = rowUpper.findIndex(h => h.includes("NOMBRE") || h.includes("EMPLEADO") || h.includes("COLABORADOR") || h.includes("APELLIDO"));
+          const novIdx = rowUpper.findIndex(h => h.includes("NOVEDAD") || h.includes("CONCEPTO") || h.includes("MOTIVO") || h.includes("DESCRIPCION"));
+          const salIdx = rowUpper.findIndex(h => h.includes("SALIDA") || h.includes("DESDE") || h === "SALE");
+          const regIdx = rowUpper.findIndex(h => (h.includes("REGRESO") || h.includes("HASTA") || h === "ENTRA" || h === "VUELVE") && h !== "REGRESO HORA");
+
+          if (legIdx !== -1 || cantIdx !== -1 || (fechaIdx !== -1 && horaIdx !== -1)) {
+            colLegajoIdx = legIdx !== -1 ? legIdx : 0;
+            colCantIdx = cantIdx !== -1 ? cantIdx : 10;
+            colFechaIdx = fechaIdx !== -1 ? fechaIdx : 3;
+            colHoraIdx = horaIdx !== -1 ? horaIdx : 9;
+            if (nomIdx !== -1) colNombreIdx = nomIdx;
+            if (novIdx !== -1) colNovedadIdx = novIdx;
+            if (salIdx !== -1) colSalidaIdx = salIdx;
+            if (regIdx !== -1) colRegresoIdx = regIdx;
+            startIdx = r + 1;
+            foundHeader = true;
+            break;
+          }
+        }
+
+        // Estructura oficial del Parte TAW si no se identificaron cabeceras explícitas:
+        // Col 0: Legajo
+        // Col 3: Fecha (DD/MM)
+        // Col 9: Hora fichaje (HH:MM)
+        // Col 10: Cantidad de exceso (H:MM o min)
+        if (!foundHeader) {
+          if (colLegajoIdx === -1) colLegajoIdx = 0;
+          if (colFechaIdx === -1) colFechaIdx = 3;
+          if (colHoraIdx === -1) colHoraIdx = 9;
+          if (colCantIdx === -1) colCantIdx = 10;
+        }
+
+        let currentLegajo = "";
+        let currentNombre = "";
+        let currentCollab = null;
+
+        for (let i = startIdx; i < rowsTAW.length; i++) {
+          const cols = rowsTAW[i];
+          if (!cols || cols.length === 0) continue;
+
+          const rowTextUpper = cols.map(c => cleanVal(c)).join(" ").toUpperCase();
+
+          // 1. FILTRO ANTIBASURA
+          const esBasura = palabrasBasura.some(p => rowTextUpper.includes(p));
+          if (esBasura) continue;
+
+          // Filtrar por novedad si existe la columna
+          if (colNovedadIdx !== -1 && cols[colNovedadIdx]) {
+            const novText = cleanVal(cols[colNovedadIdx]).toUpperCase();
+            const isBreakRelated = novText.includes("ALMUERZO") || novText.includes("DESCANSO") || novText.includes("BREAK") || novText.includes("TARDE") || novText.includes("EXCESO") || novText.includes("SALIDA");
+            if (!isBreakRelated && novText.length > 3) continue;
+          }
+
+          // 2. LECTURA POR FILA CON ARRASTRE DE LEGAJO
+          // Si la columna 0 contiene un número válido, actualiza el legajo vigente.
+          // Si está vacía, hereda y reutiliza currentLegajo de la fila anterior.
+          let cell0 = colLegajoIdx < cols.length ? cleanVal(cols[colLegajoIdx]) : "";
+          let digitsCell0 = cell0.replace(/\D/g, "");
+
+          if (digitsCell0 && digitsCell0.length >= 3) {
+            const collabCandidate = findCollaborator(digitsCell0);
+            if (collabCandidate) {
+              currentLegajo = digitsCell0;
+              currentNombre = collabCandidate.name;
+              currentCollab = collabCandidate;
+            } else if (!currentLegajo) {
+              // Si no coincide con collaborator pero tiene dígitos, guardarlo provisoriamente
+              currentLegajo = digitsCell0;
+              currentNombre = `Leg. ${digitsCell0}`;
+              currentCollab = { id: digitsCell0, name: currentNombre };
+            }
+          }
+
+          // Si aún no tenemos un legajo activo, ignoramos la fila (puede ser cabecera suelta)
+          if (!currentLegajo) continue;
+
+          // 3. EXTRACCIÓN DE FECHA (Columna 3 o detectada)
+          let rawFecha = "";
+          if (colFechaIdx !== -1 && colFechaIdx < cols.length && cleanVal(cols[colFechaIdx])) {
+            rawFecha = cleanVal(cols[colFechaIdx]);
+          } else {
+            // Fallback: buscar celda con formato DD/MM o DD/MM/YYYY
+            const fCandidate = cols.find(c => /^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(cleanVal(c)));
+            if (fCandidate) rawFecha = cleanVal(fCandidate);
+          }
+
+          let fecha = normalizeDateStr(rawFecha);
+          if (!fecha || !fecha.includes("/")) {
+            // Si la fila no tiene una fecha válida, no es una fila de fichada diaria
+            continue;
+          }
+
+          // 4. EXTRACCIÓN DE HORA (Columna 9 o detectada)
+          let rawHora = "";
+          if (colHoraIdx !== -1 && colHoraIdx < cols.length && cleanVal(cols[colHoraIdx])) {
+            rawHora = cleanVal(cols[colHoraIdx]);
+          } else if (cols.length > 9 && cleanVal(cols[9])) {
+            rawHora = cleanVal(cols[9]);
+          }
+          let hora = normalizeTimeToHHMM(rawHora);
+
+          // Si no encontramos hora en colHoraIdx, buscar candidato con formato HH:MM
+          if (!hora) {
+            const hCandidate = cols.find((c, idx) => idx !== colFechaIdx && /^\d{1,2}:\d{2}$/.test(cleanVal(c)));
+            if (hCandidate) hora = normalizeTimeToHHMM(hCandidate);
+          }
+
+          let salida = colSalidaIdx !== -1 && cols[colSalidaIdx] !== undefined ? normalizeTimeToHHMM(cols[colSalidaIdx]) : "";
+          let regreso = colRegresoIdx !== -1 && cols[colRegresoIdx] !== undefined ? normalizeTimeToHHMM(cols[colRegresoIdx]) : "";
+
+          // Si no hay columna separada de salida/regreso, la hora leída se asume como fichaje de salida
+          if (!salida && hora) {
+            salida = hora;
+          }
+
+          // 5. EXTRACCIÓN DE CANTIDAD DE EXCESO (Columna 10 o detectada)
+          let rawCant = "";
+          if (colCantIdx !== -1 && colCantIdx < cols.length && cleanVal(cols[colCantIdx])) {
+            rawCant = cleanVal(cols[colCantIdx]);
+          } else if (cols.length > 10 && cleanVal(cols[10])) {
+            rawCant = cleanVal(cols[10]);
+          }
+
+          if (rawCant === hora || (colHoraIdx !== -1 && colCantIdx === colHoraIdx)) {
+            rawCant = "";
+          }
+
+          if (!rawCant) {
+            const cantCandidate = cols.find((c, idx) => {
+              if (idx === colLegajoIdx || idx === colFechaIdx || idx === colHoraIdx || idx === colNombreIdx || idx === colSalidaIdx || idx === colRegresoIdx) return false;
+              const s = cleanVal(c);
+              if (s === hora || s.length === 0) return false;
+              const matchTime = s.match(/^(\d{1,2}):(\d{2})$/);
+              if (matchTime) {
+                const hrs = parseInt(matchTime[1], 10);
+                const mins = parseInt(matchTime[2], 10);
+                const total = hrs * 60 + mins;
+                return total > 0 && total <= 180;
+              }
+              const numVal = parseFloat(s.replace(",", "."));
+              return !isNaN(numVal) && numVal > 0 && numVal <= 180;
+            });
+            if (cantCandidate) rawCant = cleanVal(cantCandidate);
+          }
+
+          let excesoReporte = 0;
+          if (rawCant) {
+            if (rawCant.includes(":")) {
+              const parts = rawCant.split(":");
+              const p0 = parseInt(parts[0], 10) || 0;
+              const p1 = parseInt(parts[1], 10) || 0;
+              const totalM = (p0 * 60) + p1;
+              if (totalM > 0 && totalM <= 180) excesoReporte = Math.round(totalM);
+            } else {
+              const parsed = parseFloat(rawCant.replace(",", "."));
+              if (!isNaN(parsed) && parsed > 0) {
+                if (parsed < 1) {
+                  const minFrac = Math.round(parsed * 1440);
+                  if (minFrac <= 180) excesoReporte = minFrac;
+                } else if (parsed <= 180) {
+                  excesoReporte = Math.round(parsed);
+                }
+              }
+            }
+          }
+
+          // Regla sindical estricta: Exceso Neto TAW = max(0, excesoReporte - 5)
+          const excesoNeto = Math.max(0, excesoReporte - 5);
+
+          const record = {
+            legajo: currentLegajo,
+            fecha,
+            hora,
+            salida,
+            regreso,
+            nombre: currentNombre,
+            collab: currentCollab,
+            excesoReporte,
+            excesoNeto,
+            adicionalSindical: 5
+          };
+
+          const keyWithDate = `${currentLegajo}_${fecha}`.toLowerCase();
+          parsedMap[keyWithDate] = record;
+        }
+
+        return parsedMap;
+      }
+
+      // Procesamiento e indexado masivo del TAW Mensual
+      function processTawMensual() {
+        const rawTAWText = (document.getElementById("breakInputTAW")?.value || "").trim();
+        if (!rawTAWText) {
+          alert("Por favor pegá o subí el reporte Parte Diario TAW mensual para indexar.");
+          return;
+        }
+
+        const rowsTAW = parseDelimitedLines(rawTAWText);
+        const newMap = parseTawRowsToMap(rowsTAW);
+        const count = Object.keys(newMap).length;
+
+        if (count === 0) {
+          alert("No se pudieron detectar fichadas válidas en el Parte Diario TAW provisto. Verificá que los legajos existan en el sistema.");
+          return;
+        }
+
+        // Fusión / reemplazo limpio en globalTawMap
+        globalTawMap = { ...globalTawMap, ...newMap };
+        saveGlobalTawMap(globalTawMap);
+
+        alert(`✅ Base TAW Mensual actualizada con éxito: ${count} fichadas procesadas e indexadas permanentemente.`);
+
+        // Si ya hay un R25 cargado o la tabla tiene registros, recalcular
+        const inR25 = (document.getElementById("breakInputR25")?.value || "").trim();
+        if (inR25) {
+          processAuditoria(true);
+        } else if (typeof renderTableResults === "function") {
+          renderTableResults();
+        }
+      }
+
+      function processAuditoria(silent = false) {
+        const rawR25Text = (document.getElementById("breakInputR25")?.value || "").trim();
+        const rawTAWText = (document.getElementById("breakInputTAW")?.value || "").trim();
+
+        // Si se cargó texto en el textarea de TAW, indexarlo también en la base global
+        if (rawTAWText) {
+          const freshTawMap = parseTawRowsToMap(parseDelimitedLines(rawTAWText));
+          if (Object.keys(freshTawMap).length > 0) {
+            globalTawMap = { ...globalTawMap, ...freshTawMap };
+            saveGlobalTawMap(globalTawMap);
+          }
+        }
+
+        const hasGlobalTaw = Object.keys(globalTawMap || {}).length > 0;
+
+        if (!rawR25Text && !hasGlobalTaw && !rawTAWText) {
+          if (!silent) {
+            alert("Por favor pegá o subí el Reporte 25 del día o indexá primero el Parte Diario TAW mensual.");
+          }
+          return;
+        }
+
+        const rowsR25 = parseDelimitedLines(rawR25Text);
+
+        const cfg = getBreakConfig();
+        const toleranciaTraslado = (cfg.trasladoMinutos || 3.5) * 2;
+
+        // Obtener área activa seleccionada ("Linea de Cajas" vs "Disponibilidad")
+        const areaSelectorEl = document.getElementById("breakAreaSelector");
+        const areaSeleccionada = areaSelectorEl ? areaSelectorEl.value : "Linea de Cajas";
+        const esModoCajas = areaSeleccionada === "Linea de Cajas";
+
+        // Helper para normalizar y comparar el área de un colaborador
+        function getCollabArea(c) {
+          if (!c) return "";
+          return (c.area || "Disponibilidad").trim();
+        }
+
+        // Fuente de verdad de TAW: globalTawMap
+        const tawMap = globalTawMap || {};
+
+        // -------------------------------------------------------------
+        // 2. PROCESAR REPORTE 25 (Línea de Caja)
+        // Regla: Solo se procesa si el área activa es "Linea de Cajas"
+        // Excluye colaboradores cuya área no sea "Linea de Cajas"
+        // -------------------------------------------------------------
+        const results = [];
+        const r25Agrupado = {}; // Clave: `${dia}_${op}`
+
+        if (esModoCajas && rowsR25.length > 0) {
+          let colDiaIdx = -1;
+          let colHoraIdx = -1;
+          let colCajaIdx = -1;
+          let colOpIdx = -1;
+          let colTrxIdx = -1;
+          let colCodIdx = -1;
+
+          // Identificar cabecera
+          let startIdx = 0;
+          for (let r = 0; r < Math.min(5, rowsR25.length); r++) {
+            const headerRow = rowsR25[r].map(c => cleanVal(c).toUpperCase());
+            const hasDia = headerRow.findIndex(h => h.includes("DIA") || h.includes("FECHA"));
+            const hasOp = headerRow.findIndex(h => h === "OP" || h.includes("OPERADOR") || h.includes("CAJERO"));
+            const hasCod = headerRow.findIndex(h => h === "COD" || h.includes("CODIGO") || h.includes("CÓDIGO") || h.includes("ACCION") || h.includes("ACCIÓN"));
+            const hasHora = headerRow.findIndex(h => h.includes("HORA") || h.includes("TIEMPO"));
+            const hasCaja = headerRow.findIndex(h => h.includes("CAJA") || h === "POS");
+            const hasTrx = headerRow.findIndex(h => h.includes("TRX") || h.includes("TRANS"));
+
+            if (hasDia !== -1 || hasOp !== -1 || hasCod !== -1 || hasHora !== -1) {
+              colDiaIdx = hasDia;
+              colOpIdx = hasOp;
+              colCodIdx = hasCod;
+              colHoraIdx = hasHora;
+              colCajaIdx = hasCaja;
+              colTrxIdx = hasTrx;
+              startIdx = r + 1;
+              break;
+            }
+          }
+
+          if (colDiaIdx === -1 && colOpIdx === -1 && rowsR25[0].length >= 4) {
+            colDiaIdx = 0;
+            colHoraIdx = 1;
+            colCajaIdx = 2;
+            colOpIdx = 3;
+            colTrxIdx = 4;
+            colCodIdx = rowsR25[0].length >= 6 ? 5 : -1;
+          }
+
+          for (let i = startIdx; i < rowsR25.length; i++) {
+            const cols = rowsR25[i];
+            if (!cols || cols.length === 0) continue;
+
+            // Filtrar código 25
+            if (colCodIdx !== -1 && cols[colCodIdx] !== undefined) {
+              const codVal = cleanVal(cols[colCodIdx]).replace(/\D/g, "");
+              if (codVal && codVal !== "25") {
+                continue;
+              }
+            }
+
+            let dia = colDiaIdx !== -1 && cols[colDiaIdx] !== undefined ? cleanVal(cols[colDiaIdx]) : "";
+            let op = colOpIdx !== -1 && cols[colOpIdx] !== undefined ? cleanVal(cols[colOpIdx]) : "";
+            let rawHora = colHoraIdx !== -1 && cols[colHoraIdx] !== undefined ? cleanVal(cols[colHoraIdx]) : "";
+
+            if (!rawHora) {
+              const timeCandidate = cols.find(c => /^\d{1,2}:\d{2}(:\d{2})?$/.test(cleanVal(c)));
+              if (timeCandidate) rawHora = cleanVal(timeCandidate);
+            }
+            if (!dia) {
+              const dateCandidate = cols.find(c => /^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/.test(cleanVal(c)) || (/^\d{5}$/.test(cleanVal(c)) && parseInt(cleanVal(c), 10) > 30000 && parseInt(cleanVal(c), 10) < 60000));
+              if (dateCandidate) dia = cleanVal(dateCandidate);
+            }
+            dia = normalizeDateStr(dia) || (dia ? cleanVal(dia) : "Día");
+
+            if (!op) {
+              const opCandidate = cols.find(c => /^\d{1,5}$/.test(cleanVal(c)) && c !== dia && c !== rawHora);
+              if (opCandidate) op = cleanVal(opCandidate);
+            }
+
+            if (!op || !rawHora) continue;
+
+            // BLINDAJE DE CAJAS: Validar que el operador exista y su área sea "Linea de Cajas"
+            const collab = findCollaborator(op);
+            if (!collab || getCollabArea(collab) !== "Linea de Cajas") {
+              // Excluir personal que no sea de Línea de Cajas
+              continue;
+            }
+
+            const minutosVal = parseTimeToMinutes(rawHora);
+            if (minutosVal === null) continue;
+            const hora = normalizeTimeToHHMM(rawHora) || `${String(Math.floor(minutosVal / 60) % 24).padStart(2, "0")}:${String(minutosVal % 60).padStart(2, "0")}`;
+
+            const groupKey = `${dia}_${op}`.toLowerCase();
+            if (!r25Agrupado[groupKey]) {
+              r25Agrupado[groupKey] = {
+                dia,
+                op,
+                collab,
+                eventos: []
+              };
+            }
+            r25Agrupado[groupKey].eventos.push({ hora, minutos: minutosVal });
+          }
+
+          // Procesar marcas cronológicas de Línea de Cajas
+          Object.values(r25Agrupado).forEach(grp => {
+            grp.eventos.sort((a, b) => a.minutos - b.minutos);
+
+            const collab = grp.collab || findCollaborator(grp.op);
+            const collabName = collab.name;
+            const collabId = collab.id || "";
+            const collabHours = collab.hours || "";
+            const norma = getContractNorma(collabHours, cfg);
+
+            const topePermitido = norma.legal + norma.sindicato + toleranciaTraslado;
+
+            if (grp.eventos.length >= 2) {
+              for (let e = 0; e < grp.eventos.length; e += 2) {
+                const salidaEvt = grp.eventos[e];
+                const regresoEvt = grp.eventos[e + 1];
+
+                if (!regresoEvt) {
+                  results.push({
+                    dia: grp.dia,
+                    op: grp.op,
+                    legajo: collabId || "-",
+                    nombre: collabName,
+                    contrato: collabHours ? `${collabHours}hs` : "Estándar",
+                    salida: salidaEvt.hora,
+                    regreso: "Sin regreso",
+                    salidaTAW: "-",
+                    regresoTAW: "-",
+                    tiempoRealCaja: null,
+                    topePermitido,
+                    excesoCaja: 0,
+                    excesoTAWReporte: 0,
+                    excesoNetoTAW: 0,
+                    excesoRealTAW: 0,
+                    normaSindicato: norma.sindicato,
+                    normaLegal: norma.legal,
+                    semaforo: "limite",
+                    area: "Linea de Cajas"
+                  });
+                  continue;
+                }
+
+                let tiempoRealCaja = regresoEvt.minutos >= salidaEvt.minutos
+                  ? (regresoEvt.minutos - salidaEvt.minutos)
+                  : (1440 - salidaEvt.minutos + regresoEvt.minutos);
+
+                const excesoCaja = Math.max(0, tiempoRealCaja - topePermitido);
+
+                // Sincronización de fecha con TAW (búsqueda exacta o desfasaje +/- 1 día por día vencido)
+                // Prohibición estricta de fallback por legajo puro: si no coincide con la fecha del reporte, no se arrastran excesos ajenos
+                let tawEntry = null;
+                const fechasBuscar = getAdjacentDates(grp.dia);
+                for (const f of fechasBuscar) {
+                  const fKey = f.toLowerCase();
+                  if (collabId && tawMap[`${collabId}_${fKey}`]) {
+                    tawEntry = tawMap[`${collabId}_${fKey}`];
+                    break;
+                  }
+                  if (tawMap[`${grp.op}_${fKey}`]) {
+                    tawEntry = tawMap[`${grp.op}_${fKey}`];
+                    break;
+                  }
+                }
+
+                const excesoTAWReporte = tawEntry ? tawEntry.excesoReporte : 0;
+                const excesoNetoTAW = tawEntry ? tawEntry.excesoNeto : 0;
+                const excesoRealTAW = excesoNetoTAW;
+
+                let salidaTAW = "-";
+                let regresoTAW = "-";
+                if (tawEntry) {
+                  salidaTAW = tawEntry.salida || tawEntry.hora || "-";
+                  regresoTAW = tawEntry.regreso || (salidaTAW && salidaTAW !== "-" ? addMinutesToHHMM(salidaTAW, topePermitido) : "-");
+                }
+
+                let semaforo = "ok";
+                if (excesoCaja > 0 || excesoRealTAW > 0) {
+                  semaforo = "exceso";
+                } else if (tiempoRealCaja >= (topePermitido - 3) || (excesoTAWReporte > 0 && excesoRealTAW === 0)) {
+                  semaforo = "limite";
+                }
+
+                results.push({
+                  dia: grp.dia,
+                  op: grp.op,
+                  legajo: collabId || "-",
+                  nombre: collabName,
+                  contrato: collabHours ? `${collabHours}hs` : "Estándar",
+                  salida: salidaEvt.hora,
+                  regreso: regresoEvt.hora,
+                  salidaTAW,
+                  regresoTAW,
+                  tiempoRealCaja,
+                  topePermitido,
+                  excesoCaja,
+                  excesoTAWReporte,
+                  excesoNetoTAW,
+                  excesoRealTAW,
+                  normaSindicato: norma.sindicato,
+                  normaLegal: norma.legal,
+                  semaforo,
+                  area: "Linea de Cajas"
+                });
+              }
+            } else if (grp.eventos.length === 1) {
+              results.push({
+                dia: grp.dia,
+                op: grp.op,
+                legajo: collabId || "-",
+                nombre: collabName,
+                contrato: collabHours ? `${collabHours}hs` : "Estándar",
+                salida: grp.eventos[0].hora,
+                regreso: "Sin regreso",
+                salidaTAW: "-",
+                regresoTAW: "-",
+                tiempoRealCaja: null,
+                topePermitido,
+                excesoCaja: 0,
+                excesoTAWReporte: 0,
+                excesoNetoTAW: 0,
+                excesoRealTAW: 0,
+                normaSindicato: norma.sindicato,
+                normaLegal: norma.legal,
+                semaforo: "limite",
+                area: "Linea de Cajas"
+              });
+            }
+          });
+        }
+
+        // Casos de TAW:
+        // - En "Linea de Cajas": Solo incorporar cajeros validados de TAW que no hayan fichado en R25 para esa fecha
+        // - En "Disponibilidad": Auditar exclusivamente a los repositores/dotación de Disponibilidad leídos en TAW
+        Object.values(tawMap).forEach(entry => {
+          const collab = entry.collab || findCollaborator(entry.legajo);
+          if (!collab) return;
+
+          const collabArea = getCollabArea(collab);
+          // Filtro estricto por área
+          if (collabArea !== areaSeleccionada) return;
+
+          const entryLegajoStr = String(entry.legajo).toLowerCase();
+          const entryOpStr = String(collab.numeroOperador || "").toLowerCase();
+          const entryFechaStr = String(entry.fecha || "").toLowerCase();
+          const fechasAdyacentes = getAdjacentDates(entry.fecha);
+
+          const yaEnR25 = results.some(r => {
+            const rLeg = String(r.legajo || "").toLowerCase();
+            const rOp = String(r.op || "").toLowerCase();
+            const rDia = String(r.dia || "").toLowerCase();
+            const matchPersona = (entryLegajoStr && rLeg === entryLegajoStr) || (entryOpStr && rOp === entryOpStr);
+            const matchFecha = rDia === entryFechaStr || fechasAdyacentes.map(f => f.toLowerCase()).includes(rDia);
+            return matchPersona && matchFecha;
+          });
+
+          if (!yaEnR25 || !esModoCajas) {
+            const collabName = collab.name;
+            const collabHours = collab.hours || "";
+            const norma = getContractNorma(collabHours, cfg);
+            const topePermitido = norma.legal + norma.sindicato + toleranciaTraslado;
+            const excesoNetoTAW = entry.excesoNeto;
+            const excesoRealTAW = excesoNetoTAW;
+            const semaforo = excesoRealTAW > 0 ? "exceso" : (entry.excesoReporte > 0 ? "limite" : "ok");
+
+            const salidaTAW = entry.salida || entry.hora || "-";
+            const regresoTAW = entry.regreso || (salidaTAW && salidaTAW !== "-" ? addMinutesToHHMM(salidaTAW, topePermitido) : "-");
+
+            results.push({
+              dia: entry.fecha || "TAW",
+              op: collab.numeroOperador || "-",
+              legajo: entry.legajo,
+              nombre: collabName,
+              contrato: collabHours ? `${collabHours}hs` : "Estándar",
+              salida: "-",
+              regreso: "-",
+              salidaTAW,
+              regresoTAW,
+              tiempoRealCaja: null,
+              topePermitido,
+              excesoCaja: 0,
+              excesoTAWReporte: entry.excesoReporte,
+              excesoNetoTAW,
+              excesoRealTAW,
+              normaSindicato: norma.sindicato,
+              normaLegal: norma.legal,
+              semaforo,
+              area: collabArea
+            });
+          }
+        });
+
+        saveAuditData(results);
+        renderTableResults();
+
+        // Cambiar visualmente a la solapa de matriz de cruce
+        activateBreakTab("tabBtnBreakCruce");
+      }
+
+      function populateDateFilterOptions() {
+        const input = document.getElementById("breakDateFilter");
+        if (!input) return;
+
+        // Si ya tiene un valor establecido por el usuario o inicial, conservarlo
+        if (input.value) return;
+
+        // Intentar detectar una fecha válida desde las filas cargadas
+        let detectedDate = "";
+        for (const r of (currentAuditRows || [])) {
+          if (r.dia && r.dia !== "TAW" && r.dia !== "Día") {
+            const p = String(r.dia).trim().split("/");
+            if (p.length === 3) {
+              const yyyy = p[2].length === 4 ? p[2] : (p[2].length === 2 ? `20${p[2]}` : p[2]);
+              const mm = p[1].padStart(2, "0");
+              const dd = p[0].padStart(2, "0");
+              detectedDate = `${yyyy}-${mm}-${dd}`;
+              break;
+            } else if (/^\d{4}-\d{2}-\d{2}$/.test(r.dia)) {
+              detectedDate = r.dia;
+              break;
+            }
+          }
+        }
+
+        if (detectedDate) {
+          input.value = detectedDate;
+        } else {
+          // Si no hay fecha detectada en los reportes, fijar hoy como valor por defecto
+          const now = new Date();
+          const yyyy = now.getFullYear();
+          const mm = String(now.getMonth() + 1).padStart(2, "0");
+          const dd = String(now.getDate()).padStart(2, "0");
+          input.value = `${yyyy}-${mm}-${dd}`;
+        }
+      }
+
+      function renderTableResults() {
+        populateDateFilterOptions();
+
+        const tbody = document.getElementById("tablaAuditoriaBreaksBody");
+        const filterEstado = document.getElementById("breakFilterEstado")?.value || "todos";
+        const filterQuery = (document.getElementById("breakFilterSearch")?.value || "").toLowerCase().trim();
+        const dateInputEl = document.getElementById("breakDateFilter");
+        const selectedDateStr = dateInputEl ? dateInputEl.value : ""; // YYYY-MM-DD
+        const areaSelectorEl = document.getElementById("breakAreaSelector");
+        const areaSeleccionada = areaSelectorEl ? areaSelectorEl.value : "Linea de Cajas";
+        const esModoCajas = areaSeleccionada === "Linea de Cajas";
+
+        if (!tbody) return;
+
+        let selectedFormattedDate = ""; // DD/MM/YYYY
+        if (selectedDateStr && /^\d{4}-\d{2}-\d{2}$/.test(selectedDateStr)) {
+          const [y, m, d] = selectedDateStr.split("-");
+          selectedFormattedDate = `${d}/${m}/${y}`;
+        }
+
+        const cfg = getBreakConfig();
+        const toleranciaTraslado = (cfg.trasladoMinutos || 3.5) * 2;
+        let displayRows = [];
+
+        if (esModoCajas) {
+          // -------------------------------------------------------------
+          // CARGA BASE DESDE PLANIFICACIÓN (DOTACIÓN DE CAJAS Y ROLLERS)
+          // -------------------------------------------------------------
+          const allCollabs = (typeof state !== 'undefined' && Array.isArray(state.collaborators)) ? state.collaborators : [];
+          const cajasCollabs = allCollabs.filter(c => {
+            const area = (c.area || "Disponibilidad").trim();
+            const pasillo = (c.pasillo || "").toLowerCase().trim();
+            const esquema = (c.esquema || "").toLowerCase().trim();
+            return area === "Linea de Cajas" || pasillo.includes("roller") || esquema.includes("roller");
+          });
+
+          // Filtrar reportes auditados para la fecha seleccionada
+          const auditRowsForDay = (currentAuditRows || []).filter(r => {
+            if (!selectedFormattedDate) return true;
+            const rDia = String(r.dia || "").trim();
+            return rDia === selectedFormattedDate || rDia === selectedDateStr;
+          });
+
+          const matchedAuditKeys = new Set();
+
+          cajasCollabs.forEach(collab => {
+            const collabId = collab.id || "";
+            const collabOp = collab.numeroOperador ? String(collab.numeroOperador).trim() : "";
+            const collabName = collab.name || "Sin nombre";
+            const collabHours = collab.hours ? `${collab.hours}hs` : "Estándar";
+            const norma = getContractNorma(collab.hours, cfg);
+            const topePermitido = norma.legal + norma.sindicato + toleranciaTraslado;
+
+            // Consultar estado de planificación para el día
+            let planSlot = "";
+            if (typeof state !== 'undefined' && state.planning && selectedDateStr) {
+              const pKey = `${collabId}_${selectedDateStr}`;
+              const pObj = state.planning[pKey];
+              if (pObj) {
+                planSlot = typeof pObj === 'string' ? pObj : (pObj.slot || "");
+              }
+            }
+            const slotUpper = planSlot.toUpperCase().trim();
+
+            // Buscar si tuvo fichadas en la auditoría para este día
+            const matchedRows = auditRowsForDay.filter((r, idx) => {
+              const rLeg = String(r.legajo || "").trim().toLowerCase();
+              const rOp = String(r.op || "").trim().toLowerCase();
+              const matchId = collabId && rLeg === collabId.toLowerCase();
+              const matchOp = collabOp && rOp === collabOp.toLowerCase();
+              if (matchId || matchOp) {
+                matchedAuditKeys.add(idx);
+                return true;
+              }
+              return false;
+            });
+
+            if (matchedRows.length > 0) {
+              // Colaborador con registros de break
+              matchedRows.forEach(r => {
+                displayRows.push({
+                  ...r,
+                  collabObj: collab,
+                  contrato: r.contrato || (collab.hours ? `${collab.hours}hs` : (planSlot || "Estándar"))
+                });
+              });
+            } else {
+              // Sin marcas de break: determinar si está Franco, Vacaciones, Ausente o Planificado
+              let semaforo = "ok";
+              let badgeText = "🟢 En regla";
+              let badgeType = "ok";
+
+              if (slotUpper === "F" || slotUpper.includes("FRANCO") || slotUpper.includes("LIBRE")) {
+                badgeType = "franco";
+                badgeText = "🔵 Franco";
+                semaforo = "ok";
+              } else if (slotUpper === "V" || slotUpper.includes("VAC")) {
+                badgeType = "vacaciones";
+                badgeText = "🟣 Vacaciones";
+                semaforo = "ok";
+              } else if (slotUpper === "E" || slotUpper.includes("ENF") || slotUpper.includes("LIC")) {
+                badgeType = "enfermedad";
+                badgeText = "⚪ Enfermedad";
+                semaforo = "ok";
+              } else if (slotUpper === "NV" || slotUpper.includes("AUS") || slotUpper.includes("SUS")) {
+                badgeType = "ausente";
+                badgeText = "🟠 Ausente";
+                semaforo = "ok";
+              } else if (!collab.active && collab.active !== undefined) {
+                badgeType = "inactivo";
+                badgeText = "Inactivo";
+                semaforo = "ok";
+              } else if (slotUpper && slotUpper !== "-") {
+                badgeType = "turno";
+                badgeText = "🟢 En regla";
+                semaforo = "ok";
+              } else {
+                badgeType = "sinturno";
+                badgeText = "🟢 En regla";
+                semaforo = "ok";
+              }
+
+              displayRows.push({
+                dia: selectedFormattedDate || selectedDateStr || "Día",
+                op: collabOp || "-",
+                legajo: collabId || "-",
+                nombre: collabName,
+                contrato: collab.hours ? `${collab.hours}hs` : (planSlot || "Estándar"),
+                salida: "-",
+                regreso: "-",
+                salidaTAW: "-",
+                regresoTAW: "-",
+                tiempoRealCaja: null,
+                topePermitido,
+                excesoCaja: 0,
+                excesoTAWReporte: 0,
+                excesoNetoTAW: 0,
+                excesoRealTAW: 0,
+                normaSindicato: norma.sindicato,
+                normaLegal: norma.legal,
+                semaforo,
+                badgeType,
+                badgeText,
+                area: "Linea de Cajas"
+              });
+            }
+          });
+
+          // Agregar cualquier registro auditado de la fecha que no haya coincidido con un cajero base
+          auditRowsForDay.forEach((r, idx) => {
+            if (!matchedAuditKeys.has(idx)) {
+              displayRows.push(r);
+            }
+          });
+        } else {
+          // Modo Disponibilidad: auditar filas de Disponibilidad para la fecha
+          displayRows = (currentAuditRows || []).filter(r => {
+            if (!selectedFormattedDate) return true;
+            const rDia = String(r.dia || "").trim();
+            return rDia === selectedFormattedDate || rDia === selectedDateStr;
+          });
+        }
+
+        // Actualizar KPIs reactivos en función de la dotación y resultados de la fecha
+        const total = displayRows.length;
+        const enRegla = displayRows.filter(r => r.semaforo === "ok").length;
+        const alLimite = displayRows.filter(r => r.semaforo === "limite").length;
+        const conExceso = displayRows.filter(r => r.semaforo === "exceso" || (r.excesoCaja > 0) || ((r.excesoRealTAW || r.excesoNetoTAW) > 0)).length;
+
+        const elKpiTotal = document.getElementById("kpiBreakTotal");
+        const elKpiEnRegla = document.getElementById("kpiBreakEnRegla");
+        const elKpiAlLimite = document.getElementById("kpiBreakAlLimite");
+        const elKpiExceso = document.getElementById("kpiBreakExceso");
+
+        if (elKpiTotal) elKpiTotal.textContent = total;
+        if (elKpiEnRegla) elKpiEnRegla.textContent = enRegla;
+        if (elKpiAlLimite) elKpiAlLimite.textContent = alLimite;
+        if (elKpiExceso) elKpiExceso.textContent = conExceso;
+
+        // Filtrado por estado y búsqueda textual
+        let filtered = displayRows.filter(row => {
+          if (filterEstado !== "todos" && row.semaforo !== filterEstado) return false;
+          if (filterQuery) {
+            const matchName = (row.nombre || "").toLowerCase().includes(filterQuery);
+            const matchOp = String(row.op || "").toLowerCase().includes(filterQuery);
+            const matchLeg = String(row.legajo || "").toLowerCase().includes(filterQuery);
+            return matchName || matchOp || matchLeg;
+          }
+          return true;
+        });
+
+        if (filtered.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="13" style="text-align: center; padding: 24px; color: var(--text-muted);">
+                ${displayRows.length === 0 ? 'No hay registros cargados para la fecha seleccionada.' : 'No se encontraron resultados con los filtros actuales.'}
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = filtered.map(row => {
+          let badgeSemaforo = "";
+          let rowBg = "";
+
+          if (row.badgeType === "franco") {
+            badgeSemaforo = `<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 4px; padding: 2px 7px; font-weight: 700; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;">🔵 Franco</span>`;
+            rowBg = "rgba(59, 130, 246, 0.03)";
+          } else if (row.badgeType === "vacaciones") {
+            badgeSemaforo = `<span style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 4px; padding: 2px 7px; font-weight: 700; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;">🟣 Vacaciones</span>`;
+            rowBg = "rgba(168, 85, 247, 0.03)";
+          } else if (row.badgeType === "enfermedad") {
+            badgeSemaforo = `<span style="background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.4); border-radius: 4px; padding: 2px 7px; font-weight: 700; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;">⚪ Enfermedad</span>`;
+            rowBg = "rgba(148, 163, 184, 0.03)";
+          } else if (row.badgeType === "ausente") {
+            badgeSemaforo = `<span style="background: rgba(249, 115, 22, 0.2); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.4); border-radius: 4px; padding: 2px 7px; font-weight: 700; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;">🟠 Ausente</span>`;
+            rowBg = "rgba(249, 115, 22, 0.03)";
+          } else if (row.semaforo === "exceso") {
+            badgeSemaforo = `<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 4px; padding: 2px 7px; font-weight: 700; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;">🔴 Exceso</span>`;
+            rowBg = "rgba(239, 68, 68, 0.05)";
+          } else if (row.semaforo === "limite") {
+            badgeSemaforo = `<span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 4px; padding: 2px 7px; font-weight: 700; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;">🟡 Al Límite</span>`;
+            rowBg = "rgba(245, 158, 11, 0.03)";
+          } else {
+            badgeSemaforo = `<span style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 4px; padding: 2px 7px; font-weight: 700; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;">🟢 En regla</span>`;
+          }
+
+          const opNum = row.op && row.op !== "-" ? row.op : "-";
+          const legNum = row.legajo && row.legajo !== "-" ? row.legajo : "-";
+          const opLegLabel = `${opNum} / ${legNum}`;
+
+          const salidaTAWVal = row.salidaTAW || "-";
+          const regresoTAWVal = row.regresoTAW || "-";
+          const excesoTAWVal = row.excesoTAWReporte || 0;
+          const excesoRealVal = row.excesoRealTAW !== undefined ? row.excesoRealTAW : (row.excesoNetoTAW || 0);
+
+          return `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: ${rowBg};">
+              <td style="padding: 6px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${badgeSemaforo}</td>
+              <td style="padding: 6px 6px; color: #94a3b8; font-family: monospace; font-size: 0.74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${opLegLabel}">${opLegLabel}</td>
+              <td style="padding: 6px 6px; font-weight: 600; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${row.nombre}">${row.nombre}</td>
+              <td style="padding: 6px 4px; color: #38bdf8; font-weight: 600; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.contrato}</td>
+              <td style="padding: 6px 4px; font-family: monospace; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.salida}</td>
+              <td style="padding: 6px 4px; font-family: monospace; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.regreso}</td>
+              <td style="padding: 6px 4px; text-align: center; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.tiempoRealCaja !== null && row.tiempoRealCaja !== undefined ? `${row.tiempoRealCaja}m` : "-"}</td>
+              <td style="padding: 6px 4px; text-align: center; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.topePermitido}m</td>
+              <td style="padding: 6px 4px; text-align: center; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${row.excesoCaja > 0 ? '#f87171' : 'var(--text-muted)'};">
+                ${row.excesoCaja > 0 ? `+${row.excesoCaja}m` : "0m"}
+              </td>
+              <td style="padding: 6px 4px; font-family: monospace; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e2e8f0;">${salidaTAWVal}</td>
+              <td style="padding: 6px 4px; font-family: monospace; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e2e8f0;">${regresoTAWVal}</td>
+              <td style="padding: 6px 4px; text-align: center; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${excesoTAWVal > 0 ? '#fbbf24' : 'var(--text-muted)'};">
+                ${excesoTAWVal > 0 ? `+${excesoTAWVal}m` : "0m"}
+              </td>
+              <td style="padding: 6px 4px; text-align: center; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${excesoRealVal > 0 ? '#f87171' : 'var(--text-muted)'};">
+                ${excesoRealVal > 0 ? `+${excesoRealVal}m` : "0m"}
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      function activateBreakTab(tabBtnId) {
+        const tabs = [
+          { btn: "tabBtnBreakCruce", content: "breakTabContentCruce" },
+          { btn: "tabBtnBreakIngesta", content: "breakTabContentIngesta" },
+          { btn: "tabBtnBreakConfig", content: "breakTabContentConfig" }
+        ];
+        tabs.forEach(o => {
+          const b = document.getElementById(o.btn);
+          const c = document.getElementById(o.content);
+          if (b && c) {
+            if (o.btn === tabBtnId) {
+              b.classList.add("active");
+              b.style.background = "var(--primary)";
+              b.style.color = "#fff";
+              c.style.display = "flex";
+            } else {
+              b.classList.remove("active");
+              b.style.background = "transparent";
+              b.style.color = "var(--text-muted)";
+              c.style.display = "none";
+            }
+          }
+        });
+      }
+
+      function setupTabs() {
+        const tabs = [
+          { btn: "tabBtnBreakCruce", content: "breakTabContentCruce" },
+          { btn: "tabBtnBreakIngesta", content: "breakTabContentIngesta" },
+          { btn: "tabBtnBreakConfig", content: "breakTabContentConfig" }
+        ];
+
+        tabs.forEach(t => {
+          const btnEl = document.getElementById(t.btn);
+          if (btnEl) {
+            btnEl.addEventListener("click", () => {
+              activateBreakTab(t.btn);
+
+              // Al hacer clic en la solapa de Matriz de Cruce, invocar recálculo con processAuditoria()
+              if (t.btn === "tabBtnBreakCruce") {
+                const r25 = (document.getElementById("breakInputR25")?.value || "").trim();
+                const taw = (document.getElementById("breakInputTAW")?.value || "").trim();
+                if (r25 || taw) {
+                  processAuditoria();
+                } else if (typeof renderTableResults === "function") {
+                  renderTableResults();
+                }
+              }
+            });
+          }
+        });
+      }
+
+      function exportCSV() {
+        const tbody = document.getElementById("tablaAuditoriaBreaksBody");
+        if (!tbody) {
+          alert("No hay datos para exportar.");
+          return;
+        }
+
+        const dateInputEl = document.getElementById("breakDateFilter");
+        const filterFecha = dateInputEl?.value || "fecha";
+
+        const headers = ["Estado", "Nº Op / Leg", "Colaborador", "Jornada", "Salida Caja", "Regreso Caja", "Tiempo Real", "Tope", "Exceso Caja", "Salida TAW", "Regreso TAW", "Exceso TAW", "Exceso Real"];
+        const trs = Array.from(tbody.querySelectorAll("tr"));
+        const dataRows = trs.filter(tr => tr.children.length === 13);
+
+        if (dataRows.length === 0) {
+          alert("No hay registros para exportar en la tabla.");
+          return;
+        }
+
+        const rows = dataRows.map(tr => {
+          const tds = Array.from(tr.children);
+          return tds.map(td => `"${td.innerText.replace(/"/g, '""').trim()}"`);
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(",")].concat(rows.map(e => e.join(","))).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Auditoria_Descansos_${filterFecha}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      function initModule() {
+        loadSavedAuditData();
+        loadGlobalTawMap();
+        renderConfigUI();
+        attachConfigListeners();
+        setupTabs();
+        renderTableResults();
+
+        // Botón en el dropdown y cierre
+        const navBtn = document.getElementById("breakAuditNavBtn");
+        const modal = document.getElementById("breakAuditModal");
+        const closeBtn = document.getElementById("breakAuditCloseBtn");
+
+        if (navBtn) {
+          navBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            window.openBreakAuditModal();
+          });
+        }
+
+        if (closeBtn && modal) {
+          closeBtn.addEventListener("click", () => {
+            modal.classList.remove("active");
+            modal.style.display = "none";
+          });
+        }
+
+        // Filtros y Selector de Área
+        document.getElementById("breakDateFilter")?.addEventListener("change", (e) => {
+          renderTableResults();
+          const fVal = e.target.value;
+          if (fVal) {
+            loadAuditDataFromFirestore(fVal);
+          }
+        });
+        document.getElementById("breakFilterEstado")?.addEventListener("change", renderTableResults);
+        document.getElementById("breakFilterSearch")?.addEventListener("input", renderTableResults);
+        document.getElementById("breakAreaSelector")?.addEventListener("change", () => {
+          // Si hay datos cargados, reprocesar automáticamente bajo el nuevo contexto de área
+          const inR25 = (document.getElementById("breakInputR25")?.value || "").trim();
+          const inTAW = (document.getElementById("breakInputTAW")?.value || "").trim();
+          if (inR25 || inTAW) {
+            processAuditoria();
+          } else {
+            renderTableResults();
+          }
+        });
+
+        // Procesar Reporte 25 del Día
+        document.getElementById("btnProcesarCrucesBreak")?.addEventListener("click", () => processAuditoria());
+
+        // Indexar TAW Mensual Global
+        document.getElementById("btnGuardarTAWMensual")?.addEventListener("click", processTawMensual);
+
+        // Limpiezas independientes
+        document.getElementById("btnLimpiarR25")?.addEventListener("click", () => {
+          const in1 = document.getElementById("breakInputR25");
+          const f1 = document.getElementById("breakFileR25");
+          if (in1) in1.value = "";
+          if (f1) f1.value = "";
+          const badge = document.getElementById("badgeCountR25");
+          if (badge) badge.textContent = "0 líneas";
+        });
+
+        document.getElementById("btnLimpiarTAW")?.addEventListener("click", () => {
+          const in2 = document.getElementById("breakInputTAW");
+          const f2 = document.getElementById("breakFileTAW");
+          if (in2) in2.value = "";
+          if (f2) f2.value = "";
+          updateTawBadgeCount();
+        });
+
+        document.getElementById("btnLimpiarDatosAuditoria")?.addEventListener("click", () => {
+          const searchInput = document.getElementById("breakFilterSearch");
+          const estadoSelect = document.getElementById("breakFilterEstado");
+          if (searchInput) searchInput.value = "";
+          if (estadoSelect) estadoSelect.value = "todos";
+          renderTableResults();
+        });
+
+        document.getElementById("btnLimpiarTextareasBreak")?.addEventListener("click", () => {
+          const in1 = document.getElementById("breakInputR25");
+          const in2 = document.getElementById("breakInputTAW");
+          const f1 = document.getElementById("breakFileR25");
+          const f2 = document.getElementById("breakFileTAW");
+          if (in1) in1.value = "";
+          if (in2) in2.value = "";
+          if (f1) f1.value = "";
+          if (f2) f2.value = "";
+          const badge1 = document.getElementById("badgeCountR25");
+          if (badge1) badge1.textContent = "0 líneas";
+          updateTawBadgeCount();
+        });
+
+        // Contadores de líneas en tiempo real
+        const inR25 = document.getElementById("breakInputR25");
+        if (inR25) {
+          inR25.addEventListener("input", () => {
+            const count = parseDelimitedLines(inR25.value).length;
+            document.getElementById("badgeCountR25").textContent = `${count} líneas`;
+          });
+        }
+
+        const inTAW = document.getElementById("breakInputTAW");
+        if (inTAW) {
+          inTAW.addEventListener("input", () => {
+            const count = parseDelimitedLines(inTAW.value).length;
+            const badge = document.getElementById("badgeCountTAW");
+            if (badge) {
+              badge.textContent = inTAW.value.trim() ? `${count} líneas pendientes` : `${Object.keys(globalTawMap || {}).length} fichadas indexadas`;
+            }
+          });
+        }
+
+        // Carga de archivo para Reporte 25
+        const fileR25 = document.getElementById("breakFileR25");
+        if (fileR25) {
+          fileR25.addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            readFileToTable(file, (rows) => {
+              if (rows && rows.length > 0) {
+                const text = rows.map(r => r.join("\t")).join("\n");
+                const targetArea = document.getElementById("breakInputR25");
+                if (targetArea) {
+                  targetArea.value = text;
+                  document.getElementById("badgeCountR25").textContent = `${rows.length} líneas`;
+                }
+                // Auto-procesar el cruce contra la base TAW mensual
+                processAuditoria();
+              }
+            });
+          });
+        }
+
+        // Carga de archivo para Parte Diario TAW Mensual
+        const fileTAW = document.getElementById("breakFileTAW");
+        if (fileTAW) {
+          fileTAW.addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            readFileToTable(file, (rows) => {
+              if (rows && rows.length > 0) {
+                const text = rows.map(r => r.join("\t")).join("\n");
+                const targetArea = document.getElementById("breakInputTAW");
+                if (targetArea) {
+                  targetArea.value = text;
+                  const count = rows.length;
+                  const badge = document.getElementById("badgeCountTAW");
+                  if (badge) badge.textContent = `${count} líneas cargadas`;
+                }
+                // Indexar automáticamente el archivo TAW mensual
+                processTawMensual();
+              }
+            });
+          });
+        }
+
+        // Exportar CSV
+        document.getElementById("btnExportarBreakCSV")?.addEventListener("click", exportCSV);
+      }
+
+      // Exponer métodos de renderizado y sincronización a nivel global
+      window.renderConfigUI = renderConfigUI;
+      window.renderTableResults = renderTableResults;
+      window.renderBreakConfigUI = renderConfigUI;
+      window.renderBreakTableResults = renderTableResults;
+      window.loadAuditDataFromFirestore = loadAuditDataFromFirestore;
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initModule);
+      } else {
+        initModule();
+      }
+    })();
+
+    // Definición global inmediata de apertura del modal con clase .active
+    window.openBreakAuditModal = function() {
+      const modal = document.getElementById("breakAuditModal");
+      const drop = document.getElementById("navDropdownMenu");
+      if (drop) drop.style.display = "none";
+      if (modal) {
+        modal.style.display = "flex";
+        modal.classList.add("active"); // Muestra el modal con opacidad y eventos
+        if (typeof renderConfigUI === "function") renderConfigUI();
+        else if (typeof window.renderConfigUI === "function") window.renderConfigUI();
+        
+        if (typeof renderTableResults === "function") renderTableResults();
+        else if (typeof window.renderTableResults === "function") window.renderTableResults();
+
+        // Carga histórica en tiempo real desde Firestore para la fecha activa
+        const dateInputEl = document.getElementById("breakDateFilter");
+        if (dateInputEl && dateInputEl.value && typeof window.loadAuditDataFromFirestore === "function") {
+          window.loadAuditDataFromFirestore(dateInputEl.value);
+        }
+      }
+    };
+
+    // Asegurar el cierre correcto removiendo .active
+    const closeBtn = document.getElementById("breakAuditCloseBtn");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => {
+        const modal = document.getElementById("breakAuditModal");
+        if (modal) {
+          modal.classList.remove("active");
+          modal.style.display = "none";
+        }
+      });
+    }
+
+    // Asignación directa y robusta del botón en el DOM
+    const navBtnBreaks = document.getElementById("breakAuditNavBtn");
+    if (navBtnBreaks) {
+      navBtnBreaks.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const drop = document.getElementById("navDropdownMenu");
+        if (drop) drop.style.display = "none";
+        if (typeof window.openBreakAuditModal === "function") {
+          window.openBreakAuditModal();
+        }
+      });
+    }
+  </script>
 </body>
 </html>
