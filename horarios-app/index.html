@@ -2157,7 +2157,9 @@
       text-align: center;
       height: 13px !important;
       min-height: 13px !important;
-      font-size: 0.5rem !important;
+      padding: 0 1px !important;
+      font-size: 7.8px !important;
+      letter-spacing: -0.3px !important;
     }
     .heatmap-row-label {
       width: 75px !important;
@@ -2245,22 +2247,38 @@
     }
 
     /* Columna completa en días de Tienda Cerrada */
-    table#planningTable th.tienda-cerrada-col,
+    table#planningTable th.tienda-cerrada-col {
+      background-color: rgba(239, 68, 68, 0.25) !important;
+    }
     table#planningTable td.tienda-cerrada-col {
-      background-color: rgba(71, 85, 105, 0.35) !important;
+      background-color: rgba(239, 68, 68, 0.2) !important;
     }
 
-    .badge-tc {
-      display: inline-block;
-      font-size: 8px;
-      font-weight: 800;
-      color: #f87171;
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      border-radius: 2px;
-      padding: 0 2px;
+    /* Celda de turno en Tienda Cerrada: Marca de agua limpia "TC" y fondo distintivo */
+    .shift-cell-tc {
+      position: relative;
+      background-color: rgba(239, 68, 68, 0.2) !important;
+    }
+    .shift-cell-tc::after {
+      content: "TC";
+      position: absolute;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      color: rgba(248, 113, 113, 0.18);
+      pointer-events: none;
+      user-select: none;
+      z-index: 1;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       line-height: 1;
-      margin-bottom: 1px;
+    }
+    .shift-cell-tc .shift-start,
+    .shift-cell-tc .shift-end,
+    .shift-cell-tc .shift-label {
+      position: relative;
+      z-index: 2;
     }
 
     /* Evitar que clases residuales tapen el fondo */
@@ -2959,6 +2977,21 @@
     }
     .repo-sup-link:hover { opacity: 0.8 !important; }
 
+    /* Estilo diferenciado para celdas de Rollers en Grilla Principal */
+    table#planningTable td.collab-cell.roller-collab-cell {
+      background-color: #4c326d !important;
+      border-left: 3px solid #c084fc !important;
+    }
+    table#planningTable td.day-cell.roller-day-cell.week-main-bg {
+      background-color: #382352 !important;
+    }
+    table#planningTable td.day-cell.roller-day-cell.week-alt-bg {
+      background-color: #432b61 !important;
+    }
+    table#planningTable td.day-cell.roller-day-cell {
+      background-color: #382352 !important;
+    }
+
     /* ============================================================
        REGLAS DE IMPRESIÓN A4: LIBRO DE NOVEDADES PRODUCTIVIDAD
        ============================================================ */
@@ -3132,7 +3165,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.4.2
+            Versión: v1.4.3
           </div>
         </div>
       </div>
@@ -3948,7 +3981,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.4.2";
+  const APP_VERSION = "v1.4.3";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5592,8 +5625,8 @@ function renderMobileDayView() {
     .filter(c => (c.area || "Disponibilidad") === targetArea)
     .sort((a, b) => {
       if (targetArea === "Linea de Cajas") {
-        const isRollerA = (a.pasillo || "").toLowerCase().trim() === "roller";
-        const isRollerB = (b.pasillo || "").toLowerCase().trim() === "roller";
+        const isRollerA = ((a.pasillo || "") + " " + (a.esquema || "")).toLowerCase().includes("roller");
+        const isRollerB = ((b.pasillo || "") + " " + (b.esquema || "")).toLowerCase().includes("roller");
         if (!isRollerA && isRollerB) return -1;
         if (isRollerA && !isRollerB) return 1;
       }
@@ -5664,13 +5697,18 @@ function renderMobileDayView() {
       </div>
     ` : '';
 
+    const isRoller = targetArea === "Linea de Cajas" && !!(((collab.pasillo || "") + " " + (collab.esquema || "")).toLowerCase().includes("roller"));
+    if (isRoller) {
+      tr.classList.add("is-roller-row");
+    }
+
     let cellsHTML = `
             <td style="cursor: pointer; padding: 2px 6px !important;" onclick="openMobileProfile('${collab.id}')">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%;">
                 <div style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden;">
                   <div class="avatar" style="width: 24px; height: 24px; font-size: 0.7rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">${avatarStr}</div>
                   <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap; min-width: 0;">
-                    <span style="font-weight: 600; font-size: 0.85rem; text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">
+                    <span style="font-weight: 600; font-size: 0.85rem; text-overflow: ellipsis; overflow: hidden; line-height: 1.1; display: flex; align-items: center;">
                       ${apeF}${opBadge}
                     </span>
                     <span style="font-size: 0.7rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${nomF}</span>
@@ -5703,7 +5741,7 @@ function renderMobileDayView() {
     let logicDisabled = isOnVacationToday;
     let inputDisabled = logicDisabled || !userHasAccess;
     let cellStyle = isTiendaCerrada
-      ? "background-color: rgba(100, 116, 139, 0.2);"
+      ? "background-color: rgba(239, 68, 68, 0.2);"
       : "";
 
     cellsHTML += `
@@ -6194,8 +6232,8 @@ function renderDesktopView() {
     .filter(c => (c.area || "Disponibilidad") === targetArea)
     .sort((a, b) => {
       if (targetArea === "Linea de Cajas") {
-        const isRollerA = (a.pasillo || "").toLowerCase().trim() === "roller";
-        const isRollerB = (b.pasillo || "").toLowerCase().trim() === "roller";
+        const isRollerA = ((a.pasillo || "") + " " + (a.esquema || "")).toLowerCase().includes("roller");
+        const isRollerB = ((b.pasillo || "") + " " + (b.esquema || "")).toLowerCase().includes("roller");
         if (!isRollerA && isRollerB) return -1;
         if (isRollerA && !isRollerB) return 1;
       }
@@ -6306,10 +6344,14 @@ function renderDesktopView() {
   activeAreaCollabs.forEach((collab) => {
     absoluteRowIndex++;
       const currentRowIndex = absoluteRowIndex;
+      const isRoller = targetArea === "Linea de Cajas" && !!(((collab.pasillo || "") + " " + (collab.esquema || "")).toLowerCase().includes("roller"));
       const tr = document.createElement("tr");
       tr.style.willChange = "transform";
       tr.setAttribute("data-collab", collab.id);
       tr.setAttribute("data-row", currentRowIndex);
+      if (isRoller) {
+        tr.classList.add("is-roller-row");
+      }
 
       let cellsHTML = "";
 
@@ -6334,7 +6376,7 @@ function renderDesktopView() {
       }
       
       let html = `
-          <td class="collab-cell" title="${rawName} (Legajo: ${collab.id})">
+          <td class="collab-cell ${isRoller ? 'roller-collab-cell' : ''}" title="${rawName} (Legajo: ${collab.id}${isRoller ? ' - Roller' : ''})">
             <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; height: 100%; padding: 0 6px; box-sizing: border-box; gap: 4px; flex-wrap: nowrap;">
               
               <!-- Contenedor Principal (1 Fila) -->
@@ -6627,12 +6669,15 @@ function renderDesktopView() {
 
         const tcCellClass = isTiendaCerrada ? " tienda-cerrada-col" : "";
 
+        const rollerDayClass = isRoller ? " roller-day-cell" : "";
+
         let finalWrapperClass =
           wrapperClass +
           (isSkeleton ? " skeleton-cell" : "") +
           " day-cell " + weekClass + " " + borderWeekClass +
           todayClass +
-          tcCellClass;
+          tcCellClass +
+          rollerDayClass;
 
         // Validar descanso diario de 12 horas para turnos ya cargados
         let hasRestError = false;
@@ -6668,7 +6713,7 @@ function renderDesktopView() {
           : "";
 
         if (isTiendaCerrada) {
-          eventoCellStyle = "background-color: rgba(100, 116, 139, 0.2);";
+          eventoCellStyle = "background-color: rgba(239, 68, 68, 0.2);";
         }
 
         let displayVal = val;
@@ -6694,6 +6739,7 @@ function renderDesktopView() {
 
         // 2. Parsear el valor para apilamiento vertical
         const vacPrefix = isOnVacation ? '<span class="vac-prefix">V.</span>' : '';
+        const tcShiftClass = isTiendaCerrada ? ' shift-cell-tc' : '';
         let displayHtml = "";
         let cleanValForMatch = displayVal.replace('*', '').trim();
         let matchCortado = cleanValForMatch.match(/^(\d{1,2}(?::\d{2})?(?:a|-)\d{1,2}(?::\d{2})?)\s*\/\s*(\d{1,2}(?::\d{2})?(?:a|-)\d{1,2}(?::\d{2})?)$/i);
@@ -6701,10 +6747,8 @@ function renderDesktopView() {
         
         if (matchCortado) {
           const isModified = displayVal.includes('*');
-          const tcPrefix = isTiendaCerrada ? '<span class="badge-tc" title="Tienda Cerrada" style="margin-bottom:0;">TC</span>' : '';
           displayHtml = `
-            <div class="shift-cell ${finalInputClass.replace('input-empty', '')} ${isOnVacation ? 'shift-cell-vacation' : ''}">
-              ${tcPrefix}
+            <div class="shift-cell ${finalInputClass.replace('input-empty', '')} ${isOnVacation ? 'shift-cell-vacation' : ''}${tcShiftClass}" ${isTiendaCerrada ? 'title="Tienda Cerrada"' : ''}>
               <span class="shift-start" style="font-size: 8.5px !important; line-height: 1 !important;">${vacPrefix}${matchCortado[1]}${isModified ? '<span style="color:var(--primary);">*</span>' : ''}</span>
               <span class="shift-end" style="font-size: 8px !important; line-height: 1 !important;">${matchCortado[2]}</span>
             </div>
@@ -6712,10 +6756,8 @@ function renderDesktopView() {
         } else if (matchHorario) {
           // Micro-celda de turno normal (con asterisco si fue modificado)
           const isModified = displayVal.includes('*');
-          const tcPrefix = isTiendaCerrada ? '<span class="badge-tc" title="Tienda Cerrada">TC</span>' : '';
           displayHtml = `
-            <div class="shift-cell ${finalInputClass.replace('input-empty', '')} ${isOnVacation ? 'shift-cell-vacation' : ''}">
-              ${tcPrefix}
+            <div class="shift-cell ${finalInputClass.replace('input-empty', '')} ${isOnVacation ? 'shift-cell-vacation' : ''}${tcShiftClass}" ${isTiendaCerrada ? 'title="Tienda Cerrada"' : ''}>
               <span class="shift-start">${vacPrefix}${matchHorario[1]}${isModified ? '<span style="color:var(--primary);">*</span>' : ''}</span>
               <span class="shift-end">${matchHorario[2]}</span>
             </div>
@@ -6734,7 +6776,7 @@ function renderDesktopView() {
           }
 
           displayHtml = `
-            <div class="shift-cell ${finalInputClass.replace('input-empty', '')} ${isOnVacation ? 'shift-cell-vacation' : ''}">
+            <div class="shift-cell ${finalInputClass.replace('input-empty', '')} ${isOnVacation ? 'shift-cell-vacation' : ''}${tcShiftClass}" ${isTiendaCerrada ? 'title="Tienda Cerrada"' : ''}>
               <span class="shift-label">${explicitLabel}</span>
             </div>
           `;
@@ -7199,13 +7241,14 @@ function renderHeatmap() {
               if (diff >= 0) heatClass = "heat-success";
               else if (diff === -1) heatClass = "heat-warning";
               else heatClass = "heat-danger";
-              cellText = (diff > 0 ? "+" : "") + diff;
-              tooltip = `${h}h: Disp ${count} | Req ${req} | Bal ${cellText}`;
+              cellText = `${req} / ${count}`;
+              const balanceText = (diff > 0 ? "+" : "") + diff;
+              tooltip = `${h}h: Req ${req} / Disp ${count} (Bal ${balanceText})`;
             } else {
               if (count > 0) heatClass = "heat-success";
               else heatClass = "heat-danger";
               cellText = count;
-              tooltip = `${h}h: ${count} personas`;
+              tooltip = `${h}h: Disp ${count} personas`;
             }
           } else {
             if (count >= 3) heatClass = "heat-success";
