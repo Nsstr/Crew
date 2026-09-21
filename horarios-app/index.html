@@ -3212,7 +3212,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.4.4
+            Versión: v1.4.5
           </div>
         </div>
       </div>
@@ -4028,7 +4028,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.4.4";
+  const APP_VERSION = "v1.4.5";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15842,7 +15842,7 @@ document.addEventListener("DOMContentLoaded", () => {
             continue;
           }
 
-          // 4. EXTRACCIÓN DE HORAS / FICHADAS (Soporte de múltiples fichadas en una misma celda, ej: "13:58  17:14  17:29  19:02")
+          // 4. EXTRACCIÓN DE HORAS / FICHADAS (Soporte de múltiples fichadas en una misma celda, ej: "13:58   17:14   17:29   19:02")
           let rawHora = "";
           if (colHoraIdx !== -1 && colHoraIdx < cols.length && cleanVal(cols[colHoraIdx])) {
             rawHora = cleanVal(cols[colHoraIdx]);
@@ -15851,12 +15851,13 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           // Buscar todas las marcas de tiempo (HH:MM) presentes en la fila
-          // Primero inspeccionamos rawHora y columnas aledañas o candidatas
+          // Se usa regex /\d{1,2}:\d{2}/g ignorando espacios múltiples y desglosando la cadena limpiamente
           let detectedTimes = [];
           const extractTimesFromStr = (str) => {
             if (!str) return [];
-            const matches = String(str).match(/\b([01]?\d|2[0-3]):[0-5]\d\b/g);
-            return matches ? matches.map(t => normalizeTimeToHHMM(t)) : [];
+            const cleanStr = String(str).replace(/\s+/g, " ").trim();
+            const matches = cleanStr.match(/\b\d{1,2}:\d{2}\b/g) || cleanStr.match(/\d{1,2}:\d{2}/g);
+            return matches ? matches.map(t => normalizeTimeToHHMM(t.trim())) : [];
           };
 
           if (rawHora) {
@@ -15874,109 +15875,290 @@ document.addEventListener("DOMContentLoaded", () => {
             });
           }
 
-          // Deduplicar respetando orden cronológico de la cadena original si vinieron repetidas adyacentes idénticas
-          let allMarks = [];
-          detectedTimes.forEach(t => {
-            if (t) allMarks.push(t);
-          });
+          // Deduplicar respetando orden cronológico y debounce de marcas contiguas (< 2 minutos)
+          // Si el colaborador apoyó dos veces seguidas el dedo en el reloj en menos de 2 min, se descarta el duplicado.
+          const parsedWithMins = detectedTimes
+            .map(t => ({ str: t, mins: parseTimeToMinutes(t) }))
+            .filter(o => o.mins !== null)
+            .sort((a, b) => a.mins - b.mins);
 
+          const debouncedMarks = [];
+          for (let k = 0; k < parsedWithMins.length; k++) {
+            if (debouncedMarks.length === 0) {
+              debouncedMarks.push(parsedWithMins[k]);
+            } else {
+              const prevMins = debouncedMarks[debouncedMarks.length - 1].mins;
+              const currMins = parsedWithMins[k].mins;
+              const diff = currMins >= prevMins ? (currMins - prevMins) : (1440 - prevMins + currMins);
+              if (diff >= 2) {
+                debouncedMarks.push(parsedWithMins[k]);
+              }
+            }
+          }
+
+          const allMarks = debouncedMarks.map(o => o.str);
           let hora = allMarks.length > 0 ? allMarks[0] : normalizeTimeToHHMM(rawHora);
 
           let salida = colSalidaIdx !== -1 && cols[colSalidaIdx] !== undefined ? normalizeTimeToHHMM(cols[colSalidaIdx]) : "";
           let regreso = colRegresoIdx !== -1 && cols[colRegresoIdx] !== undefined ? normalizeTimeToHHMM(cols[colRegresoIdx]) : "";
 
-          // Si se detectaron múltiples marcas (ej: 4 marcas: Entrada turno, Salida descanso, Regreso descanso, Salida turno)
-          // Asignar segunda marca (índice 1) a Salida TAW y tercera marca (índice 2) a Regreso TAW
-          if (allMarks.length >= 3) {
+          // Evaluación de la secuencia de marcas:
+          // Marca 1: Entrada Jornada
+          // Marca 2: Salida Descanso (Salida TAW)
+          // Marca 3: Regreso Descanso (Regreso TAW)
+          // Marca 4: Salida Final Jornada (si existe)
+          let esIncompleta = false;
+          let faltaSalida = false;
+          let duracionTomadaMinutos = 0;
+          let bloques = [];
+
+          if (allMarks.length > 4) {
+            // TURNO CORTADO / MÚLTIPLES DESCANSOS EN EL MISMO DÍA (ej. 6 u 8 fichadas)
+            if (allMarks.length >= 8) {
+              // Bloque 1: Marcas 0..3 (Entrada 1, Salida Desc 1, Regreso Desc 1, Salida Turno 1)
+              // Bloque 2: Marcas 4..7 (Entrada 2, Salida Desc 2, Regreso Desc 2, Salida Turno 2)
+              const b1Sal = allMarks[1];
+              const b1Reg = allMarks[2];
+              const m1Sal = parseTimeToMinutes(b1Sal);
+              const m1Reg = parseTimeToMinutes(b1Reg);
+              const d1 = (m1Sal !== null && m1Reg !== null) ? (m1Reg >= m1Sal ? (m1Reg - m1Sal) : (1440 - m1Sal + m1Reg)) : 0;
+
+              const b2Sal = allMarks[5];
+              const b2Reg = allMarks[6];
+              const m2Sal = parseTimeToMinutes(b2Sal);
+              const m2Reg = parseTimeToMinutes(b2Reg);
+              const d2 = (m2Sal !== null && m2Reg !== null) ? (m2Reg >= m2Sal ? (m2Reg - m2Sal) : (1440 - m2Sal + m2Reg)) : 0;
+
+              bloques.push({
+                bloqueIdx: 1,
+                entrada: allMarks[0],
+                salida: b1Sal,
+                regreso: b1Reg,
+                fin: allMarks[3],
+                salidaMins: m1Sal,
+                regresoMins: m1Reg,
+                duracionTomada: d1,
+                faltaSalida: false
+              });
+              bloques.push({
+                bloqueIdx: 2,
+                entrada: allMarks[4],
+                salida: b2Sal,
+                regreso: b2Reg,
+                fin: allMarks[7],
+                salidaMins: m2Sal,
+                regresoMins: m2Reg,
+                duracionTomada: d2,
+                faltaSalida: false
+              });
+            } else if (allMarks.length === 6) {
+              // 6 fichadas: Dos turnos cortados (ej: In1, OutDesc1, InDesc1, Out1/In2 o similar)
+              const b1Sal = allMarks[1];
+              const b1Reg = allMarks[2];
+              const m1Sal = parseTimeToMinutes(b1Sal);
+              const m1Reg = parseTimeToMinutes(b1Reg);
+              const d1 = (m1Sal !== null && m1Reg !== null) ? (m1Reg >= m1Sal ? (m1Reg - m1Sal) : (1440 - m1Sal + m1Reg)) : 0;
+
+              const b2Sal = allMarks[4];
+              const b2Reg = allMarks[5];
+              const m2Sal = parseTimeToMinutes(b2Sal);
+              const m2Reg = parseTimeToMinutes(b2Reg);
+              const d2 = (m2Sal !== null && m2Reg !== null) ? (m2Reg >= m2Sal ? (m2Reg - m2Sal) : (1440 - m2Sal + m2Reg)) : 0;
+
+              bloques.push({
+                bloqueIdx: 1,
+                entrada: allMarks[0],
+                salida: b1Sal,
+                regreso: b1Reg,
+                fin: allMarks[3],
+                salidaMins: m1Sal,
+                regresoMins: m1Reg,
+                duracionTomada: d1,
+                faltaSalida: false
+              });
+              bloques.push({
+                bloqueIdx: 2,
+                entrada: allMarks[3],
+                salida: b2Sal,
+                regreso: b2Reg,
+                fin: allMarks[5],
+                salidaMins: m2Sal,
+                regresoMins: m2Reg,
+                duracionTomada: d2,
+                faltaSalida: true
+              });
+            } else {
+              // 5 o 7 fichadas: Tomar bloque 1 y bloque 2 con marcas disponibles
+              const b1Sal = allMarks[1];
+              const b1Reg = allMarks[2];
+              const m1Sal = parseTimeToMinutes(b1Sal);
+              const m1Reg = parseTimeToMinutes(b1Reg);
+              const d1 = (m1Sal !== null && m1Reg !== null) ? (m1Reg >= m1Sal ? (m1Reg - m1Sal) : (1440 - m1Sal + m1Reg)) : 0;
+
+              bloques.push({
+                bloqueIdx: 1,
+                entrada: allMarks[0],
+                salida: b1Sal,
+                regreso: b1Reg,
+                fin: allMarks[3] || "-",
+                salidaMins: m1Sal,
+                regresoMins: m1Reg,
+                duracionTomada: d1,
+                faltaSalida: false
+              });
+
+              if (allMarks.length >= 7) {
+                const b2Sal = allMarks[5];
+                const b2Reg = allMarks[6];
+                const m2Sal = parseTimeToMinutes(b2Sal);
+                const m2Reg = parseTimeToMinutes(b2Reg);
+                const d2 = (m2Sal !== null && m2Reg !== null) ? (m2Reg >= m2Sal ? (m2Reg - m2Sal) : (1440 - m2Sal + m2Reg)) : 0;
+                bloques.push({
+                  bloqueIdx: 2,
+                  entrada: allMarks[4],
+                  salida: b2Sal,
+                  regreso: b2Reg,
+                  fin: "-",
+                  salidaMins: m2Sal,
+                  regresoMins: m2Reg,
+                  duracionTomada: d2,
+                  faltaSalida: true
+                });
+              } else {
+                const b2Sal = allMarks[3];
+                const b2Reg = allMarks[4];
+                const m2Sal = parseTimeToMinutes(b2Sal);
+                const m2Reg = parseTimeToMinutes(b2Reg);
+                const d2 = (m2Sal !== null && m2Reg !== null) ? (m2Reg >= m2Sal ? (m2Reg - m2Sal) : (1440 - m2Sal + m2Reg)) : 0;
+                bloques.push({
+                  bloqueIdx: 2,
+                  entrada: allMarks[3],
+                  salida: b2Sal,
+                  regreso: b2Reg,
+                  fin: "-",
+                  salidaMins: m2Sal,
+                  regresoMins: m2Reg,
+                  duracionTomada: d2,
+                  faltaSalida: true
+                });
+              }
+            }
+
+            // Valores primarios para retrocompatibilidad corresponden al Bloque 1
+            salida = bloques[0].salida;
+            regreso = bloques[0].regreso;
+            duracionTomadaMinutos = bloques[0].duracionTomada;
+          } else if (allMarks.length === 4) {
             salida = allMarks[1];
             regreso = allMarks[2];
-          } else if (allMarks.length === 2) {
-            salida = allMarks[0];
-            regreso = allMarks[1];
-          } else if (!salida && hora) {
-            salida = hora;
+          } else if (allMarks.length === 3) {
+            salida = allMarks[1];
+            regreso = allMarks[2];
+            faltaSalida = true;
+          } else if (allMarks.length > 0 && allMarks.length < 3) {
+            // Menos de 3 marcas: omisión / fichada incompleta
+            salida = "-";
+            regreso = "-";
+            esIncompleta = true;
+          } else if (salida && regreso) {
+            // Si vinieron en columnas dedicadas separadas
+            esIncompleta = false;
+          } else {
+            // Sin marcas válidas suficientes
+            salida = salida || "-";
+            regreso = regreso || "-";
+            esIncompleta = true;
           }
 
-          // 5. EXTRACCIÓN DE CANTIDAD DE EXCESO / DURACIÓN (Columna 10 o calculada entre salida y regreso)
-          let rawCant = "";
-          if (colCantIdx !== -1 && colCantIdx < cols.length && cleanVal(cols[colCantIdx])) {
-            rawCant = cleanVal(cols[colCantIdx]);
-          } else if (cols.length > 10 && cleanVal(cols[10])) {
-            rawCant = cleanVal(cols[10]);
-          }
-
-          if (rawCant === hora || (colHoraIdx !== -1 && colCantIdx === colHoraIdx)) {
-            rawCant = "";
-          }
-
-          if (!rawCant) {
-            const cantCandidate = cols.find((c, idx) => {
-              if (idx === colLegajoIdx || idx === colFechaIdx || idx === colHoraIdx || idx === colNombreIdx || idx === colSalidaIdx || idx === colRegresoIdx) return false;
-              const s = cleanVal(c);
-              if (s === hora || s.length === 0 || allMarks.includes(s)) return false;
-              const matchTime = s.match(/^(\d{1,2}):(\d{2})$/);
-              if (matchTime) {
-                const hrs = parseInt(matchTime[1], 10);
-                const mins = parseInt(matchTime[2], 10);
-                const total = hrs * 60 + mins;
-                return total > 0 && total <= 180;
-              }
-              const numVal = parseFloat(s.replace(",", "."));
-              return !isNaN(numVal) && numVal > 0 && numVal <= 180;
-            });
-            if (cantCandidate) rawCant = cleanVal(cantCandidate);
-          }
-
-          let duracionTomadaMinutos = 0;
-          if (rawCant) {
-            if (rawCant.includes(":")) {
-              const parts = rawCant.split(":");
-              const p0 = parseInt(parts[0], 10) || 0;
-              const p1 = parseInt(parts[1], 10) || 0;
-              const totalM = (p0 * 60) + p1;
-              if (totalM > 0 && totalM <= 300) duracionTomadaMinutos = Math.round(totalM);
-            } else {
-              const parsed = parseFloat(rawCant.replace(",", "."));
-              if (!isNaN(parsed) && parsed > 0) {
-                if (parsed < 1) {
-                  const minFrac = Math.round(parsed * 1440);
-                  if (minFrac <= 300) duracionTomadaMinutos = minFrac;
-                } else if (parsed <= 300) {
-                  duracionTomadaMinutos = Math.round(parsed);
+          // 5. EXTRACCIÓN Y CÁLCULO DE DURACIÓN / EXCESO
+          if (!esIncompleta && bloques.length === 0) {
+            // Prioridad A: Si tenemos Salida y Regreso de descanso válidos (por las marcas 2 y 3 o columnas),
+            // calculamos directamente la diferencia exacta de minutos entre ambas marcas
+            if (salida && regreso && salida !== "-" && regreso !== "-") {
+              const mSal = parseTimeToMinutes(salida);
+              const mReg = parseTimeToMinutes(regreso);
+              if (mSal !== null && mReg !== null) {
+                const diff = mReg >= mSal ? (mReg - mSal) : (1440 - mSal + mReg);
+                if (diff > 0 && diff <= 300) {
+                  duracionTomadaMinutos = diff;
                 }
               }
             }
-          }
 
-          // Si duracionTomadaMinutos no vino en columna pero tenemos salida y regreso de descanso explícitos (ej. por marcas múltiples)
-          if ((!duracionTomadaMinutos || duracionTomadaMinutos === 0) && salida && regreso && salida !== "-" && regreso !== "-") {
-            const mSal = parseTimeToMinutes(salida);
-            const mReg = parseTimeToMinutes(regreso);
-            if (mSal !== null && mReg !== null) {
-              const diff = mReg >= mSal ? (mReg - mSal) : (1440 - mSal + mReg);
-              if (diff > 0 && diff <= 300) {
-                duracionTomadaMinutos = diff;
+            // Prioridad B: Si no se pudo calcular por diferencia o no vinieron marcas suficientes,
+            // consultar la columna 'Cant.' o candidatos numéricos de la fila
+            if (!duracionTomadaMinutos || duracionTomadaMinutos === 0) {
+              let rawCant = "";
+              if (colCantIdx !== -1 && colCantIdx < cols.length && cleanVal(cols[colCantIdx])) {
+                rawCant = cleanVal(cols[colCantIdx]);
+              } else if (cols.length > 10 && cleanVal(cols[10])) {
+                rawCant = cleanVal(cols[10]);
+              }
+
+              if (rawCant === hora || (colHoraIdx !== -1 && colCantIdx === colHoraIdx)) {
+                rawCant = "";
+              }
+
+              if (!rawCant) {
+                const cantCandidate = cols.find((c, idx) => {
+                  if (idx === colLegajoIdx || idx === colFechaIdx || idx === colHoraIdx || idx === colNombreIdx || idx === colSalidaIdx || idx === colRegresoIdx) return false;
+                  const s = cleanVal(c);
+                  if (s === hora || s.length === 0 || allMarks.includes(s)) return false;
+                  const matchTime = s.match(/^(\d{1,2}):(\d{2})$/);
+                  if (matchTime) {
+                    const hrs = parseInt(matchTime[1], 10);
+                    const mins = parseInt(matchTime[2], 10);
+                    const total = hrs * 60 + mins;
+                    return total > 0 && total <= 180;
+                  }
+                  const numVal = parseFloat(s.replace(",", "."));
+                  return !isNaN(numVal) && numVal > 0 && numVal <= 180;
+                });
+                if (cantCandidate) rawCant = cleanVal(cantCandidate);
+              }
+
+              if (rawCant) {
+                if (rawCant.includes(":")) {
+                  const parts = rawCant.split(":");
+                  const p0 = parseInt(parts[0], 10) || 0;
+                  const p1 = parseInt(parts[1], 10) || 0;
+                  const totalM = (p0 * 60) + p1;
+                  if (totalM > 0 && totalM <= 300) duracionTomadaMinutos = Math.round(totalM);
+                } else {
+                  const parsed = parseFloat(rawCant.replace(",", "."));
+                  if (!isNaN(parsed) && parsed > 0) {
+                    if (parsed < 1) {
+                      const minFrac = Math.round(parsed * 1440);
+                      if (minFrac <= 300) duracionTomadaMinutos = minFrac;
+                    } else if (parsed <= 300) {
+                      duracionTomadaMinutos = Math.round(parsed);
+                    }
+                  }
+                }
               }
             }
-          }
 
-          // Si regreso no viene explícito, se calcula como: Salida TAW + Duración total tomada (Cant.)
-          if ((!regreso || regreso === "-") && salida && duracionTomadaMinutos > 0) {
-            regreso = addMinutesToHHMM(salida, duracionTomadaMinutos);
+            // Si regreso no viene explícito, se calcula como: Salida TAW + Duración total tomada (Cant.)
+            if ((!regreso || regreso === "-") && salida && salida !== "-" && duracionTomadaMinutos > 0) {
+              regreso = addMinutesToHHMM(salida, duracionTomadaMinutos);
+            }
           }
 
           const record = {
             legajo: currentLegajo,
             fecha,
             hora,
-            salida,
-            regreso,
+            salida: esIncompleta ? "-" : salida,
+            regreso: esIncompleta ? "-" : regreso,
             todasMarcas: allMarks,
+            bloques: bloques.length > 0 ? bloques : undefined,
             nombre: currentNombre,
             collab: currentCollab,
-            duracionTomada: duracionTomadaMinutos,
-            excesoReporte: duracionTomadaMinutos, // Mantenido para retrocompatibilidad
-            excesoNeto: duracionTomadaMinutos,
+            esIncompleta,
+            faltaSalida,
+            duracionTomada: esIncompleta ? 0 : duracionTomadaMinutos,
+            excesoReporte: esIncompleta ? 0 : duracionTomadaMinutos, // Mantenido para retrocompatibilidad
+            excesoNeto: esIncompleta ? 0 : duracionTomadaMinutos,
             adicionalSindical: 0
           };
 
@@ -15989,9 +16171,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Procesamiento e indexado masivo del TAW Mensual
       function processTawMensual(silent = false) {
+        const isSilent = silent === true;
         const rawTAWText = (document.getElementById("breakInputTAW")?.value || "").trim();
         if (!rawTAWText) {
-          if (!silent) alert("Por favor pegá o subí el reporte Parte Diario TAW mensual para indexar.");
+          if (!isSilent) alert("Por favor pegá o subí el reporte Parte Diario TAW mensual para indexar.");
           return;
         }
 
@@ -16000,7 +16183,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const count = Object.keys(newMap).length;
 
         if (count === 0) {
-          if (!silent) alert("No se pudieron detectar fichadas válidas en el Parte Diario TAW provisto. Verificá que los legajos existan en el sistema.");
+          if (!isSilent) alert("No se pudieron detectar fichadas válidas en el Parte Diario TAW provisto. Verificá que los legajos existan en el sistema.");
           return;
         }
 
@@ -16008,7 +16191,7 @@ document.addEventListener("DOMContentLoaded", () => {
         globalTawMap = { ...globalTawMap, ...newMap };
         saveGlobalTawMap(globalTawMap);
 
-        if (silent) {
+        if (isSilent) {
           if (typeof showToast === "function") {
             showToast("Éxito", "Parte TAW indexado correctamente desde el archivo.", "success");
           } else if (window.showToast) {
@@ -16239,27 +16422,70 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 // Cálculo correcto de TAW:
-                // Duración tomada = valor de columna 'Cant.' (tawEntry.duracionTomada o tawEntry.excesoReporte)
-                // Regreso TAW = Salida TAW + Duración tomada
-                // Exceso TAW = max(0, Duración tomada - (Tiempo Legal + Tolerancia Sindicato))
                 const tiempoNetoPermitidoTAW = norma.legal + norma.sindicato;
                 let duracionTomadaTAW = 0;
                 let salidaTAW = "-";
                 let regresoTAW = "-";
                 let excesoTAWCalculado = 0;
+                let faltaSalidaTAW = false;
 
                 if (tawEntry) {
-                  duracionTomadaTAW = tawEntry.duracionTomada !== undefined ? tawEntry.duracionTomada : (tawEntry.excesoReporte || 0);
-                  salidaTAW = tawEntry.salida || tawEntry.hora || "-";
-                  if (tawEntry.regreso && tawEntry.regreso !== "-") {
-                    regresoTAW = tawEntry.regreso;
-                  } else if (salidaTAW && salidaTAW !== "-" && duracionTomadaTAW > 0) {
-                    regresoTAW = addMinutesToHHMM(salidaTAW, duracionTomadaTAW);
-                  } else if (salidaTAW && salidaTAW !== "-") {
-                    regresoTAW = addMinutesToHHMM(salidaTAW, tiempoNetoPermitidoTAW);
+                  let chosenBlock = null;
+                  if (Array.isArray(tawEntry.bloques) && tawEntry.bloques.length > 0) {
+                    // Turno cortado: emparejar el bloque más cercano a la hora de salida de caja
+                    let bestDiff = Infinity;
+                    for (const b of tawEntry.bloques) {
+                      if (b.salidaMins !== null && b.salidaMins !== undefined) {
+                        const d = Math.abs(b.salidaMins - salidaEvt.minutos);
+                        if (d < bestDiff) {
+                          bestDiff = d;
+                          chosenBlock = b;
+                        }
+                      }
+                    }
+                    if (!chosenBlock) {
+                      const idx = Math.min(Math.floor(e / 2), tawEntry.bloques.length - 1);
+                      chosenBlock = tawEntry.bloques[idx];
+                    }
                   }
-                  if (duracionTomadaTAW > 0) {
-                    excesoTAWCalculado = Math.max(0, duracionTomadaTAW - tiempoNetoPermitidoTAW);
+
+                  if (chosenBlock) {
+                    salidaTAW = chosenBlock.salida || "-";
+                    regresoTAW = chosenBlock.regreso || "-";
+                    duracionTomadaTAW = chosenBlock.duracionTomada || 0;
+                    faltaSalidaTAW = !!chosenBlock.faltaSalida;
+                    if (duracionTomadaTAW > 0) {
+                      excesoTAWCalculado = Math.max(0, duracionTomadaTAW - tiempoNetoPermitidoTAW);
+                    }
+                  } else if (tawEntry.esIncompleta) {
+                    salidaTAW = "-";
+                    regresoTAW = "-";
+                    duracionTomadaTAW = 0;
+                    excesoTAWCalculado = 0;
+                  } else {
+                    faltaSalidaTAW = !!tawEntry.faltaSalida;
+                    duracionTomadaTAW = tawEntry.duracionTomada !== undefined ? tawEntry.duracionTomada : (tawEntry.excesoReporte || 0);
+                    salidaTAW = (tawEntry.salida && tawEntry.salida !== "-") ? tawEntry.salida : (tawEntry.hora || "-");
+                    if (tawEntry.regreso && tawEntry.regreso !== "-") {
+                      regresoTAW = tawEntry.regreso;
+                    } else if (salidaTAW && salidaTAW !== "-" && duracionTomadaTAW > 0) {
+                      regresoTAW = addMinutesToHHMM(salidaTAW, duracionTomadaTAW);
+                    } else if (salidaTAW && salidaTAW !== "-") {
+                      regresoTAW = addMinutesToHHMM(salidaTAW, tiempoNetoPermitidoTAW);
+                    }
+                    if (duracionTomadaTAW === 0 && salidaTAW && regresoTAW && salidaTAW !== "-" && regresoTAW !== "-" && salidaTAW !== "Sin regreso" && regresoTAW !== "Sin regreso") {
+                      const mSal = parseTimeToMinutes(salidaTAW);
+                      const mReg = parseTimeToMinutes(regresoTAW);
+                      if (mSal !== null && mReg !== null) {
+                        const diff = mReg >= mSal ? (mReg - mSal) : (1440 - mSal + mReg);
+                        if (diff > 0 && diff <= 360) {
+                          duracionTomadaTAW = diff;
+                        }
+                      }
+                    }
+                    if (duracionTomadaTAW > 0) {
+                      excesoTAWCalculado = Math.max(0, duracionTomadaTAW - tiempoNetoPermitidoTAW);
+                    }
                   }
                 }
 
@@ -16268,10 +16494,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 const excesoRealTAW = excesoTAWCalculado;
 
                 let semaforo = "ok";
+                let badgeType = undefined;
+                let badgeText = undefined;
                 if (excesoCaja > 0) {
                   semaforo = "exceso";
+                  badgeType = "exceso";
+                  badgeText = "🔴 Exceso";
                 } else if (tiempoRealCaja !== null && tiempoRealCaja > topePermitido) {
                   semaforo = "limite";
+                  badgeType = "limite";
+                  badgeText = "🟡 Al Límite";
+                } else if (faltaSalidaTAW) {
+                  badgeType = "faltaSalida";
+                  badgeText = "⚠️ Falta Salida";
                 }
 
                 results.push({
@@ -16294,6 +16529,9 @@ document.addEventListener("DOMContentLoaded", () => {
                   normaSindicato: norma.sindicato,
                   normaLegal: norma.legal,
                   semaforo,
+                  badgeType,
+                  badgeText,
+                  faltaSalida: faltaSalidaTAW,
                   area: "Linea de Cajas"
                 });
               }
@@ -16356,44 +16594,124 @@ document.addEventListener("DOMContentLoaded", () => {
             const topePermitido = norma.legal + norma.sindicato + toleranciaTraslado;
             const tiempoNetoPermitidoTAW = norma.legal + norma.sindicato;
 
-            const duracionTomadaTAW = entry.duracionTomada !== undefined ? entry.duracionTomada : (entry.excesoReporte || 0);
-            const salidaTAW = entry.salida || entry.hora || "-";
-            let regresoTAW = "-";
-            if (entry.regreso && entry.regreso !== "-") {
-              regresoTAW = entry.regreso;
-            } else if (salidaTAW && salidaTAW !== "-" && duracionTomadaTAW > 0) {
-              regresoTAW = addMinutesToHHMM(salidaTAW, duracionTomadaTAW);
-            } else if (salidaTAW && salidaTAW !== "-") {
-              regresoTAW = addMinutesToHHMM(salidaTAW, tiempoNetoPermitidoTAW);
+            if (Array.isArray(entry.bloques) && entry.bloques.length > 0) {
+              // Si el colaborador tiene turnos cortados con múltiples descansos, generar una fila por bloque
+              entry.bloques.forEach((blk, bIdx) => {
+                const duracionTomadaTAW = blk.duracionTomada || 0;
+                const salidaTAW = blk.salida || "-";
+                const regresoTAW = blk.regreso || "-";
+                const excesoTAWCalculado = duracionTomadaTAW > 0 ? Math.max(0, duracionTomadaTAW - tiempoNetoPermitidoTAW) : 0;
+                const excesoNetoTAW = excesoTAWCalculado;
+                const excesoRealTAW = excesoTAWCalculado;
+                const semaforo = excesoTAWCalculado > 0 ? "exceso" : ((duracionTomadaTAW >= (tiempoNetoPermitidoTAW - 3) && duracionTomadaTAW > 0) ? "limite" : "ok");
+                let badgeType = undefined;
+                let badgeText = undefined;
+                if (blk.faltaSalida) {
+                  badgeType = "faltaSalida";
+                  badgeText = "⚠️ Falta Salida";
+                }
+
+                results.push({
+                  dia: entry.fecha || "TAW",
+                  op: collab.numeroOperador || "-",
+                  legajo: entry.legajo,
+                  nombre: `${collabName} (T${bIdx + 1})`,
+                  contrato: collabHours ? `${collabHours}hs` : "Estándar",
+                  salida: "-",
+                  regreso: "-",
+                  salidaTAW,
+                  regresoTAW,
+                  tiempoRealCaja: null,
+                  topePermitido,
+                  excesoCaja: 0,
+                  excesoTAWReporte: excesoTAWCalculado,
+                  excesoNetoTAW,
+                  excesoRealTAW,
+                  duracionTomadaTAW,
+                  normaSindicato: norma.sindicato,
+                  normaLegal: norma.legal,
+                  semaforo,
+                  badgeType,
+                  badgeText,
+                  faltaSalida: !!blk.faltaSalida,
+                  area: collabArea
+                });
+              });
+            } else {
+              let duracionTomadaTAW = 0;
+              let salidaTAW = "-";
+              let regresoTAW = "-";
+              let excesoTAWCalculado = 0;
+
+              if (entry.esIncompleta) {
+                salidaTAW = "-";
+                regresoTAW = "-";
+                duracionTomadaTAW = 0;
+                excesoTAWCalculado = 0;
+              } else {
+                duracionTomadaTAW = entry.duracionTomada !== undefined ? entry.duracionTomada : (entry.excesoReporte || 0);
+                salidaTAW = (entry.salida && entry.salida !== "-") ? entry.salida : (entry.hora || "-");
+                if (entry.regreso && entry.regreso !== "-") {
+                  regresoTAW = entry.regreso;
+                } else if (salidaTAW && salidaTAW !== "-" && duracionTomadaTAW > 0) {
+                  regresoTAW = addMinutesToHHMM(salidaTAW, duracionTomadaTAW);
+                } else if (salidaTAW && salidaTAW !== "-") {
+                  regresoTAW = addMinutesToHHMM(salidaTAW, tiempoNetoPermitidoTAW);
+                }
+                if (duracionTomadaTAW === 0 && salidaTAW && regresoTAW && salidaTAW !== "-" && regresoTAW !== "-" && salidaTAW !== "Sin regreso" && regresoTAW !== "Sin regreso") {
+                  const mSal = parseTimeToMinutes(salidaTAW);
+                  const mReg = parseTimeToMinutes(regresoTAW);
+                  if (mSal !== null && mReg !== null) {
+                    const diff = mReg >= mSal ? (mReg - mSal) : (1440 - mSal + mReg);
+                    if (diff > 0 && diff <= 360) {
+                      duracionTomadaTAW = diff;
+                    }
+                  }
+                }
+                if (duracionTomadaTAW > 0) {
+                  excesoTAWCalculado = Math.max(0, duracionTomadaTAW - tiempoNetoPermitidoTAW);
+                }
+              }
+
+              const excesoNetoTAW = excesoTAWCalculado;
+              const excesoRealTAW = excesoTAWCalculado;
+              let semaforo = entry.esIncompleta ? "limite" : (excesoTAWCalculado > 0 ? "exceso" : ((duracionTomadaTAW >= (tiempoNetoPermitidoTAW - 3) && duracionTomadaTAW > 0) ? "limite" : "ok"));
+              let badgeType = undefined;
+              let badgeText = undefined;
+              if (entry.faltaSalida) {
+                badgeType = "faltaSalida";
+                badgeText = "⚠️ Falta Salida";
+              } else if (entry.esIncompleta) {
+                badgeType = "omision25";
+                badgeText = "⚠️ Omisión TAW";
+              }
+
+              results.push({
+                dia: entry.fecha || "TAW",
+                op: collab.numeroOperador || "-",
+                legajo: entry.legajo,
+                nombre: collabName,
+                contrato: collabHours ? `${collabHours}hs` : "Estándar",
+                salida: "-",
+                regreso: "-",
+                salidaTAW,
+                regresoTAW,
+                tiempoRealCaja: null,
+                topePermitido,
+                excesoCaja: 0,
+                excesoTAWReporte: excesoTAWCalculado,
+                excesoNetoTAW,
+                excesoRealTAW,
+                duracionTomadaTAW,
+                normaSindicato: norma.sindicato,
+                normaLegal: norma.legal,
+                semaforo,
+                badgeType,
+                badgeText,
+                faltaSalida: !!entry.faltaSalida,
+                area: collabArea
+              });
             }
-
-            const excesoTAWCalculado = duracionTomadaTAW > 0 ? Math.max(0, duracionTomadaTAW - tiempoNetoPermitidoTAW) : 0;
-            const excesoNetoTAW = excesoTAWCalculado;
-            const excesoRealTAW = excesoTAWCalculado;
-            const semaforo = excesoTAWCalculado > 0 ? "exceso" : ((duracionTomadaTAW >= (tiempoNetoPermitidoTAW - 3) && duracionTomadaTAW > 0) ? "limite" : "ok");
-
-            results.push({
-              dia: entry.fecha || "TAW",
-              op: collab.numeroOperador || "-",
-              legajo: entry.legajo,
-              nombre: collabName,
-              contrato: collabHours ? `${collabHours}hs` : "Estándar",
-              salida: "-",
-              regreso: "-",
-              salidaTAW,
-              regresoTAW,
-              tiempoRealCaja: null,
-              topePermitido,
-              excesoCaja: 0,
-              excesoTAWReporte: excesoTAWCalculado,
-              excesoNetoTAW,
-              excesoRealTAW,
-              duracionTomadaTAW,
-              normaSindicato: norma.sindicato,
-              normaLegal: norma.legal,
-              semaforo,
-              area: collabArea
-            });
           }
         });
 
@@ -16685,9 +17003,9 @@ document.addEventListener("DOMContentLoaded", () => {
               }
 
               // Si aún no se obtuvieron marcas de TAW desde matchedRows, consultar directamente globalTawMap
-              if (tawSalida === "-" && globalTawMap && Object.keys(globalTawMap).length > 0) {
+              let tawEntry = null;
+              if (globalTawMap && Object.keys(globalTawMap).length > 0) {
                 const fechasBuscar = getAdjacentDates(selectedFormattedDate || selectedDateStr);
-                let tawEntry = null;
                 for (const f of fechasBuscar) {
                   const fKey = f.toLowerCase();
                   if (collabId && globalTawMap[`${collabId}_${fKey}`]) {
@@ -16699,48 +17017,113 @@ document.addEventListener("DOMContentLoaded", () => {
                     break;
                   }
                 }
-                if (tawEntry) {
-                  tawSalida = tawEntry.salida || tawEntry.hora || "-";
-                  const tiempoNetoPermitidoTAW = norma.legal + norma.sindicato;
-                  duracionTAW = tawEntry.duracionTomada !== undefined ? tawEntry.duracionTomada : (tawEntry.excesoReporte || 0);
-                  if (tawEntry.regreso && tawEntry.regreso !== "-") {
-                    tawRegreso = tawEntry.regreso;
-                  } else if (tawSalida !== "-" && duracionTAW > 0) {
-                    tawRegreso = addMinutesToHHMM(tawSalida, duracionTAW);
-                  } else if (tawSalida !== "-") {
-                    tawRegreso = addMinutesToHHMM(tawSalida, tiempoNetoPermitidoTAW);
-                  }
-                  if (duracionTAW > 0) {
-                    excesoTAW = Math.max(0, duracionTAW - tiempoNetoPermitidoTAW);
-                  }
-                }
               }
 
-              displayRows.push({
-                dia: selectedFormattedDate || selectedDateStr || "Día",
-                op: collabOp || "-",
-                legajo: collabId || "-",
-                nombre: collabName,
-                contrato: collab.hours ? `${collab.hours}hs` : (planSlot || "Estándar"),
-                salida: "-",
-                regreso: "-",
-                salidaTAW: tawSalida,
-                regresoTAW: tawRegreso,
-                tiempoRealCaja: null,
-                topePermitido,
-                excesoCaja: 0,
-                excesoTAWReporte: excesoTAW,
-                excesoNetoTAW: excesoTAW,
-                excesoRealTAW: excesoTAW,
-                duracionTomadaTAW: duracionTAW,
-                normaSindicato: norma.sindicato,
-                normaLegal: norma.legal,
-                semaforo: "limite",
-                badgeType: "omision25",
-                badgeText: "⚠️ Omisión 25",
-                area: "Linea de Cajas",
-                isRoller: !!(collab && ((collab.pasillo || "").toLowerCase().includes("roller") || (collab.esquema || "").toLowerCase().includes("roller")))
-              });
+              const tiempoNetoPermitidoTAW = norma.legal + norma.sindicato;
+
+              if (tawSalida === "-" && tawEntry && Array.isArray(tawEntry.bloques) && tawEntry.bloques.length > 0) {
+                // Turnos cortados en TAW: renderizar cada bloque individualmente para no repetir ni sobreescribir
+                tawEntry.bloques.forEach((blk, bIdx) => {
+                  const bSalida = blk.salida || "-";
+                  const bRegreso = blk.regreso || "-";
+                  const bDuracion = blk.duracionTomada || 0;
+                  const bExceso = bDuracion > 0 ? Math.max(0, bDuracion - tiempoNetoPermitidoTAW) : 0;
+                  const bFaltaSalida = !!blk.faltaSalida;
+
+                  displayRows.push({
+                    dia: selectedFormattedDate || selectedDateStr || "Día",
+                    op: collabOp || "-",
+                    legajo: collabId || "-",
+                    nombre: `${collabName} (T${bIdx + 1})`,
+                    contrato: collab.hours ? `${collab.hours}hs` : (planSlot || "Estándar"),
+                    salida: "-",
+                    regreso: "-",
+                    salidaTAW: bSalida,
+                    regresoTAW: bRegreso,
+                    tiempoRealCaja: null,
+                    topePermitido,
+                    excesoCaja: 0,
+                    excesoTAWReporte: bExceso,
+                    excesoNetoTAW: bExceso,
+                    excesoRealTAW: bExceso,
+                    duracionTomadaTAW: bDuracion,
+                    normaSindicato: norma.sindicato,
+                    normaLegal: norma.legal,
+                    semaforo: "limite",
+                    badgeType: bFaltaSalida ? "faltaSalida" : "omision25",
+                    badgeText: bFaltaSalida ? "⚠️ Falta Salida" : "⚠️ Omisión 25",
+                    faltaSalida: bFaltaSalida,
+                    area: "Linea de Cajas",
+                    isRoller: !!(collab && ((collab.pasillo || "").toLowerCase().includes("roller") || (collab.esquema || "").toLowerCase().includes("roller")))
+                  });
+                });
+              } else {
+                if (tawSalida === "-" && tawEntry) {
+                  if (tawEntry.esIncompleta) {
+                    tawSalida = "-";
+                    tawRegreso = "-";
+                    duracionTAW = 0;
+                    excesoTAW = 0;
+                  } else {
+                    tawSalida = (tawEntry.salida && tawEntry.salida !== "-") ? tawEntry.salida : (tawEntry.hora || "-");
+                    duracionTAW = tawEntry.duracionTomada !== undefined ? tawEntry.duracionTomada : (tawEntry.excesoReporte || 0);
+                    if (tawEntry.regreso && tawEntry.regreso !== "-") {
+                      tawRegreso = tawEntry.regreso;
+                    } else if (tawSalida !== "-" && duracionTAW > 0) {
+                      tawRegreso = addMinutesToHHMM(tawSalida, duracionTAW);
+                    } else if (tawSalida !== "-") {
+                      tawRegreso = addMinutesToHHMM(tawSalida, tiempoNetoPermitidoTAW);
+                    }
+                    if (duracionTAW === 0 && tawSalida && tawRegreso && tawSalida !== "-" && tawRegreso !== "-" && tawSalida !== "Sin regreso" && tawRegreso !== "Sin regreso") {
+                      const mSal = parseTimeToMinutes(tawSalida);
+                      const mReg = parseTimeToMinutes(tawRegreso);
+                      if (mSal !== null && mReg !== null) {
+                        const diff = mReg >= mSal ? (mReg - mSal) : (1440 - mSal + mReg);
+                        if (diff > 0 && diff <= 360) {
+                          duracionTAW = diff;
+                        }
+                      }
+                    }
+                    if (duracionTAW > 0) {
+                      excesoTAW = Math.max(0, duracionTAW - tiempoNetoPermitidoTAW);
+                    }
+                  }
+                }
+
+                let esFaltaSalida = false;
+                if (matchedRows.length > 0 && matchedRows[0].faltaSalida) {
+                  esFaltaSalida = true;
+                } else if (tawEntry && tawEntry.faltaSalida) {
+                  esFaltaSalida = true;
+                }
+
+                displayRows.push({
+                  dia: selectedFormattedDate || selectedDateStr || "Día",
+                  op: collabOp || "-",
+                  legajo: collabId || "-",
+                  nombre: collabName,
+                  contrato: collab.hours ? `${collab.hours}hs` : (planSlot || "Estándar"),
+                  salida: "-",
+                  regreso: "-",
+                  salidaTAW: tawSalida,
+                  regresoTAW: tawRegreso,
+                  tiempoRealCaja: null,
+                  topePermitido,
+                  excesoCaja: 0,
+                  excesoTAWReporte: excesoTAW,
+                  excesoNetoTAW: excesoTAW,
+                  excesoRealTAW: excesoTAW,
+                  duracionTomadaTAW: duracionTAW,
+                  normaSindicato: norma.sindicato,
+                  normaLegal: norma.legal,
+                  semaforo: "limite",
+                  badgeType: esFaltaSalida ? "faltaSalida" : "omision25",
+                  badgeText: esFaltaSalida ? "⚠️ Falta Salida" : "⚠️ Omisión 25",
+                  faltaSalida: esFaltaSalida,
+                  area: "Linea de Cajas",
+                  isRoller: !!(collab && ((collab.pasillo || "").toLowerCase().includes("roller") || (collab.esquema || "").toLowerCase().includes("roller")))
+                });
+              }
             }
           });
 
@@ -16819,6 +17202,9 @@ document.addEventListener("DOMContentLoaded", () => {
           } else if (row.badgeType === "omision25") {
             badgeSemaforo = `<span style="background: rgba(245, 158, 11, 0.25); color: #fbbf24; border: 1px solid #f59e0b; border-radius: 4px; padding: 2px 7px; font-weight: 700; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;">⚠️ Omisión 25</span>`;
             rowBg = "rgba(245, 158, 11, 0.05)";
+          } else if (row.badgeType === "faltaSalida" || row.faltaSalida) {
+            badgeSemaforo = `<span style="background: rgba(245, 158, 11, 0.25); color: #fbbf24; border: 1px solid #f59e0b; border-radius: 4px; padding: 2px 7px; font-weight: 700; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;">⚠️ Falta Salida</span>`;
+            rowBg = "rgba(245, 158, 11, 0.05)";
           } else if (row.semaforo === "exceso") {
             badgeSemaforo = `<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 4px; padding: 2px 7px; font-weight: 700; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;">🔴 Exceso</span>`;
             rowBg = "rgba(239, 68, 68, 0.05)";
@@ -16835,7 +17221,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
           const salidaTAWVal = row.salidaTAW || "-";
           const regresoTAWVal = row.regresoTAW || "-";
-          const tiempoTomadoVal = row.duracionTomadaTAW !== undefined ? row.duracionTomadaTAW : (row.tiempoTomadoTAW !== undefined ? row.tiempoTomadoTAW : null);
+          let tiempoTomadoVal = row.duracionTomadaTAW !== undefined && row.duracionTomadaTAW !== null ? row.duracionTomadaTAW : (row.tiempoTomadoTAW !== undefined ? row.tiempoTomadoTAW : null);
+
+          // CÁLCULO MATEMÁTICO OBLIGATORIO DEL TIEMPO TOMADO:
+          // Siempre que existan valores válidos en Salida TAW y Regreso TAW (ej. 19:48 y 20:03),
+          // convertir ambas horas a minutos totales desde la medianoche y ejecutar la resta matemática (Regreso - Salida).
+          if ((!tiempoTomadoVal || tiempoTomadoVal === 0) && salidaTAWVal !== "-" && regresoTAWVal !== "-" && salidaTAWVal !== "Sin regreso" && regresoTAWVal !== "Sin regreso") {
+            const mSal = typeof parseTimeToMinutes === "function" ? parseTimeToMinutes(salidaTAWVal) : null;
+            const mReg = typeof parseTimeToMinutes === "function" ? parseTimeToMinutes(regresoTAWVal) : null;
+            if (mSal !== null && mReg !== null) {
+              const diff = mReg >= mSal ? (mReg - mSal) : (1440 - mSal + mReg);
+              if (diff > 0 && diff <= 360) {
+                tiempoTomadoVal = diff;
+              }
+            }
+          }
+
           const excesoRealVal = row.excesoRealTAW !== undefined ? row.excesoRealTAW : (row.excesoNetoTAW || 0);
 
           return `
@@ -16854,7 +17255,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <td style="padding: 6px 4px; font-family: monospace; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e2e8f0;">${salidaTAWVal}</td>
               <td style="padding: 6px 4px; font-family: monospace; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e2e8f0;">${regresoTAWVal}</td>
               <td style="padding: 6px 4px; text-align: center; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${tiempoTomadoVal > 0 ? '#fbbf24' : 'var(--text-muted)'};">
-                ${tiempoTomadoVal !== null && tiempoTomadoVal !== undefined && tiempoTomadoVal > 0 ? `${tiempoTomadoVal}m` : (salidaTAWVal !== "-" ? `${tiempoTomadoVal || 0}m` : "-")}
+                ${tiempoTomadoVal !== null && tiempoTomadoVal !== undefined && tiempoTomadoVal > 0 ? `${tiempoTomadoVal}m` : (salidaTAWVal !== "-" && regresoTAWVal !== "-" ? `${tiempoTomadoVal || 0}m` : "-")}
               </td>
               <td style="padding: 6px 4px; text-align: center; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${excesoRealVal > 0 ? '#f87171' : 'var(--text-muted)'};">
                 ${excesoRealVal > 0 ? `+${excesoRealVal}m` : "0m"}
@@ -17476,7 +17877,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("btnProcesarCrucesBreak")?.addEventListener("click", () => processAuditoria());
 
         // Indexar TAW Mensual Global
-        document.getElementById("btnGuardarTAWMensual")?.addEventListener("click", processTawMensual);
+        document.getElementById("btnGuardarTAWMensual")?.addEventListener("click", () => processTawMensual(false));
 
         // Limpiezas independientes
         document.getElementById("btnLimpiarR25")?.addEventListener("click", () => {
