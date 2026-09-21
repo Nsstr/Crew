@@ -1524,26 +1524,87 @@
         /* Ocultar botones, menús y fondo oscuro */
         body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
         .main-app-nav, #sugeridosHeader, .sugeridos-actions, button, input[type="date"] { display: none !important; }
-        #seccionSugeridos { 
+
+        /* Si se está imprimiendo sugeridos, ocultar las demás secciones principales */
+        body.imprimiendo-sugeridos #seccionHorarios,
+        body.imprimiendo-sugeridos #seccionVacaciones,
+        body.imprimiendo-sugeridos #seccionMetricas,
+        body.imprimiendo-sugeridos #seccionProductividad {
+            display: none !important;
+        }
+
+        #seccionSugeridos,
+        body.imprimiendo-sugeridos #seccionSugeridos { 
+            display: block !important;
             height: auto !important; 
             overflow: visible !important; 
             padding: 0 !important; 
             margin: 0 !important; 
         }
 
+        /* En impresión se fuerza siempre formato tabla completo */
+        #sugeridosMobileCards,
+        body.imprimiendo-sugeridos #sugeridosMobileCards {
+            display: none !important;
+        }
+
+        #sugeridosTable,
+        body.imprimiendo-sugeridos #sugeridosTable {
+            display: table !important;
+            width: 100% !important;
+            border-collapse: collapse !important;
+            table-layout: fixed !important;
+            margin: 0 auto !important;
+            margin-top: 10px !important;
+            border: 1px solid black !important;
+            page-break-inside: auto !important;
+        }
+
+        #sugeridosTable thead,
+        body.imprimiendo-sugeridos #sugeridosTable thead {
+            display: table-header-group !important;
+        }
+
+        #sugeridosTable tbody,
+        body.imprimiendo-sugeridos #sugeridosTable tbody {
+            display: table-row-group !important;
+        }
+
+        #sugeridosTable tr,
+        body.imprimiendo-sugeridos #sugeridosTable tr {
+            display: table-row !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        #sugeridosTable th,
+        #sugeridosTable td,
+        body.imprimiendo-sugeridos #sugeridosTable th,
+        body.imprimiendo-sugeridos #sugeridosTable td {
+            display: table-cell !important;
+            padding: 4px 6px !important;
+            font-size: 10.5px !important;
+            line-height: 1.2 !important;
+            border: 1px solid black !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            color: black !important;
+            background: white !important;
+            vertical-align: top !important;
+        }
+
+        #sugeridosTable th {
+            border-bottom: 2px solid black !important;
+            font-weight: bold !important;
+            background: #f1f5f9 !important;
+        }
+
         /* Control de Saltos de Página y Compactación para Sugeridos */
-        #sugeridosTable, 
         #seccionSugeridos > div:last-child {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
         }
-        
-        #sugeridosTable td, #sugeridosTable th {
-            padding: 3px 5px !important;
-            font-size: 11px !important;
-            line-height: 1.2 !important;
-        }
-        
+
         #print-container {
             padding: 10px !important;
             width: 100% !important;
@@ -1551,29 +1612,15 @@
         }
         
         /* Forzar negro puro en absolutamente todo el contenido impreso */
-        #print-container, #print-container * {
+        #print-container, #print-container *,
+        body.imprimiendo-sugeridos #seccionSugeridos * {
             color: black !important;
         }
 
-        /* 2. Configurar tabla para PDF y no pegada al borde */
-        table { width: 100% !important; border-collapse: collapse; table-layout: fixed; margin: 0 auto; margin-top: 10px; border: 1px solid black !important; }
-        
         /* 3. Ajuste de anchos para optimizar el espacio */
-        th:nth-child(1), td:nth-child(1) { width: 30%; } /* Colaborador */
-        th:nth-child(2), td:nth-child(2) { width: 15%; text-align: center; } /* Turno */
-        th:nth-child(3), td:nth-child(3) { width: 55%; } /* Comentario */
-
-        /* 4. Regla crítica para la celda del comentario y padding interno */
-        td, th { 
-            border: 1px solid black !important; 
-            padding: 4px 6px !important; 
-            word-wrap: break-word; 
-            overflow-wrap: break-word; 
-            color: black !important; 
-            background: white !important; 
-            vertical-align: top; 
-        }
-        th { border-bottom: 2px solid black !important; }
+        th:nth-child(1), td:nth-child(1) { width: 30% !important; } /* Colaborador */
+        th:nth-child(2), td:nth-child(2) { width: 15% !important; text-align: center !important; } /* Turno */
+        th:nth-child(3), td:nth-child(3) { width: 55% !important; } /* Comentario */
         
         /* 5. Asegurar expansión total del área de texto */
         .print-only-text { display: block !important; }
@@ -3165,7 +3212,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.4.3
+            Versión: v1.4.4
           </div>
         </div>
       </div>
@@ -3981,7 +4028,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.4.3";
+  const APP_VERSION = "v1.4.4";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -11571,7 +11618,8 @@ window.renderSugeridos = async function () {
       ? `<div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; text-align: right;">Escrito por: <span style="color: var(--primary); font-weight: bold;">${savedData.legajo}</span></div>`
       : "";
 
-    if (isMobile && cardsContainer) {
+    // Renderizar tarjeta para móvil si aplica
+    if (cardsContainer) {
       const card = document.createElement("div");
       card.className = "mobile-card";
       card.innerHTML = `
@@ -11595,34 +11643,35 @@ window.renderSugeridos = async function () {
         </div>
       `;
       cardsContainer.appendChild(card);
-    } else {
-      const tr = document.createElement("tr");
-      tr.style.borderBottom = "1px solid var(--border)";
-      tr.innerHTML = `
-  <td style="padding: 6px 10px; width: 32%; vertical-align: top;">
-    <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
-      <div style="font-size: 0.7em; color: var(--text-muted); line-height: 1;">L. ${collab.id}</div>
-      <div style="font-weight: bold; font-size: 0.9em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${cleanName}</div>
-      <div class="collab-meta" style="font-size: 0.75em; display: flex; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted);">
-        <span>${collab.pasillo || ""}</span>
-        <span style="opacity: 0.6;">(${collab.hours || 48}h)</span>
-      </div>
-    </div>
-  </td>
-  <td style="padding: 6px 10px; width: 16%; text-align: center; vertical-align: middle; font-weight: 600; font-size: 0.9rem; color: ${isBlocked ? "var(--info)" : "var(--text)"};">
-    ${shiftText || "-"}
-  </td>
-  <td style="padding: 6px 10px; width: 52%; vertical-align: top;">
-    <textarea class="sugerido-input sugeridos-comment" 
-      data-collab="${collab.id}"
-      placeholder="Agregar comentario..." 
-      rows="2" 
-      style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "var(--text)"}; resize: none; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"};">${textValue}</textarea>
-    ${authorLabel ? `<div style="font-size: 0.65rem; color: var(--text-muted); text-align: right; margin-top: 2px;">${authorLabel}</div>` : ""}
-  </td>
-`;
-      tbody.appendChild(tr);
     }
+
+    // Renderizar siempre la fila de la tabla para visualización de escritorio y exportación a PDF
+    const tr = document.createElement("tr");
+    tr.style.borderBottom = "1px solid var(--border)";
+    tr.innerHTML = `
+      <td style="padding: 6px 10px; width: 32%; vertical-align: top;">
+        <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
+          <div style="font-size: 0.7em; color: var(--text-muted); line-height: 1;">L. ${collab.id}</div>
+          <div style="font-weight: bold; font-size: 0.9em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${cleanName}</div>
+          <div class="collab-meta" style="font-size: 0.75em; display: flex; align-items: center; justify-content: flex-start; gap: 0.4rem; color: var(--text-muted);">
+            <span>${collab.pasillo || ""}</span>
+            <span style="opacity: 0.6;">(${collab.hours || 48}h)</span>
+          </div>
+        </div>
+      </td>
+      <td style="padding: 6px 10px; width: 16%; text-align: center; vertical-align: middle; font-weight: 600; font-size: 0.9rem; color: ${isBlocked ? "var(--info)" : "var(--text)"};">
+        ${shiftText || "-"}
+      </td>
+      <td style="padding: 6px 10px; width: 52%; vertical-align: top;">
+        <textarea class="sugerido-input sugeridos-comment" 
+          data-collab="${collab.id}"
+          placeholder="Agregar comentario..." 
+          rows="2" 
+          style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: ${isBlocked ? "#2d3748" : "var(--bg)"}; color: ${isBlocked ? "#718096" : "var(--text)"}; resize: none; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; opacity: ${isBlocked ? "0.6" : "1"};">${textValue}</textarea>
+        ${authorLabel ? `<div style="font-size: 0.65rem; color: var(--text-muted); text-align: right; margin-top: 2px;">${authorLabel}</div>` : ""}
+      </td>
+    `;
+    tbody.appendChild(tr);
   });
 
   // Guardado en tiempo real en colección sugerencias
@@ -11684,23 +11733,32 @@ document.getElementById("pdfSugeridosBtn")?.addEventListener("click", () => {
   if (!checkAccessWithToast("exportarSugeridosPdf")) return;
   const dateVal = document.getElementById("suggestedDateFilter").value;
 
-  const header = document.createElement("h1");
-  header.innerText = `Sugerencias del día: ${dateVal}`;
-  header.style.color = "black";
-  header.style.textAlign = "center";
-  header.style.padding = "10px 0";
-  header.style.margin = "0";
-  header.style.fontFamily = "inherit";
-  document.body.prepend(header);
+  // Título/Encabezado visible en la impresión
+  const seccionSugeridos = document.getElementById("seccionSugeridos");
+  const header = document.createElement("div");
+  header.id = "sugeridosPrintHeader";
+  header.className = "print-only-text";
+  header.innerHTML = `
+    <div style="text-align: center; padding: 8px 0 12px 0; border-bottom: 2px solid #000; margin-bottom: 12px;">
+      <h2 style="margin: 0; font-size: 16pt; color: #000; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Sugerencias del día</h2>
+      <div style="font-size: 11pt; color: #333; margin-top: 4px; font-weight: 600;">📅 Fecha: ${dateVal}</div>
+    </div>
+  `;
+  if (seccionSugeridos) {
+    seccionSugeridos.prepend(header);
+  } else {
+    document.body.prepend(header);
+  }
 
-  const textareas = document.querySelectorAll(".sugeridos-comment");
+  // Sustituir textareas de comentarios por divs para evitar truncado en el PDF impreso
+  const textareas = document.querySelectorAll("#seccionSugeridos .sugeridos-comment");
   const divs = [];
   textareas.forEach((ta) => {
     const div = document.createElement("div");
-    div.innerHTML = ta.value.replace(/\n/g, "<br>");
+    div.innerHTML = ta.value ? ta.value.replace(/\n/g, "<br>") : "<span style='color:#666; font-style:italic;'>-</span>";
     div.className = "print-only-text";
     div.style.cssText =
-      "padding: 2px; font-size: 9.5pt; line-height: 1.15; word-break: break-all; color: black;";
+      "padding: 2px; font-size: 9.5pt; line-height: 1.2; word-break: break-word; color: #000000 !important;";
     ta.parentNode.insertBefore(div, ta);
     ta.style.display = "none";
     divs.push({ div, ta });
@@ -11709,32 +11767,36 @@ document.getElementById("pdfSugeridosBtn")?.addEventListener("click", () => {
   const globalTA = document.getElementById("globalNotesTextarea");
   if (globalTA) {
     const globalDiv = document.createElement("div");
-    globalDiv.innerHTML = `<strong>Comentarios Globales:</strong><br>${globalTA.value.replace(/\n/g, "<br>")}`;
+    const valText = globalTA.value ? globalTA.value.replace(/\n/g, "<br>") : "<span style='color:#666; font-style:italic;'>Sin comentarios globales</span>";
+    globalDiv.innerHTML = `<strong style="font-size: 10.5pt; display: block; margin-bottom: 4px;">Comentarios Globales:</strong><div>${valText}</div>`;
     globalDiv.className = "print-only-text";
     globalDiv.style.cssText =
-      "margin-top: 15px; padding: 10px; border: 1px solid #000; border-radius: 4px; font-size: 10pt; line-height: 1.2; word-break: break-all; color: #000000 !important; page-break-inside: avoid;";
+      "margin-top: 15px; padding: 10px; border: 1px solid #000; border-radius: 4px; font-size: 10pt; line-height: 1.25; word-break: break-word; color: #000000 !important; page-break-inside: avoid;";
     globalTA.parentNode.insertBefore(globalDiv, globalTA);
     globalTA.style.display = "none";
     divs.push({ div: globalDiv, ta: globalTA });
   }
 
-  let container = document.getElementById("print-container");
-  if (!container) {
-    container = document.createElement("div");
-    container.id = "print-container";
-    Array.from(document.body.childNodes).forEach((child) => {
-      container.appendChild(child);
-    });
-    document.body.appendChild(container);
-  }
+  // Activar modo impresión sin destruir jerarquía DOM
+  document.body.classList.add("imprimiendo-sugeridos");
 
+  const cleanupPrint = () => {
+    document.body.classList.remove("imprimiendo-sugeridos");
+    if (header && header.parentNode) header.remove();
+    divs.forEach((item) => {
+      if (item.div && item.div.parentNode) item.div.remove();
+      if (item.ta) item.ta.style.display = "";
+    });
+    window.removeEventListener("afterprint", cleanupPrint);
+  };
+
+  window.addEventListener("afterprint", cleanupPrint);
+
+  // Ejecutar impresión
   window.print();
 
-  header.remove();
-  divs.forEach((item) => {
-    item.div.remove();
-    item.ta.style.display = "";
-  });
+  // Fallback por si afterprint no dispara en algún navegador
+  setTimeout(cleanupPrint, 1500);
 });
 
 // INICIO - Arranque rapido: carga datos inmediatamente sin esperar Auth
@@ -15326,6 +15388,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       function normalizeTimeToHHMM(timeVal) {
         if (timeVal === null || timeVal === undefined || timeVal === "") return "";
+        if (timeVal instanceof Date && !isNaN(timeVal.getTime())) {
+          const h = String(timeVal.getHours()).padStart(2, "0");
+          const m = String(timeVal.getMinutes()).padStart(2, "0");
+          return `${h}:${m}`;
+        }
         if (typeof timeVal === "number" || (!isNaN(timeVal) && !String(timeVal).includes(":") && !isNaN(parseFloat(timeVal)))) {
           const num = parseFloat(timeVal);
           if (num >= 0 && num <= 1) {
@@ -15354,9 +15421,15 @@ document.addEventListener("DOMContentLoaded", () => {
         return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
       }
 
-      // Función para convertir seriales numéricos de Excel (ej: 46275) a DD/MM/YYYY
+      // Función para convertir seriales numéricos de Excel (ej: 46275) o Date objects a DD/MM/YYYY
       function normalizeDateStr(dateVal) {
         if (!dateVal) return "";
+        if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+          const d = String(dateVal.getDate()).padStart(2, "0");
+          const m = String(dateVal.getMonth() + 1).padStart(2, "0");
+          const y = dateVal.getFullYear();
+          return `${d}/${m}/${y}`;
+        }
         if (typeof dateVal === "number" || (!isNaN(dateVal) && !String(dateVal).includes("/") && !String(dateVal).includes("-") && !isNaN(parseFloat(dateVal)))) {
           const num = parseFloat(dateVal);
           if (num > 30000 && num < 60000) {
@@ -15534,28 +15607,100 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!file) return;
         const reader = new FileReader();
         const ext = file.name.split('.').pop().toLowerCase();
-        const isExcel = ext === "xlsx" || ext === "xls";
+        const isExcel = ext === "xlsx" || ext === "xls" || ext === "xlsm" || ext === "xlsb";
 
         reader.onload = function(e) {
           try {
             if (isExcel || typeof XLSX !== "undefined") {
               const data = new Uint8Array(e.target.result);
-              const workbook = XLSX.read(data, { type: "array", raw: false });
-              const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-              const rawData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
-              callback(rawData);
+              // cellDates: true permite que fechas y horas en formato serial de Excel (.xls / .xlsx) se lean como objetos Date válidos
+              const workbook = XLSX.read(data, { type: "array", cellDates: true, raw: false });
+              
+              // Buscar la hoja con datos reales (o la primera)
+              let targetSheet = null;
+              let rawData = [];
+
+              for (const sheetName of workbook.SheetNames) {
+                const sheet = workbook.Sheets[sheetName];
+                if (!sheet) continue;
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", blankrows: false });
+                if (rows && rows.length > 0) {
+                  // Verificar que tenga al menos alguna celda con contenido
+                  const hasContent = rows.some(r => Array.isArray(r) && r.some(c => cleanVal(c) !== ""));
+                  if (hasContent) {
+                    targetSheet = sheet;
+                    rawData = rows;
+                    break;
+                  }
+                }
+              }
+
+              // Si sheet_to_json con cabecera de array no trajo filas válidas o celdas combinadas están vacías,
+              // usar respaldo directo convirtiendo la hoja a texto delimitado por tabulaciones (TSV)
+              if (!rawData || rawData.length === 0 || !rawData.some(r => r.some(c => cleanVal(c) !== ""))) {
+                const firstSheetName = workbook.SheetNames[0];
+                if (firstSheetName && workbook.Sheets[firstSheetName]) {
+                  const sheetText = XLSX.utils.sheet_to_csv(workbook.Sheets[firstSheetName], { FS: "\t", RS: "\n" });
+                  if (sheetText && sheetText.trim().length > 0) {
+                    rawData = parseDelimitedLines(sheetText);
+                  }
+                }
+              }
+
+              // Si aún está vacío, intentar con el primer sheet por defecto
+              if ((!rawData || rawData.length === 0) && workbook.SheetNames.length > 0) {
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                rawData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", blankrows: false });
+              }
+
+              callback(rawData || []);
             } else {
               const text = new TextDecoder("utf-8").decode(e.target.result);
               callback(parseDelimitedLines(text));
             }
           } catch(err) {
-            console.error("Error leyendo archivo con XLSX", err);
-            // Fallback texto plano
-            const textReader = new FileReader();
-            textReader.onload = function(evt) {
-              callback(parseDelimitedLines(evt.target.result));
-            };
-            textReader.readAsText(file);
+            console.error("Error leyendo archivo con XLSX:", err);
+            // Fallback robusto sin corromper archivos binarios .xls:
+            // Muchos sistemas de reloj exportan archivos ".xls" que internamente son tablas HTML o texto delimitado.
+            try {
+              const buffer = e.target.result;
+              // Intentar decodificar con windows-1252 o utf-8 para capturar tablas HTML o delimitadas
+              let decodedText = "";
+              try {
+                decodedText = new TextDecoder("windows-1252", { fatal: false }).decode(buffer);
+              } catch(e1) {
+                decodedText = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
+              }
+
+              // Si es un archivo que contiene tabla HTML (<table o <tr)
+              if (decodedText.includes("<table") || decodedText.includes("<tr") || decodedText.includes("<td")) {
+                const tempDiv = document.createElement("div");
+                tempDiv.innerHTML = decodedText;
+                const trElements = Array.from(tempDiv.querySelectorAll("tr"));
+                if (trElements.length > 0) {
+                  const htmlRows = trElements.map(tr => {
+                    return Array.from(tr.querySelectorAll("td, th")).map(cell => cleanVal(cell.innerText || cell.textContent));
+                  }).filter(r => r.length > 0 && r.some(c => c !== ""));
+                  if (htmlRows.length > 0) {
+                    callback(htmlRows);
+                    return;
+                  }
+                }
+              }
+
+              // Si tiene líneas de texto legibles delimitadas por tabs o comas
+              const parsedLines = parseDelimitedLines(decodedText);
+              // Verificar si tiene texto imprimible útil
+              const validLines = parsedLines.filter(row => row.some(c => cleanVal(c).length > 0 && !/[\x00-\x08\x0E-\x1F]/.test(c)));
+              if (validLines.length > 0) {
+                callback(validLines);
+                return;
+              }
+            } catch(fallbackErr) {
+              console.error("Error en fallback de decodificación de .xls:", fallbackErr);
+            }
+
+            callback([]);
           }
         };
         reader.readAsArrayBuffer(file);
@@ -15697,30 +15842,62 @@ document.addEventListener("DOMContentLoaded", () => {
             continue;
           }
 
-          // 4. EXTRACCIÓN DE HORA (Columna 9 o detectada)
+          // 4. EXTRACCIÓN DE HORAS / FICHADAS (Soporte de múltiples fichadas en una misma celda, ej: "13:58  17:14  17:29  19:02")
           let rawHora = "";
           if (colHoraIdx !== -1 && colHoraIdx < cols.length && cleanVal(cols[colHoraIdx])) {
             rawHora = cleanVal(cols[colHoraIdx]);
           } else if (cols.length > 9 && cleanVal(cols[9])) {
             rawHora = cleanVal(cols[9]);
           }
-          let hora = normalizeTimeToHHMM(rawHora);
 
-          // Si no encontramos hora en colHoraIdx, buscar candidato con formato HH:MM
-          if (!hora) {
-            const hCandidate = cols.find((c, idx) => idx !== colFechaIdx && /^\d{1,2}:\d{2}$/.test(cleanVal(c)));
-            if (hCandidate) hora = normalizeTimeToHHMM(hCandidate);
+          // Buscar todas las marcas de tiempo (HH:MM) presentes en la fila
+          // Primero inspeccionamos rawHora y columnas aledañas o candidatas
+          let detectedTimes = [];
+          const extractTimesFromStr = (str) => {
+            if (!str) return [];
+            const matches = String(str).match(/\b([01]?\d|2[0-3]):[0-5]\d\b/g);
+            return matches ? matches.map(t => normalizeTimeToHHMM(t)) : [];
+          };
+
+          if (rawHora) {
+            detectedTimes = extractTimesFromStr(rawHora);
           }
+
+          if (detectedTimes.length === 0) {
+            // Buscar en las celdas de la fila excluyendo legajo y fecha
+            cols.forEach((c, idx) => {
+              if (idx === colLegajoIdx || idx === colFechaIdx || idx === colNombreIdx) return;
+              const tArr = extractTimesFromStr(cleanVal(c));
+              if (tArr.length > 0) {
+                detectedTimes = detectedTimes.concat(tArr);
+              }
+            });
+          }
+
+          // Deduplicar respetando orden cronológico de la cadena original si vinieron repetidas adyacentes idénticas
+          let allMarks = [];
+          detectedTimes.forEach(t => {
+            if (t) allMarks.push(t);
+          });
+
+          let hora = allMarks.length > 0 ? allMarks[0] : normalizeTimeToHHMM(rawHora);
 
           let salida = colSalidaIdx !== -1 && cols[colSalidaIdx] !== undefined ? normalizeTimeToHHMM(cols[colSalidaIdx]) : "";
           let regreso = colRegresoIdx !== -1 && cols[colRegresoIdx] !== undefined ? normalizeTimeToHHMM(cols[colRegresoIdx]) : "";
 
-          // Si no hay columna separada de salida/regreso, la hora leída se asume como fichaje de salida
-          if (!salida && hora) {
+          // Si se detectaron múltiples marcas (ej: 4 marcas: Entrada turno, Salida descanso, Regreso descanso, Salida turno)
+          // Asignar segunda marca (índice 1) a Salida TAW y tercera marca (índice 2) a Regreso TAW
+          if (allMarks.length >= 3) {
+            salida = allMarks[1];
+            regreso = allMarks[2];
+          } else if (allMarks.length === 2) {
+            salida = allMarks[0];
+            regreso = allMarks[1];
+          } else if (!salida && hora) {
             salida = hora;
           }
 
-          // 5. EXTRACCIÓN DE CANTIDAD DE EXCESO (Columna 10 o detectada)
+          // 5. EXTRACCIÓN DE CANTIDAD DE EXCESO / DURACIÓN (Columna 10 o calculada entre salida y regreso)
           let rawCant = "";
           if (colCantIdx !== -1 && colCantIdx < cols.length && cleanVal(cols[colCantIdx])) {
             rawCant = cleanVal(cols[colCantIdx]);
@@ -15736,7 +15913,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const cantCandidate = cols.find((c, idx) => {
               if (idx === colLegajoIdx || idx === colFechaIdx || idx === colHoraIdx || idx === colNombreIdx || idx === colSalidaIdx || idx === colRegresoIdx) return false;
               const s = cleanVal(c);
-              if (s === hora || s.length === 0) return false;
+              if (s === hora || s.length === 0 || allMarks.includes(s)) return false;
               const matchTime = s.match(/^(\d{1,2}):(\d{2})$/);
               if (matchTime) {
                 const hrs = parseInt(matchTime[1], 10);
@@ -15771,7 +15948,19 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           }
 
-          // Si regreso no viene explícito, se calcula como: Salida TAW (S1) + Duración total tomada (Cant.)
+          // Si duracionTomadaMinutos no vino en columna pero tenemos salida y regreso de descanso explícitos (ej. por marcas múltiples)
+          if ((!duracionTomadaMinutos || duracionTomadaMinutos === 0) && salida && regreso && salida !== "-" && regreso !== "-") {
+            const mSal = parseTimeToMinutes(salida);
+            const mReg = parseTimeToMinutes(regreso);
+            if (mSal !== null && mReg !== null) {
+              const diff = mReg >= mSal ? (mReg - mSal) : (1440 - mSal + mReg);
+              if (diff > 0 && diff <= 300) {
+                duracionTomadaMinutos = diff;
+              }
+            }
+          }
+
+          // Si regreso no viene explícito, se calcula como: Salida TAW + Duración total tomada (Cant.)
           if ((!regreso || regreso === "-") && salida && duracionTomadaMinutos > 0) {
             regreso = addMinutesToHHMM(salida, duracionTomadaMinutos);
           }
@@ -15782,6 +15971,7 @@ document.addEventListener("DOMContentLoaded", () => {
             hora,
             salida,
             regreso,
+            todasMarcas: allMarks,
             nombre: currentNombre,
             collab: currentCollab,
             duracionTomada: duracionTomadaMinutos,
@@ -15798,10 +15988,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Procesamiento e indexado masivo del TAW Mensual
-      function processTawMensual() {
+      function processTawMensual(silent = false) {
         const rawTAWText = (document.getElementById("breakInputTAW")?.value || "").trim();
         if (!rawTAWText) {
-          alert("Por favor pegá o subí el reporte Parte Diario TAW mensual para indexar.");
+          if (!silent) alert("Por favor pegá o subí el reporte Parte Diario TAW mensual para indexar.");
           return;
         }
 
@@ -15810,7 +16000,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const count = Object.keys(newMap).length;
 
         if (count === 0) {
-          alert("No se pudieron detectar fichadas válidas en el Parte Diario TAW provisto. Verificá que los legajos existan en el sistema.");
+          if (!silent) alert("No se pudieron detectar fichadas válidas en el Parte Diario TAW provisto. Verificá que los legajos existan en el sistema.");
           return;
         }
 
@@ -15818,14 +16008,24 @@ document.addEventListener("DOMContentLoaded", () => {
         globalTawMap = { ...globalTawMap, ...newMap };
         saveGlobalTawMap(globalTawMap);
 
-        alert(`✅ Base TAW Mensual actualizada con éxito: ${count} fichadas procesadas e indexadas permanentemente.`);
+        if (silent) {
+          if (typeof showToast === "function") {
+            showToast("Éxito", "Parte TAW indexado correctamente desde el archivo.", "success");
+          } else if (window.showToast) {
+            window.showToast("Éxito", "Parte TAW indexado correctamente desde el archivo.", "success");
+          }
+        } else {
+          alert(`✅ Base TAW Mensual actualizada con éxito: ${count} fichadas procesadas e indexadas permanentemente.`);
+        }
 
-        // Si ya hay un R25 cargado o la tabla tiene registros, recalcular
+        // Recalcular y pintar inmediatamente la matriz en pantalla sin necesidad de recargar la página
         const inR25 = (document.getElementById("breakInputR25")?.value || "").trim();
-        if (inR25) {
+        if (inR25 && typeof processAuditoria === "function") {
           processAuditoria(true);
         } else if (typeof renderTableResults === "function") {
           renderTableResults();
+        } else if (typeof processAuditoria === "function") {
+          processAuditoria(true);
         }
       }
 
@@ -16482,6 +16682,38 @@ document.addEventListener("DOMContentLoaded", () => {
                 tawRegreso = rTAW.regresoTAW || "-";
                 duracionTAW = rTAW.duracionTomadaTAW || 0;
                 excesoTAW = rTAW.excesoRealTAW || 0;
+              }
+
+              // Si aún no se obtuvieron marcas de TAW desde matchedRows, consultar directamente globalTawMap
+              if (tawSalida === "-" && globalTawMap && Object.keys(globalTawMap).length > 0) {
+                const fechasBuscar = getAdjacentDates(selectedFormattedDate || selectedDateStr);
+                let tawEntry = null;
+                for (const f of fechasBuscar) {
+                  const fKey = f.toLowerCase();
+                  if (collabId && globalTawMap[`${collabId}_${fKey}`]) {
+                    tawEntry = globalTawMap[`${collabId}_${fKey}`];
+                    break;
+                  }
+                  if (collabOp && globalTawMap[`${collabOp}_${fKey}`]) {
+                    tawEntry = globalTawMap[`${collabOp}_${fKey}`];
+                    break;
+                  }
+                }
+                if (tawEntry) {
+                  tawSalida = tawEntry.salida || tawEntry.hora || "-";
+                  const tiempoNetoPermitidoTAW = norma.legal + norma.sindicato;
+                  duracionTAW = tawEntry.duracionTomada !== undefined ? tawEntry.duracionTomada : (tawEntry.excesoReporte || 0);
+                  if (tawEntry.regreso && tawEntry.regreso !== "-") {
+                    tawRegreso = tawEntry.regreso;
+                  } else if (tawSalida !== "-" && duracionTAW > 0) {
+                    tawRegreso = addMinutesToHHMM(tawSalida, duracionTAW);
+                  } else if (tawSalida !== "-") {
+                    tawRegreso = addMinutesToHHMM(tawSalida, tiempoNetoPermitidoTAW);
+                  }
+                  if (duracionTAW > 0) {
+                    excesoTAW = Math.max(0, duracionTAW - tiempoNetoPermitidoTAW);
+                  }
+                }
               }
 
               displayRows.push({
@@ -17327,7 +17559,7 @@ document.addEventListener("DOMContentLoaded", () => {
           });
         }
 
-        // Carga de archivo para Parte Diario TAW Mensual
+        // Carga de archivo para Parte Diario TAW Mensual (Lectura Directa y Nativa)
         const fileTAW = document.getElementById("breakFileTAW");
         if (fileTAW) {
           fileTAW.addEventListener("change", (e) => {
@@ -17335,16 +17567,47 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!file) return;
             readFileToTable(file, (rows) => {
               if (rows && rows.length > 0) {
-                const text = rows.map(r => r.join("\t")).join("\n");
+                // 1. Llenar el textarea #breakInputTAW con las líneas del archivo
+                const text = rows.map(r => Array.isArray(r) ? r.join("\t") : String(r)).join("\n");
                 const targetArea = document.getElementById("breakInputTAW");
                 if (targetArea) {
                   targetArea.value = text;
-                  const count = rows.length;
-                  const badge = document.getElementById("badgeCountTAW");
-                  if (badge) badge.textContent = `${count} líneas cargadas`;
                 }
-                // Indexar automáticamente el archivo TAW mensual
-                processTawMensual();
+
+                // 2. Actualizar el badge de líneas cargadas
+                const badge = document.getElementById("badgeCountTAW");
+                if (badge) {
+                  badge.textContent = `${rows.length} líneas cargadas`;
+                }
+
+                // 3. Ejecutar automáticamente processTawMensual de forma silenciosa con toast
+                if (typeof processTawMensual === "function") {
+                  processTawMensual(true);
+                } else {
+                  // Respaldo directo en caso de aislamiento de scope
+                  const newMap = parseTawRowsToMap(rows);
+                  if (Object.keys(newMap).length > 0) {
+                    globalTawMap = { ...globalTawMap, ...newMap };
+                    saveGlobalTawMap(globalTawMap);
+                    if (typeof showToast === "function") {
+                      showToast("Éxito", "Parte TAW indexado correctamente desde el archivo.", "success");
+                    } else if (window.showToast) {
+                      window.showToast("Éxito", "Parte TAW indexado correctamente desde el archivo.", "success");
+                    }
+                    const inR25 = (document.getElementById("breakInputR25")?.value || "").trim();
+                    if (inR25 && typeof processAuditoria === "function") {
+                      processAuditoria(true);
+                    } else if (typeof renderTableResults === "function") {
+                      renderTableResults();
+                    }
+                  }
+                }
+              } else {
+                if (typeof showToast === "function") {
+                  showToast("Atención", "No se pudieron extraer filas del archivo TAW.", "warning");
+                } else if (window.showToast) {
+                  window.showToast("Atención", "No se pudieron extraer filas del archivo TAW.", "warning");
+                }
               }
             });
           });
