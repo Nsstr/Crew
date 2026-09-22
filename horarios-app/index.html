@@ -3137,7 +3137,7 @@
         padding: 0 !important;
       }
 
-      /* Ancho físico estricto de 175mm centrado (deja margen lateral de seguridad) */
+      /* Ancho físico estricto de 175mm centrado (deja margen lateral de seguridad) y salto limpio */
       body.imprimiendo-novedades #placaClasico,
       body.imprimiendo-novedades #placaProductividad,
       body.imprimiendo-novedades #placaExtraCash {
@@ -3151,17 +3151,19 @@
         border-radius: 8px !important;
         box-shadow: none !important;
         box-sizing: border-box !important;
-        padding: 16px 18px !important;
-        margin-top: 10mm !important;
+        padding: 14px 16px !important;
+        margin-top: 5mm !important;
         margin-bottom: 0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
 
-      /* Salto de página obligado para las hojas 2 y 3 */
+      /* Salto de página obligado para las placas 2 y 3 (aislamiento en hojas independientes) */
       body.imprimiendo-novedades #placaProductividad,
       body.imprimiendo-novedades #placaExtraCash {
         page-break-before: always !important;
         break-before: page !important;
-        margin-top: 15mm !important;
+        margin-top: 8mm !important;
       }
 
       /* Ocultar elementos no imprimibles */
@@ -3177,9 +3179,14 @@
         display: none !important;
       }
 
+      /* Evitar que filas, rankings o tarjetas se quiebren entre páginas */
       body.imprimiendo-novedades tr,
+      body.imprimiendo-novedades .cajero-row,
       body.imprimiendo-novedades [class*="cajero-row"],
-      body.imprimiendo-novedades .bento-card {
+      body.imprimiendo-novedades .bento-card,
+      body.imprimiendo-novedades #placaClasico > div,
+      body.imprimiendo-novedades #placaProductividad > div,
+      body.imprimiendo-novedades #placaExtraCash > div {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
