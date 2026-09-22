@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -5790,6 +5790,7 @@ function renderMobileDayView() {
       }
     }
 
+    let isPreVacationSundayToday = false;
     if (targetDate.getDay() === 0 && !isOnVacationToday) {
       const nextMonStr = formatDate(addDays(targetDate, 1));
       const nextTueStr = formatDate(addDays(targetDate, 2));
@@ -5797,29 +5798,29 @@ function renderMobileDayView() {
       for (let vac of state.vacations || []) {
         if (vac.colaboradorId === collab.id) {
           if (vac.startDate === nextMonStr) {
-            isOnVacationToday = true;
+            isPreVacationSundayToday = true;
             break;
           }
           if (
             vac.startDate === nextTueStr &&
             state.holidays.includes(nextMonStr)
           ) {
-            isOnVacationToday = true;
+            isPreVacationSundayToday = true;
             break;
           }
         }
       }
 
-      if (!isOnVacationToday) {
+      if (!isPreVacationSundayToday) {
         const valMon = getPlanningSlot(collab.id, nextMonStr).toLowerCase();
         const valTue = getPlanningSlot(collab.id, nextTueStr).toLowerCase();
         if (valMon === "v" || valMon === "vacaciones") {
-          isOnVacationToday = true;
+          isPreVacationSundayToday = true;
         } else if (
           (valTue === "v" || valTue === "vacaciones") &&
           state.holidays.includes(nextMonStr)
         ) {
-          isOnVacationToday = true;
+          isPreVacationSundayToday = true;
         }
       }
     }
@@ -5891,7 +5892,16 @@ function renderMobileDayView() {
           `;
 
     let shiftVal = getPlanningSlot(collab.id, dStr);
-    if (isOnVacationToday) shiftVal = "V";
+    const isFlexibleSundayMobile = isPreVacationSundayToday && isContractUnder119(collab);
+    if (isOnVacationToday) {
+      shiftVal = "V";
+    } else if (isPreVacationSundayToday) {
+      if (!isFlexibleSundayMobile) {
+        shiftVal = "FRANCO";
+      } else if (!shiftVal) {
+        shiftVal = "FRANCO";
+      }
+    }
 
     const isTiendaCerrada = evento && evento.tiendaCerrada;
     // No pisar shiftVal si la tienda está cerrada; permitir cargar el horario correspondiente
@@ -5903,13 +5913,14 @@ function renderMobileDayView() {
       obj.horarioOriginal &&
       obj.horarioOriginal !== shiftVal &&
       !isOnVacationToday &&
+      (!isPreVacationSundayToday || isFlexibleSundayMobile) &&
       !isTiendaCerrada
     ) {
       shiftVal += " *";
       originalScheduleTitle = `title="Horario original: ${obj.horarioOriginal}"`;
     }
 
-    let logicDisabled = isOnVacationToday;
+    let logicDisabled = isOnVacationToday || (isPreVacationSundayToday && !isFlexibleSundayMobile);
     let inputDisabled = logicDisabled || !userHasAccess;
     let cellStyle = isTiendaCerrada
       ? "background-color: rgba(239, 68, 68, 0.2);"
@@ -6279,6 +6290,18 @@ function attachScheduleEventListeners() {
       }
       e.target.dataset.originalValue = e.target.value.trim();
       e.target.select();
+
+      const cId = e.target.getAttribute("data-collab");
+      const dStr = e.target.getAttribute("data-date");
+      if (cId && dStr) {
+        const collabObj = (state.collaborators || []).find(c => c.id === cId);
+        if (collabObj && isContractUnder119(collabObj)) {
+          const dateObj = new Date(dStr + "T00:00:00");
+          if (checkIsPreVacationSunday(cId, dateObj)) {
+            showToast("Aviso", "El colaborador sale de vacaciones", "warning");
+          }
+        }
+      }
     });
 
     if (!isMobileDevice) {
@@ -6382,6 +6405,49 @@ function attachScheduleEventListeners() {
       }
     });
   }
+}
+
+function isContractUnder119(collab) {
+  if (!collab) return false;
+  const h = parseFloat(collab.hours || collab.cargaHoraria || collab.contractHours || 0);
+  if (h <= 0) return false;
+  return (h <= 29.75) || (h > 48 && h <= 119);
+}
+
+function checkIsPreVacationSunday(collabId, dateObj) {
+  if (!dateObj || dateObj.getDay() !== 0) return false;
+
+  // 1. Check if the Sunday itself is already during vacation
+  const dStr = formatDate(dateObj);
+  const targetD = new Date(dStr + "T00:00:00");
+  for (let vac of state.vacations || []) {
+    if (vac.colaboradorId === collabId) {
+      const vacStart = new Date(vac.startDate + "T00:00:00");
+      const vacEnd = new Date(vac.endDate + "T00:00:00");
+      if (targetD >= vacStart && targetD <= vacEnd) {
+        return false; // Already on vacation, not a pre-vacation Sunday
+      }
+    }
+  }
+
+  const nextMonStr = formatDate(addDays(dateObj, 1));
+  const nextTueStr = formatDate(addDays(dateObj, 2));
+
+  // 2. Check official vacations plan
+  for (let vac of state.vacations || []) {
+    if (vac.colaboradorId === collabId) {
+      if (vac.startDate === nextMonStr) return true;
+      if (vac.startDate === nextTueStr && (state.holidays || []).includes(nextMonStr)) return true;
+    }
+  }
+
+  // 3. Check planning slot
+  const valMon = (getPlanningSlot(collabId, nextMonStr) || "").toLowerCase();
+  const valTue = (getPlanningSlot(collabId, nextTueStr) || "").toLowerCase();
+  if (valMon === "v" || valMon === "vacaciones") return true;
+  if ((valTue === "v" || valTue === "vacaciones") && (state.holidays || []).includes(nextMonStr)) return true;
+
+  return false;
 }
 
 function renderDesktopView() {
@@ -6669,12 +6735,14 @@ function renderDesktopView() {
           }
 
           let val = getPlanningSlot(collab.id, dStr);
-          if (isPreVacationSunday) {
+          const isFlexibleSunday = isPreVacationSunday && isContractUnder119(collab);
+          if (isPreVacationSunday && !isFlexibleSunday) {
             francoCountByWeek[mondayStr]++;
           } else {
+            const shiftToCheck = (isPreVacationSunday && isFlexibleSunday && !val) ? "FRANCO" : val;
             const objForTardanza = getPlanningObj(collab.id, dStr) || {};
             const parsed = parseShift(
-              val,
+              shiftToCheck,
               objForTardanza.tardanzaMinutosTotales || 0,
             );
             if (parsed) {
@@ -6752,11 +6820,15 @@ function renderDesktopView() {
         let inputClass = "input-empty";
         let isDisabled = false;
 
-        if (isPreVacationSunday) {
+        const isFlexibleSunday = isPreVacationSunday && isContractUnder119(collab);
+        if (isPreVacationSunday && !isFlexibleSunday) {
           val = "FRANCO";
           inputClass = "input-franco-locked";
           isDisabled = true;
         } else {
+          if (isPreVacationSunday && isFlexibleSunday && !val) {
+            val = "FRANCO";
+          }
           let objForTardanza = getPlanningObj(collab.id, dStr) || {};
           parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
 
@@ -6804,8 +6876,8 @@ function renderDesktopView() {
         if (obj) {
           let hasObservation = obj.comentario || obj.tardanzaMinutosTotales;
 
-          // Remove redundant comment indicator if the cell is locked for vacations
-          if (isOnVacation || isPreVacationSunday) {
+          // Remove redundant comment indicator if the cell is locked for vacations (strictly locked)
+          if (isOnVacation || (isPreVacationSunday && !isFlexibleSunday)) {
             hasObservation = false;
           }
 
@@ -7563,6 +7635,15 @@ async function handleInputChange(e) {
           return;
         }
       }
+    }
+  }
+
+  // Si se modifica el franco dominical previo a vacaciones para un contrato <= 119hs, emitir aviso operacional
+  const collabObjForNotice = (state.collaborators || []).find((c) => c.id === collabId);
+  if (collabObjForNotice && isContractUnder119(collabObjForNotice)) {
+    const editDateObj = new Date(dateStr + "T00:00:00");
+    if (checkIsPreVacationSunday(collabId, editDateObj)) {
+      showToast("Aviso Operativo", "El colaborador se encuentra de vacaciones", "warning");
     }
   }
 
@@ -10533,6 +10614,14 @@ window.setQuickState = async function (stateVal) {
   }
   const parsedNew = parseShift(stateVal);
 
+  const collabObjCtx = (state.collaborators || []).find((c) => c.id === collabId);
+  if (collabObjCtx && isContractUnder119(collabObjCtx)) {
+    const editDateObj = new Date(dateStr + "T00:00:00");
+    if (checkIsPreVacationSunday(collabId, editDateObj)) {
+      showToast("Aviso Operativo", "El colaborador se encuentra de vacaciones", "warning");
+    }
+  }
+
   obj.slot = stateVal;
   state.planning[`${collabId}_${dateStr}`] = obj;
 
@@ -10769,6 +10858,14 @@ async function autoSaveContextMenu() {
   const obj = getPlanningObj(collabId, dateStr) || {};
   const oldSlot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
   const oldComment = obj.comentario || "";
+
+  const collabObjAuto = (state.collaborators || []).find((c) => c.id === collabId);
+  if (collabObjAuto && isContractUnder119(collabObjAuto)) {
+    const editDateObj = new Date(dateStr + "T00:00:00");
+    if (checkIsPreVacationSunday(collabId, editDateObj)) {
+      showToast("Aviso Operativo", "El colaborador se encuentra de vacaciones", "warning");
+    }
+  }
 
   if (timeInVal && timeOutVal && slotValue !== oldSlot && !obj.horarioOriginal) {
     obj.horarioOriginal = oldSlot;
