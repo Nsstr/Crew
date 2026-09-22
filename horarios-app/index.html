@@ -3039,6 +3039,41 @@
       background-color: #382352 !important;
     }
 
+    /* Estilo diferenciado para Colaboradores Cruzados / Refuerzo de Cajas */
+    table#planningTable td.collab-cell.cruzado-collab-cell {
+      background-color: #1e3a5f !important;
+      border-left: 3px solid #38bdf8 !important;
+    }
+    table#planningTable td.day-cell.cruzado-day-cell.week-main-bg {
+      background-color: #142942 !important;
+    }
+    table#planningTable td.day-cell.cruzado-day-cell.week-alt-bg {
+      background-color: #1a3352 !important;
+    }
+    table#planningTable td.day-cell.cruzado-day-cell {
+      background-color: #142942 !important;
+    }
+    .badge-cruzado {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      font-size: 0.58rem;
+      font-weight: 800;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.16);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      border-radius: 3px;
+      padding: 0 4px;
+      height: 15px;
+      line-height: 1;
+      margin-left: 4px;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
     /* ============================================================
        REGLAS DE IMPRESIÓN A4: LIBRO DE NOVEDADES PRODUCTIVIDAD
        ============================================================ */
@@ -3065,6 +3100,32 @@
         width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
+      }
+
+      /* AISLAMIENTO ESTRICTO: Ocultar cualquier sección ajena a Productividad */
+      body.imprimiendo-novedades #seccionHorarios,
+      body.imprimiendo-novedades #seccionSugeridos,
+      body.imprimiendo-novedades #seccionVacaciones,
+      body.imprimiendo-novedades #seccionMetricas,
+      body.imprimiendo-novedades #tab-horarios,
+      body.imprimiendo-novedades #app-grid-container,
+      body.imprimiendo-novedades #planningTable,
+      body.imprimiendo-novedades .grid-container,
+      body.imprimiendo-novedades .top-layout-container,
+      body.imprimiendo-novedades #mobile-coverage-dashboard,
+      body.imprimiendo-novedades #sugeridosMobileCards,
+      body.imprimiendo-novedades #sugeridosTable,
+      body.imprimiendo-novedades .login-overlay,
+      body.imprimiendo-novedades .modal-overlay,
+      body.imprimiendo-novedades #pdfRenderContainer {
+        display: none !important;
+      }
+
+      /* Mostrar exclusivamente la sección de Productividad */
+      body.imprimiendo-novedades #seccionProductividad {
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
       }
 
       /* Contenedor centralizado para la hoja */
@@ -3212,7 +3273,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.4.5
+            Versión: v1.4.6
           </div>
         </div>
       </div>
@@ -3941,6 +4002,12 @@
             <option value="Direccion">Direccion</option>
           </select>
         </div>
+        <div class="form-group" id="cRefuerzoCajasContainer" style="display: flex; align-items: center; gap: 8px; background: rgba(56, 189, 248, 0.08); border: 1px dashed rgba(56, 189, 248, 0.3); padding: 8px 10px; border-radius: 6px; margin-top: -2px;">
+          <input type="checkbox" id="cRefuerzoCajas" style="width: 16px; height: 16px; cursor: pointer;">
+          <label for="cRefuerzoCajas" style="margin: 0; font-size: 0.78rem; font-weight: 600; color: #38bdf8; cursor: pointer;">
+            Habilitar como Refuerzo / Cruzado en Línea de Cajas
+          </label>
+        </div>
 
         <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
            <button type="submit" id="cSubmitBtn" class="primary" style="flex: 1; justify-content: center;">Guardar</button>
@@ -4028,7 +4095,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.4.5";
+  const APP_VERSION = "v1.4.6";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5668,7 +5735,7 @@ function renderMobileDayView() {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
   const targetArea = state.currentArea || "Disponibilidad";
-  const activeAreaCollabs = state.collaborators
+  let activeAreaCollabs = state.collaborators
     .filter(c => (c.area || "Disponibilidad") === targetArea)
     .sort((a, b) => {
       if (targetArea === "Linea de Cajas") {
@@ -5679,6 +5746,15 @@ function renderMobileDayView() {
       }
       return (a.id || "").localeCompare(b.id || "", undefined, { numeric: true });
     });
+
+  // Si estamos en Línea de Cajas, incluir al final a los colaboradores de apoyo/cruzados de otros sectores
+  if (targetArea === "Linea de Cajas") {
+    const cruzados = state.collaborators
+      .filter(c => (c.area || "Disponibilidad") !== "Linea de Cajas" && !!c.refuerzoCajas)
+      .sort((a, b) => (a.id || "").localeCompare(b.id || "", undefined, { numeric: true }))
+      .map(c => ({ ...c, _isCruzado: true }));
+    activeAreaCollabs = [...activeAreaCollabs, ...cruzados];
+  }
 
   const areaHeaderTr = document.createElement("tr");
   areaHeaderTr.style.backgroundColor = "var(--surface)";
@@ -5700,14 +5776,45 @@ function renderMobileDayView() {
       if (vac.colaboradorId === collab.id) {
         const vacStart = new Date(vac.startDate + "T00:00:00");
         const vacEnd = new Date(vac.endDate + "T00:00:00");
-        if (targetDToday >= vacStart && targetDToday <= vacEnd)
+        if (targetDToday >= vacStart && targetDToday <= vacEnd) {
           isOnVacationToday = true;
+          break;
+        }
       }
     }
 
-    if (isOnVacationToday) {
-      tr.style.background = "rgba(234, 179, 8, 0.1)";
-      tr.style.opacity = "0.7";
+    if (targetDate.getDay() === 0 && !isOnVacationToday) {
+      const nextMonStr = formatDate(addDays(targetDate, 1));
+      const nextTueStr = formatDate(addDays(targetDate, 2));
+
+      for (let vac of state.vacations || []) {
+        if (vac.colaboradorId === collab.id) {
+          if (vac.startDate === nextMonStr) {
+            isOnVacationToday = true;
+            break;
+          }
+          if (
+            vac.startDate === nextTueStr &&
+            state.holidays.includes(nextMonStr)
+          ) {
+            isOnVacationToday = true;
+            break;
+          }
+        }
+      }
+
+      if (!isOnVacationToday) {
+        const valMon = getPlanningSlot(collab.id, nextMonStr).toLowerCase();
+        const valTue = getPlanningSlot(collab.id, nextTueStr).toLowerCase();
+        if (valMon === "v" || valMon === "vacaciones") {
+          isOnVacationToday = true;
+        } else if (
+          (valTue === "v" || valTue === "vacaciones") &&
+          state.holidays.includes(nextMonStr)
+        ) {
+          isOnVacationToday = true;
+        }
+      }
     }
     if (!collab.name) {
       collab.name = "Desconocido";
@@ -5744,19 +5851,29 @@ function renderMobileDayView() {
       </div>
     ` : '';
 
-    const isRoller = targetArea === "Linea de Cajas" && !!(((collab.pasillo || "") + " " + (collab.esquema || "")).toLowerCase().includes("roller"));
+    const isCruzado = !!collab._isCruzado;
+    const isRoller = !isCruzado && targetArea === "Linea de Cajas" && !!(((collab.pasillo || "") + " " + (collab.esquema || "")).toLowerCase().includes("roller"));
     if (isRoller) {
       tr.classList.add("is-roller-row");
     }
+    if (isCruzado) {
+      tr.classList.add("is-cruzado-row");
+    }
+
+    const cruzadoMobileBadge = isCruzado 
+      ? `<span class="badge-cruzado" style="font-size: 0.58rem; margin-left: 4px;" title="Refuerzo · Dotación: ${collab.area || 'Externo'}">Ref. ${collab.area || 'Externo'}</span>` 
+      : "";
+
+    const mobileCellBg = isCruzado ? "background-color: #1e3a5f !important; border-left: 3px solid #38bdf8 !important;" : "";
 
     let cellsHTML = `
-            <td style="cursor: pointer; padding: 2px 6px !important;" onclick="openMobileProfile('${collab.id}')">
+            <td style="cursor: pointer; padding: 2px 6px !important; ${mobileCellBg}" onclick="openMobileProfile('${collab.id}')">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%;">
                 <div style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden;">
                   <div class="avatar" style="width: 24px; height: 24px; font-size: 0.7rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">${avatarStr}</div>
                   <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap; min-width: 0;">
                     <span style="font-weight: 600; font-size: 0.85rem; text-overflow: ellipsis; overflow: hidden; line-height: 1.1; display: flex; align-items: center;">
-                      ${apeF}${opBadge}
+                      ${apeF}${opBadge}${cruzadoMobileBadge}
                     </span>
                     <span style="font-size: 0.7rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${nomF}</span>
                   </div>
@@ -5789,10 +5906,10 @@ function renderMobileDayView() {
     let inputDisabled = logicDisabled || !userHasAccess;
     let cellStyle = isTiendaCerrada
       ? "background-color: rgba(239, 68, 68, 0.2);"
-      : "";
+      : (isCruzado ? "background-color: #142942;" : "");
 
     cellsHTML += `
-            <td class="day-cell" style="padding: 2px; ${cellStyle}">
+            <td class="day-cell ${isCruzado ? 'cruzado-day-cell' : ''}" style="padding: 2px; ${cellStyle}">
               <input type="text" class="cell-input" 
                      data-collab="${collab.id}" data-date="${dStr}" 
                      value="${shiftVal}" ${originalScheduleTitle}
@@ -6017,7 +6134,8 @@ function renderMobileCoverageDashboard(targetDate) {
 
   state.collaborators.forEach((collab) => {
     const collabArea = collab.area || "Disponibilidad";
-    if (collabArea !== activeArea) return;
+    const isCruzadoCajas = isCajas && collabArea !== "Linea de Cajas" && !!collab.refuerzoCajas;
+    if (collabArea !== activeArea && !isCruzadoCajas) return;
 
     let isOnVacationToday = false;
     let isOnVacationPrev = false;
@@ -6275,7 +6393,7 @@ function renderDesktopView() {
   const targetArea = (selectEl ? selectEl.value : null) || state.currentArea || "Disponibilidad";
   state.currentArea = targetArea;
 
-  const activeAreaCollabs = state.collaborators
+  let activeAreaCollabs = state.collaborators
     .filter(c => (c.area || "Disponibilidad") === targetArea)
     .sort((a, b) => {
       if (targetArea === "Linea de Cajas") {
@@ -6286,6 +6404,15 @@ function renderDesktopView() {
       }
       return (a.id || "").localeCompare(b.id || "", undefined, { numeric: true });
     });
+
+  // Si estamos en Línea de Cajas, incluir al final a los colaboradores de apoyo/cruzados de otros sectores
+  if (targetArea === "Linea de Cajas") {
+    const cruzados = state.collaborators
+      .filter(c => (c.area || "Disponibilidad") !== "Linea de Cajas" && !!c.refuerzoCajas)
+      .sort((a, b) => (a.id || "").localeCompare(b.id || "", undefined, { numeric: true }))
+      .map(c => ({ ...c, _isCruzado: true }));
+    activeAreaCollabs = [...activeAreaCollabs, ...cruzados];
+  }
 
   const areasOrderDesktop = [targetArea];
   const groupedCollabsDesktop = { [targetArea]: activeAreaCollabs };
@@ -6333,7 +6460,7 @@ function renderDesktopView() {
     
     const todayStr = formatDate(new Date());
     const isToday = dStr === todayStr;
-    const todayClass = isToday ? "dia-actual today-col " : "";
+    const todayClass = isToday ? " dia-actual today-col" : "";
     
     const isTiendaCerradaHoy = state.eventos[dStr] && state.eventos[dStr].tiendaCerrada;
     const tcClass = isTiendaCerradaHoy ? " tienda-cerrada-col" : "";
@@ -6391,13 +6518,17 @@ function renderDesktopView() {
   activeAreaCollabs.forEach((collab) => {
     absoluteRowIndex++;
       const currentRowIndex = absoluteRowIndex;
-      const isRoller = targetArea === "Linea de Cajas" && !!(((collab.pasillo || "") + " " + (collab.esquema || "")).toLowerCase().includes("roller"));
+      const isCruzado = !!collab._isCruzado;
+      const isRoller = !isCruzado && targetArea === "Linea de Cajas" && !!(((collab.pasillo || "") + " " + (collab.esquema || "")).toLowerCase().includes("roller"));
       const tr = document.createElement("tr");
       tr.style.willChange = "transform";
       tr.setAttribute("data-collab", collab.id);
       tr.setAttribute("data-row", currentRowIndex);
       if (isRoller) {
         tr.classList.add("is-roller-row");
+      }
+      if (isCruzado) {
+        tr.classList.add("is-cruzado-row");
       }
 
       let cellsHTML = "";
@@ -6411,8 +6542,9 @@ function renderDesktopView() {
 
       // Sunday Tracking (Francos Dominicales) - Lógica ahora delegada a updateDynamicHours
 
-      // Limpieza y formato compacto: Inicial del Apellido + Nombre (Ej: "F. Guillermo")
-      const rawName = (collab.name || "Desconocido").split("(")[0].split("-")[0].trim();
+      // Limpieza y formato compacto idéntico para todos los colaboradores (nativos y cruzados)
+      const authenticCollab = state.collaborators.find(x => x.id === collab.id) || collab;
+      const rawName = (authenticCollab.name || collab.name || "Desconocido").split("(")[0].split("-")[0].trim();
       const nameParts = rawName.split(" ").filter(Boolean);
       let shortName = rawName;
 
@@ -6422,20 +6554,25 @@ function renderDesktopView() {
         shortName = `${apellidoInicial}. ${restoNombre}`;
       }
       
+      const collabCellClass = isCruzado ? 'cruzado-collab-cell' : (isRoller ? 'roller-collab-cell' : '');
+      const collabCellTitle = isCruzado 
+        ? `${rawName} (Legajo: ${collab.id} - Refuerzo de ${collab.area || 'Externo'})` 
+        : `${rawName} (Legajo: ${collab.id}${isRoller ? ' - Roller' : ''})`;
+
       let html = `
-          <td class="collab-cell ${isRoller ? 'roller-collab-cell' : ''}" title="${rawName} (Legajo: ${collab.id}${isRoller ? ' - Roller' : ''})">
+          <td class="collab-cell ${collabCellClass}" title="${collabCellTitle}">
             <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; height: 100%; padding: 0 6px; box-sizing: border-box; gap: 4px; flex-wrap: nowrap;">
               
               <!-- Contenedor Principal (1 Fila) -->
               <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; min-width: 0;">
                 
                 <!-- Nombre Compacto e Indicador (Izquierda) -->
-                <div style="display: flex; align-items: center; cursor: pointer; min-width: 0; flex: 1; overflow: hidden;" onclick="window.toggleCollabDetails('${collab.id}', event)">
-                  <div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; flex-shrink: 0;"></div>
-                  <span style="font-weight: 600; font-size: 0.78rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <div style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; overflow: hidden;" onclick="window.toggleCollabDetails('${collab.id}', event)">
+                  <div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;"></div>
+                  <span style="font-weight: 600; font-size: 0.78rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">
                     ${shortName}
                   </span>
-                  <span id="collab-arrow-${collab.id}" style="font-size: 0.55rem; color: var(--text-muted); padding-left: 3px; flex-shrink: 0;">▼</span>
+                  <span id="collab-arrow-${collab.id}" style="font-size: 0.55rem; color: var(--text-muted); padding-left: 2px; flex-shrink: 0;">▼</span>
                 </div>
 
                 <!-- Badges de Horas y Domingos (Derecha) -->
@@ -6717,6 +6854,7 @@ function renderDesktopView() {
         const tcCellClass = isTiendaCerrada ? " tienda-cerrada-col" : "";
 
         const rollerDayClass = isRoller ? " roller-day-cell" : "";
+        const cruzadoDayClass = isCruzado ? " cruzado-day-cell" : "";
 
         let finalWrapperClass =
           wrapperClass +
@@ -6724,7 +6862,8 @@ function renderDesktopView() {
           " day-cell " + weekClass + " " + borderWeekClass +
           todayClass +
           tcCellClass +
-          rollerDayClass;
+          rollerDayClass +
+          cruzadoDayClass;
 
         // Validar descanso diario de 12 horas para turnos ya cargados
         let hasRestError = false;
@@ -7223,7 +7362,8 @@ function renderHeatmap() {
         if (!isTiendaCerradaHoy) {
           state.collaborators.forEach((c) => {
             const collabArea = c.area || "Disponibilidad";
-            if (collabArea !== activeArea) return;
+            const isCruzadoCajas = activeArea === "Linea de Cajas" && collabArea !== "Linea de Cajas" && !!c.refuerzoCajas;
+            if (collabArea !== activeArea && !isCruzadoCajas) return;
 
             const objForTardanza = getPlanningObj(c.id, dStr) || {};
             const valToday = getPlanningSlot(c.id, dStr);
@@ -7595,6 +7735,8 @@ document.getElementById("configBtn").addEventListener("click", (e) => {
   collabForm.reset();
   document.getElementById("collabMode").value = "add";
   document.getElementById("cLegajo").disabled = false;
+  const chkRefuerzo = document.getElementById("cRefuerzoCajas");
+  if (chkRefuerzo) chkRefuerzo.checked = false;
   document.getElementById("cCancelBtn").style.display = "none";
   document.getElementById("cDeleteBtn").style.display = "none";
   document.getElementById("cSubmitBtn").innerText = "Guardar";
@@ -7610,6 +7752,8 @@ document.getElementById("cCancelBtn").addEventListener("click", () => {
   collabForm.reset();
   document.getElementById("collabMode").value = "add";
   document.getElementById("cLegajo").disabled = false;
+  const chkRefuerzo = document.getElementById("cRefuerzoCajas");
+  if (chkRefuerzo) chkRefuerzo.checked = false;
   document.getElementById("cCancelBtn").style.display = "none";
   document.getElementById("cDeleteBtn").style.display = "none";
   document.getElementById("cSubmitBtn").innerText = "Guardar";
@@ -7626,6 +7770,7 @@ collabForm.addEventListener("submit", async (e) => {
 
   const existingCollab = state.collaborators.find((c) => c.id === legajo) || {};
 
+  const chkRefuerzo = document.getElementById("cRefuerzoCajas");
   const newCollab = {
     id: legajo,
     name: document.getElementById("cName").value.trim(),
@@ -7640,6 +7785,7 @@ collabForm.addEventListener("submit", async (e) => {
     fechaAlta: document.getElementById("cFechaAlta").value,
     fechaNacimiento: document.getElementById("cFechaNacimiento").value || "",
     area: document.getElementById("cArea").value,
+    refuerzoCajas: chkRefuerzo ? !!chkRefuerzo.checked : false,
   };
 
   // Guardar en Firebase
@@ -7682,6 +7828,7 @@ collabForm.addEventListener("submit", async (e) => {
   collabForm.reset();
   document.getElementById("collabMode").value = "add";
   document.getElementById("cLegajo").disabled = false;
+  if (chkRefuerzo) chkRefuerzo.checked = false;
 
   document.getElementById("cCancelBtn").style.display = "none";
   document.getElementById("cDeleteBtn").style.display = "none";
@@ -7701,13 +7848,19 @@ function renderConfigModalList() {
     div.onclick = () => editCollab(c.id);
 
     const badgeColor = getCollabColor(c.id);
+    const refuerzoBadge = c.refuerzoCajas
+      ? `<span class="badge-cruzado" style="margin-top: 4px; font-size: 0.65rem;">Refuerzo Cajas</span>`
+      : "";
 
     div.innerHTML = `
           <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 2px;">${c.name}</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">ID: ${c.id}</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">ID: ${c.id} · ${c.area || 'Disponibilidad'}</div>
           <div style="font-size: 0.75rem;">Contrato: ${c.hours}h</div>
-          <div class="bento-badge" style="background-color: ${badgeColor}33; color: ${badgeColor}; border-color: ${badgeColor}55;">
-             ${c.pasillo}
+          <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+            <div class="bento-badge" style="background-color: ${badgeColor}33; color: ${badgeColor}; border-color: ${badgeColor}55;">
+               ${c.pasillo}
+            </div>
+            ${refuerzoBadge}
           </div>
         `;
     container.appendChild(div);
@@ -7731,6 +7884,11 @@ window.editCollab = function (id) {
   document.getElementById("cFechaAlta").value = c.fechaAlta || "";
   document.getElementById("cFechaNacimiento").value = c.fechaNacimiento || "";
   document.getElementById("cArea").value = c.area || "Disponibilidad";
+
+  const chkRefuerzo = document.getElementById("cRefuerzoCajas");
+  if (chkRefuerzo) {
+    chkRefuerzo.checked = !!c.refuerzoCajas;
+  }
 
   document.getElementById("cCancelBtn").style.display = "block";
   document.getElementById("cDeleteBtn").style.display = "block";
@@ -13799,15 +13957,25 @@ window.imprimirLibroNovedades = function() {
   const periodo = (state && state.productividadPeriodoSeleccionado) || (mesSelector ? mesSelector.value : "Actual");
   const oldTitle = document.title;
 
+  // Asegurar que la vista activa sea productividad antes de imprimir
+  if (typeof window.switchTab === "function") {
+    window.switchTab("productividad");
+  }
+
   document.title = `Libro_Novedades_Cajas_1092_${periodo}`;
   document.body.classList.add("imprimiendo-novedades");
 
+  const cleanup = () => {
+    document.title = oldTitle;
+    document.body.classList.remove("imprimiendo-novedades");
+    window.removeEventListener("afterprint", cleanup);
+  };
+
+  window.addEventListener("afterprint", cleanup);
+
   setTimeout(() => {
     window.print();
-    setTimeout(() => {
-      document.title = oldTitle;
-      document.body.classList.remove("imprimiendo-novedades");
-    }, 1000);
+    setTimeout(cleanup, 1000);
   }, 150);
 };
 
