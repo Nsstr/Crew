@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -3140,7 +3140,10 @@
       /* Ancho físico estricto de 175mm centrado (deja margen lateral de seguridad) y salto limpio */
       body.imprimiendo-novedades #placaClasico,
       body.imprimiendo-novedades #placaProductividad,
-      body.imprimiendo-novedades #placaExtraCash {
+      body.imprimiendo-novedades #placaExtraCash,
+      body.imprimiendo-novedades #placaCodigosPostales,
+      body.imprimiendo-novedades #placaCpGeneral,
+      body.imprimiendo-novedades #placaCpDetalle {
         width: 175mm !important;
         max-width: 175mm !important;
         margin-left: auto !important;
@@ -3158,12 +3161,22 @@
         break-inside: avoid !important;
       }
 
-      /* Salto de página obligado para las placas 2 y 3 (aislamiento en hojas independientes) */
+      /* Salto de página obligado para las placas 2, 3 y las hojas de Códigos Postales */
       body.imprimiendo-novedades #placaProductividad,
-      body.imprimiendo-novedades #placaExtraCash {
+      body.imprimiendo-novedades #placaExtraCash,
+      body.imprimiendo-novedades #placaCodigosPostales,
+      body.imprimiendo-novedades #placaCpGeneral {
         page-break-before: always !important;
         break-before: page !important;
         margin-top: 8mm !important;
+      }
+
+      /* Salto de página obligatorio estricto para la hoja 2 de Códigos Postales (Auditoría de Colaboradores) */
+      body.imprimiendo-novedades #placaCpDetalle {
+        page-break-before: always !important;
+        break-before: page !important;
+        margin-top: 2mm !important;
+        padding-top: 10px !important;
       }
 
       /* Ocultar elementos no imprimibles */
@@ -3186,7 +3199,10 @@
       body.imprimiendo-novedades .bento-card,
       body.imprimiendo-novedades #placaClasico > div,
       body.imprimiendo-novedades #placaProductividad > div,
-      body.imprimiendo-novedades #placaExtraCash > div {
+      body.imprimiendo-novedades #placaExtraCash > div,
+      body.imprimiendo-novedades #placaCodigosPostales > div,
+      body.imprimiendo-novedades #placaCpGeneral > div,
+      body.imprimiendo-novedades #placaCpDetalle > div {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
@@ -3280,7 +3296,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.4.6
+            Versión: v1.4.9
           </div>
         </div>
       </div>
@@ -4102,7 +4118,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.4.6";
+  const APP_VERSION = "v1.4.9";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -4412,6 +4428,11 @@ try {
   state.extraCash = JSON.parse(localStorage.getItem('crew_extracash') || '{}');
 } catch (e) {
   state.extraCash = {};
+}
+try {
+  state.codigosPostales = JSON.parse(localStorage.getItem('crew_codigos_postales') || '{}');
+} catch (e) {
+  state.codigosPostales = {};
 }
 
 // Helpers para metadatos de turnos
@@ -4820,10 +4841,11 @@ async function loadInitialData() {
         state.productividad = state.productividad || {};
         state.productividadDistrital = state.productividadDistrital || {};
         state.extraCash = state.extraCash || {};
+        state.codigosPostales = state.codigosPostales || {};
 
         snap.forEach((docSnap) => {
           const data = docSnap.data();
-          const id = docSnap.id; // ej: "2026-09_avance", "2026-09_distrito", "2026-09_extracash"
+          const id = docSnap.id; // ej: "2026-09_avance", "2026-09_distrito", "2026-09_extracash", "2026-09_postales"
           
           if (id.includes("_distrito")) {
             const periodo = id.replace("_distrito", "");
@@ -4831,6 +4853,9 @@ async function loadInitialData() {
           } else if (id.includes("_extracash")) {
             const periodo = id.replace("_extracash", "");
             state.extraCash[periodo] = data;
+          } else if (id.includes("_postales")) {
+            const periodo = id.replace("_postales", "");
+            state.codigosPostales[periodo] = data;
           } else {
             const periodo = id.split("_")[0];
             state.productividad[periodo] = data;
@@ -6298,7 +6323,7 @@ function attachScheduleEventListeners() {
         if (collabObj && isContractUnder119(collabObj)) {
           const dateObj = new Date(dStr + "T00:00:00");
           if (checkIsPreVacationSunday(cId, dateObj)) {
-            showToast("Aviso", "El colaborador sale de vacaciones", "warning");
+            showToast("Aviso", "¡Ojo! Que el colaborador sale de vacaciones", "warning");
           }
         }
       }
@@ -13364,6 +13389,25 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── Módulo de Productividad de Cajas ──
+window.classifyOperador = function(cajeroId) {
+  const collabs = (window.state && window.state.collaborators) || [];
+  const col = collabs.find(c => 
+    String(c.numeroOperador) === String(cajeroId) || String(c.id) === String(cajeroId)
+  );
+
+  if (!col || (col.area && col.area !== "Linea de Cajas")) {
+    return "vendedores"; // Apoyo / Vendedores fuera de dotación principal de cajas
+  }
+
+  const pasillo = (col.pasillo || "").toLowerCase().trim();
+  const esquema = (col.esquema || "").toLowerCase().trim();
+  if (pasillo.includes("roller") || esquema.includes("roller")) {
+    return "roller";
+  }
+
+  return "cajero";
+};
+
 window.abrirModalProductividad = function() {
   const modal = document.getElementById("prodCargaModal");
   if (!modal) return;
@@ -13413,13 +13457,13 @@ window.renderProductividad = function() {
   };
 
   const labelsDotacion = {
-    cajeros: "Cajeros Titulares (Reporte Oficial)",
+    cajeros: "",
     rollers: "Rollers (Supervisión)",
     vendedores: "Vendedores con Fallo de Caja",
     consolidado: "Cajeros + Vendedores (Dotación Completa)"
   };
 
-  const labelDotacionActiva = labelsDotacion[dotacionFiltro] || "Dotación Activa";
+  const labelDotacionActiva = labelsDotacion[dotacionFiltro] || "";
 
   // ══════════════════════════════════════════════════════════════════════
   // BLOQUE 1: 🏆 EL SÚPER CLÁSICO DE SAN JUAN (INTERTIENDAS)
@@ -13473,18 +13517,18 @@ window.renderProductividad = function() {
       <!-- Microcabecera -->
       <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
         <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">
-          COMPETITIVIDAD REGIONAL · SAN JUAN
+          
         </div>
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 2px 0;">
           <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #f59e0b; text-transform: uppercase;">
             🏆 EL SÚPER CLÁSICO DE PRODUCTIVIDAD
           </h3>
           <span style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24; border-radius: 4px; padding: 2px 6px; font-size: 0.65rem; font-weight: 800; white-space: nowrap;">
-            ESCANEO INTERTIENDAS
+           
           </span>
         </div>
         <div style="font-size: 0.72rem; color: #64748b; margin-bottom: 4px;">
-          Velocidad promedio en Línea de Cajas · ${periodoNombre}
+           · ${periodoNombre}
         </div>
       </div>
 
@@ -13661,7 +13705,7 @@ window.renderProductividad = function() {
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 10px;">
             <div>
               <div style="font-size: 0.65rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px;">
-                LÍNEA DE CAJAS · ${periodoNombre.toUpperCase()}
+                · ${periodoNombre.toUpperCase()}
               </div>
               <div style="font-size: 1.05rem; font-weight: 900; color: #fbbf24; margin-top: 2px;">
                 🏆 PRODUCTIVIDAD
@@ -13721,7 +13765,7 @@ window.renderProductividad = function() {
           ${restoProd.length > 0 ? `
             <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; margin-top: 2px;">
               <div style="font-size: 0.68rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
-                Dotación en Operación (${restoProd.length} colaboradores)
+                
               </div>
               <div style="height: auto; max-height: none; overflow: visible; display: flex; flex-direction: column; gap: 6px;">
                 ${restoProd.map((c, idx) => {
@@ -13763,10 +13807,7 @@ window.renderProductividad = function() {
           ` : ''}
 
           <!-- Footer Placa Productividad -->
-          <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #64748b; width: 100%;">
-            <span style="font-weight: 800; color: #38bdf8; letter-spacing: 0.4px;">⚡ Productividad Retail · San Juan</span>
-            <span>Meta operativa: 600 prod/h</span>
-          </div>
+        
 
         </div>
       `;
@@ -13828,7 +13869,7 @@ window.renderProductividad = function() {
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 10px;">
           <div>
             <div style="font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px;">
-              LÍNEA DE CAJAS · DISPERSIÓN DE EFECTIVO · ${periodoNombre.toUpperCase()}
+              · ${periodoNombre.toUpperCase()}
             </div>
             <div style="font-size: 1.05rem; font-weight: 900; color: #fbbf24; margin-top: 2px;">
               💵 CUADRO DE HONOR · EXTRA CASH
@@ -13876,7 +13917,7 @@ window.renderProductividad = function() {
         ${restoEC.length > 0 ? `
           <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; margin-top: 2px;">
             <div style="font-size: 0.68rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
-              Dotación en Dispersión (${restoEC.length} operadores)
+              
             </div>
             <div style="height: auto; max-height: none; overflow: visible; display: flex; flex-direction: column; gap: 6px;">
               ${restoEC.map((c, idx) => {
@@ -13905,17 +13946,359 @@ window.renderProductividad = function() {
         ` : ''}
 
         <!-- Footer Extra Cash -->
-        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #64748b; width: 100%;">
-          <span style="font-weight: 800; color: #10b981; letter-spacing: 0.4px;">💵 Servicio Extra Cash · San Juan</span>
-          <span>Control de Gestión y Tesorería</span>
-        </div>
+       
 
       </div>
     `;
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // RENDERIZADO EN GRILLA DE 3 COLUMNAS (DESKTOP) Y COLUMNA SIMPLE (MOBILE)
+  // BLOQUE 4: 📍 CÓDIGOS POSTALES · PARTICIPACIÓN Y FRECUENCIA
+  // ══════════════════════════════════════════════════════════════════════
+  const dataPostales = (state.codigosPostales && state.codigosPostales[periodoKey])
+    ? state.codigosPostales[periodoKey]
+    : null;
+  let htmlBloqueCodigosPostales = '';
+
+  if (!dataPostales || !dataPostales.segmentos) {
+    htmlBloqueCodigosPostales = `
+      <div id="placaCodigosPostales" style="background: #0f172a; border: 1px dashed #334155; border-radius: 16px; padding: 30px 20px; width: 100%; max-width: 440px; margin: 0 auto; text-align: center; color: var(--text-muted); box-sizing: border-box;">
+        No hay datos de <strong>Códigos Postales</strong> cargados para <strong>${periodoNombre}</strong>.<br>
+        Presiona <strong>"Cargar Datos"</strong> y selecciona <em>Códigos Postales</em> para importar la matriz.
+      </div>
+    `;
+  } else {
+    // Resolver segmento activo según el selector global dotacionFiltro
+    let segActivo = null;
+    let labelSegmentoCP = "";
+    let badgeSegmentoCP = "";
+
+    if (dotacionFiltro === "rollers") {
+      const segRaw = dataPostales.segmentos?.rollers || {};
+      segActivo = {
+        operadores: Array.isArray(segRaw.operadores) ? segRaw.operadores : [],
+        totalTickets: Number(segRaw.totalTickets) || 0,
+        pctSobreTotal: String(segRaw.pctSobreTotal || "0.0"),
+        categorias: {
+          clientes: Number(segRaw.categorias?.clientes) || 0,
+          menus: Number(segRaw.categorias?.menus) || 0,
+          vacios: Number(segRaw.categorias?.vacios) || 0,
+          errores: Number(segRaw.categorias?.errores) || 0
+        },
+        porcentajes: {
+          clientes: String(segRaw.porcentajes?.clientes || "0.0"),
+          menus: String(segRaw.porcentajes?.menus || "0.0"),
+          vacios: String(segRaw.porcentajes?.vacios || "0.0"),
+          errores: String(segRaw.porcentajes?.errores || "0.0")
+        },
+        topCPsClientes: Array.isArray(segRaw.topCPsClientes) ? segRaw.topCPsClientes : [],
+        topCPCliente: segRaw.topCPCliente || { cp: "-", count: 0, pct: "0.0" },
+        cantidadOperadores: Number(segRaw.cantidadOperadores) || (Array.isArray(segRaw.operadores) ? segRaw.operadores.length : 0)
+      };
+      labelSegmentoCP = "Rollers (Supervisión)";
+      badgeSegmentoCP = "🛼 Rollers";
+    } else if (dotacionFiltro === "vendedores") {
+      const segRaw = dataPostales.segmentos?.vendedores || {};
+      segActivo = {
+        operadores: Array.isArray(segRaw.operadores) ? segRaw.operadores : [],
+        totalTickets: Number(segRaw.totalTickets) || 0,
+        pctSobreTotal: String(segRaw.pctSobreTotal || "0.0"),
+        categorias: {
+          clientes: Number(segRaw.categorias?.clientes) || 0,
+          menus: Number(segRaw.categorias?.menus) || 0,
+          vacios: Number(segRaw.categorias?.vacios) || 0,
+          errores: Number(segRaw.categorias?.errores) || 0
+        },
+        porcentajes: {
+          clientes: String(segRaw.porcentajes?.clientes || "0.0"),
+          menus: String(segRaw.porcentajes?.menus || "0.0"),
+          vacios: String(segRaw.porcentajes?.vacios || "0.0"),
+          errores: String(segRaw.porcentajes?.errores || "0.0")
+        },
+        topCPsClientes: Array.isArray(segRaw.topCPsClientes) ? segRaw.topCPsClientes : [],
+        topCPCliente: segRaw.topCPCliente || { cp: "-", count: 0, pct: "0.0" },
+        cantidadOperadores: Number(segRaw.cantidadOperadores) || (Array.isArray(segRaw.operadores) ? segRaw.operadores.length : 0)
+      };
+      labelSegmentoCP = "Vendedores con Fallo de Caja";
+      badgeSegmentoCP = "🏷️ Vendedores";
+    } else if (dotacionFiltro === "consolidado") {
+      // Consolidado: reúne a todos los colaboradores procesados en nómina activa
+      const todosOps = [
+        ...(dataPostales.segmentos?.cajeros?.operadores || []),
+        ...(dataPostales.segmentos?.rollers?.operadores || []),
+        ...(dataPostales.segmentos?.vendedores?.operadores || [])
+      ].sort((a, b) => (b.categorias?.clientes || 0) - (a.categorias?.clientes || 0) || (b.totalTickets || 0) - (a.totalTickets || 0));
+
+      segActivo = {
+        operadores: todosOps,
+        totalTickets: Number(dataPostales.totalTickets) || 0,
+        pctSobreTotal: "100.0",
+        categorias: {
+          clientes: Number(dataPostales.categorias?.clientes) || 0,
+          menus: Number(dataPostales.categorias?.menus) || 0,
+          vacios: Number(dataPostales.categorias?.vacios) || 0,
+          errores: Number(dataPostales.categorias?.errores) || 0
+        },
+        porcentajes: {
+          clientes: String(dataPostales.porcentajes?.clientes || "0.0"),
+          menus: String(dataPostales.porcentajes?.menus || "0.0"),
+          vacios: String(dataPostales.porcentajes?.vacios || "0.0"),
+          errores: String(dataPostales.porcentajes?.errores || "0.0")
+        },
+        topCPsClientes: Array.isArray(dataPostales.topCPsClientes) ? dataPostales.topCPsClientes : [],
+        topCPCliente: dataPostales.topCPCliente || { cp: "-", count: 0, pct: "0.0" },
+        cantidadOperadores: Number(dataPostales.totalOperadoresValidos) || todosOps.length
+      };
+      labelSegmentoCP = "Dotación Completa (Consolidado)";
+      badgeSegmentoCP = "👥 Dotación Completa";
+    } else {
+      // Por defecto: Cajeros Titulares
+      const segRaw = dataPostales.segmentos?.cajeros || {};
+      segActivo = {
+        operadores: Array.isArray(segRaw.operadores) ? segRaw.operadores : [],
+        totalTickets: Number(segRaw.totalTickets) || 0,
+        pctSobreTotal: String(segRaw.pctSobreTotal || "0.0"),
+        categorias: {
+          clientes: Number(segRaw.categorias?.clientes) || 0,
+          menus: Number(segRaw.categorias?.menus) || 0,
+          vacios: Number(segRaw.categorias?.vacios) || 0,
+          errores: Number(segRaw.categorias?.errores) || 0
+        },
+        porcentajes: {
+          clientes: String(segRaw.porcentajes?.clientes || "0.0"),
+          menus: String(segRaw.porcentajes?.menus || "0.0"),
+          vacios: String(segRaw.porcentajes?.vacios || "0.0"),
+          errores: String(segRaw.porcentajes?.errores || "0.0")
+        },
+        topCPsClientes: Array.isArray(segRaw.topCPsClientes) ? segRaw.topCPsClientes : [],
+        topCPCliente: segRaw.topCPCliente || { cp: "-", count: 0, pct: "0.0" },
+        cantidadOperadores: Number(segRaw.cantidadOperadores) || (Array.isArray(segRaw.operadores) ? segRaw.operadores.length : 0)
+      };
+      labelSegmentoCP = "";
+      badgeSegmentoCP = "🏆 Cajeros Titulares";
+    }
+
+    // 1. Placa General: Resumen, Bento Cards y Zonas Válidas
+    const htmlPlacaCpGeneral = `
+      <!-- BLOQUE 4A: 📍 CÓDIGOS POSTALES - GENERAL (FORMATO BENTO WHATSAPP / HOJA 1) -->
+      <div id="placaCpGeneral" data-alias="placaCpGeneral" style="background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 20px 18px 16px; width: 100%; max-width: 440px; margin: 0 auto; height: auto !important; min-height: fit-content; max-height: none !important; overflow: visible !important; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 15px 35px rgba(0,0,0,0.6); box-sizing: border-box;">
+        
+        <!-- Encabezado de la Placa General -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 10px;">
+          <div>
+            <div style="font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px;">
+              · ${periodoNombre.toUpperCase()}
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 900; color: #38bdf8; margin-top: 2px;">
+              📍 CÓDIGOS POSTALES · GENERAL
+            </div>
+            <div style="font-size: 0.68rem; color: #94a3b8; font-weight: 600;">
+              ${labelSegmentoCP}
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 4px 10px; font-weight: 800; color: #38bdf8; font-size: 0.85rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center;">
+              ${(Number(segActivo.totalTickets) || 0).toLocaleString('es-AR')} tkts
+            </div>
+            <div style="font-size: 0.6rem; color: #64748b; font-weight: 700; margin-top: 2px;">
+              ${badgeSegmentoCP} (${segActivo.cantidadOperadores} ops)
+            </div>
+          </div>
+        </div>
+
+        <!-- BENTO CARDS DE MÉTRICAS DEL SEGMENTO (4 RUBROS AUDITORÍA) -->
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+          <!-- Card 1: Clientes (Zonas Válidas) -->
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 10px 12px; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.62rem; color: #6ee7b7; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">🛒 Clientes (Zonas)</span>
+              <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; font-size: 0.65rem; font-weight: 800; padding: 1px 6px; border-radius: 4px;">${segActivo.porcentajes?.clientes || "0.0"}%</span>
+            </div>
+            <div style="font-size: 1.25rem; font-weight: 900; color: #ffffff; margin-top: 4px;">
+              ${(segActivo.categorias?.clientes || 0).toLocaleString('es-AR')}
+            </div>
+            <div style="font-size: 0.62rem; color: #94a3b8; margin-top: 2px;">
+              Top: <strong style="color: #6ee7b7;">CP ${segActivo.topCPCliente?.cp || "-"}</strong> (${segActivo.topCPCliente?.pct || "0.0"}%)
+            </div>
+          </div>
+
+          <!-- Card 2: Menús Colaboradores (1092) -->
+          <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 10px 12px; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.62rem; color: #7dd3fc; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">🍽️ Menús Internos</span>
+              <span style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-size: 0.65rem; font-weight: 800; padding: 1px 6px; border-radius: 4px;">${segActivo.porcentajes?.menus || "0.0"}%</span>
+            </div>
+            <div style="font-size: 1.25rem; font-weight: 900; color: #ffffff; margin-top: 4px;">
+              ${(segActivo.categorias?.menus || 0).toLocaleString('es-AR')}
+            </div>
+            <div style="font-size: 0.62rem; color: #94a3b8; margin-top: 2px;">
+              Cód. <strong style="color: #38bdf8;">1092</strong> · Uso Personal
+            </div>
+          </div>
+
+          <!-- Card 3: Sin Código (Vacíos / No cargados) -->
+          <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 10px; padding: 10px 12px; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.62rem; color: #fde68a; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ Sin Cargar (Vacíos)</span>
+              <span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; font-size: 0.65rem; font-weight: 800; padding: 1px 6px; border-radius: 4px;">${segActivo.porcentajes?.vacios || "0.0"}%</span>
+            </div>
+            <div style="font-size: 1.25rem; font-weight: 900; color: #ffffff; margin-top: 4px;">
+              ${(segActivo.categorias?.vacios || 0).toLocaleString('es-AR')}
+            </div>
+            <div style="font-size: 0.62rem; color: #94a3b8; margin-top: 2px;">
+              Omitidos sin cargar CP
+            </div>
+          </div>
+
+          <!-- Card 4: Datos Erróneos / Tipeo ("Cualquier cosa") -->
+          <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 10px; padding: 10px 12px; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.62rem; color: #fca5a5; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">❌ Errores de Tipeo</span>
+              <span style="background: rgba(239, 68, 68, 0.2); color: #f87171; font-size: 0.65rem; font-weight: 800; padding: 1px 6px; border-radius: 4px;">${segActivo.porcentajes?.errores || "0.0"}%</span>
+            </div>
+            <div style="font-size: 1.25rem; font-weight: 900; color: #ffffff; margin-top: 4px;">
+              ${(segActivo.categorias?.errores || 0).toLocaleString('es-AR')}
+            </div>
+            <div style="font-size: 0.62rem; color: #94a3b8; margin-top: 2px;">
+              0000, 0001 u otros
+            </div>
+          </div>
+        </div>
+
+        <!-- FRECUENCIA DE CÓDIGOS POSTALES DE CLIENTES (ZONAS REALES DE SAN JUAN) -->
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 10px 12px;">
+          <div style="font-size: 0.68rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center;">
+            <span>📍 Zonas Válidas San Juan (Clientes)</span>
+            <span style="font-size: 0.62rem; color: #10b981; text-transform: none; font-weight: 700;">${(segActivo.categorias?.clientes || 0).toLocaleString('es-AR')} tkts válidos</span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            ${((segActivo.topCPsClientes || []).slice(0, 6)).map(cpItem => `
+              <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 6px; padding: 4px 8px; display: flex; align-items: center; gap: 6px;">
+                <span style="font-weight: 800; font-size: 0.76rem; color: #f8fafc;">CP ${cpItem?.cp || '-'}</span>
+                <span style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.66rem; font-weight: 700; padding: 1px 4px; border-radius: 4px;">${cpItem?.pct || '0.0'}%</span>
+                <span style="font-size: 0.64rem; color: #94a3b8;">(${Number(cpItem?.count || 0).toLocaleString('es-AR')})</span>
+              </div>
+            `).join('') || '<div style="font-size: 0.72rem; color: #64748b;">Sin CPs de clientes registrados</div>'}
+          </div>
+        </div>
+
+        <!-- Footer Placa General -->
+        
+
+      </div>
+    `;
+
+    // 2. Placa Detalle: Auditoría de Carga por Colaborador (con salto de página A4 garantizado)
+    const htmlPlacaCpDetalle = `
+      <!-- BLOQUE 4B: 📋 AUDITORÍA DE CÓDIGOS POSTALES POR COLABORADOR (HOJA 2 INDEPENDIENTE) -->
+      <div id="placaCpDetalle" data-alias="placaCpDetalle" style="background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 14px 18px 16px; width: 100%; max-width: 440px; margin: 0 auto; height: auto !important; max-height: none !important; overflow: visible !important; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 15px 35px rgba(0,0,0,0.6); box-sizing: border-box; page-break-before: always; break-before: page;">
+        
+        <!-- Encabezado de la Placa Detalle -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 10px;">
+          <div>
+            <div style="font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px;">
+              · ${periodoNombre.toUpperCase()}
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 900; color: #38bdf8; margin-top: 2px;">
+              📋 CARGA DE CÓDIGOS POSTALES
+            </div>
+            
+          </div>
+          <div style="text-align: right;">
+            <div style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 4px 10px; font-weight: 800; color: #38bdf8; font-size: 0.85rem; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center;">
+              ${(Number(segActivo.totalTickets) || 0).toLocaleString('es-AR')} tkts
+            </div>
+            <div style="font-size: 0.6rem; color: #64748b; font-weight: 700; margin-top: 2px;">
+              Ordenado por Clientes
+            </div>
+          </div>
+        </div>
+
+        <!-- LISTADO DE COLABORADORES ACTIVOS -->
+        <div style="padding-top: 2px;">
+          ${(!segActivo.operadores || segActivo.operadores.length === 0) ? `
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 20px 0;">
+              No se encontraron registros de Códigos Postales para este grupo en la nómina activa.
+            </div>
+          ` : `
+            <div style="height: auto; max-height: none; overflow: visible; display: flex; flex-direction: column; gap: 6px;">
+              ${segActivo.operadores.map((op, idx) => {
+                const badgeMedalla = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
+                const top2Clientes = (op.topCPsClientes || []).slice(0, 2).map(c => `CP ${c?.cp || '-'} (${c?.pct || '0.0'}%)`).join(' · ');
+
+                const opClientes = Number(op.categorias?.clientes) || 0;
+                const opMenus = Number(op.categorias?.menus) || 0;
+                const opVacios = Number(op.categorias?.vacios) || 0;
+                const opErrores = Number(op.categorias?.errores) || 0;
+
+                const opPctClientes = op.pctClientes || "0.0";
+                const opPctMenus = op.pctMenus || "0.0";
+
+                return `
+                  <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                    <div style="flex: 1; min-width: 0;">
+                      <div style="font-weight: 600; font-size: 0.8rem; color: #f8fafc; display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <span style="color: #64748b; font-size: 0.7rem; font-weight: 700; min-width: 18px;">${badgeMedalla}</span>
+                        ${op.nombre || 'Operador ' + op.cajeroId}
+                        <span style="color: #64748b; font-size: 0.68rem; font-weight: normal;">#${op.cajeroId || ''}</span>
+                      </div>
+                      
+                      <!-- Píldoras de Calidad de Carga: Clientes / Menús / Vacíos / Errores -->
+                      <div style="display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; align-items: center; font-size: 0.63rem;">
+                        <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="Clientes reales">
+                          🛒 ${opClientes} (${opPctClientes}%)
+                        </span>
+                        ${opMenus > 0 ? `
+                          <span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="Menús 1092">
+                            🍽️ ${opMenus} (${opPctMenus}%)
+                          </span>
+                        ` : ''}
+                        ${opVacios > 0 ? `
+                          <span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="Sin código">
+                            ⚠️ ${opVacios} vacíos
+                          </span>
+                        ` : ''}
+                        ${opErrores > 0 ? `
+                          <span style="background: rgba(239, 68, 68, 0.15); color: #f87171; padding: 1px 5px; border-radius: 4px; font-weight: 700;" title="Errores de tipeo">
+                            ❌ ${opErrores} erróneos
+                          </span>
+                        ` : ''}
+                      </div>
+
+                      ${top2Clientes ? `
+                        <div style="font-size: 0.62rem; color: #94a3b8; margin-top: 2px;">
+                          Zonas frecuentes: <span style="color: #6ee7b7; font-weight: 600;">${top2Clientes}</span>
+                        </div>
+                      ` : ''}
+                    </div>
+
+                    <div style="text-align: right; flex-shrink: 0;">
+                      <div style="font-weight: 900; font-size: 0.98rem; color: #f8fafc; line-height: 1;">
+                        ${(Number(op.totalTickets) || 0).toLocaleString('es-AR')}
+                      </div>
+                      <div style="font-size: 0.58rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">total tkts</div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+
+        <!-- Footer Placa Detalle -->
+        
+
+      </div>
+    `;
+
+    htmlBloqueCodigosPostales = `
+      ${htmlPlacaCpGeneral}
+      ${htmlPlacaCpDetalle}
+    `;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // RENDERIZADO EN GRILLA RESPONSIVE (DESKTOP / MOBILE)
   // ══════════════════════════════════════════════════════════════════════
   container.style.display = "grid";
   container.style.gridTemplateColumns = "repeat(auto-fit, minmax(360px, 1fr))";
@@ -13931,7 +14314,15 @@ window.renderProductividad = function() {
     ${htmlBloqueClasico}
     ${htmlBloqueProductividad}
     ${htmlBloqueExtraCash}
+    ${htmlBloqueCodigosPostales}
   `;
+};
+
+window.switchCPTab = function(tabName) {
+  window.activeCPTab = tabName;
+  if (typeof window.renderProductividad === "function") {
+    window.renderProductividad();
+  }
 };
 
 window.exportarPlacasWhatsApp = async function() {
@@ -13956,16 +14347,26 @@ window.exportarPlacasWhatsApp = async function() {
   const periodo = mesSelector ? mesSelector.value : "periodo";
   const filtro = dotacionSelector ? dotacionSelector.value : "cajeros";
 
-  // Identificar las 3 placas del flujo vertical
+  // Identificar las placas del flujo vertical
   const elClasico = document.getElementById("placaClasico") || document.getElementById("placaIntertiendas");
   const elProd = document.getElementById("placaProductividad");
   const elExtra = document.getElementById("placaExtraCash");
+  const elCpGeneral = document.getElementById("placaCpGeneral");
+  const elCpDetalle = document.getElementById("placaCpDetalle");
+  const elCP = document.getElementById("placaCodigosPostales");
 
   let placas = [
     { el: elClasico, nombre: `1_Clasico_SanJuan_${periodo}.png` },
     { el: elProd, nombre: `2_Ranking_Productividad_${filtro}_${periodo}.png` },
     { el: elExtra, nombre: `3_ExtraCash_${filtro}_${periodo}.png` }
   ];
+
+  if (elCpGeneral && elCpDetalle) {
+    placas.push({ el: elCpGeneral, nombre: `4_CodigosPostales_General_${filtro}_${periodo}.png` });
+    placas.push({ el: elCpDetalle, nombre: `5_CodigosPostales_Auditoria_${filtro}_${periodo}.png` });
+  } else if (elCP) {
+    placas.push({ el: elCP, nombre: `4_CodigosPostales_${filtro}_${periodo}.png` });
+  }
 
   placas = placas.filter(p => p.el && p.el.offsetWidth > 0 && p.el.offsetHeight > 0);
 
@@ -14343,6 +14744,339 @@ window.parseExtraCashData = function(rawText) {
   };
 };
 
+window.parseCodigosPostalesData = function(rawText) {
+  if (!rawText || !rawText.trim()) return null;
+
+  const clean = rawText.replace(/\x00/g, "").replace(/^\uFEFF/, "").trim();
+  const lines = clean.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) return null;
+
+  // Detectar delimitador inspeccionando las primeras líneas
+  const sample = lines.slice(0, 5).join("\n");
+  const countTabs = (sample.match(/\t/g) || []).length;
+  const countSemicolons = (sample.match(/;/g) || []).length;
+  const countCommas = (sample.match(/,/g) || []).length;
+
+  let delimiter = ",";
+  if (countTabs > countCommas && countTabs > countSemicolons) {
+    delimiter = "\t";
+  } else if (countSemicolons > countCommas && countSemicolons > countTabs) {
+    delimiter = ";";
+  }
+
+  // Función auxiliar para dividir una línea en celdas por comas o tabulaciones
+  const parseLine = (text) => {
+    if (!text) return [];
+    // Si contiene tabulación, dividir por tabulaciones
+    if (text.includes("\t")) {
+      return text.split("\t").map(c => c.replace(/^["']|["']$/g, "").trim());
+    }
+    // Si contiene comas o comillas, dividir respetando comas con espacios circundantes (\s*,\s*)
+    const p = [];
+    let cur = "";
+    let inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '"') {
+        inQ = !inQ;
+      } else if (c === ',' && !inQ) {
+        p.push(cur.replace(/^"|"$/g, "").trim());
+        cur = "";
+      } else if (c === ';' && !inQ && !text.includes(',')) {
+        p.push(cur.replace(/^"|"$/g, "").trim());
+        cur = "";
+      } else {
+        cur += c;
+      }
+    }
+    p.push(cur.replace(/^"|"$/g, "").trim());
+    return p;
+  };
+
+  const collabs = (window.state && window.state.collaborators) || [];
+  const mapOperadores = {}; // cajeroId -> { collab, tickets, cpCounts: { cp: count } }
+  let lastCajeroId = null;  // Para forward fill de la columna 0 si viene vacía
+
+  // Inspeccionar primera fila para detectar si existen encabezados explícitos
+  const firstRow = parseLine(lines[0]);
+  const headerCheck = firstRow.map(h => (h || "").toLowerCase().trim());
+  const hasHeader = headerCheck.some(h => 
+    h.includes("cajero") || h.includes("operador") || h.includes("legajo") || h.includes("postal") || h.includes("ticket") || h.includes("tkt") || h.includes("codigo") || h.includes("código")
+  );
+
+  const startLineIndex = hasHeader ? 1 : 0;
+
+  for (let i = startLineIndex; i < lines.length; i++) {
+    const rawLine = lines[i];
+    if (!rawLine || !rawLine.trim()) continue;
+
+    const cols = parseLine(rawLine);
+    if (!cols || cols.length === 0) continue;
+
+    // 2. EXCLUSIÓN DE CABECERAS Y FILAS DE TOTALES / TÍTULOS
+    const fullLineLower = rawLine.toLowerCase();
+    if (
+      fullLineLower.includes("total código postal") ||
+      fullLineLower.includes("total codigo postal") ||
+      fullLineLower.includes("total general") ||
+      fullLineLower.startsWith("total") ||
+      fullLineLower.includes("promedio") ||
+      fullLineLower.includes("cajero,código postal") ||
+      fullLineLower.includes("cajero,codigo postal") ||
+      fullLineLower.includes("cajero\tcodigo postal") ||
+      fullLineLower.includes("cajero\tcódigo postal")
+    ) {
+      continue;
+    }
+
+    const firstCellLower = (cols[0] || "").toLowerCase().trim();
+    if (firstCellLower.startsWith("total") || firstCellLower === "cajero" || firstCellLower === "operador" || firstCellLower.includes("código postal") || firstCellLower.includes("codigo postal")) {
+      continue;
+    }
+
+    // 1. AJUSTE ESTRICTO DE ÍNDICES DE COLUMNAS (cols[0], cols[1], cols[2] - ignorando cols[3] y cols[4])
+    // cols[0]: Número de Cajero / Operario (aplicando forward fill si viene vacío)
+    let rawCajero = (cols[0] !== undefined && cols[0] !== null) ? String(cols[0]).trim() : "";
+    let cajeroId = "";
+
+    if (rawCajero) {
+      const matchNum = rawCajero.match(/\d+/);
+      cajeroId = matchNum ? matchNum[0] : rawCajero;
+      lastCajeroId = cajeroId; // Actualizar el último cajero para las filas subsiguientes
+    } else if (lastCajeroId) {
+      // Forward fill: si la celda viene vacía, hereda el cajero anterior
+      cajeroId = lastCajeroId;
+    } else {
+      continue; // Sin cajero y sin historial previo
+    }
+
+    // Filtrado estricto contra la nómina activa (state.collaborators)
+    const matchedCollab = collabs.find(c => {
+      const matchOp = c.numeroOperador && String(c.numeroOperador).trim() === String(cajeroId).trim();
+      const matchId = c.id && String(c.id).trim() === String(cajeroId).trim();
+      return matchOp || matchId;
+    });
+
+    if (!matchedCollab) {
+      continue;
+    }
+
+    // cols[1]: Código Postal
+    let rawCP = (cols[1] !== undefined && cols[1] !== null) ? String(cols[1]).trim() : "";
+    let cpLimpio = rawCP.replace(/["\s\.]/g, "").toUpperCase();
+
+    // cols[2]: Cantidad de Tickets (# Tickets), ignorando cols[3] y cols[4] (porcentajes)
+    let rawTickets = (cols[2] !== undefined && cols[2] !== null) ? cols[2] : "1";
+    let ticketsNum = parseInt(String(rawTickets).replace(/[\$\s\.]/g, "").replace(/,/g, "").replace(/[^0-9]/g, ""), 10);
+    if (isNaN(ticketsNum) || ticketsNum <= 0) {
+      ticketsNum = 1;
+    }
+
+    // Normalización de Códigos Postales con Ceros a la Izquierda a 4 dígitos:
+    // Si viene numérico de hasta 4 dígitos (ej: "0" -> "0000", "1" -> "0001", "3" -> "0003", "1092" -> "1092", "5413" -> "5413")
+    // O con prefijo J (ej: "J5400" -> "5400")
+    let isBlankCP = !cpLimpio || cpLimpio === "S/D" || cpLimpio === "SD" || cpLimpio === "-" || cpLimpio === "VACIO" || cpLimpio === "SINCODIGO" || cpLimpio === "SIN CODIGO" || cpLimpio === "NULL" || cpLimpio === "UNDEFINED";
+
+    let categoria = "errores";
+    let cpDisplay = cpLimpio;
+
+    if (isBlankCP) {
+      // 1. Sin Código (Vacíos): cuando la columna viene vacía (""), null, undefined o "S/D"
+      categoria = "vacios";
+      cpDisplay = "Sin Código";
+    } else {
+      // Normalizar número a 4 dígitos con ceros a la izquierda si es numérico
+      let numMatch = cpLimpio.match(/^J?(\d{1,4})$/);
+      let cp4Digitos = numMatch ? numMatch[1].padStart(4, "0") : null;
+
+      if (cp4Digitos === "1092") {
+        // 2. Menús de Colaboradores: código 1092 (uso interno de colaboradores)
+        categoria = "menus";
+        cpDisplay = "1092";
+      } else if (cp4Digitos !== null) {
+        const numCP = parseInt(cp4Digitos, 10);
+        if (numCP >= 5400 && numCP <= 5499) {
+          // 3. Clientes (Zonas Válidas): códigos postales geográficos válidos de San Juan (5400-5499)
+          categoria = "clientes";
+          cpDisplay = cp4Digitos;
+        } else {
+          // 4. Datos Erróneos ("Cualquier cosa"): numéricos genéricos no contemplados (0000, 0001, 0003, etc.)
+          categoria = "errores";
+          cpDisplay = cp4Digitos;
+        }
+      } else {
+        // Otros formatos no numéricos no vacíos -> Errores
+        categoria = "errores";
+        cpDisplay = cpLimpio;
+      }
+    }
+
+    const opKey = String(matchedCollab.numeroOperador || matchedCollab.id || cajeroId).trim();
+    if (!mapOperadores[opKey]) {
+      const rol = typeof window.classifyOperador === "function" 
+        ? window.classifyOperador(opKey) 
+        : "cajero";
+
+      mapOperadores[opKey] = {
+        cajeroId: opKey,
+        collabId: matchedCollab.id,
+        nombre: matchedCollab.name || matchedCollab.nombre || `Operador ${opKey}`,
+        legajo: matchedCollab.legajo || matchedCollab.id || opKey,
+        area: matchedCollab.area || "Linea de Cajas",
+        rol: rol, // "cajero", "roller", "vendedores"
+        totalTickets: 0,
+        categorias: {
+          clientes: 0,
+          menus: 0,
+          vacios: 0,
+          errores: 0
+        },
+        cpCounts: {},        // desglose global del operador
+        cpClientesCounts: {} // desglose exclusivo de CPs válidos de clientes
+      };
+    }
+
+    mapOperadores[opKey].totalTickets += ticketsNum;
+    mapOperadores[opKey].categorias[categoria] += ticketsNum;
+    mapOperadores[opKey].cpCounts[cpDisplay] = (mapOperadores[opKey].cpCounts[cpDisplay] || 0) + ticketsNum;
+    if (categoria === "clientes") {
+      mapOperadores[opKey].cpClientesCounts[cpDisplay] = (mapOperadores[opKey].cpClientesCounts[cpDisplay] || 0) + ticketsNum;
+    }
+  }
+
+  const operadoresList = Object.values(mapOperadores);
+  if (operadoresList.length === 0) return null;
+
+  // Totales y agregación por roles
+  let totalTicketsGeneral = 0;
+  const tiendaCategorias = { clientes: 0, menus: 0, vacios: 0, errores: 0 };
+  const cpGlobal = {};
+  const cpClientesGlobal = {};
+
+  operadoresList.forEach(op => {
+    totalTicketsGeneral += op.totalTickets;
+    tiendaCategorias.clientes += op.categorias.clientes;
+    tiendaCategorias.menus += op.categorias.menus;
+    tiendaCategorias.vacios += op.categorias.vacios;
+    tiendaCategorias.errores += op.categorias.errores;
+
+    Object.entries(op.cpCounts).forEach(([cp, count]) => {
+      cpGlobal[cp] = (cpGlobal[cp] || 0) + count;
+    });
+    Object.entries(op.cpClientesCounts).forEach(([cp, count]) => {
+      cpClientesGlobal[cp] = (cpClientesGlobal[cp] || 0) + count;
+    });
+
+    // Porcentajes de calidad del operador
+    const opTotal = op.totalTickets || 1;
+    op.pctClientes = ((op.categorias.clientes / opTotal) * 100).toFixed(1);
+    op.pctMenus = ((op.categorias.menus / opTotal) * 100).toFixed(1);
+    op.pctVacios = ((op.categorias.vacios / opTotal) * 100).toFixed(1);
+    op.pctErrores = ((op.categorias.errores / opTotal) * 100).toFixed(1);
+
+    // Top CP de clientes individual
+    const sortedCPsClientes = Object.entries(op.cpClientesCounts)
+      .map(([cp, count]) => ({
+        cp,
+        count,
+        pct: op.categorias.clientes > 0 ? ((count / op.categorias.clientes) * 100).toFixed(1) : "0.0"
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    op.topCPsClientes = sortedCPsClientes;
+    op.topCPCliente = sortedCPsClientes[0] || { cp: "-", count: 0, pct: "0.0" };
+  });
+
+  const getSegmentoData = (rolKey) => {
+    const ops = operadoresList.filter(o => o.rol === rolKey);
+    // Ordenar prioritariamente por tickets de clientes válidos y luego por total
+    ops.sort((a, b) => b.categorias.clientes - a.categorias.clientes || b.totalTickets - a.totalTickets);
+
+    const totalTicketsSeg = ops.reduce((acc, o) => acc + o.totalTickets, 0);
+    const segCategorias = {
+      clientes: ops.reduce((acc, o) => acc + o.categorias.clientes, 0),
+      menus: ops.reduce((acc, o) => acc + o.categorias.menus, 0),
+      vacios: ops.reduce((acc, o) => acc + o.categorias.vacios, 0),
+      errores: ops.reduce((acc, o) => acc + o.categorias.errores, 0)
+    };
+
+    const totalSeg = totalTicketsSeg || 1;
+    const pctsSeg = {
+      clientes: ((segCategorias.clientes / totalSeg) * 100).toFixed(1),
+      menus: ((segCategorias.menus / totalSeg) * 100).toFixed(1),
+      vacios: ((segCategorias.vacios / totalSeg) * 100).toFixed(1),
+      errores: ((segCategorias.errores / totalSeg) * 100).toFixed(1)
+    };
+
+    const cpCountsClientesSeg = {};
+    ops.forEach(o => {
+      Object.entries(o.cpClientesCounts).forEach(([cp, cnt]) => {
+        cpCountsClientesSeg[cp] = (cpCountsClientesSeg[cp] || 0) + cnt;
+      });
+    });
+
+    const topCPsClientesSeg = Object.entries(cpCountsClientesSeg)
+      .map(([cp, count]) => ({
+        cp,
+        count,
+        pct: segCategorias.clientes > 0 ? ((count / segCategorias.clientes) * 100).toFixed(1) : "0.0"
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const pctSobreTotal = totalTicketsGeneral > 0 
+      ? ((totalTicketsSeg / totalTicketsGeneral) * 100).toFixed(1) 
+      : "0.0";
+
+    return {
+      operadores: ops,
+      totalTickets: totalTicketsSeg,
+      pctSobreTotal: pctSobreTotal,
+      categorias: segCategorias,
+      porcentajes: pctsSeg,
+      topCPsClientes: topCPsClientesSeg,
+      topCPCliente: topCPsClientesSeg[0] || { cp: "-", count: 0, pct: "0.0" },
+      cantidadOperadores: ops.length
+    };
+  };
+
+  const cajerosSeg = getSegmentoData("cajero");
+  const rollersSeg = getSegmentoData("roller");
+  const vendedoresSeg = getSegmentoData("vendedores");
+
+  // Top CPs de Clientes de toda la tienda
+  const topCPsClientesTienda = Object.entries(cpClientesGlobal)
+    .map(([cp, count]) => ({
+      cp,
+      count,
+      pct: tiendaCategorias.clientes > 0 ? ((count / tiendaCategorias.clientes) * 100).toFixed(1) : "0.0"
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const totalGeneralSafe = totalTicketsGeneral || 1;
+  const pctsTienda = {
+    clientes: ((tiendaCategorias.clientes / totalGeneralSafe) * 100).toFixed(1),
+    menus: ((tiendaCategorias.menus / totalGeneralSafe) * 100).toFixed(1),
+    vacios: ((tiendaCategorias.vacios / totalGeneralSafe) * 100).toFixed(1),
+    errores: ((tiendaCategorias.errores / totalGeneralSafe) * 100).toFixed(1)
+  };
+
+  return {
+    tipo: "postales",
+    fechaCarga: new Date().toISOString(),
+    totalTickets: totalTicketsGeneral,
+    categorias: tiendaCategorias,
+    porcentajes: pctsTienda,
+    topCPsClientes: topCPsClientesTienda,
+    topCPCliente: topCPsClientesTienda[0] || { cp: "-", count: 0, pct: "0.0" },
+    totalOperadoresValidos: operadoresList.length,
+    segmentos: {
+      cajeros: cajerosSeg,
+      rollers: rollersSeg,
+      vendedores: vendedoresSeg
+    }
+  };
+};
+
 window.parseProductividadData = function(rawText) {
   if (!rawText || !rawText.trim()) return [];
 
@@ -14525,9 +15259,9 @@ document.addEventListener("DOMContentLoaded", () => {
           try {
             const data = new Uint8Array(evt.target.result);
             if (typeof XLSX !== "undefined") {
-              const workbook = XLSX.read(data, { type: "array" });
+              const workbook = XLSX.read(data, { type: "array", cellText: true });
               const firstSheet = workbook.SheetNames[0];
-              const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[firstSheet]);
+              const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[firstSheet], { raw: false });
               pasteInput.value = csv;
             } else {
               if (window.showToast) window.showToast("Error", "Librería XLSX no disponible.", "danger");
@@ -14615,6 +15349,62 @@ document.addEventListener("DOMContentLoaded", () => {
           window.showToast(
             "Extra Cash Procesado",
             `Total dispersado: $${ecData.totalTienda.toLocaleString('es-AR')} (${ecData.items.length} operadores).`,
+            "success"
+          );
+        }
+        return;
+      }
+
+      // Detección de Códigos Postales
+      const seemsLikePostales = tipoRaw === "postales" || firstLines.some(l => {
+        const lower = l.toLowerCase();
+        return lower.includes("codigo postal") || lower.includes("código postal") || lower.includes("postal") || lower.includes("cp ") || lower.includes("c.p.") || lower.includes("cod_postal") || lower.includes("cod. postal");
+      });
+
+      if (seemsLikePostales) {
+        const cpData = window.parseCodigosPostalesData(text);
+        if (!cpData || cpData.totalOperadoresValidos === 0) {
+          if (window.showToast) {
+            window.showToast("Sin datos válidos", "No se detectaron registros de códigos postales pertenecientes a colaboradores activos de la nómina.", "warning");
+          } else {
+            alert("No se detectaron registros de códigos postales pertenecientes a colaboradores activos de la nómina.");
+          }
+          return;
+        }
+
+        state.codigosPostales = state.codigosPostales || {};
+        state.codigosPostales[periodoKey] = cpData;
+
+        try {
+          localStorage.setItem("crew_codigos_postales", JSON.stringify(state.codigosPostales));
+        } catch (err) {
+          console.warn("No se pudo guardar Códigos Postales en localStorage:", err);
+        }
+
+        // Persistir en Firestore
+        try {
+          if (typeof db !== "undefined" && typeof setDoc === "function" && typeof doc === "function") {
+            const docId = `${periodoKey}_postales`;
+            setDoc(doc(db, "productividad_cajas", docId), cpData, { merge: true }).catch(e => console.warn("Error guardando Códigos Postales en Firestore:", e));
+          }
+        } catch (err) {
+          console.warn("Error en setDoc Códigos Postales:", err);
+        }
+
+        if (modalCarga) modalCarga.style.display = "none";
+        if (pasteInput) pasteInput.value = "";
+        if (fileInput) fileInput.value = "";
+
+        if (mesSelector) mesSelector.value = periodoKey;
+
+        if (typeof window.renderProductividad === "function") {
+          window.renderProductividad();
+        }
+
+        if (window.showToast) {
+          window.showToast(
+            "Códigos Postales Procesados",
+            `${cpData.totalTickets.toLocaleString('es-AR')} tickets cruzados con éxito para ${cpData.totalOperadoresValidos} colaboradores activos.`,
             "success"
           );
         }
@@ -14935,6 +15725,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <option value="cajeros_cierre">Cajeros 1092 · Cierre Mensual Definitivo</option>
             <option value="distrito">🏆 Distrito Vinagre · Comparativa Tiendas San Juan</option>
             <option value="extracash">💵 Extra Cash (Dispersión Diaria / Total)</option>
+            <option value="postales">📍 Códigos Postales (Tickets y Frecuencia)</option>
           </select>
         </div>
       </div>
