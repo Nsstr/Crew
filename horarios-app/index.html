@@ -1246,7 +1246,7 @@
          visibility: visible !important;
          display: flex !important;
        }
-       #logoutBtn, #adminLoginBtn, #backupDriveBtn {
+       #logoutBtn, #adminLoginBtn, #backupDriveBtn, #openBackupBtn {
          font-size: 0.65rem !important;
          padding: 4px 6px !important;
          white-space: nowrap !important;
@@ -1336,6 +1336,116 @@
     .app-tab-btn { background: transparent; border: none; color: var(--text-muted); font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0.15rem 0.25rem; border-bottom: 2px solid transparent; transition: color 0.2s, border-color 0.2s; border-radius: 2px 2px 0 0; }
     .app-tab-btn:hover { color: var(--text); }
     .app-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* Vista del día - Línea de Cajas */
+    .cdv-toggle { display: none; flex-shrink: 0; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; height: 22px; }
+    .cdv-toggle button { background: transparent; border: none; color: var(--text-muted); font: inherit; font-size: 0.75rem; font-weight: 600; padding: 0 9px; cursor: pointer; }
+    .cdv-toggle button.active { background: var(--primary); color: #fff; }
+    .cdv { display: none; flex: 1; min-height: 0; overflow: auto; padding: 16px 24px 32px; color: var(--text); background: var(--bg); }
+    .cdv-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+    .cdv-title { font-size: 1.2rem; font-weight: 700; }
+    .cdv-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+    .cdv-days { display: flex; gap: 4px; }
+    .cdv-day { background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 0.75rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; line-height: 1.25; min-width: 46px; }
+    .cdv-day b { font-size: 0.9rem; color: var(--text); }
+    .cdv-day.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .cdv-day.active b { color: #fff; }
+    .cdv-day.holiday { border-color: #f59e0b; }
+    .cdv-body { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 24px; align-items: start; }
+    .cdv-row { display: grid; grid-template-columns: 210px 96px minmax(0, 1fr); align-items: center; gap: 12px; padding: 6px 0; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+    .cdv-row.cdv-axis-row { border-top: none; padding: 0; position: sticky; top: -16px; background: var(--bg); z-index: 2; padding-top: 8px; }
+    .cdv-name { font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; min-width: 0; }
+    .cdv-name-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .cdv-tag { flex-shrink: 0; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #c4b5fd; border: 1px solid rgba(196, 181, 253, 0.4); border-radius: 3px; padding: 0 4px; margin-left: 6px; }
+    .cdv-time { font-size: 0.9rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .cdv-time small { display: block; font-size: 0.68rem; font-weight: 500; color: var(--text-muted); }
+    .cdv-track { position: relative; height: 22px; border-radius: 4px; background-color: rgba(255, 255, 255, 0.03); background-image: linear-gradient(to right, rgba(255, 255, 255, 0.07) 1px, transparent 1px); background-size: calc(100% / var(--cdv-n)) 100%; }
+    .cdv-bar { position: absolute; top: 3px; bottom: 3px; border-radius: 3px; }
+    .cdv-axis { position: relative; height: 18px; font-size: 0.7rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .cdv-axis span { position: absolute; transform: translateX(-50%); }
+    .cdv-block-head { display: flex; align-items: center; gap: 8px; margin: 20px 0 4px; font-size: 0.75rem; color: var(--text-muted); }
+    .cdv-block-head b { color: var(--text); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .cdv-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+    .cdv-cov { position: relative; height: 72px; }
+    .cdv-cov div { position: absolute; bottom: 0; border-radius: 2px; box-sizing: border-box; }
+    .cdv-covnums { position: relative; height: 30px; font-size: 0.7rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
+    .cdv-covnums span { position: absolute; transform: translateX(-50%); text-align: center; top: 4px; }
+    .cdv-legend { display: flex; gap: 14px; font-size: 0.72rem; color: var(--text-muted); align-items: center; }
+    .cdv-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+    .cdv-side { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px 14px; position: sticky; top: 0; }
+    .cdv-side h4 { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 12px 0 6px; font-weight: 700; }
+    .cdv-chip { display: inline-block; padding: 3px 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.06); font-size: 0.78rem; margin: 0 4px 4px 0; }
+    .cdv-note { font-size: 0.78rem; margin: 0 0 6px; line-height: 1.35; }
+    .cdv-note b { font-weight: 600; }
+    .cdv-empty { font-size: 0.78rem; color: var(--text-muted); }
+    .cdv-alert { padding: 14px; border-radius: 8px; border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.1); color: #fca5a5; font-weight: 700; text-align: center; margin-top: 16px; }
+    @media (max-width: 1100px) { .cdv-body { grid-template-columns: minmax(0, 1fr); } .cdv-side { position: static; } }
+
+    /* Grilla de 1 semana + panel del día a la derecha (un tercio de la pantalla) */
+    #tab-horarios.cajas-con-panel { flex-direction: row !important; }
+    #tab-horarios.cajas-con-panel > .grid-container { flex: 2 1 0 !important; min-width: 0 !important; width: auto !important; }
+    #tab-horarios.cajas-con-panel > #cajasDayView { flex: 1 1 0; min-width: 360px; border-left: 1px solid var(--border); padding: 12px 16px 24px; }
+    .cdv.cdv-panel .cdv-head { flex-direction: column; align-items: stretch; gap: 8px; }
+    .cdv.cdv-panel .cdv-title { font-size: 1rem; }
+    .cdv.cdv-panel .cdv-day { flex: 1; min-width: 0; padding: 3px 0; }
+    .cdv.cdv-panel .cdv-body { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .cdv.cdv-panel .cdv-row { grid-template-columns: minmax(0, 120px) 64px minmax(0, 1fr); gap: 8px; padding: 4px 0; }
+    .cdv.cdv-panel .cdv-row.cdv-axis-row { top: -12px; }
+    .cdv.cdv-panel .cdv-name { font-size: 0.8rem; }
+    .cdv.cdv-panel .cdv-time { font-size: 0.8rem; }
+    .cdv.cdv-panel .cdv-track { height: 18px; }
+    .cdv.cdv-panel .cdv-block-head { margin: 12px 0 2px; flex-wrap: wrap; }
+    .cdv.cdv-panel .cdv-legend { flex-wrap: wrap; gap: 8px; }
+    .cdv.cdv-panel .cdv-side { position: static; }
+    #planningTable th.cajas-panel-dia { box-shadow: inset 0 -3px 0 var(--primary) !important; }
+    /* Franco y Libre: mismo fondo suave, con un tono apenas distinto para diferenciarlos */
+    #planningTable .shift-cell.input-franco:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) {
+      background-color: rgba(129, 140, 248, 0.13) !important;
+    }
+    #planningTable .shift-cell.input-franco:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) .shift-label { color: #c7d2fe !important; }
+    #planningTable .shift-cell.input-libre:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) {
+      background-color: rgba(56, 189, 248, 0.11) !important;
+    }
+    #planningTable .shift-cell.input-libre:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) .shift-label { color: #bae6fd !important; }
+    /* Turno fijado (pedido por el colaborador): borde ámbar y esquina más grande */
+    #planningTable td.day-cell.is-fixed { outline: 2px solid rgba(245, 158, 11, 0.9); outline-offset: -2px; }
+    #planningTable td.day-cell.is-fixed::before { border-width: 10px 10px 0 0 !important; border-color: #f59e0b transparent transparent transparent !important; z-index: 2; }
+    .cdv-tag.cdv-tag-pedido { color: #fcd34d; border-color: rgba(245, 158, 11, 0.55); }
+    /* En Línea de Cajas la cobertura se ve en la vista del día: sin fila de subtotales */
+    #planningTable.cajas-grilla tr.area-totals-row { display: none !important; }
+    #tab-horarios.cajas-con-panel #planningTable.cajas-semanas-1 .shift-cell .shift-start,
+    #tab-horarios.cajas-con-panel #planningTable.cajas-semanas-1 .shift-cell .shift-end { font-size: 0.8rem !important; letter-spacing: -0.02em; }
+
+    /* Turno cortado: dos tramos apilados en letra chica (grilla de 4 semanas) */
+    .shift-cell.shift-cell-cortado .shift-start { font-size: 8.5px !important; line-height: 1 !important; }
+    .shift-cell.shift-cell-cortado .shift-end { font-size: 8px !important; line-height: 1 !important; }
+
+    /* Grilla aliviada de Línea de Cajas: 1 o 2 semanas visibles, horario en una línea */
+    #planningTable.cajas-semanas-1 .day-beyond-1,
+    #planningTable.cajas-semanas-2 .day-beyond-2,
+    #planningTable.cajas-semanas-1 [id^="desktop-hours-w2-"],
+    #planningTable.cajas-semanas-1 [id^="desktop-hours-w3-"],
+    #planningTable.cajas-semanas-1 [id^="desktop-hours-w4-"],
+    #planningTable.cajas-semanas-2 [id^="desktop-hours-w3-"],
+    #planningTable.cajas-semanas-2 [id^="desktop-hours-w4-"] { display: none !important; }
+    #planningTable.cajas-grilla th[data-header-date] { cursor: pointer; }
+    #planningTable.cajas-grilla th[data-header-date]:hover { box-shadow: inset 0 -2px 0 var(--primary); }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) td.day-cell { height: 30px !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell { height: 30px !important; flex-direction: row !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell.shift-cell-cortado { flex-direction: column !important; gap: 2px !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell:not(.shift-cell-cortado) .shift-start::after { content: "–"; font-weight: 400; opacity: 0.6; margin: 0 2px; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell .shift-end { opacity: 1 !important; }
+    #planningTable.cajas-semanas-1 .shift-cell .shift-start,
+    #planningTable.cajas-semanas-1 .shift-cell .shift-end { font-size: 0.92rem !important; font-weight: 700 !important; line-height: 1 !important; }
+    #planningTable.cajas-semanas-1 .shift-cell .shift-label { font-size: 0.85rem !important; }
+    #planningTable.cajas-semanas-2 .shift-cell .shift-start,
+    #planningTable.cajas-semanas-2 .shift-cell .shift-end { font-size: 0.7rem !important; font-weight: 700 !important; line-height: 1 !important; letter-spacing: -0.02em; }
+    #planningTable.cajas-semanas-2 .shift-cell .shift-label { font-size: 0.75rem !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell.shift-cell-cortado .shift-start,
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell.shift-cell-cortado .shift-end { font-size: 0.7rem !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) th[data-header-date] > div > span:nth-of-type(1) { font-size: 0.68rem !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) th[data-header-date] > div > span:nth-of-type(2) { font-size: 0.95rem !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) th[data-header-date] > div > span:nth-of-type(3) { font-size: 0.62rem !important; }
     .tab-pane { display: none; }
     .tab-pane.active { display: block; }
     
@@ -3222,6 +3332,12 @@
         <option value="Disponibilidad">Disponibilidad</option>
         <option value="Linea de Cajas">Línea de Cajas</option>
       </select>
+      <div class="cdv-toggle" id="cajasVistaToggle" role="group" aria-label="Vista de Línea de Cajas">
+        <button type="button" data-modo="1" onclick="window.setCajasVista('1')" title="Grilla de una semana con el día al costado">1 sem</button>
+        <button type="button" data-modo="2" onclick="window.setCajasVista('2')" title="Grilla de dos semanas">2 sem</button>
+        <button type="button" data-modo="4" onclick="window.setCajasVista('4')" title="Grilla de cuatro semanas (vista anterior)">4 sem</button>
+        <button type="button" data-modo="dia" onclick="window.setCajasVista('dia')" title="Vista del día">Día</button>
+      </div>
       <button class="app-tab-btn active" id="tabHorarios" data-alias="tabNavGrid" onclick="switchTab('horarios')">Grid Semanal</button>
       <button class="app-tab-btn" id="suggestedTabBtn" onclick="switchTab('sugeridos')">Sugeridos</button>
       <button class="app-tab-btn" id="productividadTabBtn" onclick="switchTab('productividad')" style="display: none;">Productividad Cajas</button>
@@ -3290,13 +3406,14 @@
           <div class="nav-dropdown-divider"></div>
           
           <button id="backupDriveBtn" class="nav-dropdown-item" style="display: none;" title="Respaldar todo en Google Sheets"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 15c.7-1.2 1-2.5.7-3.9-.6-2-2.4-3.5-4.4-3.5h-1.2c-.7-3-3.2-5.2-6.2-5.6-3-.3-5.9 1.3-7.3 4-1.2 2.5-1 6.5.5 8.8m8.7-1.6V21"/><path d="M16 16l-4-4-4 4"/></svg> Backup Drive</button>
-          
+          <button id="openBackupBtn" class="nav-dropdown-item" style="display: none;" title="Abrir la planilla del último backup en Google Sheets" onclick="window.abrirPlanillaBackup()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg> Abrir Planilla Backup</button>
+
           <button id="adminLoginBtn" class="nav-dropdown-item"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> Acceso</button>
           
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.4.9
+            Versión: v1.5.0
           </div>
         </div>
       </div>
@@ -3431,6 +3548,7 @@
         </tfoot>
       </table>
     </div>
+          <div id="cajasDayView" class="cdv"></div>
   </div>
   </div>
   </div> <!-- Fin de seccionHorarios -->
@@ -4118,7 +4236,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.4.9";
+  const APP_VERSION = "v1.5.0";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -4232,27 +4350,36 @@ try {
 
 
 // 2. PARSING Y LÓGICA DE TURNOS
+
+// Siglas de ausencia. Van solas (E) o delante del horario que igual se carga en el
+// sistema de la empresa (E/6a14). Con horario, el turno queda marcado como ausente
+// (isNV): no suma horas ni cuenta en la cobertura, pero conserva el horario.
+// NV: No viene el feriado · E: Enfermedad · LIC: Licencia · ACA: Ausente con aviso
+// ASA: Ausente sin aviso · Susp: Suspensión · PG: Permiso gremial
+const AUSENCIA_SIGLAS = { nv: "NV", e: "E", lic: "LIC", aca: "ACA", asa: "ASA", susp: "Susp", pg: "PG" };
+
 function parseShift(val, tardanzaMinutosTotales = 0) {
   if (!val) return null;
   val = val.toString().trim().toLowerCase();
 
-  // Extraer prefijo NV (No Viene) en distintas variantes: NV, NV/, NV-, NV 14a22, NV14a22
+  // Prefijo de ausencia en distintas variantes: E, E/, E-, E 6a14, E6a14 (igual para NV, LIC, ACA, etc.)
   let isNV = false;
-  const nvMatch = val.match(/^nv[\/\-\s]*(.*)$/);
-  if (nvMatch) {
+  let ausencia = null;
+  const ausMatch = val.match(/^(susp|lic|aca|asa|pg|nv|e)(?![a-z])[\/\-\s]*(.*)$/);
+  if (ausMatch) {
     isNV = true;
-    val = nvMatch[1];
+    ausencia = AUSENCIA_SIGLAS[ausMatch[1]];
+    val = ausMatch[2];
     if (val === "") {
-      return { type: "absence", label: "NV", class: "input-nv", hours: 0 };
+      return { type: "absence", label: ausencia, ausencia, class: ausencia === "NV" ? "input-nv" : "input-absence", hours: 0 };
     }
   }
+  const ausClass = ausencia === "NV" ? "input-nv" : "input-absence";
 
   if (val === "f")
     return { type: "franco", label: "F", class: "input-franco", hours: 0 };
   if (val === "v")
     return { type: "vacation", label: "V", class: "input-absence", hours: 0 };
-  if (val === "e")
-    return { type: "absence", label: "E", class: "input-absence", hours: 0 };
   if (val === "libre" || val === "l")
     return { type: "libre", label: "LIBRE", class: "input-libre", hours: 0 };
   if (val === "-") return { type: "none", label: "", class: "", hours: 0 };
@@ -4268,19 +4395,21 @@ function parseShift(val, tardanzaMinutosTotales = 0) {
         const totalHours = p1.hours + p2.hours;
         const totalRealHours = (p1.realHours !== undefined ? p1.realHours : p1.hours) + 
                                (p2.realHours !== undefined ? p2.realHours : p2.hours);
-        const formattedLabel = `${p1.label.replace(/^nv\//i, "")}/${p2.label.replace(/^nv\//i, "")}`;
+        const formattedLabel = `${p1.label.replace(/^[a-z]+\//i, "")}/${p2.label.replace(/^[a-z]+\//i, "")}`;
 
         if (isNV || p1.isNV || p2.isNV) {
+          const siglaCortado = ausencia || p1.ausencia || p2.ausencia || "NV";
           return {
             type: "work",
-            label: `NV/${formattedLabel}`,
+            label: `${siglaCortado}/${formattedLabel}`,
             start: p1.start,
             end: p2.end,
             hours: 0,
             realHours: totalRealHours,
-            class: "input-nv",
+            class: siglaCortado === "NV" ? "input-nv" : "input-absence",
             group: p1.group,
             isNV: true,
+            ausencia: siglaCortado,
             isCortado: true,
             tramos: [p1, p2],
           };
@@ -4336,14 +4465,15 @@ function parseShift(val, tardanzaMinutosTotales = 0) {
       if (isNV) {
         return {
           type: "work",
-          label: `NV/${formattedLabel}`,
+          label: `${ausencia}/${formattedLabel}`,
           start,
           end,
           hours: 0,
           realHours: hours,
-          class: "input-nv",
+          class: ausClass,
           group,
           isNV: true,
+          ausencia,
         };
       }
 
@@ -5654,6 +5784,16 @@ window.toggleCollabDetails = function(collabId, event) {
 
   document.body.appendChild(popover);
 
+  // Mantener la ventanita dentro de la pantalla: si no entra abajo del nombre, se abre arriba
+  const margen = 8;
+  const popRect = popover.getBoundingClientRect();
+  if (rect.bottom + 4 + popRect.height > window.innerHeight - margen) {
+    popover.style.top = `${Math.max(margen, rect.top - 4 - popRect.height)}px`;
+  }
+  if (rect.left + popRect.width > window.innerWidth - margen) {
+    popover.style.left = `${Math.max(margen, window.innerWidth - margen - popRect.width)}px`;
+  }
+
   // Cerrar al hacer clic afuera
   const closeHandler = (e) => {
     if (!popover.contains(e.target) && (!targetEl || !targetEl.contains(e.target))) {
@@ -6177,8 +6317,8 @@ function renderMobileCoverageDashboard(targetDate) {
 
   state.collaborators.forEach((collab) => {
     const collabArea = collab.area || "Disponibilidad";
-    const isCruzadoCajas = isCajas && collabArea !== "Linea de Cajas" && !!collab.refuerzoCajas;
-    if (collabArea !== activeArea && !isCruzadoCajas) return;
+    // Los refuerzos de otras áreas (respaldo, fallo de caja) no cuentan en la distribución
+    if (collabArea !== activeArea) return;
 
     let isOnVacationToday = false;
     let isOnVacationPrev = false;
@@ -6201,15 +6341,16 @@ function renderMobileCoverageDashboard(targetDate) {
     const shiftValPrev = getPlanningSlot(collab.id, prevDateStr);
     const parsedPrev = (!isOnVacationPrev && shiftValPrev) ? parseShift(shiftValPrev) : null;
 
+    // "No viene el feriado" con horario cargado no cuenta como presente
     for (let h = 0; h <= 23; h++) {
-      if (parsedToday && parsedToday.type === "work") {
+      if (parsedToday && parsedToday.type === "work" && !parsedToday.isNV) {
         if (parsedToday.end <= parsedToday.start) {
           if (h >= parsedToday.start) hourlyCounts[h]++;
         } else {
           if (h >= parsedToday.start && h < parsedToday.end) hourlyCounts[h]++;
         }
       }
-      if (parsedPrev && parsedPrev.type === "work") {
+      if (parsedPrev && parsedPrev.type === "work" && !parsedPrev.isNV) {
         if (parsedPrev.end <= parsedPrev.start) {
           if (h < parsedPrev.end) hourlyCounts[h]++;
         }
@@ -6259,6 +6400,431 @@ function renderMobileCoverageDashboard(targetDate) {
   dashboard.innerHTML = blocksHTML;
 }
 
+// ============================================================
+// VISTA DEL DÍA - LÍNEA DE CAJAS
+// Lectura del armado de un día agrupado por bloque (Roller, Apertura,
+// Siesta, Cierre), con barras horarias y cobertura vs. Recaudaciones.
+// Es de solo lectura: los turnos se siguen cargando en la grilla semanal.
+// ============================================================
+const CDV_CODIGOS_AUSENCIA = ["ENF", "ART", "AUS"];
+
+const CDV_BLOQUES = [
+  { key: "roller", label: "Roller", color: "#8b5cf6" },
+  { key: "apertura", label: "Apertura", color: "#3b82f6" },
+  { key: "siesta", label: "Siesta", color: "#f59e0b" },
+  { key: "cierre", label: "Cierre", color: "#10b981" },
+];
+
+// Modo de Línea de Cajas: "1", "2" o "4" semanas de grilla, o "dia"
+state.cajasVista = (function () {
+  try {
+    const guardado = localStorage.getItem("crew_cajas_vista");
+    return ["1", "2", "4", "dia"].includes(guardado) ? guardado : "1";
+  } catch (e) { return "1"; }
+})();
+
+window.setCajasVista = function (modo) {
+  state.cajasVista = modo;
+  try { localStorage.setItem("crew_cajas_vista", modo); } catch (e) {}
+  window.switchTab("horarios");
+};
+
+// Clases para ocultar las columnas que quedan fuera del rango de semanas elegido
+function cajasDayBeyondClass(dayIndex) {
+  return (dayIndex >= 7 ? " day-beyond-1" : "") + (dayIndex >= 14 ? " day-beyond-2" : "");
+}
+
+// Panel del día junto a la grilla de 1 semana
+window.selectCajasPanelDia = function (dStr) {
+  if (state.cajasPanelDia === dStr) return;
+  state.cajasPanelDia = dStr;
+  renderCajasDayView();
+};
+
+// Clic en el encabezado de un día: lo muestra en el panel (1 semana) o abre la vista del día
+document.getElementById("tableHeader").addEventListener("click", (e) => {
+  if ((state.currentArea || "") !== "Linea de Cajas") return;
+  if (e.target.closest(".event-icon-btn, .header-micro-badge")) return;
+  const th = e.target.closest("th[data-header-date]");
+  if (!th) return;
+  if (state.cajasVista === "1") {
+    window.selectCajasPanelDia(th.dataset.headerDate);
+    return;
+  }
+  state.currentWeekStart = new Date(th.dataset.headerDate + "T00:00:00");
+  window.setCajasVista("dia");
+});
+
+// Al moverse por la grilla, el panel salta al día de la celda activa
+document.getElementById("planningTable").addEventListener("focusin", (e) => {
+  if ((state.currentArea || "") !== "Linea de Cajas" || state.cajasVista !== "1") return;
+  const input = e.target.closest(".cell-input");
+  if (input && input.dataset.date) window.selectCajasPanelDia(input.dataset.date);
+});
+
+window.selectCajasDia = function (dStr) {
+  state.currentWeekStart = new Date(dStr + "T00:00:00");
+  renderUI();
+};
+
+function cdvEsc(str) {
+  return String(str == null ? "" : str).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function cdvHora(h) {
+  const totalMin = Math.round(h * 60);
+  const hh = Math.floor(totalMin / 60) % 24;
+  const mm = totalMin % 60;
+  return mm ? `${hh}:${String(mm).padStart(2, "0")}` : `${hh}`;
+}
+
+function cdvEnVacaciones(collabId, dStr) {
+  const d = new Date(dStr + "T00:00:00");
+  return (state.vacations || []).some((v) =>
+    v.colaboradorId === collabId &&
+    d >= new Date(v.startDate + "T00:00:00") &&
+    d <= new Date(v.endDate + "T00:00:00"));
+}
+
+function cdvColaboradoresCajas() {
+  const propios = state.collaborators
+    .filter((c) => (c.area || "Disponibilidad") === "Linea de Cajas");
+  const cruzados = state.collaborators
+    .filter((c) => (c.area || "Disponibilidad") !== "Linea de Cajas" && !!c.refuerzoCajas)
+    .map((c) => ({ ...c, _isCruzado: true }));
+  return [...propios, ...cruzados];
+}
+
+// Clasifica a cada colaborador del día: en un bloque con su turno, o en una lista del panel lateral
+function cdvArmarDia(dStr) {
+  const dateObj = new Date(dStr + "T00:00:00");
+  const bloques = { roller: [], apertura: [], siesta: [], cierre: [] };
+  const listas = { francos: [], libres: [], vacaciones: [], noViene: [], ausencias: [], sinTurno: [], revisar: [] };
+  const notas = [];
+  const respaldo = [];
+
+  cdvColaboradoresCajas().forEach((collab) => {
+    const nombre = (collab.name || "Desconocido").split("(")[0].split("-")[0].trim();
+    const isCruzado = !!collab._isCruzado;
+    const isRoller = !isCruzado && ((collab.pasillo || "") + " " + (collab.esquema || "")).toLowerCase().includes("roller");
+
+    // Refuerzos de otras áreas (vendedores con fallo de caja): pueden cobrar si hace falta,
+    // pero son respaldo y no cuentan en la distribución. Solo se muestran si trabajan ese día.
+    if (isCruzado) {
+      if (cdvEnVacaciones(collab.id, dStr)) return;
+      const parsedRespaldo = parseShift(getPlanningSlot(collab.id, dStr) || "");
+      if (!parsedRespaldo || parsedRespaldo.type !== "work" || parsedRespaldo.isNV) return;
+      respaldo.push({
+        nombre,
+        tramos: (parsedRespaldo.isCortado ? parsedRespaldo.tramos : [parsedRespaldo]).map((t) => ({
+          start: t.start,
+          end: t.end <= t.start ? 24 : t.end,
+        })),
+        hours: parsedRespaldo.hours,
+        start: parsedRespaldo.start,
+      });
+      return;
+    }
+
+    if (cdvEnVacaciones(collab.id, dStr)) {
+      listas.vacaciones.push(nombre);
+      return;
+    }
+
+    let val = getPlanningSlot(collab.id, dStr) || "";
+    const obj = getPlanningObj(collab.id, dStr) || {};
+
+    // Mismo criterio que la grilla: domingo previo a vacaciones queda como franco
+    if (checkIsPreVacationSunday(collab.id, dateObj) && (!isContractUnder119(collab) || !val)) {
+      val = "F";
+    }
+
+    if (obj.comentario) notas.push({ nombre, texto: obj.comentario });
+    if (obj.tardanzaMinutosTotales) {
+      notas.push({ nombre, texto: `Tardanza ${obj.tardanzaTexto || obj.tardanzaMinutosTotales + " min"}` });
+    }
+
+    const parsed = parseShift(val);
+    if (!parsed || parsed.type === "none") { listas.sinTurno.push(nombre); return; }
+    if (parsed.type === "franco") { listas.francos.push(nombre); return; }
+    if (parsed.type === "libre") { listas.libres.push(nombre); return; }
+    if (parsed.type === "vacation") { listas.vacaciones.push(nombre); return; }
+    if (parsed.type === "absence") {
+      if (parsed.label === "NV") listas.noViene.push(nombre);
+      else listas.ausencias.push(`${nombre} (${parsed.label})`);
+      return;
+    }
+    // Códigos de ausencia escritos a mano que la grilla no reconoce como sigla
+    const codigo = val.trim().toUpperCase();
+    if (parsed.type === "error" && CDV_CODIGOS_AUSENCIA.some((c) => codigo.startsWith(c))) {
+      listas.ausencias.push(`${nombre} (${val.trim()})`);
+      return;
+    }
+    if (parsed.type === "error") { listas.revisar.push(`${nombre} (${val})`); return; }
+    if (parsed.isNV) {
+      // Ausente con horario cargado: se lista con su horario, no cuenta en la cobertura
+      const horario = parsed.label.replace(/^[a-z]+\//i, "").replace(/a/g, "–");
+      if ((parsed.ausencia || "NV") === "NV") listas.noViene.push(`${nombre} (${horario})`);
+      else listas.ausencias.push(`${nombre} (${parsed.ausencia} ${horario})`);
+      return;
+    }
+
+    const tramos = (parsed.isCortado ? parsed.tramos : [parsed]).map((t) => ({
+      start: t.start,
+      end: t.end <= t.start ? 24 : t.end,
+    }));
+    const persona = { nombre, isCruzado, fijado: !!obj.fijado, tramos, hours: parsed.hours, start: parsed.start };
+
+    let key = "cierre";
+    if (isRoller) key = "roller";
+    else if (parsed.start < 12) key = "apertura";
+    else if (parsed.start < 16) key = "siesta";
+    bloques[key].push(persona);
+  });
+
+  [...Object.values(bloques), respaldo].forEach((arr) =>
+    arr.sort((a, b) => a.start - b.start || a.tramos[a.tramos.length - 1].end - b.tramos[b.tramos.length - 1].end));
+
+  return { bloques, listas, notas, respaldo };
+}
+
+// Personas trabajando por hora (incluye turnos del día anterior que cruzan medianoche)
+function cdvCoberturaPorHora(dStr, bloques) {
+  const counts = Array(24).fill(0);
+  Object.values(bloques).flat().forEach((p) => {
+    p.tramos.forEach((t) => {
+      for (let h = 0; h < 24; h++) if (h >= t.start && h < t.end) counts[h]++;
+    });
+  });
+
+  const prevStr = formatDate(addDays(new Date(dStr + "T00:00:00"), -1));
+  cdvColaboradoresCajas().forEach((collab) => {
+    if (collab._isCruzado) return; // El respaldo no cuenta en la distribución
+    if (cdvEnVacaciones(collab.id, prevStr)) return;
+    const parsedPrev = parseShift(getPlanningSlot(collab.id, prevStr));
+    if (!parsedPrev || parsedPrev.type !== "work" || parsedPrev.isNV) return;
+    if (parsedPrev.end <= parsedPrev.start) {
+      for (let h = 0; h < parsedPrev.end; h++) counts[h]++;
+    }
+  });
+  return counts;
+}
+
+function renderCajasDayView() {
+  const container = document.getElementById("cajasDayView");
+  const gridContainer = document.querySelector("#tab-horarios .grid-container");
+  const toggle = document.getElementById("cajasVistaToggle");
+  if (!container || !gridContainer) return;
+
+  const isCajas = (state.currentArea || "") === "Linea de Cajas";
+  const isDesktop = window.innerWidth > 768;
+  if (toggle) {
+    toggle.style.display = isCajas && isDesktop ? "inline-flex" : "none";
+    toggle.querySelectorAll("button").forEach((b) =>
+      b.classList.toggle("active", b.dataset.modo === state.cajasVista));
+  }
+
+  // Grilla aliviada: menos semanas visibles y horario en una sola línea
+  const table = document.getElementById("planningTable");
+  const semanas = isCajas && isDesktop && ["1", "2"].includes(state.cajasVista) ? state.cajasVista : null;
+  if (table) {
+    table.classList.toggle("cajas-grilla", isCajas && isDesktop);
+    table.classList.toggle("cajas-semanas-1", semanas === "1");
+    table.classList.toggle("cajas-semanas-2", semanas === "2");
+  }
+  if (semanas) {
+    const lunes = getStartOfWeek(new Date(state.currentWeekStart));
+    const fin = addDays(lunes, Number(semanas) * 7 - 1);
+    const dOptions = { day: "2-digit", month: "short" };
+    const weekLabel = document.getElementById("weekLabel");
+    if (weekLabel) {
+      weekLabel.textContent = `${lunes.toLocaleDateString("es-ES", dOptions)} - ${fin.toLocaleDateString("es-ES", dOptions)}`;
+    }
+  }
+
+  // En Línea de Cajas el mapa de calor se reemplaza por la vista del día
+  const topLayout = document.getElementById("topLayout");
+  if (topLayout) {
+    if (isCajas && isDesktop) topLayout.style.setProperty("display", "none", "important");
+    else topLayout.style.removeProperty("display");
+  }
+
+  // Tres formas de mostrar: grilla sola, grilla + panel del día (1 semana) o día completo
+  const diaCompleto = isCajas && isDesktop && state.cajasVista === "dia";
+  const conPanel = isCajas && isDesktop && state.cajasVista === "1";
+  const tab = document.getElementById("tab-horarios");
+  if (tab) tab.classList.toggle("cajas-con-panel", conPanel);
+  container.classList.toggle("cdv-panel", conPanel);
+  container.style.display = diaCompleto || conPanel ? "block" : "none";
+  // La hoja de estilos fija el display de la grilla con !important
+  if (diaCompleto) gridContainer.style.setProperty("display", "none", "important");
+  else gridContainer.style.removeProperty("display");
+
+  if (conPanel) {
+    // El panel sigue al día de la celda activa; si queda fuera de la semana visible, vuelve a hoy o al lunes
+    const lunesVisible = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
+    const domingoVisible = formatDate(addDays(new Date(lunesVisible + "T00:00:00"), 6));
+    const hoy = formatDate(new Date());
+    if (!state.cajasPanelDia || state.cajasPanelDia < lunesVisible || state.cajasPanelDia > domingoVisible) {
+      state.cajasPanelDia = hoy >= lunesVisible && hoy <= domingoVisible ? hoy : lunesVisible;
+    }
+  }
+  if (table) {
+    table.querySelectorAll("th[data-header-date]").forEach((th) =>
+      th.classList.toggle("cajas-panel-dia", conPanel && th.dataset.headerDate === state.cajasPanelDia));
+  }
+  if (!diaCompleto && !conPanel) return;
+
+  const dateObj = conPanel ? new Date(state.cajasPanelDia + "T00:00:00") : new Date(state.currentWeekStart);
+  const dStr = formatDate(dateObj);
+  const diasLargos = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const diasCortos = ["D", "L", "M", "X", "J", "V", "S"];
+  const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const tituloDia = `${diasLargos[dateObj.getDay()]} ${dateObj.getDate()} de ${meses[dateObj.getMonth()]}`;
+  const accionDia = conPanel ? "window.selectCajasPanelDia" : "window.selectCajasDia";
+
+  const weekLabel = document.getElementById("weekLabel");
+  if (weekLabel && diaCompleto) weekLabel.textContent = tituloDia;
+
+  const isHoliday = (state.holidays || []).includes(dStr);
+  const evento = state.eventos && state.eventos[dStr];
+  const subtitulo = [isHoliday ? "Feriado" : "", evento ? `${evento.tipo || "Evento"}: ${evento.descripcion || ""}` : ""]
+    .filter(Boolean).join(" · ");
+
+  // Selector de días de la semana, con la cantidad de personas trabajando cada día
+  const lunes = getStartOfWeek(dateObj);
+  let diasHTML = "";
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(lunes, i);
+    const s = formatDate(d);
+    const { bloques } = cdvArmarDia(s);
+    const n = Object.values(bloques).reduce((acc, arr) => acc + arr.length, 0);
+    const cls = ["cdv-day", s === dStr ? "active" : "", (state.holidays || []).includes(s) ? "holiday" : ""].join(" ");
+    diasHTML += `<button type="button" class="${cls}" onclick="${accionDia}('${s}')" title="${n} personas trabajando">
+        <span>${diasCortos[d.getDay()]}</span><b>${d.getDate()}</b></button>`;
+  }
+
+  const headHTML = `
+    <div class="cdv-head">
+      <div>
+        <div class="cdv-title">${tituloDia}</div>
+        ${subtitulo ? `<div class="cdv-subtitle">${cdvEsc(subtitulo)}</div>` : ""}
+      </div>
+      <div class="cdv-days">${diasHTML}</div>
+    </div>`;
+
+  if (evento && evento.tiendaCerrada) {
+    container.innerHTML = headHTML + `<div class="cdv-alert">Tienda cerrada</div>`;
+    return;
+  }
+
+  const { bloques, listas, notas, respaldo } = cdvArmarDia(dStr);
+  const counts = cdvCoberturaPorHora(dStr, bloques);
+  const demanda = (state.demandaCajas && state.demandaCajas[dStr]) || null;
+  const req = (h) => (demanda ? Number(demanda[h]) || 0 : 0);
+
+  // Rango horario del eje: cubre todos los turnos (también el respaldo) y toda la demanda del día
+  const personas = [...Object.values(bloques).flat(), ...respaldo];
+  let hMin = 8, hMax = 23;
+  personas.forEach((p) => p.tramos.forEach((t) => {
+    hMin = Math.min(hMin, Math.floor(t.start));
+    hMax = Math.max(hMax, Math.ceil(t.end));
+  }));
+  for (let h = 0; h < 24; h++) {
+    if (req(h) > 0) { hMin = Math.min(hMin, h); hMax = Math.max(hMax, h + 1); }
+  }
+  const span = hMax - hMin;
+  const pct = (h) => `${((h - hMin) / span) * 100}%`;
+  const ancho = (a, b) => `${((b - a) / span) * 100}%`;
+
+  let axisHTML = "";
+  for (let h = hMin; h <= hMax; h++) {
+    if ((h - hMin) % 2 === 0) axisHTML += `<span style="left:${pct(h)}">${h}</span>`;
+  }
+  const axisRow = `<div class="cdv-row cdv-axis-row"><span></span><span></span><div class="cdv-axis">${axisHTML}</div></div>`;
+
+  let bloquesHTML = "";
+  const grupos = CDV_BLOQUES.map((b) => ({ ...b, lista: bloques[b.key] }));
+  grupos.push({ key: "respaldo", label: "Respaldo · fallo de caja", color: "#64748b", lista: respaldo, nota: "no cuenta en la cobertura" });
+  grupos.forEach((b) => {
+    const lista = b.lista;
+    if (!lista.length) return;
+    bloquesHTML += `<div class="cdv-block-head"><span class="cdv-dot" style="background:${b.color}"></span><b>${b.label}</b><span>${lista.length} ${lista.length === 1 ? "persona" : "personas"}${b.nota ? ` · ${b.nota}` : ""}</span></div>`;
+    lista.forEach((p) => {
+      const horario = p.tramos.map((t) => `${cdvHora(t.start)} a ${cdvHora(t.end)}`).join(" / ");
+      const barras = p.tramos.map((t) =>
+        `<div class="cdv-bar" style="left:${pct(t.start)};width:${ancho(t.start, t.end)};background:${b.color}"></div>`).join("");
+      bloquesHTML += `
+        <div class="cdv-row" title="${cdvEsc(p.nombre)}: ${horario} (${Math.round(p.hours * 100) / 100} h)">
+          <span class="cdv-name"><span class="cdv-name-txt">${cdvEsc(p.nombre)}</span>${p.isCruzado ? `<span class="cdv-tag">Refuerzo</span>` : ""}${p.fijado ? `<span class="cdv-tag cdv-tag-pedido" title="Turno fijado a pedido del colaborador">Pedido</span>` : ""}</span>
+          <span class="cdv-time">${p.tramos.map((t) => `${cdvHora(t.start)}–${cdvHora(t.end)}`).join(" / ")}<small>${Math.round(p.hours * 100) / 100} h</small></span>
+          <div class="cdv-track" style="--cdv-n:${span}">${barras}</div>
+        </div>`;
+    });
+  });
+  if (!bloquesHTML) {
+    bloquesHTML = `<p class="cdv-empty" style="margin-top:16px">No hay turnos cargados para este día.</p>`;
+  }
+
+  // Cobertura: contorno = lo que pide Recaudaciones, relleno = lo planificado
+  const maxVal = Math.max(1, ...counts.slice(hMin, hMax), ...Array.from({ length: span }, (_, i) => req(hMin + i)));
+  let covBars = "", covNums = "", totalReal = 0, totalReq = 0, horasCortas = 0;
+  for (let h = hMin; h < hMax; h++) {
+    const r = req(h), c = counts[h];
+    totalReal += c; totalReq += r;
+    const falta = demanda && c < r;
+    if (falta) horasCortas++;
+    const colW = `calc(${ancho(0, 1)} - 4px)`;
+    const left = `calc(${pct(h)} + 2px)`;
+    covBars += `<div style="left:${left};width:${colW};height:${(c / maxVal) * 100}%;background:${falta ? "#ef4444" : "#10b981"};opacity:0.75"></div>`;
+    if (demanda && r > 0) {
+      // El contorno va encima para que se vea aunque sobre gente
+      covBars += `<div style="left:${left};width:${colW};height:${(r / maxVal) * 100}%;border:1.5px dashed rgba(255,255,255,0.85)"></div>`;
+    }
+    covNums += `<span style="left:${pct(h + 0.5)};color:${falta ? "#fca5a5" : "var(--text-muted)"}" title="${h} a ${h + 1}: ${c} planificados${demanda ? ` / ${r} requeridos` : ""}">${c}${demanda ? `<br>${r}` : ""}</span>`;
+  }
+
+  const resumen = demanda
+    ? `${totalReal} h planificadas / ${totalReq} h requeridas${horasCortas ? ` · faltan personas en ${horasCortas} ${horasCortas === 1 ? "franja" : "franjas"}` : ""}`
+    : `${totalReal} h planificadas · sin demanda de Recaudaciones cargada para este día`;
+
+  const coberturaHTML = `
+    <div class="cdv-block-head" style="justify-content:space-between;margin-top:28px">
+      <span><b>Cobertura por hora</b>&nbsp; ${resumen}</span>
+      <span class="cdv-legend">
+        ${demanda ? `<span><i style="border:1.5px dashed rgba(255,255,255,0.85)"></i>Requerido</span>` : ""}
+        <span><i style="background:#10b981"></i>Planificado</span>
+        ${demanda ? `<span><i style="background:#ef4444"></i>Falta gente</span>` : ""}
+      </span>
+    </div>
+    <div class="cdv-row" style="border-top:none;align-items:end">
+      <span class="cdv-empty">Personas por hora</span>
+      <span class="cdv-empty" style="line-height:1.2">${demanda ? "Plan.<br>Req." : "Plan."}</span>
+      <div><div class="cdv-cov">${covBars}</div><div class="cdv-covnums">${covNums}</div></div>
+    </div>`;
+
+  const seccion = (titulo, items) =>
+    `<h4>${titulo}</h4>` + (items.length
+      ? items.map((n) => `<span class="cdv-chip">${cdvEsc(n)}</span>`).join("")
+      : `<span class="cdv-empty">Nadie</span>`);
+
+  let sideHTML = seccion("Francos", listas.francos) + seccion("Vacaciones", listas.vacaciones);
+  if (listas.libres.length) sideHTML += seccion("Libres", listas.libres);
+  if (listas.noViene.length) sideHTML += seccion("No viene el feriado", listas.noViene);
+  if (listas.ausencias.length) sideHTML += seccion("Ausencias y licencias", listas.ausencias);
+  if (listas.sinTurno.length) sideHTML += seccion("Sin turno cargado", listas.sinTurno);
+  if (listas.revisar.length) sideHTML += seccion("Revisar formato", listas.revisar);
+  sideHTML += `<h4>Observaciones</h4>` + (notas.length
+    ? notas.map((n) => `<p class="cdv-note"><b>${cdvEsc(n.nombre)}:</b> ${cdvEsc(n.texto)}</p>`).join("")
+    : `<span class="cdv-empty">Sin observaciones</span>`);
+
+  container.innerHTML = headHTML + `
+    <div class="cdv-body">
+      <div>${axisRow}${bloquesHTML}${coberturaHTML}</div>
+      <aside class="cdv-side">${sideHTML}</aside>
+    </div>`;
+}
+
 window.renderUI = function renderUI() {
   if (window.innerWidth <= 768) {
     renderMobileDayView();
@@ -6266,6 +6832,7 @@ window.renderUI = function renderUI() {
   } else {
     renderDesktopView();
   }
+  renderCajasDayView();
 
   if (!window.hasInitialScrolled) {
     setTimeout(() => {
@@ -6319,6 +6886,11 @@ function attachScheduleEventListeners() {
       const cId = e.target.getAttribute("data-collab");
       const dStr = e.target.getAttribute("data-date");
       if (cId && dStr) {
+        const objFijado = getPlanningObj(cId, dStr);
+        if (objFijado && objFijado.fijado) {
+          const pedido = objFijado.fechaFijado ? ` el ${objFijado.fechaFijado}` : "";
+          showToast("Turno fijado", `Este horario lo pidió el colaborador${pedido}. Podés cambiarlo, pero tenelo en cuenta.`, "warning");
+        }
         const collabObj = (state.collaborators || []).find(c => c.id === cId);
         if (collabObj && isContractUnder119(collabObj)) {
           const dateObj = new Date(dStr + "T00:00:00");
@@ -6562,7 +7134,7 @@ function renderDesktopView() {
     
     const isTiendaCerradaHoy = state.eventos[dStr] && state.eventos[dStr].tiendaCerrada;
     const tcClass = isTiendaCerradaHoy ? " tienda-cerrada-col" : "";
-    const thClass = `day-col ${weekClass} ${borderWeekClass} ${todayClass}${tcClass}`;
+    const thClass = `day-col ${weekClass} ${borderWeekClass} ${todayClass}${tcClass}${cajasDayBeyondClass(dayIndex)}`;
     const holidayBadge = isHoliday 
       ? `<span class="header-micro-badge badge-holiday" title="Feriado">★</span>` 
       : "";
@@ -6918,10 +7490,11 @@ function renderDesktopView() {
           }
           if (obj.fijado) {
             wrapperClass += " is-fixed";
+            const fijadoTxt = `Turno fijado a pedido del colaborador${obj.fechaFijado ? ` (${obj.fechaFijado})` : ""}`;
             if (titleAttr) {
-              titleAttr = `title="Fijado | ${titleAttr.replace('title="', "").replace('"', "")}"`;
+              titleAttr = `title="${fijadoTxt} | ${titleAttr.replace('title="', "").replace('"', "")}"`;
             } else {
-              titleAttr = `title="Turno Fijado"`;
+              titleAttr = `title="${fijadoTxt}"`;
             }
           }
 
@@ -6967,7 +7540,8 @@ function renderDesktopView() {
           todayClass +
           tcCellClass +
           rollerDayClass +
-          cruzadoDayClass;
+          cruzadoDayClass +
+          cajasDayBeyondClass(dayIndex);
 
         // Validar descanso diario de 12 horas para turnos ya cargados
         let hasRestError = false;
@@ -7038,9 +7612,9 @@ function renderDesktopView() {
         if (matchCortado) {
           const isModified = displayVal.includes('*');
           displayHtml = `
-            <div class="shift-cell ${finalInputClass.replace('input-empty', '')} ${isOnVacation ? 'shift-cell-vacation' : ''}${tcShiftClass}" ${isTiendaCerrada ? 'title="Tienda Cerrada"' : ''}>
-              <span class="shift-start" style="font-size: 8.5px !important; line-height: 1 !important;">${vacPrefix}${matchCortado[1]}${isModified ? '<span style="color:var(--primary);">*</span>' : ''}</span>
-              <span class="shift-end" style="font-size: 8px !important; line-height: 1 !important;">${matchCortado[2]}</span>
+            <div class="shift-cell shift-cell-cortado ${finalInputClass.replace('input-empty', '')} ${isOnVacation ? 'shift-cell-vacation' : ''}${tcShiftClass}" ${isTiendaCerrada ? 'title="Tienda Cerrada"' : ''}>
+              <span class="shift-start">${vacPrefix}${matchCortado[1]}${isModified ? '<span style="color:var(--primary);">*</span>' : ''}</span>
+              <span class="shift-end">${matchCortado[2]}</span>
             </div>
           `;
         } else if (matchHorario) {
@@ -7063,6 +7637,10 @@ function renderDesktopView() {
             explicitLabel = isOnVacation ? 'V.L' : 'L';
           } else if (displayVal === '-') {
             explicitLabel = isOnVacation ? 'V' : '';
+          } else if (parsed && parsed.ausencia) {
+            // Sigla de ausencia, sola ("E") o con horario cargado ("E 6–14", el horario no suma)
+            const siglaLabel = parsed.type === 'work' ? parsed.label.replace('/', ' ').replace(/a/g, '–') : parsed.label;
+            explicitLabel = siglaLabel + (displayVal.includes('*') ? '*' : '');
           }
 
           displayHtml = `
@@ -7396,7 +7974,7 @@ function renderAreaCounters(areaName, collabs, days) {
     `;
 
     html += `
-      <td class="subtotal-day-cell ${weekClass} ${borderWeekClass} ${todayClass}">
+      <td class="subtotal-day-cell ${weekClass} ${borderWeekClass} ${todayClass}${cajasDayBeyondClass(dayIndex)}">
         <div class="subtotal-cell-content">
           <span class="subtotal-franco-badge" title="Francos del día">F:<strong>${francos}</strong></span>
           <div class="subtotal-shifts-grid">
@@ -7466,8 +8044,8 @@ function renderHeatmap() {
         if (!isTiendaCerradaHoy) {
           state.collaborators.forEach((c) => {
             const collabArea = c.area || "Disponibilidad";
-            const isCruzadoCajas = activeArea === "Linea de Cajas" && collabArea !== "Linea de Cajas" && !!c.refuerzoCajas;
-            if (collabArea !== activeArea && !isCruzadoCajas) return;
+            // Los refuerzos de otras áreas (respaldo, fallo de caja) no cuentan en la distribución
+            if (collabArea !== activeArea) return;
 
             const objForTardanza = getPlanningObj(c.id, dStr) || {};
             const valToday = getPlanningSlot(c.id, dStr);
@@ -7611,19 +8189,8 @@ async function handleInputChange(e) {
     return;
   }
 
-  // Check for fixed shift override
-  const currentObj = getPlanningObj(collabId, dateStr);
-  if (currentObj && currentObj.fijado) {
-    const dateTxt = currentObj.fechaFijado || "fecha desconocida";
-    if (
-      !confirm(
-        `Este horario fue fijado a petición del colaborador el ${dateTxt}.\n\n¿Estás seguro de que deseas modificarlo?`,
-      )
-    ) {
-      input.value = oldValue;
-      return;
-    }
-  }
+  // Turno fijado a pedido del colaborador: se avisa al entrar en la celda (ver listener de focus),
+  // sin bloquear el cambio
 
   if (!isRepositor) {
     if (!validation.valid) {
@@ -8137,9 +8704,11 @@ window.renderMetrics = async function () {
 
   container.innerHTML = "";
 
+  // Enfermedad: "E" sola o con el horario cargado ("E/6a14")
   const isAbsence = (text) => {
     if (!text) return false;
-    return text.trim().toLowerCase() === "e";
+    const p = parseShift(text);
+    return !!p && p.ausencia === "E";
   };
 
   const isDayOff = (text) => {
@@ -8418,9 +8987,11 @@ window.openMetricsDetail = async function (collabId) {
 
   // The employee full history is already downloaded and cached in state.planning
 
+  // Enfermedad: "E" sola o con el horario cargado ("E/6a14")
   const isAbsence = (text) => {
     if (!text) return false;
-    return text.trim().toLowerCase() === "e";
+    const p = parseShift(text);
+    return !!p && p.ausencia === "E";
   };
   const isDayOff = (text) =>
     text && ["f", "libre", "v", "vacaciones"].includes(text.toLowerCase());
@@ -9089,9 +9660,14 @@ window.exportVacationsCSV = function () {
   const filterSelect = document.getElementById("vFilterYear");
   const selectedYear = filterSelect ? filterSelect.value : "Todos";
 
-  let filteredVacations = state.vacations;
+  // Solo las vacaciones del área elegida, igual que la tabla
+  const targetArea = state.currentArea || "Disponibilidad";
+  const collabsAreaIds = new Set(
+    state.collaborators.filter(c => (c.area || "Disponibilidad") === targetArea).map(c => c.id)
+  );
+  let filteredVacations = state.vacations.filter((v) => collabsAreaIds.has(v.colaboradorId));
   if (selectedYear !== "Todos") {
-    filteredVacations = state.vacations.filter(
+    filteredVacations = filteredVacations.filter(
       (v) => getVacationYear(v).toString() === selectedYear,
     );
   }
@@ -9132,7 +9708,7 @@ window.exportVacationsCSV = function () {
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
   link.setAttribute("href", url);
-  link.setAttribute("download", `Vacaciones_RRHH_${selectedYear}.csv`);
+  link.setAttribute("download", `Vacaciones_RRHH_${targetArea.replace(/\s+/g, "_")}_${selectedYear}.csv`);
   link.style.visibility = "hidden";
   document.body.appendChild(link);
   link.click();
@@ -9850,49 +10426,57 @@ document
       const collab = state.collaborators.find((c) => c.id === collabId);
       const hist = collab?.historialVacaciones || {};
       if (hist.year1 === "Buena" || hist.year2 === "Buena") {
-        showToast(
-          "Regla 2x1",
-          `El colaborador ${collab?.name || collabId} ya tuvo temporada Buena en los últimos 2 años. Solo le corresponde temporada Mala.`,
+        const confirmadoBuena = confirm(
+          `Regla 2x1: ${collab?.name || collabId} ya tuvo temporada Buena en los últimos 2 años, ` +
+          `así que le correspondería temporada Mala.\n\n¿Querés cargar las vacaciones igual?`,
         );
-        return;
+        if (!confirmadoBuena) return;
       }
     }
 
-    // Validación Superposición Semanal
-    // Máximo 2 por semana
-    let overlapError = false;
+    // Validación Superposición Semanal (misma área)
+    // Tope recomendado: 2 por semana. Si se supera, se avisa quiénes ya están y se pide confirmación.
+    // En Línea de Cajas el tope cuenta aparte para rollers y para cajeras.
+    const esRoller = (c) => !!c && ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller");
+    const separarRollers = targetCollabArea === "Linea de Cajas";
+    const targetEsRoller = esRoller(targetCollabObj);
+    const grupoTope = separarRollers ? (targetEsRoller ? "rollers" : "cajeras") : `personas de ${targetCollabArea}`;
+    const semanasExcedidas = [];
     for (let weekOffset = 0; weekOffset < weeks; weekOffset++) {
       const wStart = addDays(startD, weekOffset * 7);
       const wEnd = addDays(wStart, 6);
-      let overlapCount = 0;
+      const yaDeVacaciones = [];
 
       state.vacations.forEach((v) => {
         if (editId && v.id === editId) return; // Ignorar el registro que se está editando
+        if (v.colaboradorId === collabId) return; // Sus propios períodos no cuentan como superposición
 
         const iterCollabObj = state.collaborators.find(c => c.id === v.colaboradorId);
         const iterCollabArea = iterCollabObj ? (iterCollabObj.area || "Disponibilidad") : "Disponibilidad";
         if (iterCollabArea !== targetCollabArea) return;
+        if (separarRollers && esRoller(iterCollabObj) !== targetEsRoller) return;
 
         const vStart = new Date(v.startDate + "T00:00:00");
         const vEnd = new Date(v.endDate + "T00:00:00");
         // Si los rangos se cruzan
         if (vStart <= wEnd && vEnd >= wStart) {
-          overlapCount++;
+          yaDeVacaciones.push(iterCollabObj ? iterCollabObj.name.split("(")[0].trim() : v.colaboradorId);
         }
       });
 
-      if (overlapCount >= 2) {
-        overlapError = true;
-        break;
+      if (yaDeVacaciones.length >= 2) {
+        const fmt = (d) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+        semanasExcedidas.push(`• Semana del ${fmt(wStart)} al ${fmt(wEnd)}: ${yaDeVacaciones.join(", ")}`);
       }
     }
 
-    if (overlapError) {
-      showToast(
-        "Superposición",
-        "No se puede aprobar. En alguna de las semanas seleccionadas ya hay 2 o más personas de vacaciones.",
+    if (semanasExcedidas.length) {
+      const confirmado = confirm(
+        `Ya hay 2 o más ${grupoTope} de vacaciones en este período:\n\n` +
+        `${semanasExcedidas.join("\n")}\n\n` +
+        `¿Querés cargar las vacaciones igual?`,
       );
-      return;
+      if (!confirmado) return;
     }
 
     const newVacId = `${collabId}_${startDateStr}`;
@@ -10262,6 +10846,8 @@ function checkLogin() {
 
        const backupDriveBtn = document.getElementById('backupDriveBtn');
        if (backupDriveBtn) backupDriveBtn.style.display = 'inline-flex';
+       const openBackupBtn = document.getElementById('openBackupBtn');
+       if (openBackupBtn) openBackupBtn.style.display = 'inline-flex';
 
        const repositoresNavBtn = document.getElementById('repositoresNavBtn');
        if (repositoresNavBtn) repositoresNavBtn.style.display = 'inline-flex';
@@ -10346,12 +10932,13 @@ function handleContextMenu(e) {
           <div class="ctx-chips-grid">
             <button type="button" id="qs-F" class="ctx-chip chip-franco">F</button>
             <button type="button" id="qs-LIBRE" class="ctx-chip chip-franco">LIBRE</button>
-            <button type="button" id="qs-E" class="ctx-chip chip-alert">E</button>
-            <button type="button" id="qs-NV" class="ctx-chip chip-alert">No Viene</button>
-            <button type="button" id="qs-Susp" class="ctx-chip">Susp</button>
-            <button type="button" id="qs-PG" class="ctx-chip">PG</button>
-            <button type="button" id="qs-ACA" class="ctx-chip">ACA</button>
-            <button type="button" id="qs-ASA" class="ctx-chip">ASA</button>
+            <button type="button" id="qs-E" class="ctx-chip chip-alert" title="Enfermedad">E</button>
+            <button type="button" id="qs-LIC" class="ctx-chip chip-alert" title="Licencia">LIC</button>
+            <button type="button" id="qs-NV" class="ctx-chip chip-alert" title="No viene el feriado">No Viene Feriado</button>
+            <button type="button" id="qs-Susp" class="ctx-chip" title="Suspensión">Susp</button>
+            <button type="button" id="qs-PG" class="ctx-chip" title="Permiso gremial">PG</button>
+            <button type="button" id="qs-ACA" class="ctx-chip" title="Ausente con aviso">ACA</button>
+            <button type="button" id="qs-ASA" class="ctx-chip" title="Ausente sin aviso">ASA</button>
           </div>
 
           <span class="ctx-section-label">Horario del Día</span>
@@ -10403,6 +10990,7 @@ function handleContextMenu(e) {
 
       // Listeners de botones
       document.getElementById("qs-E").onclick = () => window.setQuickState("E");
+      document.getElementById("qs-LIC").onclick = () => window.setQuickState("LIC");
       document.getElementById("qs-Susp").onclick = () => window.setQuickState("Susp");
       document.getElementById("qs-PG").onclick = () => window.setQuickState("PG");
       document.getElementById("qs-ACA").onclick = () => window.setQuickState("ACA");
@@ -10647,7 +11235,17 @@ window.setQuickState = async function (stateVal) {
     }
   }
 
-  obj.slot = stateVal;
+  // Las siglas de ausencia se anteponen al horario cargado (E/6a14) para no perderlo
+  let nuevoSlot = stateVal;
+  if (parsedNew && parsedNew.ausencia) {
+    const actual = parseShift(prevSlotVal);
+    if (actual && actual.type === "work") {
+      const horario = actual.ausencia ? actual.label.replace(/^[a-z]+\//i, "") : actual.label;
+      nuevoSlot = `${stateVal}/${horario}`;
+    }
+  }
+
+  obj.slot = nuevoSlot;
   state.planning[`${collabId}_${dateStr}`] = obj;
 
   if (!isMockMode) {
@@ -10684,8 +11282,13 @@ window.setNoVieneQuickState = async function () {
   let currentSlot = inputEl.value || "";
   let newSlot = "";
 
+  const parsedActual = parseShift(currentSlot);
   if (currentSlot.trim() === "") {
     newSlot = "NV/";
+  } else if (parsedActual && parsedActual.ausencia) {
+    // Ya tiene otra sigla de ausencia: se reemplaza por NV conservando el horario
+    const horario = parsedActual.type === "work" ? parsedActual.label.replace(/^[a-z]+\//i, "") : "";
+    newSlot = "NV/" + horario;
   } else {
     if (!currentSlot.startsWith("NV/")) {
       newSlot = "NV/" + currentSlot;
@@ -11612,6 +12215,15 @@ async function renderAuditLogs() {
 }
 
 // 12. BACKUP GOOGLE SHEETS
+// Planilla fija donde se guarda cada backup (la misma que se abre desde el menú)
+const BACKUP_SPREADSHEET_ID = "1X3T8JIQ6APN8Gc3z7vVxz3rCEoiRRgSAUY4HIljm604";
+
+window.abrirPlanillaBackup = function () {
+  const dropdownMenu = document.getElementById("navDropdownMenu");
+  if (dropdownMenu) dropdownMenu.style.display = "none";
+  window.open(`https://docs.google.com/spreadsheets/d/${BACKUP_SPREADSHEET_ID}/edit`, "_blank", "noopener");
+};
+
 if (document.getElementById("backupDriveBtn")) {
   document
     .getElementById("backupDriveBtn")
@@ -11634,7 +12246,7 @@ async function generarBackupSheets() {
   }
 
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwLXSomMfz4aOUvwohrNXCrWoz57k9ms3degl0RAUV1ke9Zvx1ofqb_-g3das7OAy5B/exec";
-  const SPREADSHEET_ID = "1X3T8JIQ6APN8Gc3z7vVxz3rCEoiRRgSAUY4HIljm604";
+  const SPREADSHEET_ID = BACKUP_SPREADSHEET_ID;
 
   // Obtener estado global seguro
   const appState = window.state || (typeof state !== "undefined" ? state : {});
@@ -17929,7 +18541,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const isVacaciones = isOnVacationsPeriod || slotUpper === "V" || slotUpper === "VAC" || slotUpper === "VACACIONES" ||
                                 (parsedSlot && parsedSlot.type === "vacation");
             const isEnfermedad = slotUpper === "E" || slotUpper.includes("ENF") || slotUpper.includes("LIC") ||
-                                (parsedSlot && parsedSlot.type === "absence" && (slotUpper.startsWith("E") || slotUpper === "E"));
+                                (parsedSlot && parsedSlot.type === "absence" && (slotUpper.startsWith("E") || slotUpper === "E")) ||
+                                (parsedSlot && (parsedSlot.ausencia === "E" || parsedSlot.ausencia === "LIC"));
             const isAusente = slotUpper === "NV" || slotUpper.startsWith("NV") || slotUpper.includes("AUS") || slotUpper.includes("SUS") ||
                               (parsedSlot && (parsedSlot.isNV || parsedSlot.type === "absence"));
 
