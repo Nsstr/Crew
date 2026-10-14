@@ -3884,6 +3884,10 @@
             <option value="vendedores">🏷️ Vendedores con Fallo de Caja</option>
             <option value="consolidado">👥 Cajeros + Vendedores (Dotación Completa)</option>
           </select>
+          <select id="prodRankingModo" onchange="window.renderProductividad()" title="Cómo se ordena el ranking de cajeros" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 0.85rem; font-weight: 600;">
+            <option value="justo">⚖️ Ajustado a sus horarios</option>
+            <option value="uh">⚡ Productos por hora</option>
+          </select>
         </div>
 
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -14739,6 +14743,84 @@ window.abrirModalProductividad = function() {
   modal.classList.add("active");
 };
 
+// ══════════════════════════════════════════════════════════════════════
+// RANKING AJUSTADO A LOS HORARIOS
+// Los productos por hora dependen de en qué horas trabaja cada uno: en las horas pico siempre hay
+// clientes en la fila. Para que el ranking sea justo, a cada cajero se lo compara con lo esperable
+// según la demanda (cajeros pedidos por Recaudaciones) de las horas que trabajó ese mes.
+// Solo lectura: lee la grilla y la demanda del mes, no guarda nada.
+// ══════════════════════════════════════════════════════════════════════
+const prodAjusteCache = {}; // periodo -> { estado: "cargando" | "listo" | "error", porCollab }
+
+async function cargarAjusteProductividad(periodoKey, fechaCorte) {
+  const clave = `${periodoKey}|${fechaCorte}`;
+  if (prodAjusteCache[clave]) return;
+  prodAjusteCache[clave] = { estado: "cargando" };
+  try {
+    const desde = `${periodoKey}-01`;
+    const [snapPlan, snapDem] = await Promise.all([
+      getDocs(query(collection(db, "planificacion"), where("fecha", ">=", desde), where("fecha", "<=", fechaCorte))),
+      getDocs(query(collection(db, "demanda_cajas"), where("fecha", ">=", desde), where("fecha", "<=", fechaCorte))),
+    ]);
+    const demanda = {};
+    snapDem.docs.forEach((d) => { demanda[d.id] = d.data().curva || []; });
+
+    const enVacaciones = (id, f) => (state.vacations || []).some((v) => String(v.colaboradorId) === String(id) && f >= v.startDate && f <= v.endDate);
+    const porCollab = {};
+    snapPlan.docs.forEach((d) => {
+      const p = d.data();
+      if (!p.colaboradorId || !p.fecha || enVacaciones(p.colaboradorId, p.fecha)) return;
+      const turno = parseShift(p.slot);
+      if (!turno || turno.type !== "work" || turno.isNV || !(turno.hours > 0)) return;
+      const curva = demanda[p.fecha];
+      const acc = porCollab[p.colaboradorId] || (porCollab[p.colaboradorId] = { horas: 0, demandaSuma: 0, horasConDemanda: 0 });
+      acc.horas += turno.hours;
+      if (!curva) return;
+      (turno.isCortado ? turno.tramos : [turno]).forEach((t) => {
+        const fin = t.end <= t.start ? 24 : t.end;
+        for (let h = Math.floor(t.start); h < Math.ceil(fin); h++) {
+          acc.demandaSuma += Number(curva[h % 24]) || 0;
+          acc.horasConDemanda++;
+        }
+      });
+    });
+    Object.values(porCollab).forEach((a) => { a.intensidad = a.horasConDemanda ? a.demandaSuma / a.horasConDemanda : null; });
+    prodAjusteCache[clave] = { estado: "listo", porCollab };
+  } catch (err) {
+    console.warn("No se pudo calcular el ranking ajustado:", err);
+    prodAjusteCache[clave] = { estado: "error" };
+  }
+  if (typeof window.renderProductividad === "function") window.renderProductividad();
+}
+
+// Agrega a cada cajero sus horas, la intensidad de sus horarios, lo esperado y la diferencia.
+// Lo esperado sale de una recta (mínimos cuadrados, ponderada por horas) entre intensidad y productos por hora.
+function aplicarAjusteProductividad(items, porCollab) {
+  const conDatos = items.map((c) => {
+    const datos = c.collabId ? porCollab[c.collabId] : null;
+    return { ...c, horasMes: datos ? datos.horas : 0, intensidad: datos ? datos.intensidad : null };
+  });
+  const validos = conDatos.filter((c) => c.horasMes > 0 && c.intensidad !== null && c.itemsPorHora > 0);
+  if (validos.length < 3) return { items: conDatos, ajustado: false };
+
+  const W = validos.reduce((a, c) => a + c.horasMes, 0);
+  const mx = validos.reduce((a, c) => a + c.horasMes * c.intensidad, 0) / W;
+  const my = validos.reduce((a, c) => a + c.horasMes * c.itemsPorHora, 0) / W;
+  const sxx = validos.reduce((a, c) => a + c.horasMes * (c.intensidad - mx) ** 2, 0);
+  const pendiente = sxx > 0 ? validos.reduce((a, c) => a + c.horasMes * (c.intensidad - mx) * (c.itemsPorHora - my), 0) / sxx : 0;
+
+  conDatos.forEach((c) => {
+    if (c.horasMes > 0 && c.intensidad !== null && c.itemsPorHora > 0) {
+      c.esperado = Math.round(my + pendiente * (c.intensidad - mx));
+      c.vsEsperado = c.itemsPorHora - c.esperado;
+      c.aporte = Math.round(c.itemsPorHora * c.horasMes);
+    }
+  });
+  // Primero los que tienen datos, ordenados por cuánto superan lo esperado; después el resto
+  conDatos.sort((a, b) => (b.vsEsperado !== undefined) - (a.vsEsperado !== undefined) || (b.vsEsperado || 0) - (a.vsEsperado || 0) || b.itemsPorHora - a.itemsPorHora);
+  return { items: conDatos, ajustado: true, pendiente: Math.round(pendiente) };
+}
+
 window.renderProductividad = function() {
   const container = document.getElementById("prodLienzoContainer");
   if (!container) return;
@@ -15003,8 +15085,58 @@ window.renderProductividad = function() {
       const sumaProd = itemsProd.reduce((acc, c) => acc + c.itemsPorHora, 0);
       const promProd = Math.round(sumaProd / (totalProd || 1));
 
-      const podioProd = itemsProd.slice(0, 3);
-      const restoProd = itemsProd.slice(3);
+      // Ranking ajustado a los horarios (solo cajeros titulares, que son los que tienen sus horas en la grilla)
+      const modoSelect = document.getElementById("prodRankingModo");
+      const modoPedido = modoSelect ? modoSelect.value : "justo";
+      if (modoSelect) modoSelect.style.display = dotacionFiltro === "cajeros" ? "" : "none";
+      let modoJusto = false;
+      let estadoAjuste = "";
+      let itemsOrdenados = itemsProd;
+      if (dotacionFiltro === "cajeros" && modoPedido === "justo") {
+        const finMes = formatDate(new Date(anio, mes, 0));
+        const cargado = dataPeriodo.fechaCarga ? String(dataPeriodo.fechaCarga).slice(0, 10) : finMes;
+        const fechaCorte = dataPeriodo.tipo === "cierre" || cargado > finMes ? finMes : cargado;
+        const cache = prodAjusteCache[`${periodoKey}|${fechaCorte}`];
+        if (!cache) {
+          cargarAjusteProductividad(periodoKey, fechaCorte);
+          estadoAjuste = "cargando";
+        } else if (cache.estado === "listo") {
+          const conId = itemsProd.map((c) => {
+            if (c.collabId) return c;
+            const col = (state.collaborators || []).find((x) => String(x.numeroOperador) === String(c.cajeroId) || String(x.id) === String(c.cajeroId));
+            return { ...c, collabId: col ? col.id : null };
+          });
+          const resultado = aplicarAjusteProductividad(conId, cache.porCollab);
+          if (resultado.ajustado) {
+            modoJusto = true;
+            itemsOrdenados = resultado.items;
+          } else {
+            estadoAjuste = "sinDatos";
+          }
+        } else {
+          estadoAjuste = cache.estado;
+        }
+      }
+      const fmtNum = (n) => Number(n || 0).toLocaleString("es-AR");
+      const mayorAporte = modoJusto ? [...itemsOrdenados].filter((c) => c.aporte).sort((a, b) => b.aporte - a.aporte)[0] : null;
+      const avisoAjuste = {
+        cargando: "Calculando el ajuste por horarios…",
+        sinDatos: "No hay horarios cargados en la grilla para este mes: se muestra el ranking por productos por hora.",
+        error: "No se pudo calcular el ajuste por horarios: se muestra el ranking por productos por hora.",
+      }[estadoAjuste] || "";
+
+      // Número principal y detalle de cada cajero según el modo
+      const numeroPrincipal = (c, tam) => modoJusto && c.vsEsperado !== undefined
+        ? `<div style="font-size: ${tam}; font-weight: 900; color: ${c.vsEsperado >= 0 ? "#10b981" : "#f87171"}; line-height: 1;">${c.vsEsperado >= 0 ? "+" : ""}${c.vsEsperado}</div>
+           <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">vs. esperado</div>`
+        : `<div style="font-size: ${tam}; font-weight: 900; color: ${c.itemsPorHora >= 600 ? "#10b981" : "#ef4444"}; line-height: 1;">${c.itemsPorHora}</div>
+           <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">productos / hora</div>`;
+      const detalleAjuste = (c) => modoJusto && c.vsEsperado !== undefined
+        ? `<div style="font-size: 0.66rem; color: #cbd5e1; margin-top: 2px;">⚡ ${c.itemsPorHora} u/h · esperado ${c.esperado} · ${fmtNum(Math.round(c.horasMes))} h · ${fmtNum(c.aporte)} productos</div>`
+        : (modoJusto ? `<div style="font-size: 0.66rem; color: var(--text-muted); margin-top: 2px;">Sin horas en la grilla este mes · ${c.itemsPorHora} u/h</div>` : "");
+
+      const podioProd = itemsOrdenados.slice(0, 3);
+      const restoProd = itemsOrdenados.slice(3);
 
       const renderTrendBadge = (diff) => {
         if (diff === null || diff === undefined) return '';
@@ -15027,7 +15159,7 @@ window.renderProductividad = function() {
                 · ${periodoNombre.toUpperCase()}
               </div>
               <div style="font-size: 1.05rem; font-weight: 900; color: #fbbf24; margin-top: 2px;">
-                🏆 PRODUCTIVIDAD
+                ${modoJusto ? "⚖️ PRODUCTIVIDAD AJUSTADA" : "🏆 PRODUCTIVIDAD"}
               </div>
               <div style="font-size: 0.68rem; color: #94a3b8; font-weight: 600;">
                 ${labelDotacionActiva}
@@ -15038,6 +15170,12 @@ window.renderProductividad = function() {
               <div style="font-size: 0.58rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Promedio</div>
             </div>
           </div>
+
+          ${modoJusto ? `
+          <div style="font-size: 0.68rem; color: #94a3b8; line-height: 1.4; background: rgba(251, 191, 36, 0.06); border: 1px solid rgba(251, 191, 36, 0.2); border-radius: 8px; padding: 8px 10px;">
+            En las horas de más clientes siempre hay fila, y eso sube los productos por hora. Por eso a cada uno se lo compara con <strong style="color: #f8fafc;">lo esperable para los horarios que trabajó</strong>: el número grande es cuánto lo supera.
+          </div>` : ""}
+          ${avisoAjuste ? `<div style="font-size: 0.68rem; color: #94a3b8;">${avisoAjuste}</div>` : ""}
 
           <!-- PODIO TOP 3 -->
           <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -15068,12 +15206,10 @@ window.renderProductividad = function() {
                     <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 2px;">
                       ⏱️ Tiempo por ticket: <strong style="color: #f8fafc;">${trVal} min</strong> · 🛒 Chango prom: <strong style="color: #f8fafc;">${ticketVal} art.</strong>
                     </div>
+                    ${detalleAjuste(c)}
                   </div>
                   <div style="text-align: right;">
-                    <div style="font-size: 1.45rem; font-weight: 900; color: #10b981; line-height: 1;">
-                      ${c.itemsPorHora}
-                    </div>
-                    <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">productos / hora</div>
+                    ${numeroPrincipal(c, "1.45rem")}
                   </div>
                 </div>
               `;
@@ -15111,12 +15247,10 @@ window.renderProductividad = function() {
                         <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 1px;">
                           ⏱️ Tiempo por ticket: ${trVal} min · 🛒 Chango prom: ${ticketVal} art.
                         </div>
+                        ${detalleAjuste(c)}
                       </div>
                       <div style="text-align: right;">
-                        <div style="font-weight: 800; font-size: 1rem; color: ${colorNum}; line-height: 1;">
-                          ${c.itemsPorHora}
-                        </div>
-                        <div style="font-size: 0.58rem; color: var(--text-muted); font-weight: 600;">productos / hora</div>
+                        ${numeroPrincipal(c, "1rem")}
                       </div>
                     </div>
                   `;
@@ -15126,7 +15260,12 @@ window.renderProductividad = function() {
           ` : ''}
 
           <!-- Footer Placa Productividad -->
-        
+          ${mayorAporte ? `
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; font-size: 0.7rem; color: #94a3b8;">
+            <span>📦 Mayor aporte del mes</span>
+            <span><strong style="color: #f8fafc;">${mayorAporte.nombre}</strong> · ${fmtNum(mayorAporte.aporte)} productos</span>
+          </div>` : ""}
+
 
         </div>
       `;
