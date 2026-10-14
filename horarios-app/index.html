@@ -15144,7 +15144,8 @@ window.renderProductividad = function() {
              <span style="font-size: 0.72rem; font-weight: 800; color: ${c.vsEsperado >= 0 ? "#10b981" : "#f87171"};">${c.vsEsperado >= 0 ? "+" : ""}${c.vsEsperado}</span>
              <span style="font-size: ${tam}; font-weight: 900; color: #f8fafc; line-height: 1;">${c.itemsPorHora}</span>
            </div>
-           <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px; white-space: nowrap;">productos / hora</div>`
+           <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px; white-space: nowrap;">productos / hora</div>
+           <div style="font-size: 0.6rem; color: #94a3b8; font-weight: 600; margin-top: 1px; white-space: nowrap;">esperado ${c.esperado}</div>`
         : `<div style="font-size: ${tam}; font-weight: 900; color: ${c.itemsPorHora >= 600 ? "#10b981" : "#ef4444"}; line-height: 1;">${c.itemsPorHora}</div>
            <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">productos / hora</div>`;
 
