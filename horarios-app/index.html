@@ -15140,8 +15140,11 @@ window.renderProductividad = function() {
 
       // Número principal y detalle de cada cajero según el modo
       const numeroPrincipal = (c, tam) => modoJusto && c.vsEsperado !== undefined
-        ? `<div style="font-size: ${tam}; font-weight: 900; color: ${c.vsEsperado >= 0 ? "#10b981" : "#f87171"}; line-height: 1;">${c.vsEsperado >= 0 ? "+" : ""}${c.vsEsperado}</div>
-           <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">vs. su chango</div>`
+        ? `<div style="display: flex; align-items: baseline; justify-content: flex-end; gap: 6px;">
+             <span style="font-size: 0.72rem; font-weight: 800; color: ${c.vsEsperado >= 0 ? "#10b981" : "#f87171"};">${c.vsEsperado >= 0 ? "+" : ""}${c.vsEsperado}</span>
+             <span style="font-size: ${tam}; font-weight: 900; color: #f8fafc; line-height: 1;">${c.itemsPorHora}</span>
+           </div>
+           <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px; white-space: nowrap;">productos / hora</div>`
         : `<div style="font-size: ${tam}; font-weight: 900; color: ${c.itemsPorHora >= 600 ? "#10b981" : "#ef4444"}; line-height: 1;">${c.itemsPorHora}</div>
            <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">productos / hora</div>`;
 
