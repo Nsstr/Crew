@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v2026.10.13.1';
+const CACHE_VERSION = 'v2026.10.13.2';
 const CACHE_NAME = `crew-app-${CACHE_VERSION}`;
 const ASSETS = [
   './',
