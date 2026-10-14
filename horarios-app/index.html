@@ -3551,7 +3551,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.1
+            Versión: v1.6.2
           </div>
         </div>
       </div>
@@ -4393,7 +4393,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.1";
+  const APP_VERSION = "v1.6.2";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5266,17 +5266,31 @@ async function loadWeekPlanning(append = false) {
             );
             snap.docChanges().forEach((change) => {
               const data = change.doc.data();
+              const clave = `${data.colaboradorId}_${data.fecha}`;
+              const previo = state.planning[clave];
+
+              // Un cambio es "de otro" solo si no salió de esta pantalla (sin escritura local pendiente)
+              // y trae algo distinto a lo que ya teníamos (los propios guardados llegan iguales)
+              const mismoContenido = (a, b) => {
+                const norm = (o) => JSON.stringify(
+                  typeof o === "object" && o !== null
+                    ? { s: o.slot || "", c: o.comentario || "", f: !!o.fijado, t: o.tardanzaMinutosTotales || 0 }
+                    : { s: o || "", c: "", f: false, t: 0 },
+                );
+                return norm(a) === norm(b);
+              };
+              const esAjeno = !firstLoad && change.type !== "removed" &&
+                !change.doc.metadata.hasPendingWrites && !mismoContenido(previo, data);
+
               if (change.type === "added" || change.type === "modified") {
-                state.planning[`${data.colaboradorId}_${data.fecha}`] = data;
+                state.planning[clave] = data;
               }
               if (change.type === "removed") {
-                delete state.planning[`${data.colaboradorId}_${data.fecha}`];
+                delete state.planning[clave];
               }
 
-              if (!firstLoad && change.type !== "removed") {
-                if (typeof window.notifyRemoteChange === "function") {
-                  window.notifyRemoteChange();
-                }
+              if (esAjeno && typeof window.notifyRemoteChange === "function") {
+                window.notifyRemoteChange(data);
               }
             });
 
@@ -7235,6 +7249,7 @@ function braProcesar(filas, area) {
       return {
         legajo: String(f.legajo || ""), nombre: f.nombre || "", r25, taw, principal,
         dur: principal ? principal.e - principal.s : 0, tope: f.topePermitido || 0, semaforo: f.semaforo || "ok",
+        aviso: f.aviso || "",
       };
     })
     .filter((p) => p.principal)
@@ -7358,6 +7373,7 @@ window.renderAnalisisDescansos = async function (container, fechaId, opciones = 
       p.taw ? `TAW ${braHora(p.taw.s)}–${braHora(p.taw.e)} (${p.taw.e - p.taw.s}')` : "TAW sin marca",
       p.tope ? `tope ${p.tope}'` : "",
       p.ventaAlta ? "en horario de venta alta" : (p.esRoller ? "roller (exceptuado)" : ""),
+      p.aviso,
     ].filter(Boolean).join(" · ");
     const barra = (t, color) => (t ? `<i style="left: ${pct(t.s)}; width: ${ancho(t.s, t.e)}; background: ${color};"></i>` : "");
     const marcaVentaAlta = p.ventaAlta
@@ -7370,7 +7386,7 @@ window.renderAnalisisDescansos = async function (container, fechaId, opciones = 
           <div class="bra-track" style="--bra-n: ${span}">${franjas}${barra(p.r25, colorSemaforo[p.semaforo] || "#3b82f6")}</div>
           <div class="bra-track" style="--bra-n: ${span}">${franjas}${barra(p.taw, "#94a3b8")}</div>
         </div>
-        <span class="bra-dur ${p.semaforo === "exceso" ? "exceso" : ""}">${p.dur}'</span>
+        <span class="bra-dur ${p.semaforo === "exceso" ? "exceso" : ""}">${p.aviso ? `<span style="color: #f59e0b;" title="${cdvEsc(p.aviso)}">⚠ </span>` : ""}${p.dur}'</span>
       </div>`;
   });
 
@@ -14202,7 +14218,7 @@ async function checkForAppUpdates() {
       window.pendingUpdateVersion = serverVer;
       triggerForcedUpdateModal(
         "Nueva Versión Disponible",
-        "Hay una actualización lista del sistema. Presiona el botón para aplicarla."
+        "Hay una actualización lista. Podés actualizar ahora o seguir y hacerlo más tarde."
       );
     }
   } catch (e) {
@@ -14542,26 +14558,52 @@ window.showEventInfo = function(dateStr) {
 };
 
 
+// "Más tarde" pospone el cartel de versión nueva 30 minutos, para no cortar una carga de horarios
+let actualizacionPospuestaHasta = 0;
+window.posponerActualizacion = function () {
+  actualizacionPospuestaHasta = Date.now() + 30 * 60 * 1000;
+  const modal = document.getElementById("forcedUpdateModal");
+  if (modal) modal.style.display = "none";
+};
+
 function triggerForcedUpdateModal(title, msg) {
   const modal = document.getElementById("forcedUpdateModal");
   if (!modal) return;
+  if (Date.now() < actualizacionPospuestaHasta) return;
   if (title) document.getElementById("forcedUpdateTitle").textContent = title;
   if (msg) document.getElementById("forcedUpdateMessage").textContent = msg;
   modal.style.display = "flex";
 }
 
-// 1. Escuchar si otra persona cambió datos mientras la pestaña estuvo en segundo plano
+// 1. Cambios de horarios hechos por otra persona u otro dispositivo.
+// La grilla ya se actualiza sola en tiempo real, así que no se fuerza a recargar (cortaba el trabajo):
+// solo se muestra un aviso chico, y únicamente si el cambio es del área que se está mirando.
 let isWindowActive = true;
-let pendingRemoteChanges = false;
+let cambiosAjenosPendientes = 0;
+
+function cambioEsDelAreaActual(data) {
+  const area = state.currentArea || "Disponibilidad";
+  const collab = (state.collaborators || []).find((c) => String(c.id) === String(data.colaboradorId));
+  if (!collab) return false;
+  const areaCollab = collab.area || "Disponibilidad";
+  return areaCollab === area || (area === "Linea de Cajas" && !!collab.refuerzoCajas);
+}
+
+function avisarCambiosAjenos(cantidad) {
+  const area = (state.currentArea || "Disponibilidad") === "Linea de Cajas" ? "Línea de Cajas" : "Disponibilidad";
+  showToast(
+    "Horarios actualizados",
+    `${cantidad === 1 ? "Se actualizó 1 horario" : `Se actualizaron ${cantidad} horarios`} de ${area} desde otro dispositivo. La grilla ya está al día.`,
+    "info",
+  );
+}
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     isWindowActive = true;
-    if (pendingRemoteChanges) {
-      triggerForcedUpdateModal(
-        "Nuevos Horarios Detectados",
-        "Otros usuarios han actualizado la planificación mientras la app estaba en segundo plano. Actualizá para sincronizar la grilla."
-      );
+    if (cambiosAjenosPendientes > 0) {
+      avisarCambiosAjenos(cambiosAjenosPendientes);
+      cambiosAjenosPendientes = 0;
     }
     checkForAppUpdates();
   } else {
@@ -14569,11 +14611,22 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-// 2. Marcar cambios remotos si la app no está en foco
-window.notifyRemoteChange = function() {
+// 2. Registrar un cambio ajeno (lo llama la escucha de la planificación)
+let temporizadorAvisoCambios = null;
+let cambiosAjenosEnPantalla = 0;
+window.notifyRemoteChange = function (data) {
+  if (!data || !cambioEsDelAreaActual(data)) return;
   if (!isWindowActive) {
-    pendingRemoteChanges = true;
+    cambiosAjenosPendientes++;
+    return;
   }
+  // Con la pantalla abierta, se agrupan los cambios que llegan juntos en un solo aviso
+  cambiosAjenosEnPantalla++;
+  clearTimeout(temporizadorAvisoCambios);
+  temporizadorAvisoCambios = setTimeout(() => {
+    avisarCambiosAjenos(cambiosAjenosEnPantalla);
+    cambiosAjenosEnPantalla = 0;
+  }, 1500);
 };
 
 // Pila de deshacer (máximo 30 acciones en la sesión)
@@ -16826,7 +16879,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (typeof triggerForcedUpdateModal === 'function') {
               triggerForcedUpdateModal(
                 "Nueva Versión Disponible",
-                "Hay una actualización lista. Presiona el botón para aplicarla."
+                "Hay una actualización lista. Podés actualizar ahora o seguir y hacerlo más tarde."
               );
             }
           }
@@ -16841,7 +16894,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (typeof triggerForcedUpdateModal === 'function') {
                   triggerForcedUpdateModal(
                     "Nueva Versión Disponible",
-                    "Hay una actualización lista. Presiona el botón para aplicarla."
+                    "Hay una actualización lista. Podés actualizar ahora o seguir y hacerlo más tarde."
                   );
                 }
               }
@@ -16858,12 +16911,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }).catch((err) => console.warn("SW registration error:", err));
       });
 
-      // 5. Si el controlador del Service Worker cambia, forzar recarga limpia
-      let refreshing = false;
+      // 5. Si el Service Worker se actualiza con la app abierta, NO se recarga sola (cortaba la carga
+      // de horarios): se muestra el cartel con "Actualizar ahora" o "Más tarde".
+      // En la primera visita (sin worker previo) no se avisa nada.
+      const habiaWorkerPrevio = !!navigator.serviceWorker.controller;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!refreshing) {
-          refreshing = true;
-          window.location.reload();
+        if (habiaWorkerPrevio && typeof triggerForcedUpdateModal === 'function') {
+          triggerForcedUpdateModal(
+            "Nueva Versión Disponible",
+            "Hay una actualización lista. Podés actualizar ahora o seguir y hacerlo más tarde."
+          );
         }
       });
     }
@@ -16891,6 +16948,9 @@ document.addEventListener("DOMContentLoaded", () => {
           <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15"/>
         </svg>
         Actualizar Aplicación Ahora
+      </button>
+      <button type="button" onclick="window.posponerActualizacion()" style="width: 100%; margin-top: 10px; background: transparent; color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.35); padding: 10px 20px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+        Más tarde (me lo recuerda en 30 minutos)
       </button>
     </div>
   </div>
@@ -17462,9 +17522,13 @@ document.addEventListener("DOMContentLoaded", () => {
         return v === undefined || v === null || v === "" || v === "-";
       }
 
+      // Cada descanso se identifica por persona + hora de salida, porque alguien puede tener más de uno
+      // en el día (turno cortado, o un descanso más una marca sin regreso)
       function claveFilaBreak(f) {
         const leg = String(f.legajo || "").trim();
-        return leg && leg !== "-" ? leg : `op:${String(f.op || "").trim()}`;
+        const persona = leg && leg !== "-" ? leg : `op:${String(f.op || "").trim()}`;
+        const salida = !marcaTawVacia(f.salida) ? String(f.salida) : `taw:${String(f.salidaTAW || "-")}`;
+        return `${persona}|${salida}`;
       }
 
       function fusionarConTawGuardado(filasNuevas, filasGuardadas) {
@@ -17542,6 +17606,7 @@ document.addEventListener("DOMContentLoaded", () => {
             normaSindicato: r.normaSindicato || 0,
             normaLegal: r.normaLegal || 0,
             semaforo: r.semaforo || "ok",
+            aviso: r.aviso || "",
             area: r.area || "Linea de Cajas"
           };
           groups[docId].filas.push(cleanRow);
@@ -18780,6 +18845,28 @@ document.addEventListener("DOMContentLoaded", () => {
           Object.values(r25Agrupado).forEach(grp => {
             grp.eventos.sort((a, b) => a.minutos - b.minutos);
 
+            // Marca repetida: con cantidad impar de marcas, si dos están a 5 minutos o menos, la primera
+            // se toma como marca de más (toque doble o error) y se ignora, avisándolo en la fila.
+            // Con cantidad par no se toca nada, así un descanso corto real se respeta
+            // (y los turnos cortados con dos descansos siguen armando sus dos pares).
+            let avisoMarcas = "";
+            if (grp.eventos.length >= 3 && grp.eventos.length % 2 === 1) {
+              let idxRepetida = -1;
+              let menorDiferencia = Infinity;
+              for (let k = 0; k < grp.eventos.length - 1; k++) {
+                const diferencia = grp.eventos[k + 1].minutos - grp.eventos[k].minutos;
+                if (diferencia <= 5 && diferencia < menorDiferencia) {
+                  menorDiferencia = diferencia;
+                  idxRepetida = k;
+                }
+              }
+              if (idxRepetida !== -1) {
+                avisoMarcas = `Marca repetida ${grp.eventos[idxRepetida].hora} ignorada`;
+                grp.eventos.splice(idxRepetida, 1);
+              }
+            }
+            const desdeFilaGrupo = results.length;
+
             const collab = grp.collab || findCollaborator(grp.op);
             const collabName = collab.name;
             const collabId = collab.id || "";
@@ -18977,6 +19064,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 semaforo: "limite",
                 area: "Linea de Cajas"
               });
+            }
+
+            // Aviso de marca repetida en todas las filas que salieron de este grupo
+            if (avisoMarcas) {
+              for (let r = desdeFilaGrupo; r < results.length; r++) results[r].aviso = avisoMarcas;
             }
           });
         }
@@ -19665,7 +19757,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <td style="padding: 6px 6px; color: #94a3b8; font-family: monospace; font-size: 0.74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${opLegLabel}">${opLegLabel}</td>
               <td style="padding: 6px 6px; font-weight: 600; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${row.nombre}">${row.nombre}</td>
               <td style="padding: 6px 4px; color: #38bdf8; font-weight: 600; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.contrato}</td>
-              <td style="padding: 6px 4px; font-family: monospace; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.salida}</td>
+              <td style="padding: 6px 4px; font-family: monospace; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"${row.aviso ? ` title="${row.aviso}"` : ""}>${row.salida}${row.aviso ? ` <span style="color: #f59e0b; cursor: help;" aria-label="${row.aviso}">⚠</span>` : ""}</td>
               <td style="padding: 6px 4px; font-family: monospace; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.regreso}</td>
               <td style="padding: 6px 4px; text-align: center; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.tiempoRealCaja !== null && row.tiempoRealCaja !== undefined ? `${row.tiempoRealCaja}m` : "-"}</td>
               <td style="padding: 6px 4px; text-align: center; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${row.topePermitido}m</td>
