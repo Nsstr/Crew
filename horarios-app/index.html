@@ -1381,6 +1381,142 @@
     .cdv-alert { padding: 14px; border-radius: 8px; border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.1); color: #fca5a5; font-weight: 700; text-align: center; margin-top: 16px; }
     @media (max-width: 1100px) { .cdv-body { grid-template-columns: minmax(0, 1fr); } .cdv-side { position: static; } }
 
+    /* Barra superior: los costados ocupan lo que necesitan y el navegador de fechas se centra en el espacio libre */
+    @media (min-width: 769px) {
+      /* La izquierda puede achicarse (las pestañas pasan a dos renglones) antes de pisar el navegador */
+      .main-app-nav.main-app-nav-grid { grid-template-columns: minmax(0, auto) minmax(max-content, 1fr) auto; }
+      .main-app-nav-left.app-tabs { gap: 2px 0.5rem; min-width: 0; flex-wrap: wrap; }
+      .date-nav .dn-btn { width: 26px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; color: var(--text-muted); }
+      .date-nav .dn-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+      .date-nav #prevDayBtn { margin-left: -2px; }
+      .date-nav #nextDayBtn { margin-right: -2px; }
+      .date-nav .dn-label { min-width: 104px; padding: 2px 6px; border-radius: 4px; }
+      .date-nav .dn-label:hover { background: rgba(255, 255, 255, 0.06); }
+      .date-nav .dn-hoy { margin-left: 4px; height: 22px; padding: 0 9px; font: inherit; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); background: transparent; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+      .date-nav .dn-hoy:hover { color: #fff; border-color: var(--primary); }
+    }
+    @media (max-width: 768px) { .date-nav .dn-hoy { display: none; } }
+
+    /* Vista del día en celular (Línea de Cajas): filas tocables que abren el mismo menú del clic derecho */
+    .cmv { flex: 1; min-height: 0; padding: 10px 12px 170px; color: var(--text); background: var(--bg); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .cmv-title { font-size: 1.05rem; font-weight: 700; }
+    .cmv-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .cmv-cov { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px 6px; margin: 10px 0 4px; }
+    .cmv-cov-head { display: flex; justify-content: space-between; gap: 8px; font-size: 0.72rem; color: var(--text-muted); }
+    .cmv-cov-head .falta { color: #fca5a5; font-weight: 600; text-align: right; }
+    .cmv-bars { position: relative; height: 40px; margin-top: 6px; }
+    .cmv-bars div { position: absolute; bottom: 0; border-radius: 2px; box-sizing: border-box; }
+    .cmv-axis { position: relative; height: 14px; font-size: 0.62rem; color: var(--text-muted); }
+    .cmv-axis span { position: absolute; transform: translateX(-50%); }
+    .cmv-head { display: flex; align-items: center; gap: 6px; margin: 14px 0 2px; font-size: 0.72rem; color: var(--text-muted); }
+    .cmv-head b { color: var(--text); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .cmv-row { display: grid; grid-template-columns: 114px 76px minmax(0, 1fr); gap: 8px; align-items: center; min-height: 44px; padding: 4px 6px; border-top: 1px solid rgba(255, 255, 255, 0.06); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .cmv-row:active { background: rgba(255, 255, 255, 0.06); }
+    .cmv-name { display: flex; align-items: center; min-width: 0; font-size: 0.85rem; font-weight: 600; }
+    .cmv-name > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .cmv .cell-input { all: unset; font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; text-align: left; width: 100%; letter-spacing: -0.02em; pointer-events: none; color: var(--text); }
+    .cmv-track { position: relative; height: 16px; border-radius: 3px; background-color: rgba(255, 255, 255, 0.04); background-image: linear-gradient(to right, rgba(255, 255, 255, 0.09) 1px, transparent 1px); background-size: calc(100% / var(--cmv-n, 15)) 100%; }
+    .cmv-track div { position: absolute; top: 3px; bottom: 3px; border-radius: 2px; }
+    .cmv-row.cmv-axis-row { min-height: 0; padding: 4px 6px 2px; border-top: none; cursor: default; position: sticky; top: -10px; z-index: 2; background: var(--bg); }
+    .cmv-name .cdv-tag { font-size: 0.55rem; padding: 0 3px; margin-left: 4px; }
+    .cmv-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .cmv-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 0.8rem; cursor: pointer; }
+    .cmv-chip .cell-input { width: auto; font-weight: 600; color: var(--text-muted); font-size: 0.75rem; text-align: left; }
+    .cmv-chip.bloqueado { opacity: 0.55; cursor: default; }
+    .mdc { display: none; }
+
+    /* Análisis de descansos (pestaña "Análisis" en la compu y pantalla propia en el celular) */
+    .bra { color: var(--text); }
+    .bra-ancho { padding: 14px 18px 24px; overflow-y: auto; }
+    .bra-ancho > .bra-wrap { max-width: 980px; }
+    .bra-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .bra-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 6px; text-align: center; }
+    .bra-kpi b { display: block; font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .bra-kpi span { font-size: 0.68rem; color: var(--text-muted); }
+    .bra-kpi.alerta b { color: #f87171; }
+    .bra-sec { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin: 16px 0 6px; font-size: 0.72rem; color: var(--text-muted); }
+    .bra-sec b { color: var(--text); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .bra-bars { position: relative; height: 56px; }
+    .bra-bars div { position: absolute; bottom: 0; border-radius: 2px; }
+    .bra-axis { position: relative; height: 14px; font-size: 0.62rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .bra-axis span { position: absolute; transform: translateX(-50%); }
+    .bra-row { display: grid; grid-template-columns: 104px minmax(0, 1fr) 44px; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+    .bra-ancho .bra-row { grid-template-columns: 220px minmax(0, 1fr) 64px; }
+    .bra-name { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bra-dur { text-align: right; font-size: 0.82rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .bra-dur.exceso { color: #f87171; }
+    .bra-track { position: relative; height: 7px; margin: 2px 0; border-radius: 2px; background-color: rgba(255, 255, 255, 0.04); background-image: linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px); background-size: calc(100% / var(--bra-n, 12)) 100%; }
+    .bra-track i { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+    .bra-aviso { padding: 8px 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.78rem; line-height: 1.35; border: 1px solid; }
+    .bra-aviso.alerta { border-color: rgba(239, 68, 68, 0.55); background: rgba(239, 68, 68, 0.1); color: #fecaca; }
+    .bra-aviso.ok { border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.08); color: #a7f3d0; }
+    .bra-franja { position: absolute; top: 0; bottom: 0; background: rgba(239, 68, 68, 0.13); pointer-events: none; }
+    .bra-bars .bra-franja { border-radius: 2px; }
+    .bra-punto { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ef4444; margin-right: 5px; vertical-align: 1px; }
+    .cdv-tag.bra-tag-venta { color: #fca5a5; border-color: rgba(239, 68, 68, 0.5); margin: 0 6px 0 0; }
+    .bra-leyenda { display: inline-flex; gap: 10px; align-items: center; }
+    .bra-leyenda i { display: inline-block; width: 10px; height: 5px; border-radius: 1px; margin-right: 4px; vertical-align: 1px; }
+    .bra-semana { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 70px; }
+    .bra-semana button { position: relative; height: 100%; border: none; background: transparent; padding: 0; cursor: pointer; display: flex; flex-direction: column; justify-content: flex-end; }
+    .bra-semana button > div { width: 100%; border-radius: 3px; background: rgba(148, 163, 184, 0.45); min-height: 2px; }
+    .bra-semana button.activo > div { background: var(--primary); }
+    .bra-semana button span { position: absolute; left: 0; right: 0; text-align: center; font-size: 0.65rem; font-weight: 700; color: #f87171; }
+    .bra-semana-dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; font-size: 0.65rem; color: var(--text-muted); margin-top: 3px; }
+    .bra-semana-dias .activo { color: var(--primary); font-weight: 700; }
+    .bam { position: fixed; inset: 0; z-index: 10050; background: var(--bg); display: flex; flex-direction: column; }
+    .bam-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .bam-title { font-size: 1rem; font-weight: 700; }
+    .bam-close { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 1.3rem; line-height: 1; cursor: pointer; }
+    .bam-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px 20px; }
+    .bam-foot { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; gap: 6px; align-items: center; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--surface); }
+    .bam-sem { height: 40px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 1.3rem; cursor: pointer; }
+    .bam-dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .bam-dias button { min-height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-muted); font: inherit; font-size: 0.65rem; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; padding: 0; }
+    .bam-dias button b { font-size: 0.9rem; color: var(--text); }
+    .bam-dias button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .bam-dias button.active b { color: #fff; }
+
+    /* Contenedor de pestañas: en escritorio no altera nada; en celular va en su propio renglón deslizable */
+    .app-tabs-list { display: contents; }
+    @media (max-width: 768px) {
+      .main-app-nav.main-app-nav-grid {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center !important;
+        gap: 6px 8px !important;
+        padding: 8px 12px 0 !important;
+      }
+      .main-app-nav.main-app-nav-grid > .main-app-nav-left { display: contents; }
+      .main-app-nav.main-app-nav-grid #areaSelector { grid-column: 1; grid-row: 1; justify-self: start; height: 34px; font-size: 0.9rem !important; padding: 0 10px !important; border-radius: 8px !important; }
+      .main-app-nav.main-app-nav-grid > .main-app-nav-right { grid-column: 2; grid-row: 1; height: 34px !important; flex-wrap: nowrap !important; gap: 6px !important; }
+      .main-app-nav.main-app-nav-grid > .main-app-nav-right > button,
+      .main-app-nav.main-app-nav-grid #navDropdownToggle { width: 34px !important; height: 34px !important; padding: 0 !important; border-radius: 8px !important; justify-content: center !important; }
+      .main-app-nav.main-app-nav-grid #navDropdownContainer { height: 34px !important; }
+      #navDropdownToggle .btn-text, #navDropdownToggle .dropdown-chevron { display: none !important; }
+      .main-app-nav.main-app-nav-grid .app-tabs-list {
+        grid-column: 1 / -1; grid-row: 2;
+        display: flex; gap: 20px; overflow-x: auto; white-space: nowrap;
+        scrollbar-width: none; -webkit-overflow-scrolling: touch;
+        border-top: 1px solid rgba(255, 255, 255, 0.06); margin: 0 -12px; padding: 0 12px;
+      }
+      .main-app-nav.main-app-nav-grid .app-tabs-list::-webkit-scrollbar { display: none; }
+      .main-app-nav.main-app-nav-grid .app-tabs-list .app-tab-btn { flex-shrink: 0; font-size: 0.85rem; padding: 10px 0 8px; border-radius: 0; }
+      /* Mismo tamaño que el resto de las opciones del menú (una regla vieja los achicaba) */
+      #navDropdownMenu #backupDriveBtn, #navDropdownMenu #openBackupBtn,
+      #navDropdownMenu #adminLoginBtn, #navDropdownMenu #logoutBtn {
+        font-size: 0.85rem !important; padding: 12px 14px !important; line-height: normal !important; height: auto !important;
+      }
+    }
+    @media (max-width: 768px) {
+      #dateNavigationContainer { flex-direction: column; align-items: stretch; gap: 6px; }
+      .mdc { grid-template-columns: repeat(7, 1fr); gap: 4px; }
+      .mdc button { min-height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font: inherit; font-size: 0.7rem; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; padding: 0; }
+      .mdc button b { font-size: 0.95rem; color: var(--text); }
+      .mdc button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+      .mdc button.active b { color: #fff; }
+      .mdc button.holiday { border-color: #f59e0b; }
+    }
+
     /* Grilla de 1 semana + panel del día a la derecha (un tercio de la pantalla) */
     #tab-horarios.cajas-con-panel { flex-direction: row !important; }
     #tab-horarios.cajas-con-panel > .grid-container { flex: 2 1 0 !important; min-width: 0 !important; width: auto !important; }
@@ -3338,23 +3474,30 @@
         <button type="button" data-modo="4" onclick="window.setCajasVista('4')" title="Grilla de cuatro semanas (vista anterior)">4 sem</button>
         <button type="button" data-modo="dia" onclick="window.setCajasVista('dia')" title="Vista del día">Día</button>
       </div>
+      <div class="app-tabs-list">
       <button class="app-tab-btn active" id="tabHorarios" data-alias="tabNavGrid" onclick="switchTab('horarios')">Grid Semanal</button>
       <button class="app-tab-btn" id="suggestedTabBtn" onclick="switchTab('sugeridos')">Sugeridos</button>
-      <button class="app-tab-btn" id="productividadTabBtn" onclick="switchTab('productividad')" style="display: none;">Productividad Cajas</button>
-      <button class="app-tab-btn" id="vacationTabBtn" onclick="switchTab('vacaciones')" style="display: none;">Plan Anual Vacaciones</button>
-      <button class="app-tab-btn" id="tabNavDashboard" data-alias="metricsTabBtn" onclick="switchTab('metricas')" style="display: none;">Dashboard Métricas</button>
+      <button class="app-tab-btn" id="productividadTabBtn" title="Productividad Cajas" onclick="switchTab('productividad')" style="display: none;">Productividad</button>
+      <!-- Abre la ventana de Auditoría de Descansos (antes estaba en el menú de Admin) -->
+      <button class="app-tab-btn" id="breakAuditNavBtn" title="Control de descansos y breaks" onclick="window.openBreakAuditModal()">Descansos</button>
+      <button class="app-tab-btn" id="vacationTabBtn" title="Plan anual de vacaciones" onclick="switchTab('vacaciones')" style="display: none;">Vacaciones</button>
+      <button class="app-tab-btn" id="tabNavDashboard" data-alias="metricsTabBtn" title="Dashboard de métricas" onclick="switchTab('metricas')" style="display: none;">Métricas</button>
+      </div>
     </div>
     
     <div class="main-app-nav-center date-nav-container" id="dateNavigationContainer">
-      <div class="date-nav" style="display: flex; align-items: center; gap: 0.25rem; min-width: 250px;">
-        <button id="prevWeekBtn" title="Semana Anterior">&lt;</button>
-        <button id="prevDayBtn" title="Día Anterior">&larr;</button>
-        <div style="position: relative; flex: 1; display: flex; align-items: center; justify-content: center;">
+      <!-- Días de la semana al pie (solo celular, Línea de Cajas), al alcance del pulgar -->
+      <div id="mobileDayChips" class="mdc" style="display: none;"></div>
+      <div class="date-nav" style="display: flex; align-items: center; gap: 0.25rem;">
+        <button id="prevWeekBtn" class="dn-btn" title="Semana anterior" aria-label="Semana anterior"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg></button>
+        <button id="prevDayBtn" class="dn-btn" title="Día anterior" aria-label="Día anterior"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <div class="dn-label" title="Elegir fecha" style="position: relative; flex: 1; display: flex; align-items: center; justify-content: center;">
           <span id="weekLabel" style="font-weight: 600; font-size: 0.85rem; text-align: center; color: white; width: 100%;">Cargando...</span>
           <input type="date" id="desktop-datepicker-trigger" onclick="this.showPicker && this.showPicker()" style="position: absolute; opacity: 0; width: 100%; height: 100%; top: 0; left: 0; cursor: pointer; z-index: 10;">
         </div>
-        <button id="nextDayBtn" title="Día Siguiente">&rarr;</button>
-        <button id="nextWeekBtn" title="Semana Siguiente">&gt;</button>
+        <button id="nextDayBtn" class="dn-btn" title="Día siguiente" aria-label="Día siguiente"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+        <button id="nextWeekBtn" class="dn-btn" title="Semana siguiente" aria-label="Semana siguiente"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg></button>
+        <button id="todayBtn" class="dn-hoy" title="Volver a hoy">Hoy</button>
       </div>
     </div>
 
@@ -3387,11 +3530,6 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg> Auditoría <span id="auditBadge" class="audit-badge" style="display: none; position: relative; margin-left: auto; top: 0; right: 0; transform: none;">0</span>
           </button>
           
-          <button id="breakAuditNavBtn" class="nav-dropdown-item" title="Auditoría de Descansos y Breaks" onclick="window.openBreakAuditModal()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 
-            Control de Descansos
-          </button>
-          
           <button id="configBtn" class="nav-dropdown-item" title="Gestión de Dotación" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> Gestionar Colaboradores</button>
           
           <button id="repositoresNavBtn" class="nav-dropdown-item" title="Gestión de Repositores" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg> Gestión de Repositores</button>
@@ -3413,7 +3551,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.5.0
+            Versión: v1.6.0
           </div>
         </div>
       </div>
@@ -3549,6 +3687,20 @@
       </table>
     </div>
           <div id="cajasDayView" class="cdv"></div>
+          <div id="cajasMobileView" class="cmv" style="display: none;"></div>
+          <!-- Análisis de descansos en el celular (pantalla completa, días al pie) -->
+          <div id="breakAnalysisMobile" class="bam" style="display: none;">
+            <div class="bam-head">
+              <span class="bam-title">Descansos</span>
+              <button type="button" class="bam-close" aria-label="Cerrar" onclick="window.cerrarAnalisisDescansosMovil()">&times;</button>
+            </div>
+            <div id="bamBody" class="bra bam-body"></div>
+            <div class="bam-foot">
+              <button type="button" class="bam-sem" aria-label="Semana anterior" onclick="window.moverSemanaDescansos(-7)">&lsaquo;</button>
+              <div id="bamDias" class="bam-dias"></div>
+              <button type="button" class="bam-sem" aria-label="Semana siguiente" onclick="window.moverSemanaDescansos(7)">&rsaquo;</button>
+            </div>
+          </div>
   </div>
   </div>
   </div> <!-- Fin de seccionHorarios -->
@@ -4096,6 +4248,11 @@
           <input type="text" id="cName" required>
         </div>
         <div class="form-group">
+          <label>Nombre corto (celular)</label>
+          <input type="text" id="cNombreCorto" maxlength="24" placeholder="Se arma solo: Noelia.A">
+          <small style="display: block; font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">Vacío = automático. Completalo si usa el segundo nombre o tiene dos apellidos (ej. Eugenia.P.R).</small>
+        </div>
+        <div class="form-group">
           <label>Esquema / Rotación</label>
           <input type="text" id="cEsquema" placeholder="Ej: 3x1" required>
         </div>
@@ -4236,7 +4393,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.5.0";
+  const APP_VERSION = "v1.6.0";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6046,9 +6203,8 @@ function renderMobileDayView() {
                   <div class="avatar" style="width: 24px; height: 24px; font-size: 0.7rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">${avatarStr}</div>
                   <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap; min-width: 0;">
                     <span style="font-weight: 600; font-size: 0.85rem; text-overflow: ellipsis; overflow: hidden; line-height: 1.1; display: flex; align-items: center;">
-                      ${apeF}${opBadge}${cruzadoMobileBadge}
+                      <span title="${cdvEsc(cleanName)}" style="overflow: hidden; text-overflow: ellipsis;">${cdvEsc(nombreCortoCelular(collab))}</span>${opBadge}${cruzadoMobileBadge}
                     </span>
-                    <span style="font-size: 0.7rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; line-height: 1.1;">${nomF}</span>
                   </div>
                 </div>
                 ${birthdayBadge}
@@ -6073,10 +6229,18 @@ function renderMobileDayView() {
 
     let originalScheduleTitle = "";
     let obj = getPlanningObj(collab.id, dStr);
+    const shiftValRaw = shiftVal;
+    // Mismo formato que la grilla de escritorio: "18–23", "E 15–20", "10–14/19–23"
+    const parsedMobile = parseShift(shiftVal);
+    if (parsedMobile && parsedMobile.type === "work") {
+      shiftVal = parsedMobile.label.replace(/^([a-z]+)\//i, "$1 ").replace(/a/g, "–");
+    } else if (parsedMobile && parsedMobile.ausencia) {
+      shiftVal = parsedMobile.label;
+    }
     if (
       obj &&
       obj.horarioOriginal &&
-      obj.horarioOriginal !== shiftVal &&
+      obj.horarioOriginal !== shiftValRaw &&
       !isOnVacationToday &&
       (!isPreVacationSundayToday || isFlexibleSundayMobile) &&
       !isTiendaCerrada
@@ -6467,6 +6631,36 @@ window.selectCajasDia = function (dStr) {
   renderUI();
 };
 
+// Nombre corto para el celular: "Alcaraz Noelia Vanesa" -> "Noelia.A".
+// Regla: con 4 o más palabras se toman 2 apellidos ("Perez Ros Maria Eugenia" -> "Maria.P.R");
+// los casos especiales (segundo nombre, apellido compuesto) se cargan a mano en "Nombre corto".
+function nombreCortoAutomatico(nombreCompleto) {
+  const palabras = String(nombreCompleto || "").split("(")[0].split("-")[0].trim().split(/\s+/).filter(Boolean);
+  // "del", "de", "la"... van pegados a la palabra siguiente ("Gladys del Rosario" son 2 partes, no 3)
+  const particulas = ["de", "del", "la", "las", "los", "y", "da", "di", "van", "von"];
+  const partes = [];
+  let pendiente = "";
+  palabras.forEach((p) => {
+    const limpia = p.replace(/,/g, "");
+    if (particulas.includes(limpia.toLowerCase())) {
+      pendiente += `${limpia} `; // "de la" se acumula hasta la próxima palabra real
+    } else {
+      partes.push(`${pendiente}${limpia}`);
+      pendiente = "";
+    }
+  });
+  if (partes.length < 2) return partes[0] || "";
+  const cantApellidos = partes.length >= 4 ? 2 : 1;
+  const capitalizar = (p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+  const iniciales = partes.slice(0, cantApellidos).map((p) => p.charAt(0).toUpperCase()).join(".");
+  return `${capitalizar(partes[cantApellidos])}.${iniciales}`;
+}
+
+function nombreCortoCelular(collab) {
+  if (!collab) return "";
+  return (collab.nombreCorto || "").trim() || nombreCortoAutomatico(collab.name);
+}
+
 function cdvEsc(str) {
   return String(str == null ? "" : str).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 }
@@ -6502,11 +6696,15 @@ function cdvArmarDia(dStr) {
   const listas = { francos: [], libres: [], vacaciones: [], noViene: [], ausencias: [], sinTurno: [], revisar: [] };
   const notas = [];
   const respaldo = [];
+  // Quienes no trabajan ese día, con legajo, para poder tocarlos y cargarles turno desde el celular
+  const otros = [];
 
   cdvColaboradoresCajas().forEach((collab) => {
     const nombre = (collab.name || "Desconocido").split("(")[0].split("-")[0].trim();
     const isCruzado = !!collab._isCruzado;
     const isRoller = !isCruzado && ((collab.pasillo || "") + " " + (collab.esquema || "")).toLowerCase().includes("roller");
+    const corto = nombreCortoCelular(collab);
+    const agregarOtro = (estado, bloqueado = false) => otros.push({ id: collab.id, nombre, corto, estado, bloqueado });
 
     // Refuerzos de otras áreas (vendedores con fallo de caja): pueden cobrar si hace falta,
     // pero son respaldo y no cuentan en la distribución. Solo se muestran si trabajan ese día.
@@ -6515,7 +6713,10 @@ function cdvArmarDia(dStr) {
       const parsedRespaldo = parseShift(getPlanningSlot(collab.id, dStr) || "");
       if (!parsedRespaldo || parsedRespaldo.type !== "work" || parsedRespaldo.isNV) return;
       respaldo.push({
+        id: collab.id,
         nombre,
+        corto,
+        etiqueta: parsedRespaldo.label.replace(/a/g, "–"),
         tramos: (parsedRespaldo.isCortado ? parsedRespaldo.tramos : [parsedRespaldo]).map((t) => ({
           start: t.start,
           end: t.end <= t.start ? 24 : t.end,
@@ -6528,6 +6729,7 @@ function cdvArmarDia(dStr) {
 
     if (cdvEnVacaciones(collab.id, dStr)) {
       listas.vacaciones.push(nombre);
+      agregarOtro("Vacaciones", true);
       return;
     }
 
@@ -6535,7 +6737,10 @@ function cdvArmarDia(dStr) {
     const obj = getPlanningObj(collab.id, dStr) || {};
 
     // Mismo criterio que la grilla: domingo previo a vacaciones queda como franco
+    // (bloqueado salvo en contratos chicos, igual que la grilla)
+    let domingoBloqueado = false;
     if (checkIsPreVacationSunday(collab.id, dateObj) && (!isContractUnder119(collab) || !val)) {
+      domingoBloqueado = !isContractUnder119(collab);
       val = "F";
     }
 
@@ -6545,27 +6750,30 @@ function cdvArmarDia(dStr) {
     }
 
     const parsed = parseShift(val);
-    if (!parsed || parsed.type === "none") { listas.sinTurno.push(nombre); return; }
-    if (parsed.type === "franco") { listas.francos.push(nombre); return; }
-    if (parsed.type === "libre") { listas.libres.push(nombre); return; }
-    if (parsed.type === "vacation") { listas.vacaciones.push(nombre); return; }
+    if (!parsed || parsed.type === "none") { listas.sinTurno.push(nombre); agregarOtro("Sin turno"); return; }
+    if (parsed.type === "franco") { listas.francos.push(nombre); agregarOtro("F", domingoBloqueado); return; }
+    if (parsed.type === "libre") { listas.libres.push(nombre); agregarOtro("Libre"); return; }
+    if (parsed.type === "vacation") { listas.vacaciones.push(nombre); agregarOtro("V"); return; }
     if (parsed.type === "absence") {
       if (parsed.label === "NV") listas.noViene.push(nombre);
       else listas.ausencias.push(`${nombre} (${parsed.label})`);
+      agregarOtro(parsed.label);
       return;
     }
     // Códigos de ausencia escritos a mano que la grilla no reconoce como sigla
     const codigo = val.trim().toUpperCase();
     if (parsed.type === "error" && CDV_CODIGOS_AUSENCIA.some((c) => codigo.startsWith(c))) {
       listas.ausencias.push(`${nombre} (${val.trim()})`);
+      agregarOtro(val.trim());
       return;
     }
-    if (parsed.type === "error") { listas.revisar.push(`${nombre} (${val})`); return; }
+    if (parsed.type === "error") { listas.revisar.push(`${nombre} (${val})`); agregarOtro(`Revisar: ${val}`); return; }
     if (parsed.isNV) {
       // Ausente con horario cargado: se lista con su horario, no cuenta en la cobertura
       const horario = parsed.label.replace(/^[a-z]+\//i, "").replace(/a/g, "–");
       if ((parsed.ausencia || "NV") === "NV") listas.noViene.push(`${nombre} (${horario})`);
       else listas.ausencias.push(`${nombre} (${parsed.ausencia} ${horario})`);
+      agregarOtro(`${parsed.ausencia || "NV"} ${horario}`);
       return;
     }
 
@@ -6573,7 +6781,10 @@ function cdvArmarDia(dStr) {
       start: t.start,
       end: t.end <= t.start ? 24 : t.end,
     }));
-    const persona = { nombre, isCruzado, fijado: !!obj.fijado, tramos, hours: parsed.hours, start: parsed.start };
+    const persona = {
+      id: collab.id, nombre, corto, isCruzado, fijado: !!obj.fijado, tramos, hours: parsed.hours, start: parsed.start,
+      etiqueta: parsed.label.replace(/a/g, "–"),
+    };
 
     let key = "cierre";
     if (isRoller) key = "roller";
@@ -6585,7 +6796,7 @@ function cdvArmarDia(dStr) {
   [...Object.values(bloques), respaldo].forEach((arr) =>
     arr.sort((a, b) => a.start - b.start || a.tramos[a.tramos.length - 1].end - b.tramos[b.tramos.length - 1].end));
 
-  return { bloques, listas, notas, respaldo };
+  return { bloques, listas, notas, respaldo, otros };
 }
 
 // Personas trabajando por hora (incluye turnos del día anterior que cruzan medianoche)
@@ -6825,6 +7036,417 @@ function renderCajasDayView() {
     </div>`;
 }
 
+// Vista del día en celular (Línea de Cajas): misma información que el panel de escritorio,
+// con filas tocables que abren el menú de edición, y los días al pie para usarla con una mano
+function renderCajasMobileView() {
+  const cont = document.getElementById("cajasMobileView");
+  const chipsDias = document.getElementById("mobileDayChips");
+  const grid = document.querySelector("#tab-horarios .grid-container");
+  const dash = document.getElementById("mobile-coverage-dashboard");
+  const activo = window.innerWidth <= 768 && (state.currentArea || "") === "Linea de Cajas";
+
+  if (chipsDias) chipsDias.style.display = activo ? "grid" : "none";
+  if (!cont || !grid) return;
+  cont.style.display = activo ? "block" : "none";
+  if (!activo) {
+    if (grid.dataset.ocultaPorCelular) {
+      grid.style.removeProperty("display");
+      if (dash) dash.style.removeProperty("display");
+      delete grid.dataset.ocultaPorCelular;
+    }
+    return;
+  }
+  // La hoja de estilos del celular fuerza la grilla y el panel de cobertura viejo con !important
+  grid.style.setProperty("display", "none", "important");
+  if (dash) dash.style.setProperty("display", "none", "important");
+  grid.dataset.ocultaPorCelular = "1";
+
+  const dateObj = new Date(state.currentWeekStart);
+  const dStr = formatDate(dateObj);
+  const diasLargos = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const diasCortos = ["D", "L", "M", "X", "J", "V", "S"];
+  const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+  // Días de la semana al pie
+  if (chipsDias) {
+    const lunes = getStartOfWeek(dateObj);
+    let html = "";
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(lunes, i);
+      const s = formatDate(d);
+      const cls = [s === dStr ? "active" : "", (state.holidays || []).includes(s) ? "holiday" : ""].join(" ");
+      html += `<button type="button" class="${cls}" onclick="window.selectCajasDia('${s}')"><span>${diasCortos[d.getDay()]}</span><b>${d.getDate()}</b></button>`;
+    }
+    chipsDias.innerHTML = html;
+  }
+
+  const evento = state.eventos && state.eventos[dStr];
+  const subtitulo = [(state.holidays || []).includes(dStr) ? "Feriado" : "", evento ? `${evento.tipo || "Evento"}: ${evento.descripcion || ""}` : ""]
+    .filter(Boolean).join(" · ");
+  let html = `<div class="cmv-title">${diasLargos[dateObj.getDay()]} ${dateObj.getDate()} de ${meses[dateObj.getMonth()]}</div>`;
+  if (subtitulo) html += `<div class="cmv-sub">${cdvEsc(subtitulo)}</div>`;
+  if (evento && evento.tiendaCerrada) {
+    cont.innerHTML = html + `<div class="cdv-alert">Tienda cerrada</div>`;
+    return;
+  }
+
+  const { bloques, respaldo, otros } = cdvArmarDia(dStr);
+  const counts = cdvCoberturaPorHora(dStr, bloques);
+  const demanda = (state.demandaCajas && state.demandaCajas[dStr]) || null;
+  const req = (h) => (demanda ? Number(demanda[h]) || 0 : 0);
+
+  let hMin = 8, hMax = 23;
+  [...Object.values(bloques).flat(), ...respaldo].forEach((p) => p.tramos.forEach((t) => {
+    hMin = Math.min(hMin, Math.floor(t.start));
+    hMax = Math.max(hMax, Math.ceil(t.end));
+  }));
+  for (let h = 0; h < 24; h++) if (req(h) > 0) { hMin = Math.min(hMin, h); hMax = Math.max(hMax, h + 1); }
+  const span = hMax - hMin;
+  const pct = (h) => `${((h - hMin) / span) * 100}%`;
+  const ancho = (a, b) => `${((b - a) / span) * 100}%`;
+
+  // Cobertura compacta: relleno = planificado (rojo si falta gente), contorno = lo que pide Recaudaciones
+  const maxVal = Math.max(1, ...counts.slice(hMin, hMax), ...Array.from({ length: span }, (_, i) => req(hMin + i)));
+  let barras = "", eje = "";
+  const faltantes = [];
+  for (let h = hMin; h < hMax; h++) {
+    const r = req(h), c = counts[h], falta = demanda && c < r;
+    if (falta) faltantes.push(h);
+    const left = `calc(${pct(h)} + 1px)`, w = `calc(${ancho(0, 1)} - 2px)`;
+    barras += `<div style="left:${left};width:${w};height:${(c / maxVal) * 100}%;background:${falta ? "#ef4444" : "#10b981"};opacity:0.8"></div>`;
+    if (demanda && r > 0) barras += `<div style="left:${left};width:${w};height:${(r / maxVal) * 100}%;border:1px dashed rgba(255,255,255,0.8)"></div>`;
+    if ((h - hMin) % 3 === 0) eje += `<span style="left:${pct(h + 0.5)}">${h}</span>`;
+  }
+  // Agrupa las horas con faltante en rangos: "18–20 h, 22 h"
+  const rangos = [];
+  faltantes.forEach((h) => {
+    const ult = rangos[rangos.length - 1];
+    if (ult && ult[1] === h - 1) ult[1] = h; else rangos.push([h, h]);
+  });
+  const resumen = !demanda
+    ? "Sin demanda cargada"
+    : rangos.length
+      ? `Falta gente ${rangos.map(([a, b]) => (a === b ? `${a}` : `${a}–${b + 1}`)).join(", ")} h`
+      : "Cobertura completa";
+  html += `
+    <div class="cmv-cov">
+      <div class="cmv-cov-head"><span>Cobertura por hora</span><span class="${rangos.length ? "falta" : ""}">${resumen}</span></div>
+      <div class="cmv-bars">${barras}</div>
+      <div class="cmv-axis">${eje}</div>
+    </div>`;
+
+  const celda = (id, valor) =>
+    `<input type="text" class="cell-input" data-collab="${id}" data-date="${dStr}" value="${cdvEsc(valor)}" readonly tabindex="-1">`;
+  const abrir = `onclick="window.openMobileContextMenu(this.querySelector('.cell-input'), event)"`;
+  const fila = (p, color, extra = "") => `
+    <div class="cmv-row" ${abrir}>
+      <span class="cmv-name" title="${cdvEsc(p.nombre)}"><span>${cdvEsc(p.corto || p.nombre)}</span>${p.fijado ? `<span class="cdv-tag cdv-tag-pedido">Pedido</span>` : ""}${extra}</span>
+      ${celda(p.id, p.etiqueta)}
+      <div class="cmv-track" style="--cmv-n:${span}">${p.tramos.map((t) => `<div style="left:${pct(t.start)};width:${ancho(t.start, t.end)};background:${color}"></div>`).join("")}</div>
+    </div>`;
+
+  // Regla de horas alineada con las barras; queda fija arriba al deslizar
+  let regla = "";
+  for (let h = hMin; h <= hMax; h++) {
+    if ((h - hMin) % 3 === 0) regla += `<span style="left:${pct(h)}">${h}</span>`;
+  }
+  html += `<div class="cmv-row cmv-axis-row"><span></span><span></span><div class="cmv-axis">${regla}</div></div>`;
+
+  CDV_BLOQUES.forEach((b) => {
+    const lista = bloques[b.key];
+    if (!lista.length) return;
+    html += `<div class="cmv-head"><span class="cdv-dot" style="background:${b.color}"></span><b>${b.label}</b><span>${lista.length}</span></div>`;
+    lista.forEach((p) => { html += fila(p, b.color); });
+  });
+
+  if (otros.length) {
+    html += `<div class="cmv-head"><b>Francos, ausencias y sin turno</b><span>${otros.length}</span></div><div class="cmv-chips">`;
+    otros.forEach((o) => {
+      html += o.bloqueado
+        ? `<span class="cmv-chip bloqueado" title="${cdvEsc(o.nombre)} · no se puede modificar">${cdvEsc(o.corto || o.nombre)} ${celda(o.id, o.estado)}</span>`
+        : `<button type="button" class="cmv-chip" title="${cdvEsc(o.nombre)}" ${abrir}>${cdvEsc(o.corto || o.nombre)} ${celda(o.id, o.estado)}</button>`;
+    });
+    html += `</div>`;
+  }
+
+  if (respaldo.length) {
+    html += `<div class="cmv-head"><span class="cdv-dot" style="background:#64748b"></span><b>Respaldo · fallo de caja</b><span>no cuenta en la cobertura</span></div>`;
+    respaldo.forEach((p) => { html += fila(p, "#64748b"); });
+  }
+
+  cont.innerHTML = html;
+}
+
+// ============================================================
+// ANÁLISIS DE DESCANSOS
+// Lee lo que ya guarda el Control de Descansos por día (auditoria_breaks/{fecha}) y muestra:
+// resumen, gente en descanso por hora, barras R25 vs TAW por colaborador y volumen de la semana.
+// ============================================================
+const BRA_CACHE = {}; // fecha -> { filas, t }
+
+// Horarios de venta alta: no se mandan descansos a la línea de cajas en estas franjas (rollers exceptuados).
+// Pedido de la gerencia (llamada del 13/10/2026). Formato: [hora desde, hora hasta).
+const BRA_FRANJAS_VENTA_ALTA = [[11, 13], [18, 21]];
+const BRA_FRANJAS_TEXTO = BRA_FRANJAS_VENTA_ALTA.map(([a, b]) => `${a}–${b}`).join(" y ");
+
+function braEsRoller(collab) {
+  return !!collab && ((collab.pasillo || "") + " " + (collab.esquema || "")).toLowerCase().includes("roller");
+}
+
+function braEnVentaAlta(tramo) {
+  return !!tramo && BRA_FRANJAS_VENTA_ALTA.some(([a, b]) => tramo.s < b * 60 && tramo.e > a * 60);
+}
+
+async function braLeerDia(fechaId) {
+  const enCache = BRA_CACHE[fechaId];
+  if (enCache && Date.now() - enCache.t < 60000) return enCache.filas;
+  let filas = [];
+  try {
+    if (window.db && typeof window.getDoc === "function" && typeof window.doc === "function") {
+      const snap = await window.getDoc(window.doc(window.db, "auditoria_breaks", fechaId));
+      if (snap && snap.exists()) filas = Array.isArray(snap.data().filas) ? snap.data().filas : [];
+    }
+  } catch (e) {
+    console.warn("No se pudieron leer los descansos de", fechaId, e);
+  }
+  BRA_CACHE[fechaId] = { filas, t: Date.now() };
+  return filas;
+}
+
+function braMinutos(hhmm) {
+  const m = String(hhmm || "").match(/^(\d{1,2}):(\d{2})/);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+function braTramo(salida, regreso) {
+  const s = braMinutos(salida), e = braMinutos(regreso);
+  if (s === null || e === null) return null;
+  return { s, e: e >= s ? e : e + 1440 };
+}
+
+// Descansos con al menos una marca (R25 o TAW); la duración usa R25 y, si falta, TAW
+function braProcesar(filas, area) {
+  const delArea = filas.filter((f) => (f.area || "Linea de Cajas") === area);
+  return (delArea.length ? delArea : filas)
+    .map((f) => {
+      const r25 = braTramo(f.salida, f.regreso);
+      const taw = braTramo(f.salidaTAW, f.regresoTAW);
+      const principal = r25 || taw;
+      return {
+        legajo: String(f.legajo || ""), nombre: f.nombre || "", r25, taw, principal,
+        dur: principal ? principal.e - principal.s : 0, tope: f.topePermitido || 0, semaforo: f.semaforo || "ok",
+      };
+    })
+    .filter((p) => p.principal)
+    .sort((a, b) => a.principal.s - b.principal.s);
+}
+
+function braHora(min) {
+  const h = Math.floor(min / 60) % 24, m = min % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+window.renderAnalisisDescansos = async function (container, fechaId, opciones = {}) {
+  if (!container || !fechaId) return;
+  const compacto = !!opciones.compacto;
+  container.dataset.fecha = fechaId;
+  container.innerHTML = `<p class="cdv-empty" style="padding: 16px 0;">Cargando descansos…</p>`;
+
+  const area = state.currentArea || "Linea de Cajas";
+  const lunes = getStartOfWeek(new Date(fechaId + "T00:00:00"));
+  const semana = Array.from({ length: 7 }, (_, i) => formatDate(addDays(lunes, i)));
+  const filasSemana = await Promise.all(semana.map(braLeerDia));
+  if (container.dataset.fecha !== fechaId) return; // Se pidió otro día mientras cargaba
+
+  const dia = braProcesar(filasSemana[semana.indexOf(fechaId)] || [], area);
+  const fecha = new Date(fechaId + "T00:00:00");
+  const diasLargos = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  const diasCortos = ["D", "L", "M", "X", "J", "V", "S"];
+  let html = `<div class="bra-wrap">`;
+  if (!compacto) html += `<div class="cdv-title" style="margin-bottom: 10px;">Descansos del ${diasLargos[fecha.getDay()]} ${fecha.getDate()}/${fecha.getMonth() + 1}</div>`;
+  else html += `<div class="cmv-title" style="margin-bottom: 8px;">${diasLargos[fecha.getDay()].charAt(0).toUpperCase() + diasLargos[fecha.getDay()].slice(1)} ${fecha.getDate()}/${fecha.getMonth() + 1}</div>`;
+
+  // Volumen de la semana (minutos totales por día, excesos arriba); tocar un día lo selecciona
+  const volumen = filasSemana.map((filas) => {
+    const p = braProcesar(filas, area);
+    return { min: p.reduce((acc, x) => acc + x.dur, 0), excesos: p.filter((x) => x.semaforo === "exceso").length, n: p.length };
+  });
+  const maxMin = Math.max(1, ...volumen.map((v) => v.min));
+  const semanaHTML = `
+    <div class="bra-sec"><b>Volumen de la semana</b><span>minutos totales · excesos en rojo</span></div>
+    <div class="bra-semana">${volumen.map((v, i) => `
+      <button type="button" class="${semana[i] === fechaId ? "activo" : ""}" data-dia="${semana[i]}" title="${v.n ? `${v.n} descansos · ${v.min} min · ${v.excesos} con exceso` : "Sin datos cargados"}">
+        ${v.excesos ? `<span style="bottom: calc(${(v.min / maxMin) * 100}% + 2px)">${v.excesos}</span>` : ""}
+        <div style="height: ${v.n ? Math.max(4, (v.min / maxMin) * 100) : 0}%"></div>
+      </button>`).join("")}
+    </div>
+    <div class="bra-semana-dias">${semana.map((s, i) => `<span class="${s === fechaId ? "activo" : ""}">${diasCortos[addDays(lunes, i).getDay()]} ${addDays(lunes, i).getDate()}</span>`).join("")}</div>`;
+
+  if (!dia.length) {
+    html += `<p class="cdv-empty" style="padding: 12px 0;">No hay descansos cargados para este día. Se cargan desde la compu, en Descansos → Ingesta de Reportes.</p>`;
+    container.innerHTML = html + semanaHTML + `</div>`;
+    braEnlazarSemana(container, opciones);
+    return;
+  }
+
+  // Rango horario del eje
+  let hMin = Math.floor(Math.min(...dia.map((p) => Math.min(p.principal.s, (p.taw || p.principal).s))) / 60);
+  let hMax = Math.ceil(Math.max(...dia.map((p) => Math.max(p.principal.e, (p.taw || p.principal).e))) / 60);
+  if (hMax - hMin < 4) hMax = hMin + 4;
+  const span = hMax - hMin;
+  const pct = (min) => `${((min - hMin * 60) / (span * 60)) * 100}%`;
+  const ancho = (a, b) => `${((b - a) / (span * 60)) * 100}%`;
+
+  // Gente en descanso por hora (según el tramo principal)
+  const porHora = [];
+  for (let h = hMin; h < hMax; h++) {
+    porHora.push(dia.filter((p) => p.principal.s < (h + 1) * 60 && p.principal.e > h * 60).length);
+  }
+  const maxHora = Math.max(1, ...porHora);
+  const pico = porHora.indexOf(maxHora) + hMin;
+  const promedio = Math.round(dia.reduce((acc, p) => acc + p.dur, 0) / dia.length);
+  const excesos = dia.filter((p) => p.semaforo === "exceso").length;
+
+  // Descansos de cajeras en horario de venta alta (los rollers están exceptuados)
+  dia.forEach((p) => {
+    p.collab = state.collaborators.find((c) => String(c.id) === p.legajo) || null;
+    p.esRoller = braEsRoller(p.collab);
+    p.ventaAlta = !p.esRoller && braEnVentaAlta(p.principal);
+  });
+  const enVentaAlta = dia.filter((p) => p.ventaAlta).length;
+  html += enVentaAlta
+    ? `<div class="bra-aviso alerta"><b>${enVentaAlta} ${enVentaAlta === 1 ? "descanso" : "descansos"} en horario de venta alta</b> (${BRA_FRANJAS_TEXTO} h). En esas franjas no se mandan descansos a la línea; los rollers están exceptuados.</div>`
+    : `<div class="bra-aviso ok">Ningún descanso de la línea en horario de venta alta (${BRA_FRANJAS_TEXTO} h).</div>`;
+
+  html += `
+    <div class="bra-kpis">
+      <div class="bra-kpi"><b>${dia.length}</b><span>descansos</span></div>
+      <div class="bra-kpi"><b>${promedio}'</b><span>promedio</span></div>
+      <div class="bra-kpi ${excesos ? "alerta" : ""}"><b>${excesos}</b><span>con exceso</span></div>
+      <div class="bra-kpi"><b>${pico} h</b><span>hora pico</span></div>
+    </div>`;
+
+  let barras = "", eje = "";
+  porHora.forEach((c, i) => {
+    const h = hMin + i;
+    barras += `<div title="${h} a ${h + 1} h: ${c} en descanso" style="left: calc(${(i / span) * 100}% + 1px); width: calc(${100 / span}% - 2px); height: ${(c / maxHora) * 100}%; background: ${c === maxHora ? "#f59e0b" : "#3b82f6"}; opacity: 0.85;"></div>`;
+  });
+  const paso = span > 8 ? 2 : 1;
+  for (let h = hMin; h <= hMax; h += paso) eje += `<span style="left: ${((h - hMin) / span) * 100}%">${h}</span>`;
+
+  // Franjas de venta alta sombreadas, recortadas al rango visible
+  const franjas = BRA_FRANJAS_VENTA_ALTA
+    .map(([a, b]) => [Math.max(a, hMin), Math.min(b, hMax)])
+    .filter(([a, b]) => b > a)
+    .map(([a, b]) => `<span class="bra-franja" title="Venta alta: sin descansos de la línea" style="left: ${((a - hMin) / span) * 100}%; width: ${((b - a) / span) * 100}%;"></span>`)
+    .join("");
+
+  html += `
+    <div class="bra-sec"><b>Gente en descanso por hora</b><span>pico ${pico}–${pico + 1} h · ${maxHora} ${maxHora === 1 ? "persona" : "personas"}</span></div>
+    <div class="bra-bars">${franjas}${barras}</div>
+    <div class="bra-axis">${eje}</div>`;
+
+  // Barras por colaborador: arriba Reporte 25 (color del semáforo), abajo TAW (gris)
+  const colorSemaforo = { ok: "#3b82f6", limite: "#f59e0b", exceso: "#ef4444" };
+  html += `<div class="bra-sec"><b>Por colaborador</b><span class="bra-leyenda"><span><i style="background:#3b82f6"></i>R25</span><span><i style="background:#94a3b8"></i>TAW</span><span><i style="background:rgba(239,68,68,0.45)"></i>Venta alta</span></span></div>`;
+  html += `<div class="bra-row" style="border-top: none; padding: 0;"><span></span><div class="bra-axis">${eje}</div><span></span></div>`;
+  dia.forEach((p) => {
+    const collab = p.collab;
+    const nombre = compacto ? (collab ? nombreCortoCelular(collab) : nombreCortoAutomatico(p.nombre)) : (p.nombre || (collab && collab.name) || p.legajo);
+    const detalle = [
+      p.r25 ? `R25 ${braHora(p.r25.s)}–${braHora(p.r25.e)} (${p.r25.e - p.r25.s}')` : "R25 sin marca",
+      p.taw ? `TAW ${braHora(p.taw.s)}–${braHora(p.taw.e)} (${p.taw.e - p.taw.s}')` : "TAW sin marca",
+      p.tope ? `tope ${p.tope}'` : "",
+      p.ventaAlta ? "en horario de venta alta" : (p.esRoller ? "roller (exceptuado)" : ""),
+    ].filter(Boolean).join(" · ");
+    const barra = (t, color) => (t ? `<i style="left: ${pct(t.s)}; width: ${ancho(t.s, t.e)}; background: ${color};"></i>` : "");
+    const marcaVentaAlta = p.ventaAlta
+      ? (compacto ? `<span class="bra-punto" aria-label="Venta alta"></span>` : `<span class="cdv-tag bra-tag-venta">Venta alta</span>`)
+      : "";
+    html += `
+      <div class="bra-row" title="${cdvEsc(p.nombre)} · ${detalle}">
+        <span class="bra-name">${marcaVentaAlta}${cdvEsc(nombre)}</span>
+        <div>
+          <div class="bra-track" style="--bra-n: ${span}">${franjas}${barra(p.r25, colorSemaforo[p.semaforo] || "#3b82f6")}</div>
+          <div class="bra-track" style="--bra-n: ${span}">${franjas}${barra(p.taw, "#94a3b8")}</div>
+        </div>
+        <span class="bra-dur ${p.semaforo === "exceso" ? "exceso" : ""}">${p.dur}'</span>
+      </div>`;
+  });
+
+  container.innerHTML = html + semanaHTML + `</div>`;
+  braEnlazarSemana(container, opciones);
+};
+
+function braEnlazarSemana(container, opciones) {
+  if (typeof opciones.onDia !== "function") return;
+  container.querySelectorAll(".bra-semana button[data-dia]").forEach((b) =>
+    b.addEventListener("click", () => opciones.onDia(b.dataset.dia)));
+}
+
+// Compu: pestaña "Análisis" de la ventana de Descansos, con la fecha elegida en la ventana.
+// Tocar un día de la semana solo cambia el análisis: NO cambia la fecha de la ventana, porque
+// eso dispara el recálculo del cruce y lo vuelve a guardar en la base.
+window.mostrarAnalisisDescansosEscritorio = function (fechaElegida) {
+  const cont = document.getElementById("breakTabContentAnalisis");
+  const input = document.getElementById("breakDateFilter");
+  const fecha = fechaElegida || (input && input.value) || formatDate(new Date());
+  window.renderAnalisisDescansos(cont, fecha, {
+    onDia: (d) => window.mostrarAnalisisDescansosEscritorio(d),
+  });
+};
+
+// Si cambia la fecha de la ventana con el análisis abierto, se actualiza
+document.addEventListener("change", (e) => {
+  if (e.target && e.target.id === "breakDateFilter") {
+    const cont = document.getElementById("breakTabContentAnalisis");
+    if (cont && cont.style.display !== "none" && cont.dataset.fecha !== e.target.value) {
+      window.mostrarAnalisisDescansosEscritorio();
+    }
+  }
+});
+
+// Celular: pantalla propia con los días al pie
+window.abrirAnalisisDescansosMovil = function (fechaId) {
+  const ov = document.getElementById("breakAnalysisMobile");
+  if (!ov) return;
+  if (ov.parentElement !== document.body) document.body.appendChild(ov); // visible desde cualquier sección
+  state.descansosDia = fechaId || state.descansosDia || formatDate(state.currentWeekStart);
+  ov.style.display = "flex";
+  braRenderMovil();
+};
+
+window.cerrarAnalisisDescansosMovil = function () {
+  const ov = document.getElementById("breakAnalysisMobile");
+  if (ov) ov.style.display = "none";
+};
+
+window.moverSemanaDescansos = function (dias) {
+  state.descansosDia = formatDate(addDays(new Date(state.descansosDia + "T00:00:00"), dias));
+  braRenderMovil();
+};
+
+function braRenderMovil() {
+  const dStr = state.descansosDia;
+  const lunes = getStartOfWeek(new Date(dStr + "T00:00:00"));
+  const diasCortos = ["D", "L", "M", "X", "J", "V", "S"];
+  const chips = document.getElementById("bamDias");
+  if (chips) {
+    chips.innerHTML = Array.from({ length: 7 }, (_, i) => {
+      const d = addDays(lunes, i), s = formatDate(d);
+      return `<button type="button" class="${s === dStr ? "active" : ""}" data-dia="${s}"><span>${diasCortos[d.getDay()]}</span><b>${d.getDate()}</b></button>`;
+    }).join("");
+    chips.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      state.descansosDia = b.dataset.dia;
+      braRenderMovil();
+    }));
+  }
+  window.renderAnalisisDescansos(document.getElementById("bamBody"), dStr, {
+    compacto: true,
+    onDia: (d) => { state.descansosDia = d; braRenderMovil(); },
+  });
+}
+
 window.renderUI = function renderUI() {
   if (window.innerWidth <= 768) {
     renderMobileDayView();
@@ -6833,6 +7455,7 @@ window.renderUI = function renderUI() {
     renderDesktopView();
   }
   renderCajasDayView();
+  renderCajasMobileView();
 
   if (!window.hasInitialScrolled) {
     setTimeout(() => {
@@ -8378,23 +9001,38 @@ function showToast(title, msg, type = "info") {
   }
 }
 
-document.getElementById("prevDayBtn").addEventListener("click", () => {
-  state.currentWeekStart = addDays(state.currentWeekStart, -1);
-  loadWeekPlanning();
-});
+// En Línea de Cajas con 1 semana, las flechas mueven el día del panel lateral
+function cajasPanelActivo() {
+  return (state.currentArea || "") === "Linea de Cajas" && state.cajasVista === "1" && window.innerWidth > 768;
+}
 
-document.getElementById("prevWeekBtn").addEventListener("click", () => {
-  state.currentWeekStart = addDays(state.currentWeekStart, -7);
+function moverFecha(dias) {
+  if (cajasPanelActivo()) {
+    const base = new Date((state.cajasPanelDia || formatDate(state.currentWeekStart)) + "T00:00:00");
+    const nuevo = addDays(base, dias);
+    state.cajasPanelDia = formatDate(nuevo);
+    // Dentro de la misma semana no hace falta recargar: solo cambia el día del panel
+    if (formatDate(getStartOfWeek(nuevo)) === formatDate(getStartOfWeek(new Date(state.currentWeekStart)))) {
+      renderCajasDayView();
+      return;
+    }
+    state.currentWeekStart = nuevo;
+    loadWeekPlanning();
+    return;
+  }
+  state.currentWeekStart = addDays(state.currentWeekStart, dias);
   loadWeekPlanning();
-});
+}
 
-document.getElementById("nextWeekBtn").addEventListener("click", () => {
-  state.currentWeekStart = addDays(state.currentWeekStart, 7);
-  loadWeekPlanning();
-});
+document.getElementById("prevDayBtn").addEventListener("click", () => moverFecha(-1));
+document.getElementById("prevWeekBtn").addEventListener("click", () => moverFecha(-7));
+document.getElementById("nextWeekBtn").addEventListener("click", () => moverFecha(7));
+document.getElementById("nextDayBtn").addEventListener("click", () => moverFecha(1));
 
-document.getElementById("nextDayBtn").addEventListener("click", () => {
-  state.currentWeekStart = addDays(state.currentWeekStart, 1);
+document.getElementById("todayBtn").addEventListener("click", () => {
+  const hoy = new Date();
+  state.currentWeekStart = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  state.cajasPanelDia = formatDate(hoy);
   loadWeekPlanning();
 });
 
@@ -8444,6 +9082,11 @@ document.getElementById("cDeleteBtn").addEventListener("click", () => {
   if (id) deleteCollab(id);
 });
 
+// El ejemplo del "Nombre corto" sigue al nombre que se está escribiendo
+document.getElementById("cName").addEventListener("input", (e) => {
+  document.getElementById("cNombreCorto").placeholder = `Se arma solo: ${nombreCortoAutomatico(e.target.value) || "Noelia.A"}`;
+});
+
 collabForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const legajo = document.getElementById("cLegajo").value.trim();
@@ -8454,6 +9097,7 @@ collabForm.addEventListener("submit", async (e) => {
   const newCollab = {
     id: legajo,
     name: document.getElementById("cName").value.trim(),
+    nombreCorto: document.getElementById("cNombreCorto").value.trim(),
     esquema: document.getElementById("cEsquema").value.trim(),
     hours: parseInt(document.getElementById("cHours").value),
     domingosAcordados: parseInt(document.getElementById("cDoms").value),
@@ -8556,6 +9200,8 @@ window.editCollab = function (id) {
   legInput.value = c.id;
   legInput.disabled = true; // Bloquear edición de ID
   document.getElementById("cName").value = c.name;
+  document.getElementById("cNombreCorto").value = c.nombreCorto || "";
+  document.getElementById("cNombreCorto").placeholder = `Se arma solo: ${nombreCortoAutomatico(c.name)}`;
   document.getElementById("cEsquema").value = c.esquema || "";
   document.getElementById("cHours").value = c.hours;
   document.getElementById("cDoms").value = c.domingosAcordados || 0;
@@ -10863,7 +11509,7 @@ function checkLogin() {
 
        const navToggleBtn = document.getElementById('navDropdownToggle');
        if (navToggleBtn) {
-           navToggleBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> App Pública <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+           navToggleBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> <span class="btn-text">App Pública</span> <svg class="dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
        }
        if (typeof updateAreaVisibility === 'function') updateAreaVisibility();
     }
@@ -11279,7 +11925,10 @@ window.setNoVieneQuickState = async function () {
       : currentContextCell.querySelector("input.cell-input");
   if (!inputEl) return;
 
-  let currentSlot = inputEl.value || "";
+  // Se parte del turno guardado: en celular la celda muestra el horario formateado ("18–23")
+  let currentSlot =
+    getPlanningSlot(currentContextCell.getAttribute("data-collab"), currentContextCell.getAttribute("data-date")) ||
+    (inputEl.value || "").replace("*", "").trim();
   let newSlot = "";
 
   const parsedActual = parseShift(currentSlot);
@@ -12445,7 +13094,10 @@ function attachDatepickerJump(triggerEl) {
     const selectedDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
 
     // 2. FORZAR que el inicio del ciclo sea estrictamente el LUNES de esa semana
-    state.currentWeekStart = getStartOfWeek(selectedDate);
+    // (en la vista del día de Línea de Cajas se va directo al día elegido)
+    const enVistaDia = (state.currentArea || "") === "Linea de Cajas" && state.cajasVista === "dia";
+    state.currentWeekStart = enVistaDia ? selectedDate : getStartOfWeek(selectedDate);
+    state.cajasPanelDia = formatDate(selectedDate);
 
     // 3. Recargar la planificación con el ciclo normalizado
     await loadWeekPlanning();
@@ -16404,6 +17056,9 @@ document.addEventListener("DOMContentLoaded", () => {
           <button type="button" id="tabBtnBreakCruce" class="tab-btn active" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border); background: var(--primary); color: #fff; cursor: pointer; display: flex; align-items: center; gap: 5px;">
             📊 Matriz y Alertas
           </button>
+          <button type="button" id="tabBtnBreakAnalisis" class="tab-btn" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px;">
+            📈 Análisis
+          </button>
           <button type="button" id="tabBtnBreakIngesta" class="tab-btn" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px;">
             📥 Ingesta de Reportes
           </button>
@@ -16550,6 +17205,9 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
         </div>
+
+        <!-- PESTAÑA ANÁLISIS: descansos por hora, por colaborador (R25 y TAW) y volumen de la semana -->
+        <div id="breakTabContentAnalisis" class="bra bra-ancho" style="display: none; flex-direction: column;"></div>
 
         <!-- PESTAÑA 3: CONFIGURACIÓN DE PARÁMETROS Y CONVENIOS -->
         <div id="breakTabContentConfig" style="display: none; flex-direction: column; gap: 14px;">
@@ -16796,6 +17454,45 @@ document.addEventListener("DOMContentLoaded", () => {
         syncAuditDataToFirestore(rows, r25RawTextParam);
       }
 
+      // Resguardo del TAW: un recálculo hecho en un navegador sin el TAW cargado (otra PC, otro
+      // navegador, el celular) no debe borrar las marcas de TAW que ya estaban guardadas.
+      function marcaTawVacia(v) {
+        return v === undefined || v === null || v === "" || v === "-";
+      }
+
+      function claveFilaBreak(f) {
+        const leg = String(f.legajo || "").trim();
+        return leg && leg !== "-" ? leg : `op:${String(f.op || "").trim()}`;
+      }
+
+      function fusionarConTawGuardado(filasNuevas, filasGuardadas) {
+        if (!Array.isArray(filasGuardadas) || filasGuardadas.length === 0) return filasNuevas;
+        const tieneTaw = (f) => !marcaTawVacia(f.salidaTAW) || !marcaTawVacia(f.regresoTAW);
+        const guardadas = new Map(filasGuardadas.map((f) => [claveFilaBreak(f), f]));
+        const gravedad = { ok: 0, limite: 1, exceso: 2 };
+
+        const resultado = filasNuevas.map((nueva) => {
+          const vieja = guardadas.get(claveFilaBreak(nueva));
+          if (!vieja || tieneTaw(nueva) || !tieneTaw(vieja)) return nueva;
+          return {
+            ...nueva,
+            salidaTAW: vieja.salidaTAW || "-",
+            regresoTAW: vieja.regresoTAW || "-",
+            excesoTAWReporte: vieja.excesoTAWReporte || 0,
+            excesoNetoTAW: vieja.excesoNetoTAW || 0,
+            excesoRealTAW: vieja.excesoRealTAW || vieja.excesoNetoTAW || 0,
+            semaforo: (gravedad[vieja.semaforo] || 0) > (gravedad[nueva.semaforo] || 0) ? vieja.semaforo : nueva.semaforo,
+          };
+        });
+
+        // Personas que solo tenían marcas de TAW y no vinieron en este recálculo
+        const clavesNuevas = new Set(filasNuevas.map(claveFilaBreak));
+        filasGuardadas.forEach((vieja) => {
+          if (!clavesNuevas.has(claveFilaBreak(vieja)) && tieneTaw(vieja)) resultado.push(vieja);
+        });
+        return resultado;
+      }
+
       function syncAuditDataToFirestore(rows, r25RawTextParam = null) {
         if (!rows || rows.length === 0) return;
         const firestoreDb = window.db;
@@ -16849,13 +17546,29 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         // Guardar cada fecha en auditoria_breaks y reporte25_diario de forma segura e independiente
-        Object.keys(groups).forEach(fechaDocId => {
+        Object.keys(groups).forEach(async fechaDocId => {
           const groupData = groups[fechaDocId];
+
+          // Antes de reemplazar las filas del día, conservar las marcas de TAW ya guardadas.
+          // Si no se puede leer lo guardado, no se escribe para no pisar datos a ciegas.
+          let filasFinales = groupData.filas;
+          if (typeof window.getDoc === "function") {
+            try {
+              const previo = await window.getDoc(fnDoc(firestoreDb, "auditoria_breaks", fechaDocId));
+              if (previo && previo.exists()) {
+                filasFinales = fusionarConTawGuardado(groupData.filas, previo.data().filas);
+              }
+            } catch (err) {
+              console.warn(`No se guardó la auditoría de ${fechaDocId}: no se pudo leer lo guardado para conservar el TAW.`, err);
+              return;
+            }
+          }
+
           const payload = {
             fecha: fechaDocId,
             fechaFormatted: groupData.fechaFormatted,
-            filas: groupData.filas,
-            totalRegistros: groupData.filas.length,
+            filas: filasFinales,
+            totalRegistros: filasFinales.length,
             actualizadoEn: new Date().toISOString()
           };
 
@@ -17155,6 +17868,35 @@ document.addEventListener("DOMContentLoaded", () => {
         const sign = min < 0 ? "-" : "";
         if (h === 0) return `${sign}${m}m`;
         return `${sign}${h}h ${m}m`;
+      }
+
+      // Reporte 25 copiado directo de la web del Journal Electrónico: según el navegador, cada celda
+      // llega en su propio renglón o separada por espacios, en vez de una fila por renglón con
+      // tabulaciones. Se reconstruyen las filas buscando cada registro por su forma: fecha (12/10/2026),
+      // hora (19:59) y los números que siguen (terminal, cajero, trx, código y subcódigo).
+      function normalizarR25Pegado(texto) {
+        const lineas = String(texto || "").split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+        if (lineas.length === 0) return texto;
+        const enColumnas = lineas.filter(l => /[\t;]/.test(l)).length;
+        if (enColumnas >= lineas.length * 0.6) return texto; // Ya viene en columnas (hoja de cálculo)
+
+        const tokens = lineas.join(" ").split(/\s+/);
+        const esFecha = t => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(t);
+        const esHora = t => /^\d{1,2}:\d{2}(:\d{2})?$/.test(t);
+        const esNumero = t => /^\d+$/.test(t);
+        const filas = [];
+        for (let i = 0; i < tokens.length; i++) {
+          if (!esFecha(tokens[i]) || !esHora(tokens[i + 1] || "")) continue;
+          const fila = [tokens[i], tokens[i + 1]];
+          let j = i + 2;
+          while (j < tokens.length && fila.length < 7 && esNumero(tokens[j])) {
+            fila.push(tokens[j]);
+            j++;
+          }
+          if (fila.length >= 4) filas.push(fila.join("\t"));
+          i = j - 1;
+        }
+        return filas.length > 0 ? filas.join("\n") : texto;
       }
 
       function parseDelimitedLines(text) {
@@ -17909,7 +18651,7 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        const rowsR25 = parseDelimitedLines(rawR25Text);
+        const rowsR25 = parseDelimitedLines(normalizarR25Pegado(rawR25Text));
 
         const cfg = getBreakConfig();
         const toleranciaTraslado = (cfg.trasladoMinutos || 3.5) * 2;
@@ -18944,6 +19686,7 @@ document.addEventListener("DOMContentLoaded", () => {
       function activateBreakTab(tabBtnId) {
         const tabs = [
           { btn: "tabBtnBreakCruce", content: "breakTabContentCruce" },
+          { btn: "tabBtnBreakAnalisis", content: "breakTabContentAnalisis" },
           { btn: "tabBtnBreakIngesta", content: "breakTabContentIngesta" },
           { btn: "tabBtnBreakConfig", content: "breakTabContentConfig" }
         ];
@@ -18969,6 +19712,7 @@ document.addEventListener("DOMContentLoaded", () => {
       function setupTabs() {
         const tabs = [
           { btn: "tabBtnBreakCruce", content: "breakTabContentCruce" },
+          { btn: "tabBtnBreakAnalisis", content: "breakTabContentAnalisis" },
           { btn: "tabBtnBreakIngesta", content: "breakTabContentIngesta" },
           { btn: "tabBtnBreakConfig", content: "breakTabContentConfig" }
         ];
@@ -18978,6 +19722,10 @@ document.addEventListener("DOMContentLoaded", () => {
           if (btnEl) {
             btnEl.addEventListener("click", () => {
               activateBreakTab(t.btn);
+
+              if (t.btn === "tabBtnBreakAnalisis" && typeof window.mostrarAnalisisDescansosEscritorio === "function") {
+                window.mostrarAnalisisDescansosEscritorio();
+              }
 
               // Al hacer clic en la solapa de Matriz de Cruce, invocar recálculo con processAuditoria()
               if (t.btn === "tabBtnBreakCruce") {
@@ -19602,6 +20350,17 @@ document.addEventListener("DOMContentLoaded", () => {
             const count = parseDelimitedLines(inR25.value).length;
             document.getElementById("badgeCountR25").textContent = `${count} líneas`;
           });
+          // Al pegar directo de la web del Journal, se reacomoda en una fila por registro
+          inR25.addEventListener("paste", () => {
+            setTimeout(() => {
+              const ordenado = normalizarR25Pegado(inR25.value);
+              if (ordenado !== inR25.value) {
+                inR25.value = ordenado;
+                const count = parseDelimitedLines(ordenado).length;
+                document.getElementById("badgeCountR25").textContent = `${count} líneas (reordenado desde la web)`;
+              }
+            }, 0);
+          });
         }
 
         const inTAW = document.getElementById("breakInputTAW");
@@ -19717,6 +20476,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const modal = document.getElementById("breakAuditModal");
       const drop = document.getElementById("navDropdownMenu");
       if (drop) drop.style.display = "none";
+      // En el celular se abre el análisis de descansos en lugar de la tabla de la compu
+      if (window.innerWidth <= 768 && typeof window.abrirAnalisisDescansosMovil === "function") {
+        window.abrirAnalisisDescansosMovil();
+        return;
+      }
       if (modal) {
         modal.style.display = "flex";
         modal.classList.add("active"); // Muestra el modal con opacidad y eventos
