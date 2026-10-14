@@ -7069,7 +7069,8 @@ function renderCajasMobileView() {
   if (!activo) {
     if (grid.dataset.ocultaPorCelular) {
       grid.style.removeProperty("display");
-      if (dash) dash.style.removeProperty("display");
+      // Sin el "none" el panel de cobertura del celular queda visible en la PC
+      if (dash) dash.style.setProperty("display", window.innerWidth > 768 ? "none" : "grid");
       delete grid.dataset.ocultaPorCelular;
     }
     return;
