@@ -14744,27 +14744,21 @@ window.abrirModalProductividad = function() {
 };
 
 // ══════════════════════════════════════════════════════════════════════
-// RANKING AJUSTADO A LOS HORARIOS
-// Los productos por hora dependen de en qué horas trabaja cada uno: en las horas pico siempre hay
-// clientes en la fila. Para que el ranking sea justo, a cada cajero se lo compara con lo esperable
-// según la demanda (cajeros pedidos por Recaudaciones) de las horas que trabajó ese mes.
-// Solo lectura: lee la grilla y la demanda del mes, no guarda nada.
+// RANKING JUSTO DE CAJEROS: VELOCIDAD AJUSTADA AL CHANGO + APORTE DEL MES
+// "Items x Hora" se calcula sobre el tiempo de transacción: (60 / duración del ticket) × unidades por ticket.
+// Cada ticket tiene un tiempo fijo (cobro, bolsas) que rinde más con changos grandes, así que a cada
+// cajero se lo compara con lo esperable para el tamaño de chango que le tocó. El aporte (horas en caja
+// y productos) se muestra aparte. Solo lectura: no guarda nada.
 // ══════════════════════════════════════════════════════════════════════
-const prodAjusteCache = {}; // periodo -> { estado: "cargando" | "listo" | "error", porCollab }
+const prodAjusteCache = {}; // `${periodo}|${corte}` -> { estado: "cargando" | "listo" | "error", porCollab }
 
+// Horas trabajadas por colaborador según la grilla (para meses cargados sin las horas del reporte)
 async function cargarAjusteProductividad(periodoKey, fechaCorte) {
   const clave = `${periodoKey}|${fechaCorte}`;
   if (prodAjusteCache[clave]) return;
   prodAjusteCache[clave] = { estado: "cargando" };
   try {
-    const desde = `${periodoKey}-01`;
-    const [snapPlan, snapDem] = await Promise.all([
-      getDocs(query(collection(db, "planificacion"), where("fecha", ">=", desde), where("fecha", "<=", fechaCorte))),
-      getDocs(query(collection(db, "demanda_cajas"), where("fecha", ">=", desde), where("fecha", "<=", fechaCorte))),
-    ]);
-    const demanda = {};
-    snapDem.docs.forEach((d) => { demanda[d.id] = d.data().curva || []; });
-
+    const snapPlan = await getDocs(query(collection(db, "planificacion"), where("fecha", ">=", `${periodoKey}-01`), where("fecha", "<=", fechaCorte)));
     const enVacaciones = (id, f) => (state.vacations || []).some((v) => String(v.colaboradorId) === String(id) && f >= v.startDate && f <= v.endDate);
     const porCollab = {};
     snapPlan.docs.forEach((d) => {
@@ -14772,54 +14766,70 @@ async function cargarAjusteProductividad(periodoKey, fechaCorte) {
       if (!p.colaboradorId || !p.fecha || enVacaciones(p.colaboradorId, p.fecha)) return;
       const turno = parseShift(p.slot);
       if (!turno || turno.type !== "work" || turno.isNV || !(turno.hours > 0)) return;
-      const curva = demanda[p.fecha];
-      const acc = porCollab[p.colaboradorId] || (porCollab[p.colaboradorId] = { horas: 0, demandaSuma: 0, horasConDemanda: 0 });
-      acc.horas += turno.hours;
-      if (!curva) return;
-      (turno.isCortado ? turno.tramos : [turno]).forEach((t) => {
-        const fin = t.end <= t.start ? 24 : t.end;
-        for (let h = Math.floor(t.start); h < Math.ceil(fin); h++) {
-          acc.demandaSuma += Number(curva[h % 24]) || 0;
-          acc.horasConDemanda++;
-        }
-      });
+      porCollab[p.colaboradorId] = (porCollab[p.colaboradorId] || 0) + turno.hours;
     });
-    Object.values(porCollab).forEach((a) => { a.intensidad = a.horasConDemanda ? a.demandaSuma / a.horasConDemanda : null; });
     prodAjusteCache[clave] = { estado: "listo", porCollab };
   } catch (err) {
-    console.warn("No se pudo calcular el ranking ajustado:", err);
+    console.warn("No se pudieron leer las horas de la grilla para productividad:", err);
     prodAjusteCache[clave] = { estado: "error" };
   }
   if (typeof window.renderProductividad === "function") window.renderProductividad();
 }
 
-// Agrega a cada cajero sus horas, la intensidad de sus horarios, lo esperado y la diferencia.
-// Lo esperado sale de una recta (mínimos cuadrados, ponderada por horas) entre intensidad y productos por hora.
-function aplicarAjusteProductividad(items, porCollab) {
-  const conDatos = items.map((c) => {
-    const datos = c.collabId ? porCollab[c.collabId] : null;
-    return { ...c, horasMes: datos ? datos.horas : 0, intensidad: datos ? datos.intensidad : null };
+// Velocidad: tiempo de ticket esperado = fijo + segundos por producto × chango (recta ponderada por horas).
+// Aporte: horas en caja y productos. Podio de velocidad: solo con al menos la mitad del promedio de horas.
+function aplicarRankingJusto(items, horasGrilla) {
+  const lista = items.map((c) => {
+    const chango = Number(c.unidadesTicket || c.unidadesPorTicket) || 0;
+    // Minutos por ticket desde la fórmula del reporte (u/h = 60 / minutos × chango), así no depende de cómo vino la columna
+    const tr = c.itemsPorHora > 0 && chango > 0 ? (60 * chango) / c.itemsPorHora : 0;
+    const horasReporte = Number(c.horasCaja) > 0 ? Number(c.horasCaja) : null;
+    const horasDeGrilla = horasGrilla && c.collabId ? horasGrilla[c.collabId] || 0 : 0;
+    const horas = horasReporte || horasDeGrilla || 0;
+    // Productos del mes: con horas de transacción del reporte es exacto; con horas de grilla, aproximado
+    const productos = Number(c.horasTransaccion) > 0
+      ? Math.round(c.itemsPorHora * Number(c.horasTransaccion))
+      : (horas > 0 ? Math.round(c.itemsPorHora * horas) : 0);
+    return { ...c, tr, chango, horas, horasExactas: !!horasReporte, productos };
   });
-  const validos = conDatos.filter((c) => c.horasMes > 0 && c.intensidad !== null && c.itemsPorHora > 0);
-  if (validos.length < 3) return { items: conDatos, ajustado: false };
 
-  const W = validos.reduce((a, c) => a + c.horasMes, 0);
-  const mx = validos.reduce((a, c) => a + c.horasMes * c.intensidad, 0) / W;
-  const my = validos.reduce((a, c) => a + c.horasMes * c.itemsPorHora, 0) / W;
-  const sxx = validos.reduce((a, c) => a + c.horasMes * (c.intensidad - mx) ** 2, 0);
-  const pendiente = sxx > 0 ? validos.reduce((a, c) => a + c.horasMes * (c.intensidad - mx) * (c.itemsPorHora - my), 0) / sxx : 0;
+  const validos = lista.filter((c) => c.tr > 0 && c.chango > 0 && c.itemsPorHora > 0);
+  if (validos.length < 3) return null;
+  const peso = (c) => (c.horas > 0 ? c.horas : 1);
+  const W = validos.reduce((a, c) => a + peso(c), 0);
+  const mx = validos.reduce((a, c) => a + peso(c) * c.chango, 0) / W;
+  const my = validos.reduce((a, c) => a + peso(c) * c.tr, 0) / W;
+  const sxx = validos.reduce((a, c) => a + peso(c) * (c.chango - mx) ** 2, 0);
+  const porProducto = sxx > 0 ? validos.reduce((a, c) => a + peso(c) * (c.chango - mx) * (c.tr - my), 0) / sxx : 0;
+  const fijo = my - porProducto * mx;
 
-  conDatos.forEach((c) => {
-    if (c.horasMes > 0 && c.intensidad !== null && c.itemsPorHora > 0) {
-      c.esperado = Math.round(my + pendiente * (c.intensidad - mx));
+  validos.forEach((c) => {
+    const trEsperado = fijo + porProducto * c.chango;
+    if (trEsperado > 0) {
+      c.esperado = Math.round((60 * c.chango) / trEsperado);
       c.vsEsperado = c.itemsPorHora - c.esperado;
-      c.aporte = Math.round(c.itemsPorHora * c.horasMes);
     }
   });
-  // Primero los que tienen datos, ordenados por cuánto superan lo esperado; después el resto
-  conDatos.sort((a, b) => (b.vsEsperado !== undefined) - (a.vsEsperado !== undefined) || (b.vsEsperado || 0) - (a.vsEsperado || 0) || b.itemsPorHora - a.itemsPorHora);
-  return { items: conDatos, ajustado: true, pendiente: Math.round(pendiente) };
+
+  const conHoras = lista.filter((c) => c.horas > 0);
+  const promedioHoras = conHoras.length ? conHoras.reduce((a, c) => a + c.horas, 0) / conHoras.length : 0;
+  const minimoHoras = promedioHoras / 2;
+  lista.forEach((c) => { c.pocasHoras = promedioHoras > 0 && c.horas < minimoHoras; });
+
+  // Velocidad: primero quienes llegan al mínimo de horas (ordenados por cuánto superan lo esperado), después el resto
+  const velocidad = [...lista].sort((a, b) =>
+    (a.pocasHoras - b.pocasHoras) ||
+    ((b.vsEsperado !== undefined) - (a.vsEsperado !== undefined)) ||
+    ((b.vsEsperado || 0) - (a.vsEsperado || 0)) ||
+    (b.itemsPorHora - a.itemsPorHora));
+  const aporte = lista.filter((c) => c.productos > 0).sort((a, b) => b.productos - a.productos);
+  return {
+    velocidad, aporte, minimoHoras: Math.round(minimoHoras),
+    hayHoras: conHoras.length > 0, horasExactas: lista.some((c) => c.horasExactas),
+    segundosFijos: Math.round(fijo * 60), segundosPorProducto: Math.round(porProducto * 60 * 10) / 10,
+  };
 }
+
 
 window.renderProductividad = function() {
   const container = document.getElementById("prodLienzoContainer");
@@ -15085,55 +15095,60 @@ window.renderProductividad = function() {
       const sumaProd = itemsProd.reduce((acc, c) => acc + c.itemsPorHora, 0);
       const promProd = Math.round(sumaProd / (totalProd || 1));
 
-      // Ranking ajustado a los horarios (solo cajeros titulares, que son los que tienen sus horas en la grilla)
+      // Ranking justo (solo cajeros titulares): velocidad ajustada al chango + aporte del mes
       const modoSelect = document.getElementById("prodRankingModo");
       const modoPedido = modoSelect ? modoSelect.value : "justo";
       if (modoSelect) modoSelect.style.display = dotacionFiltro === "cajeros" ? "" : "none";
       let modoJusto = false;
+      let ranking = null;
       let estadoAjuste = "";
       let itemsOrdenados = itemsProd;
       if (dotacionFiltro === "cajeros" && modoPedido === "justo") {
-        const finMes = formatDate(new Date(anio, mes, 0));
-        const cargado = dataPeriodo.fechaCarga ? String(dataPeriodo.fechaCarga).slice(0, 10) : finMes;
-        const fechaCorte = dataPeriodo.tipo === "cierre" || cargado > finMes ? finMes : cargado;
-        const cache = prodAjusteCache[`${periodoKey}|${fechaCorte}`];
-        if (!cache) {
-          cargarAjusteProductividad(periodoKey, fechaCorte);
-          estadoAjuste = "cargando";
-        } else if (cache.estado === "listo") {
-          const conId = itemsProd.map((c) => {
-            if (c.collabId) return c;
-            const col = (state.collaborators || []).find((x) => String(x.numeroOperador) === String(c.cajeroId) || String(x.id) === String(c.cajeroId));
-            return { ...c, collabId: col ? col.id : null };
-          });
-          const resultado = aplicarAjusteProductividad(conId, cache.porCollab);
-          if (resultado.ajustado) {
+        const conId = itemsProd.map((c) => {
+          if (c.collabId) return c;
+          const col = (state.collaborators || []).find((x) => String(x.numeroOperador) === String(c.cajeroId) || String(x.id) === String(c.cajeroId));
+          return { ...c, collabId: col ? col.id : null };
+        });
+        // Si el reporte no trae las horas (meses cargados antes), se usan las de la grilla
+        let horasGrilla = null;
+        if (!conId.some((c) => Number(c.horasCaja) > 0)) {
+          const finMes = formatDate(new Date(anio, mes, 0));
+          const cargado = dataPeriodo.fechaCarga ? String(dataPeriodo.fechaCarga).slice(0, 10) : finMes;
+          const fechaCorte = dataPeriodo.tipo === "cierre" || cargado > finMes ? finMes : cargado;
+          const cache = prodAjusteCache[`${periodoKey}|${fechaCorte}`];
+          if (!cache) { cargarAjusteProductividad(periodoKey, fechaCorte); estadoAjuste = "cargando"; }
+          else if (cache.estado === "listo") horasGrilla = cache.porCollab;
+          else estadoAjuste = cache.estado;
+        }
+        if (estadoAjuste !== "cargando") {
+          ranking = aplicarRankingJusto(conId, horasGrilla);
+          if (ranking) {
             modoJusto = true;
-            itemsOrdenados = resultado.items;
+            itemsOrdenados = ranking.velocidad;
           } else {
             estadoAjuste = "sinDatos";
           }
-        } else {
-          estadoAjuste = cache.estado;
         }
       }
       const fmtNum = (n) => Number(n || 0).toLocaleString("es-AR");
-      const mayorAporte = modoJusto ? [...itemsOrdenados].filter((c) => c.aporte).sort((a, b) => b.aporte - a.aporte)[0] : null;
       const avisoAjuste = {
-        cargando: "Calculando el ajuste por horarios…",
-        sinDatos: "No hay horarios cargados en la grilla para este mes: se muestra el ranking por productos por hora.",
-        error: "No se pudo calcular el ajuste por horarios: se muestra el ranking por productos por hora.",
+        cargando: "Calculando el ranking justo…",
+        sinDatos: "Faltan datos de chango o duración del ticket: se muestra el ranking por productos por hora.",
+        error: "No se pudieron leer las horas de la grilla: el aporte del mes queda sin calcular.",
       }[estadoAjuste] || "";
 
       // Número principal y detalle de cada cajero según el modo
       const numeroPrincipal = (c, tam) => modoJusto && c.vsEsperado !== undefined
         ? `<div style="font-size: ${tam}; font-weight: 900; color: ${c.vsEsperado >= 0 ? "#10b981" : "#f87171"}; line-height: 1;">${c.vsEsperado >= 0 ? "+" : ""}${c.vsEsperado}</div>
-           <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">vs. esperado</div>`
+           <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">vs. su chango</div>`
         : `<div style="font-size: ${tam}; font-weight: 900; color: ${c.itemsPorHora >= 600 ? "#10b981" : "#ef4444"}; line-height: 1;">${c.itemsPorHora}</div>
            <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">productos / hora</div>`;
-      const detalleAjuste = (c) => modoJusto && c.vsEsperado !== undefined
-        ? `<div style="font-size: 0.66rem; color: #cbd5e1; margin-top: 2px;">⚡ ${c.itemsPorHora} u/h · esperado ${c.esperado} · ${fmtNum(Math.round(c.horasMes))} h · ${fmtNum(c.aporte)} productos</div>`
-        : (modoJusto ? `<div style="font-size: 0.66rem; color: var(--text-muted); margin-top: 2px;">Sin horas en la grilla este mes · ${c.itemsPorHora} u/h</div>` : "");
+      const detalleAjuste = (c) => {
+        if (!modoJusto) return "";
+        const horas = c.horas > 0 ? ` · ${fmtNum(Math.round(c.horas))} h en caja${c.horasExactas ? "" : " (grilla)"}` : "";
+        const pocas = c.pocasHoras ? ` · <span style="color: #fbbf24;">pocas horas, fuera del podio</span>` : "";
+        return `<div style="font-size: 0.66rem; color: #cbd5e1; margin-top: 2px;">⚡ ${c.itemsPorHora} u/h · esperado ${c.esperado ?? "-"} para ${c.chango.toFixed(1)} art.${horas}${pocas}</div>`;
+      };
 
       const podioProd = itemsOrdenados.slice(0, 3);
       const restoProd = itemsOrdenados.slice(3);
@@ -15159,7 +15174,7 @@ window.renderProductividad = function() {
                 · ${periodoNombre.toUpperCase()}
               </div>
               <div style="font-size: 1.05rem; font-weight: 900; color: #fbbf24; margin-top: 2px;">
-                ${modoJusto ? "⚖️ PRODUCTIVIDAD AJUSTADA" : "🏆 PRODUCTIVIDAD"}
+                ${modoJusto ? "⚡ VELOCIDAD SEGÚN SU CHANGO" : "🏆 PRODUCTIVIDAD"}
               </div>
               <div style="font-size: 0.68rem; color: #94a3b8; font-weight: 600;">
                 ${labelDotacionActiva}
@@ -15173,7 +15188,8 @@ window.renderProductividad = function() {
 
           ${modoJusto ? `
           <div style="font-size: 0.68rem; color: #94a3b8; line-height: 1.4; background: rgba(251, 191, 36, 0.06); border: 1px solid rgba(251, 191, 36, 0.2); border-radius: 8px; padding: 8px 10px;">
-            En las horas de más clientes siempre hay fila, y eso sube los productos por hora. Por eso a cada uno se lo compara con <strong style="color: #f8fafc;">lo esperable para los horarios que trabajó</strong>: el número grande es cuánto lo supera.
+            Cada ticket tiene un tiempo fijo (saludo, cobro, bolsas) de unos ${ranking.segundosFijos} s, así que con changos grandes salen más productos por hora. Por eso a cada uno se lo compara con <strong style="color: #f8fafc;">lo esperable para el tamaño de sus changos</strong>: el número grande es cuánto lo supera.
+            Para el podio hace falta haber estado al menos <strong style="color: #f8fafc;">${ranking.minimoHoras} h en caja</strong> (la mitad del promedio del equipo).
           </div>` : ""}
           ${avisoAjuste ? `<div style="font-size: 0.68rem; color: #94a3b8;">${avisoAjuste}</div>` : ""}
 
@@ -15260,10 +15276,24 @@ window.renderProductividad = function() {
           ` : ''}
 
           <!-- Footer Placa Productividad -->
-          ${mayorAporte ? `
-          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; font-size: 0.7rem; color: #94a3b8;">
-            <span>📦 Mayor aporte del mes</span>
-            <span><strong style="color: #f8fafc;">${mayorAporte.nombre}</strong> · ${fmtNum(mayorAporte.aporte)} productos</span>
+          ${modoJusto && ranking.aporte.length ? `
+          <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="font-size: 0.9rem; font-weight: 900; color: #38bdf8;">📦 MAYOR APORTE DEL MES</div>
+            <div style="font-size: 0.66rem; color: #94a3b8; line-height: 1.4;">Productos pasados en el mes: suma horas y ritmo.${ranking.horasExactas ? "" : " Aproximado con las horas de la grilla (este reporte no trae las horas de caja)."}</div>
+            ${ranking.aporte.slice(0, 3).map((c, idx) => {
+              const medallas = ["🥇", "🥈", "🥉"];
+              return `
+              <div style="background: #1e293b; border: 1px solid rgba(56,189,248,0.25); border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.88rem; color: #ffffff;">${medallas[idx]} ${c.nombre || "Operador " + c.cajeroId}</div>
+                  <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 1px;">${fmtNum(Math.round(c.horas))} h en caja · ${c.itemsPorHora} u/h</div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 1.1rem; font-weight: 900; color: #38bdf8; line-height: 1;">${fmtNum(c.productos)}</div>
+                  <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">productos</div>
+                </div>
+              </div>`;
+            }).join("")}
           </div>` : ""}
 
 
@@ -16582,6 +16612,18 @@ window.parseProductividadData = function(rawText) {
   }
   let idxUnidadesTicket = headerCells.findIndex(c => (c.includes("unidad") || c.includes("unid") || c.includes("item") || c.includes("art")) && (c.includes("ticket") || c.includes("tkt")));
 
+  // Horas del reporte (antes se descartaban): caja habilitada, en transacción y en espera entre clientes
+  const idxHorasCaja = headerCells.findIndex(c => c.includes("hora") && c.includes("habilitad") && !c.includes("sin"));
+  const idxHorasTransaccion = headerCells.findIndex(c => c.startsWith("horas trans"));
+  const idxHorasEspera = headerCells.findIndex(c => c.includes("hora") && c.includes("espera"));
+  const leerHoras = (idx, fila) => {
+    if (idx === -1 || fila[idx] === undefined) return null;
+    const txt = String(fila[idx]).trim();
+    const valor = parseFloat(txt.replace(/[()%]/g, "").replace(/\./g, "").replace(",", "."));
+    if (isNaN(valor)) return null;
+    return /^\(.*\)$/.test(txt) ? -valor : valor;
+  };
+
   // Fallbacks posicionales si los encabezados varían
   if (idxCajero === -1) idxCajero = 0;
   if (idxItemsHora === -1) {
@@ -16679,6 +16721,9 @@ window.parseProductividadData = function(rawText) {
       duracionMinutos: duracionTR,
       unidadesTicket: unidadesTicket,
       unidadesPorTicket: unidadesTicket,
+      horasCaja: leerHoras(idxHorasCaja, row),
+      horasTransaccion: leerHoras(idxHorasTransaccion, row),
+      horasEspera: leerHoras(idxHorasEspera, row),
       collabId: found ? found.id : null,
       isRoller
     });
