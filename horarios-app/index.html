@@ -1406,6 +1406,16 @@
     .cmv-cov-head .falta { color: #fca5a5; font-weight: 600; text-align: right; }
     .cmv-bars { position: relative; height: 40px; margin-top: 6px; }
     .cmv-bars div { position: absolute; bottom: 0; border-radius: 2px; box-sizing: border-box; }
+    .cmv-cov-tot { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; }
+    .cmv-cov-grid { display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 4px; align-items: center; }
+    .cmv-cov-lbl { font-size: 0.6rem; color: var(--text-muted); }
+    .cmv-nums { position: relative; height: 15px; font-size: 0.68rem; font-variant-numeric: tabular-nums; color: var(--text); }
+    .cmv-nums span { position: absolute; top: 1px; transform: translateX(-50%); }
+    .cmv-nums-h { font-size: 0.56rem; color: var(--text-muted); border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+    .cmv-nums-plan span { font-weight: 600; }
+    .cmv-nums-plan span.falta { color: #fca5a5; }
+    .cmv-cov-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; font-size: 0.6rem; color: var(--text-muted); }
+    .cmv-cov-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; box-sizing: border-box; }
     .cmv-axis { position: relative; height: 14px; font-size: 0.62rem; color: var(--text-muted); }
     .cmv-axis span { position: absolute; transform: translateX(-50%); }
     .cmv-head { display: flex; align-items: center; gap: 6px; margin: 14px 0 2px; font-size: 0.72rem; color: var(--text-muted); }
@@ -3551,7 +3561,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.4
+            Versión: v1.6.5
           </div>
         </div>
       </div>
@@ -4397,7 +4407,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.4";
+  const APP_VERSION = "v1.6.5";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -7126,15 +7136,19 @@ function renderCajasMobileView() {
 
   // Cobertura compacta: relleno = planificado (rojo si falta gente), contorno = lo que pide Recaudaciones
   const maxVal = Math.max(1, ...counts.slice(hMin, hMax), ...Array.from({ length: span }, (_, i) => req(hMin + i)));
-  let barras = "", eje = "";
+  let barras = "", eje = "", numsPlan = "", numsReq = "", totalPlan = 0, totalReq = 0;
   const faltantes = [];
   for (let h = hMin; h < hMax; h++) {
     const r = req(h), c = counts[h], falta = demanda && c < r;
+    totalPlan += c; totalReq += r;
     if (falta) faltantes.push(h);
     const left = `calc(${pct(h)} + 1px)`, w = `calc(${ancho(0, 1)} - 2px)`;
     barras += `<div style="left:${left};width:${w};height:${(c / maxVal) * 100}%;background:${falta ? "#ef4444" : "#10b981"};opacity:0.8"></div>`;
     if (demanda && r > 0) barras += `<div style="left:${left};width:${w};height:${(r / maxVal) * 100}%;border:1px dashed rgba(255,255,255,0.8)"></div>`;
-    if ((h - hMin) % 3 === 0) eje += `<span style="left:${pct(h + 0.5)}">${h}</span>`;
+    // Una hora por columna, alineada con su barra, como en la vista de escritorio
+    eje += `<span style="left:${pct(h + 0.5)}">${h}</span>`;
+    numsPlan += `<span style="left:${pct(h + 0.5)}" class="${falta ? "falta" : ""}">${c}</span>`;
+    if (demanda) numsReq += `<span style="left:${pct(h + 0.5)}">${r}</span>`;
   }
   // Agrupa las horas con faltante en rangos: "18–20 h, 22 h"
   const rangos = [];
@@ -7150,8 +7164,14 @@ function renderCajasMobileView() {
   html += `
     <div class="cmv-cov">
       <div class="cmv-cov-head"><span>Cobertura por hora</span><span class="${rangos.length ? "falta" : ""}">${resumen}</span></div>
-      <div class="cmv-bars">${barras}</div>
-      <div class="cmv-axis">${eje}</div>
+      <div class="cmv-cov-tot">${totalPlan} h planificadas${demanda ? ` / ${totalReq} h requeridas` : ""}</div>
+      <div class="cmv-cov-grid">
+        <span></span><div class="cmv-bars">${barras}</div>
+        <span class="cmv-cov-lbl">Hora</span><div class="cmv-nums cmv-nums-h">${eje}</div>
+        <span class="cmv-cov-lbl">Plan.</span><div class="cmv-nums cmv-nums-plan">${numsPlan}</div>
+        ${demanda ? `<span class="cmv-cov-lbl">Req.</span><div class="cmv-nums">${numsReq}</div>` : ""}
+      </div>
+      ${demanda ? `<div class="cmv-cov-legend"><span><i style="border:1px dashed rgba(255,255,255,0.8)"></i>Requerido</span><span><i style="background:#10b981"></i>Planificado</span><span><i style="background:#ef4444"></i>Falta gente</span></div>` : ""}
     </div>`;
 
   const celda = (id, valor) =>
