@@ -1368,7 +1368,8 @@
     .cdv-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
     .cdv-cov { position: relative; height: 72px; }
     .cdv-cov div { position: absolute; bottom: 0; border-radius: 2px; box-sizing: border-box; }
-    .cdv-covnums { position: relative; height: 30px; font-size: 0.7rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
+    .cdv-rolnum { font-style: normal; color: #a78bfa; }
+    .cdv-covnums { position: relative; height: 44px; font-size: 0.7rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
     .cdv-covnums span { position: absolute; transform: translateX(-50%); text-align: center; top: 4px; }
     .cdv-legend { display: flex; gap: 14px; font-size: 0.72rem; color: var(--text-muted); align-items: center; }
     .cdv-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
@@ -1414,6 +1415,7 @@
     .cmv-nums-h { font-size: 0.56rem; color: var(--text-muted); border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
     .cmv-nums-plan span { font-weight: 600; }
     .cmv-nums-plan span.falta { color: #fca5a5; }
+    .cmv-rol, .cmv-nums-rol { color: #a78bfa; }
     .cmv-cov-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; font-size: 0.6rem; color: var(--text-muted); }
     .cmv-cov-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; box-sizing: border-box; }
     .cmv-axis { position: relative; height: 14px; font-size: 0.62rem; color: var(--text-muted); }
@@ -3561,7 +3563,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.5
+            Versión: v1.6.6
           </div>
         </div>
       </div>
@@ -4407,7 +4409,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.5";
+  const APP_VERSION = "v1.6.6";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6829,11 +6831,14 @@ function cdvArmarDia(dStr) {
 
 // Personas trabajando por hora (incluye turnos del día anterior que cruzan medianoche)
 function cdvCoberturaPorHora(dStr, bloques) {
+  // Solo cuentan los cajeros; los rollers van aparte como dato adicional (counts.rollers)
   const counts = Array(24).fill(0);
-  Object.values(bloques).flat().forEach((p) => {
-    p.tramos.forEach((t) => {
-      for (let h = 0; h < 24; h++) if (h >= t.start && h < t.end) counts[h]++;
-    });
+  const rollers = Array(24).fill(0);
+  Object.entries(bloques).forEach(([key, lista]) => {
+    const destino = key === "roller" ? rollers : counts;
+    lista.forEach((p) => p.tramos.forEach((t) => {
+      for (let h = 0; h < 24; h++) if (h >= t.start && h < t.end) destino[h]++;
+    }));
   });
 
   const prevStr = formatDate(addDays(new Date(dStr + "T00:00:00"), -1));
@@ -6843,9 +6848,11 @@ function cdvCoberturaPorHora(dStr, bloques) {
     const parsedPrev = parseShift(getPlanningSlot(collab.id, prevStr));
     if (!parsedPrev || parsedPrev.type !== "work" || parsedPrev.isNV) return;
     if (parsedPrev.end <= parsedPrev.start) {
-      for (let h = 0; h < parsedPrev.end; h++) counts[h]++;
+      const destino = braEsRoller(collab) ? rollers : counts;
+      for (let h = 0; h < parsedPrev.end; h++) destino[h]++;
     }
   });
+  counts.rollers = rollers;
   return counts;
 }
 
@@ -7006,39 +7013,43 @@ function renderCajasDayView() {
   }
 
   // Cobertura: contorno = lo que pide Recaudaciones, relleno = lo planificado
-  const maxVal = Math.max(1, ...counts.slice(hMin, hMax), ...Array.from({ length: span }, (_, i) => req(hMin + i)));
-  let covBars = "", covNums = "", totalReal = 0, totalReq = 0, horasCortas = 0;
+  const rol = counts.rollers;
+  const maxVal = Math.max(1, ...Array.from({ length: span }, (_, i) => Math.max(counts[hMin + i] + rol[hMin + i], req(hMin + i))));
+  let covBars = "", covNums = "", totalReal = 0, totalReq = 0, totalRol = 0, horasCortas = 0;
   for (let h = hMin; h < hMax; h++) {
-    const r = req(h), c = counts[h];
-    totalReal += c; totalReq += r;
+    const r = req(h), c = counts[h], ro = rol[h];
+    totalReal += c; totalReq += r; totalRol += ro;
     const falta = demanda && c < r;
     if (falta) horasCortas++;
     const colW = `calc(${ancho(0, 1)} - 4px)`;
     const left = `calc(${pct(h)} + 2px)`;
     covBars += `<div style="left:${left};width:${colW};height:${(c / maxVal) * 100}%;background:${falta ? "#ef4444" : "#10b981"};opacity:0.75"></div>`;
+    // Rollers apilados encima, como apoyo: no cuentan para la cobertura
+    if (ro > 0) covBars += `<div style="left:${left};width:${colW};bottom:${(c / maxVal) * 100}%;height:${(ro / maxVal) * 100}%;background:#8b5cf6;opacity:0.55"></div>`;
     if (demanda && r > 0) {
       // El contorno va encima para que se vea aunque sobre gente
       covBars += `<div style="left:${left};width:${colW};height:${(r / maxVal) * 100}%;border:1.5px dashed rgba(255,255,255,0.85)"></div>`;
     }
-    covNums += `<span style="left:${pct(h + 0.5)};color:${falta ? "#fca5a5" : "var(--text-muted)"}" title="${h} a ${h + 1}: ${c} planificados${demanda ? ` / ${r} requeridos` : ""}">${c}${demanda ? `<br>${r}` : ""}</span>`;
+    covNums += `<span style="left:${pct(h + 0.5)};color:${falta ? "#fca5a5" : "var(--text-muted)"}" title="${h} a ${h + 1}: ${c} cajeros${demanda ? ` / ${r} requeridos` : ""}${ro ? ` · ${ro} roller` : ""}">${c}${demanda ? `<br>${r}` : ""}<br><em class="cdv-rolnum">${ro || "·"}</em></span>`;
   }
 
   const resumen = demanda
-    ? `${totalReal} h planificadas / ${totalReq} h requeridas${horasCortas ? ` · faltan personas en ${horasCortas} ${horasCortas === 1 ? "franja" : "franjas"}` : ""}`
-    : `${totalReal} h planificadas · sin demanda de Recaudaciones cargada para este día`;
+    ? `${totalReal} h de cajeros / ${totalReq} h requeridas${totalRol ? ` · + ${totalRol} h de rollers` : ""}${horasCortas ? ` · faltan personas en ${horasCortas} ${horasCortas === 1 ? "franja" : "franjas"}` : ""}`
+    : `${totalReal} h de cajeros${totalRol ? ` · + ${totalRol} h de rollers` : ""} · sin demanda de Recaudaciones cargada para este día`;
 
   const coberturaHTML = `
     <div class="cdv-block-head" style="justify-content:space-between;margin-top:28px">
       <span><b>Cobertura por hora</b>&nbsp; ${resumen}</span>
       <span class="cdv-legend">
         ${demanda ? `<span><i style="border:1.5px dashed rgba(255,255,255,0.85)"></i>Requerido</span>` : ""}
-        <span><i style="background:#10b981"></i>Planificado</span>
+        <span><i style="background:#10b981"></i>Cajeros</span>
         ${demanda ? `<span><i style="background:#ef4444"></i>Falta gente</span>` : ""}
+        ${totalRol ? `<span><i style="background:#8b5cf6;opacity:0.55"></i>Rollers (aparte)</span>` : ""}
       </span>
     </div>
     <div class="cdv-row" style="border-top:none;align-items:end">
       <span class="cdv-empty">Personas por hora</span>
-      <span class="cdv-empty" style="line-height:1.2">${demanda ? "Plan.<br>Req." : "Plan."}</span>
+      <span class="cdv-empty" style="line-height:1.2">${demanda ? "Plan.<br>Req." : "Plan."}<br><em class="cdv-rolnum">Roller</em></span>
       <div><div class="cdv-cov">${covBars}</div><div class="cdv-covnums">${covNums}</div></div>
     </div>`;
 
@@ -7135,20 +7146,23 @@ function renderCajasMobileView() {
   const ancho = (a, b) => `${((b - a) / span) * 100}%`;
 
   // Cobertura compacta: relleno = planificado (rojo si falta gente), contorno = lo que pide Recaudaciones
-  const maxVal = Math.max(1, ...counts.slice(hMin, hMax), ...Array.from({ length: span }, (_, i) => req(hMin + i)));
-  let barras = "", eje = "", numsPlan = "", numsReq = "", totalPlan = 0, totalReq = 0;
+  const rol = counts.rollers;
+  const maxVal = Math.max(1, ...Array.from({ length: span }, (_, i) => Math.max(counts[hMin + i] + rol[hMin + i], req(hMin + i))));
+  let barras = "", eje = "", numsPlan = "", numsReq = "", numsRol = "", totalPlan = 0, totalReq = 0, totalRol = 0;
   const faltantes = [];
   for (let h = hMin; h < hMax; h++) {
-    const r = req(h), c = counts[h], falta = demanda && c < r;
-    totalPlan += c; totalReq += r;
+    const r = req(h), c = counts[h], ro = rol[h], falta = demanda && c < r;
+    totalPlan += c; totalReq += r; totalRol += ro;
     if (falta) faltantes.push(h);
     const left = `calc(${pct(h)} + 1px)`, w = `calc(${ancho(0, 1)} - 2px)`;
     barras += `<div style="left:${left};width:${w};height:${(c / maxVal) * 100}%;background:${falta ? "#ef4444" : "#10b981"};opacity:0.8"></div>`;
+    if (ro > 0) barras += `<div style="left:${left};width:${w};bottom:${(c / maxVal) * 100}%;height:${(ro / maxVal) * 100}%;background:#8b5cf6;opacity:0.55"></div>`;
     if (demanda && r > 0) barras += `<div style="left:${left};width:${w};height:${(r / maxVal) * 100}%;border:1px dashed rgba(255,255,255,0.8)"></div>`;
     // Una hora por columna, alineada con su barra, como en la vista de escritorio
     eje += `<span style="left:${pct(h + 0.5)}">${h}</span>`;
     numsPlan += `<span style="left:${pct(h + 0.5)}" class="${falta ? "falta" : ""}">${c}</span>`;
     if (demanda) numsReq += `<span style="left:${pct(h + 0.5)}">${r}</span>`;
+    numsRol += `<span style="left:${pct(h + 0.5)}">${ro || "·"}</span>`;
   }
   // Agrupa las horas con faltante en rangos: "18–20 h, 22 h"
   const rangos = [];
@@ -7164,14 +7178,15 @@ function renderCajasMobileView() {
   html += `
     <div class="cmv-cov">
       <div class="cmv-cov-head"><span>Cobertura por hora</span><span class="${rangos.length ? "falta" : ""}">${resumen}</span></div>
-      <div class="cmv-cov-tot">${totalPlan} h planificadas${demanda ? ` / ${totalReq} h requeridas` : ""}</div>
+      <div class="cmv-cov-tot">${totalPlan} h de cajeros${demanda ? ` / ${totalReq} h requeridas` : ""}${totalRol ? ` · <span class="cmv-rol">+ ${totalRol} h de rollers</span>` : ""}</div>
       <div class="cmv-cov-grid">
         <span></span><div class="cmv-bars">${barras}</div>
         <span class="cmv-cov-lbl">Hora</span><div class="cmv-nums cmv-nums-h">${eje}</div>
         <span class="cmv-cov-lbl">Plan.</span><div class="cmv-nums cmv-nums-plan">${numsPlan}</div>
         ${demanda ? `<span class="cmv-cov-lbl">Req.</span><div class="cmv-nums">${numsReq}</div>` : ""}
+        ${totalRol ? `<span class="cmv-cov-lbl cmv-rol">Roller</span><div class="cmv-nums cmv-nums-rol">${numsRol}</div>` : ""}
       </div>
-      ${demanda ? `<div class="cmv-cov-legend"><span><i style="border:1px dashed rgba(255,255,255,0.8)"></i>Requerido</span><span><i style="background:#10b981"></i>Planificado</span><span><i style="background:#ef4444"></i>Falta gente</span></div>` : ""}
+      ${demanda ? `<div class="cmv-cov-legend"><span><i style="border:1px dashed rgba(255,255,255,0.8)"></i>Requerido</span><span><i style="background:#10b981"></i>Cajeros</span><span><i style="background:#ef4444"></i>Falta gente</span>${totalRol ? `<span><i style="background:#8b5cf6;opacity:0.55"></i>Rollers (aparte)</span>` : ""}</div>` : ""}
     </div>`;
 
   const celda = (id, valor) =>
