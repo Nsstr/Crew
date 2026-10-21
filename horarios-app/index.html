@@ -1368,6 +1368,9 @@
     .cdv-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
     .cdv-cov { position: relative; height: 72px; }
     .cdv-cov div { position: absolute; bottom: 0; border-radius: 2px; box-sizing: border-box; }
+    .cdv-tag.cdv-tag-rolcaj { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border-color: rgba(139, 92, 246, 0.45); }
+    .cdv-dif-falta { color: #fca5a5; }
+    .cdv-dif-ok { color: #6ee7b7; }
     .cdv-rolnum { font-style: normal; color: #a78bfa; }
     .cdv-covnums { position: relative; height: 44px; font-size: 0.7rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
     .cdv-covnums span { position: absolute; transform: translateX(-50%); text-align: center; top: 4px; }
@@ -3563,7 +3566,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.6
+            Versión: v1.6.7
           </div>
         </div>
       </div>
@@ -4409,7 +4412,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.6";
+  const APP_VERSION = "v1.6.7";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6811,13 +6814,15 @@ function cdvArmarDia(dStr) {
       start: t.start,
       end: t.end <= t.start ? 24 : t.end,
     }));
+    // Roller marcado como cajero ese día: va con los cajeros y cuenta en la cobertura
+    const rollerComoCajero = isRoller && !!obj.comoCajero;
     const persona = {
-      id: collab.id, nombre, corto, isCruzado, fijado: !!obj.fijado, tramos, hours: parsed.hours, start: parsed.start,
+      id: collab.id, nombre, corto, isCruzado, fijado: !!obj.fijado, rollerComoCajero, tramos, hours: parsed.hours, start: parsed.start,
       etiqueta: parsed.label.replace(/a/g, "–"),
     };
 
     let key = "cierre";
-    if (isRoller) key = "roller";
+    if (isRoller && !rollerComoCajero) key = "roller";
     else if (parsed.start < 12) key = "apertura";
     else if (parsed.start < 16) key = "siesta";
     bloques[key].push(persona);
@@ -6848,12 +6853,21 @@ function cdvCoberturaPorHora(dStr, bloques) {
     const parsedPrev = parseShift(getPlanningSlot(collab.id, prevStr));
     if (!parsedPrev || parsedPrev.type !== "work" || parsedPrev.isNV) return;
     if (parsedPrev.end <= parsedPrev.start) {
-      const destino = braEsRoller(collab) ? rollers : counts;
+      const objPrev = getPlanningObj(collab.id, prevStr) || {};
+      const destino = braEsRoller(collab) && !objPrev.comoCajero ? rollers : counts;
       for (let h = 0; h < parsedPrev.end; h++) destino[h]++;
     }
   });
   counts.rollers = rollers;
   return counts;
+}
+
+// "faltan 54 h", "sobran 3 h" o "justo" según horas de personas contra horas requeridas
+function cdvDiferencia(personas, requeridas) {
+  const d = Math.round((personas - requeridas) * 100) / 100;
+  if (d < 0) return `<b class="cdv-dif-falta">faltan ${-d} h</b>`;
+  if (d > 0) return `<b class="cdv-dif-ok">sobran ${d} h</b>`;
+  return `<b class="cdv-dif-ok">justo</b>`;
 }
 
 function renderCajasDayView() {
@@ -7002,7 +7016,7 @@ function renderCajasDayView() {
         `<div class="cdv-bar" style="left:${pct(t.start)};width:${ancho(t.start, t.end)};background:${b.color}"></div>`).join("");
       bloquesHTML += `
         <div class="cdv-row" title="${cdvEsc(p.nombre)}: ${horario} (${Math.round(p.hours * 100) / 100} h)">
-          <span class="cdv-name"><span class="cdv-name-txt">${cdvEsc(p.nombre)}</span>${p.isCruzado ? `<span class="cdv-tag">Refuerzo</span>` : ""}${p.fijado ? `<span class="cdv-tag cdv-tag-pedido" title="Turno fijado a pedido del colaborador">Pedido</span>` : ""}</span>
+          <span class="cdv-name"><span class="cdv-name-txt">${cdvEsc(p.nombre)}</span>${p.isCruzado ? `<span class="cdv-tag">Refuerzo</span>` : ""}${p.rollerComoCajero ? `<span class="cdv-tag cdv-tag-rolcaj" title="Roller que hoy trabaja como cajero">Roller</span>` : ""}${p.fijado ? `<span class="cdv-tag cdv-tag-pedido" title="Turno fijado a pedido del colaborador">Pedido</span>` : ""}</span>
           <span class="cdv-time">${p.tramos.map((t) => `${cdvHora(t.start)}–${cdvHora(t.end)}`).join(" / ")}<small>${Math.round(p.hours * 100) / 100} h</small></span>
           <div class="cdv-track" style="--cdv-n:${span}">${barras}</div>
         </div>`;
@@ -7034,8 +7048,8 @@ function renderCajasDayView() {
   }
 
   const resumen = demanda
-    ? `${totalReal} h de cajeros / ${totalReq} h requeridas${totalRol ? ` · + ${totalRol} h de rollers` : ""}${horasCortas ? ` · faltan personas en ${horasCortas} ${horasCortas === 1 ? "franja" : "franjas"}` : ""}`
-    : `${totalReal} h de cajeros${totalRol ? ` · + ${totalRol} h de rollers` : ""} · sin demanda de Recaudaciones cargada para este día`;
+    ? `${totalReal} h de cajeros / ${totalReq} h requeridas · ${cdvDiferencia(totalReal, totalReq)}${totalRol ? ` · <span class="cdv-rolnum">rollers ${totalRol} h (con ellos ${cdvDiferencia(totalReal + totalRol, totalReq)})</span>` : ""}${horasCortas ? ` · faltan personas en ${horasCortas} ${horasCortas === 1 ? "franja" : "franjas"}` : ""}`
+    : `${totalReal} h de cajeros${totalRol ? ` · <span class="cdv-rolnum">rollers ${totalRol} h</span>` : ""} · sin demanda de Recaudaciones cargada para este día`;
 
   const coberturaHTML = `
     <div class="cdv-block-head" style="justify-content:space-between;margin-top:28px">
@@ -7178,7 +7192,8 @@ function renderCajasMobileView() {
   html += `
     <div class="cmv-cov">
       <div class="cmv-cov-head"><span>Cobertura por hora</span><span class="${rangos.length ? "falta" : ""}">${resumen}</span></div>
-      <div class="cmv-cov-tot">${totalPlan} h de cajeros${demanda ? ` / ${totalReq} h requeridas` : ""}${totalRol ? ` · <span class="cmv-rol">+ ${totalRol} h de rollers</span>` : ""}</div>
+      <div class="cmv-cov-tot">Cajeros: ${totalPlan} h${demanda ? ` / ${totalReq} h requeridas · ${cdvDiferencia(totalPlan, totalReq)}` : ""}</div>
+      ${totalRol ? `<div class="cmv-cov-tot cmv-rol">Rollers: ${totalRol} h${demanda ? ` · con ellos ${cdvDiferencia(totalPlan + totalRol, totalReq)}` : ""}</div>` : ""}
       <div class="cmv-cov-grid">
         <span></span><div class="cmv-bars">${barras}</div>
         <span class="cmv-cov-lbl">Hora</span><div class="cmv-nums cmv-nums-h">${eje}</div>
@@ -7194,7 +7209,7 @@ function renderCajasMobileView() {
   const abrir = `onclick="window.openMobileContextMenu(this.querySelector('.cell-input'), event)"`;
   const fila = (p, color, extra = "") => `
     <div class="cmv-row" ${abrir}>
-      <span class="cmv-name" title="${cdvEsc(p.nombre)}"><span>${cdvEsc(p.corto || p.nombre)}</span>${p.fijado ? `<span class="cdv-tag cdv-tag-pedido">Pedido</span>` : ""}${extra}</span>
+      <span class="cmv-name" title="${cdvEsc(p.nombre)}"><span>${cdvEsc(p.corto || p.nombre)}</span>${p.rollerComoCajero ? `<span class="cdv-tag cdv-tag-rolcaj">Roller</span>` : ""}${p.fijado ? `<span class="cdv-tag cdv-tag-pedido">Pedido</span>` : ""}${extra}</span>
       ${celda(p.id, p.etiqueta)}
       <div class="cmv-track" style="--cmv-n:${span}">${p.tramos.map((t) => `<div style="left:${pct(t.start)};width:${ancho(t.start, t.end)};background:${color}"></div>`).join("")}</div>
     </div>`;
@@ -11675,6 +11690,11 @@ function handleContextMenu(e) {
           </div>
         </div>
 
+        <div id="ctxComoCajeroBlock" class="ctx-row-card" style="display: none;">
+          <label for="cellComoCajeroInput">Hoy trabaja como cajero<br><small style="font-weight: 400; color: #94a3b8;">Sus horas cuentan con los cajeros, no como roller</small></label>
+          <input type="checkbox" id="cellComoCajeroInput" style="cursor: pointer;">
+        </div>
+
         <div id="ctxInventarioBlock" class="ctx-row-card" style="display: none;">
           <label id="ctxInventarioLabel" for="cellInventarioInput">Evento Especial</label>
           <input type="checkbox" id="cellInventarioInput" style="cursor: pointer;">
@@ -11808,6 +11828,15 @@ function handleContextMenu(e) {
     } else {
       ctxOtBlock.style.display = "none";
       document.getElementById("cellOvertimeCheck").checked = false;
+    }
+
+    // Roller de Línea de Cajas: se puede marcar que ese día trabaja como cajero
+    const ctxCajBlock = document.getElementById("ctxComoCajeroBlock");
+    if (ctxCajBlock) {
+      const esRollerCajas = !!collabObj && braEsRoller(collabObj) && (state.currentArea || "") === "Linea de Cajas";
+      // .ctx-row-card fuerza display:flex con !important, así que hay que ocultarlo igual de fuerte
+      ctxCajBlock.style.setProperty("display", esRollerCajas ? "flex" : "none", "important");
+      document.getElementById("cellComoCajeroInput").checked = esRollerCajas && !!obj.comoCajero;
     }
 
     // Mostrar/ocultar bloque de inventario según si hay evento ese día
@@ -12240,6 +12269,11 @@ async function autoSaveContextMenu() {
     obj.esInventario = !!inventarioEl.checked;
   }
 
+  const comoCajeroBlock = document.getElementById("ctxComoCajeroBlock");
+  if (comoCajeroBlock && comoCajeroBlock.style.display !== "none") {
+    obj.comoCajero = !!document.getElementById("cellComoCajeroInput").checked;
+  }
+
   state.planning[`${collabId}_${dateStr}`] = obj;
 
   if (!isMockMode) {
@@ -12260,6 +12294,7 @@ async function autoSaveContextMenu() {
           tardanzaConfirmada: obj.tardanzaConfirmada || false,
           horaExtraValidada: obj.horaExtraValidada || false,
           esInventario: obj.esInventario || false,
+          comoCajero: !!obj.comoCajero,
         },
         { merge: true },
       );
