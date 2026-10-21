@@ -566,11 +566,7 @@
     }
     
     .mobile-hours-tag { display: none; }
-    .adic-indicator {
-       position: absolute; top: 1px; right: 2px; z-index: 2; pointer-events: none;
-       font-size: 0.55rem; font-weight: 800; line-height: 1; padding: 1px 3px; border-radius: 3px;
-       background: rgba(6, 182, 212, 0.2); color: #22d3ee; border: 1px solid rgba(34, 211, 238, 0.5);
-    }
+    #planningTable .shift-cell .shift-adic { color: #22d3ee !important; opacity: 1 !important; }
 
     /* Modals/Alerts */
     .toast-container {
@@ -3575,7 +3571,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.10
+            Versión: v1.6.11
           </div>
         </div>
       </div>
@@ -4452,7 +4448,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.10";
+  const APP_VERSION = "v1.6.11";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -8364,6 +8360,9 @@ function renderDesktopView() {
         let isSunday = targetD.getDay() === 0;
         let additionalCellClass = isSunday ? "sunday-cell" : "";
 
+        // Turno adicional del día: se muestra como segundo horario, en celeste
+        const adicCelda = parsed && parsed.type === "work" && !isOnVacation ? turnoAdicionalInfo(obj) : null;
+
         // 2. Parsear el valor para apilamiento vertical
         const vacPrefix = isOnVacation ? '<span class="vac-prefix">V.</span>' : '';
         const tcShiftClass = isTiendaCerrada ? ' shift-cell-tc' : '';
@@ -8378,6 +8377,15 @@ function renderDesktopView() {
             <div class="shift-cell shift-cell-cortado ${finalInputClass.replace('input-empty', '')} ${isOnVacation ? 'shift-cell-vacation' : ''}${tcShiftClass}" ${isTiendaCerrada ? 'title="Tienda Cerrada"' : ''}>
               <span class="shift-start">${vacPrefix}${matchCortado[1]}${isModified ? '<span style="color:var(--primary);">*</span>' : ''}</span>
               <span class="shift-end">${matchCortado[2]}</span>
+            </div>
+          `;
+        } else if (matchHorario && adicCelda) {
+          // Turno + turno adicional: dos renglones como el cortado, el adicional en celeste
+          const isModified = displayVal.includes('*');
+          displayHtml = `
+            <div class="shift-cell shift-cell-cortado shift-cell-adic ${finalInputClass.replace('input-empty', '')}${tcShiftClass}" ${isTiendaCerrada ? 'title="Tienda Cerrada"' : ''}>
+              <span class="shift-start">${matchHorario[1]}–${matchHorario[2]}${isModified ? '<span style="color:var(--primary);">*</span>' : ''}</span>
+              <span class="shift-end shift-adic">${adicCelda.label}</span>
             </div>
           `;
         } else if (matchHorario) {
@@ -8413,8 +8421,6 @@ function renderDesktopView() {
           `;
         }
 
-        // Turno adicional del día: marca con las horas aparte
-        const adicCelda = parsed && parsed.type === "work" && !isOnVacation ? turnoAdicionalInfo(obj) : null;
         if (adicCelda) {
           const adicTitle = `Turno adicional ${adicCelda.label} (+${Math.round(adicCelda.hours * 100) / 100} h aparte)`;
           titleAttr = titleAttr ? titleAttr.replace('title="', `title="${adicTitle} | `) : `title="${adicTitle}"`;
@@ -8423,7 +8429,6 @@ function renderDesktopView() {
         html += `
             <td class="${isHoliday ? "holiday-col" : ""} ${finalWrapperClass} ${additionalCellClass} day-cell" ${titleAttr} data-collab="${collab.id}" data-date="${dStr}" style="position: relative; ${eventoCellStyle}">
               <div class="ot-indicator"></div>
-              ${adicCelda ? `<div class="adic-indicator">+${Math.round(adicCelda.hours * 10) / 10}</div>` : ""}
               
               <!-- Presentación visual (Apilada) -->
               ${displayHtml}
