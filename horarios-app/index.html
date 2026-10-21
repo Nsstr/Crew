@@ -3571,7 +3571,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.15
+            Versión: v1.6.16
           </div>
         </div>
       </div>
@@ -3660,7 +3660,7 @@
         </div>
 
         <div id="pdfCoberturaOpts" style="display: none; flex-direction: column; gap: 0.6rem;">
-          <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Tres cuadros contra lo que pide Recaudaciones: cajeros, cajeros + vendedores y cajeros sin turnos adicionales.</p>
+          <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Tres cuadros contra lo que pide Recaudaciones: cajeros, cajeros + vendedores y cajeros sin horas adicionales.</p>
           <div style="display: flex; gap: 0.5rem;">
             <div style="flex: 1; display: flex; flex-direction: column; gap: 0.2rem;">
               <label style="font-size: 0.8rem; color: var(--text-muted);">Desde</label>
@@ -4448,7 +4448,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.15";
+  const APP_VERSION = "v1.6.16";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -13018,7 +13018,7 @@ function covRangos(horas) {
 const COV_ESCENARIOS = [
   { key: "caj", titulo: "1. Cajeros", desc: "Cajeros con turno, incluye los rollers marcados como cajero ese día y los turnos adicionales." },
   { key: "conVend", titulo: "2. Cajeros + vendedores", desc: "Lo mismo que el cuadro 1, sumando a los vendedores con fallo de caja que trabajan ese día." },
-  { key: "sinAdic", titulo: "3. Cajeros sin turnos adicionales", desc: "Cajeros con turno e incluye los rollers marcados como cajero, sin contar los turnos adicionales." },
+  { key: "sinAdic", titulo: "3. Cajeros sin horas adicionales", desc: "Solo cajeros, con los rollers marcados como cajero ese día, sin las horas de sus turnos adicionales." },
 ];
 
 async function covCalcularPeriodo(desde, hasta) {
@@ -13153,7 +13153,7 @@ function covExportarExcel({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
     porHora.push(fila("1. Falta", (o) => Math.max(0, o.r - o.caj)));
     porHora.push(fila("2. Cajeros + vendedores", (o) => o.conVend));
     porHora.push(fila("2. Falta", (o) => Math.max(0, o.r - o.conVend)));
-    porHora.push(fila("3. Sin adicionales", (o) => o.sinAdic));
+    porHora.push(fila("3. Sin horas adicionales", (o) => o.sinAdic));
     porHora.push(fila("3. Falta", (o) => Math.max(0, o.r - o.sinAdic)));
   });
   const ws2 = XLSX.utils.aoa_to_sheet(porHora);
