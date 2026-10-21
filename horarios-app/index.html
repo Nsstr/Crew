@@ -3571,7 +3571,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.14
+            Versión: v1.6.15
           </div>
         </div>
       </div>
@@ -3660,7 +3660,7 @@
         </div>
 
         <div id="pdfCoberturaOpts" style="display: none; flex-direction: column; gap: 0.6rem;">
-          <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Compara por día y por hora lo que pide Recaudaciones contra los cajeros planificados. Los rollers van aparte.</p>
+          <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Tres cuadros contra lo que pide Recaudaciones: cajeros, cajeros + vendedores y cajeros sin turnos adicionales.</p>
           <div style="display: flex; gap: 0.5rem;">
             <div style="flex: 1; display: flex; flex-direction: column; gap: 0.2rem;">
               <label style="font-size: 0.8rem; color: var(--text-muted);">Desde</label>
@@ -4448,7 +4448,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.14";
+  const APP_VERSION = "v1.6.15";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -13014,10 +13014,18 @@ function covRangos(horas) {
   return rangos.map(([a, b]) => `${a}–${b + 1}`).join(", ");
 }
 
+// Escenarios del detalle: mismo cálculo (pedido, tengo, diferencia, falta) con distinta gente
+const COV_ESCENARIOS = [
+  { key: "caj", titulo: "1. Cajeros", desc: "Cajeros con turno, incluye los rollers marcados como cajero ese día y los turnos adicionales." },
+  { key: "conVend", titulo: "2. Cajeros + vendedores", desc: "Lo mismo que el cuadro 1, sumando a los vendedores con fallo de caja que trabajan ese día." },
+  { key: "sinAdic", titulo: "3. Cajeros sin turnos adicionales", desc: "Cajeros con turno e incluye los rollers marcados como cajero, sin contar los turnos adicionales." },
+];
+
 async function covCalcularPeriodo(desde, hasta) {
   const { planning, demanda } = await covTraerPeriodo(desde, hasta);
   const diasLargos = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   const dias = [];
+  const vacio = () => ({ tengo: 0, falta: 0, sobra: 0, cubiertas: 0, franjas: "" });
   // cdvArmarDia y cdvCoberturaPorHora leen del estado: se les presta el del período y se devuelve
   const planOrig = state.planning, demOrig = state.demandaCajas;
   state.planning = planning;
@@ -13034,40 +13042,39 @@ async function covCalcularPeriodo(desde, hasta) {
         cerrada: !!(evento && evento.tiendaCerrada),
         conDemanda: !!curva,
         horas: [],
-        req: 0, caj: 0, adic: 0, rolCaj: 0, rol: 0, ref: 0, sobran: 0, cubiertas: 0,
-        faltan: 0, faltanConRol: 0, faltanConTodo: 0,
-        nCajeros: 0, nRollers: 0, nRefuerzos: 0, franjas: "",
+        req: 0, adic: 0, rolCaj: 0, vend: 0,
+        esc: Object.fromEntries(COV_ESCENARIOS.map((e) => [e.key, vacio()])),
       };
       if (!dia.cerrada) {
         const { bloques, respaldo } = cdvArmarDia(dStr);
         const counts = cdvCoberturaPorHora(dStr, bloques);
         const cajeros = [...bloques.apertura, ...bloques.siesta, ...bloques.cierre];
-        dia.nRollers = bloques.roller.length;
-        dia.nCajeros = cajeros.length;
-        dia.nRefuerzos = respaldo.length;
-        // Dentro de las horas de cajeros: turnos adicionales y rollers que ese día trabajan de cajero
-        const horasDe = (p) => p.tramos.reduce((t, x) => t + (x.end - x.start), 0);
-        dia.adic = cajeros.reduce((t, p) => t + (p.adicional ? p.adicional.hours : 0), 0);
-        dia.rolCaj = cajeros.filter((p) => p.rollerComoCajero).reduce((t, p) => t + horasDe(p), 0);
-        // Refuerzos (vendedores con fallo de caja): no cuentan como cajeros, van aparte
-        const refuerzos = Array(24).fill(0);
-        respaldo.forEach((p) => p.tramos.forEach((t) => {
-          for (let h = 0; h < 24; h++) if (h >= t.start && h < t.end) refuerzos[h]++;
-        }));
-        const conFalta = [];
+        const porHora = (personas, filtro = () => true) => {
+          const arr = Array(24).fill(0);
+          personas.forEach((p) => p.tramos.filter(filtro).forEach((t) => {
+            for (let h = 0; h < 24; h++) if (h >= t.start && h < t.end) arr[h]++;
+          }));
+          return arr;
+        };
+        const adicH = porHora(cajeros, (t) => t.adicional);
+        const vendH = porHora(respaldo);
+        const rolCajH = porHora(cajeros.filter((p) => p.rollerComoCajero));
+        const faltaH = Object.fromEntries(COV_ESCENARIOS.map((e) => [e.key, []]));
         for (let h = 0; h < 24; h++) {
           const r = curva ? Number(curva[h]) || 0 : 0;
-          const c = counts[h], ro = counts.rollers[h], rf = refuerzos[h];
-          dia.horas.push({ h, r, c, ro, rf });
-          dia.req += r; dia.caj += c; dia.rol += ro; dia.ref += rf;
-          dia.faltan += Math.max(0, r - c);
-          dia.faltanConRol += Math.max(0, r - c - ro);
-          dia.faltanConTodo += Math.max(0, r - c - ro - rf);
-          dia.sobran += Math.max(0, c - r);
-          dia.cubiertas += Math.min(c, r);
-          if (curva && c < r) conFalta.push(h);
+          const c = { caj: counts[h], conVend: counts[h] + vendH[h], sinAdic: counts[h] - adicH[h] };
+          dia.horas.push({ h, r, ...c, vend: vendH[h], adic: adicH[h] });
+          dia.req += r; dia.adic += adicH[h]; dia.vend += vendH[h]; dia.rolCaj += rolCajH[h];
+          COV_ESCENARIOS.forEach(({ key }) => {
+            const e = dia.esc[key];
+            e.tengo += c[key];
+            e.falta += Math.max(0, r - c[key]);
+            e.sobra += Math.max(0, c[key] - r);
+            e.cubiertas += Math.min(c[key], r);
+            if (curva && c[key] < r) faltaH[key].push(h);
+          });
         }
-        dia.franjas = covRangos(conFalta);
+        COV_ESCENARIOS.forEach(({ key }) => { dia.esc[key].franjas = covRangos(faltaH[key]); });
       }
       dias.push(dia);
     }
@@ -13076,13 +13083,16 @@ async function covCalcularPeriodo(desde, hasta) {
     state.demandaCajas = demOrig;
   }
   // Los totales solo suman días con demanda cargada, para comparar contra lo pedido
-  const claves = ["req", "caj", "adic", "rolCaj", "rol", "ref", "sobran", "cubiertas", "faltan", "faltanConRol", "faltanConTodo"];
-  const tot = Object.fromEntries(claves.map((k) => [k, 0]));
-  dias.filter((x) => x.conDemanda && !x.cerrada).forEach((x) => claves.forEach((k) => { tot[k] += x[k]; }));
+  const conDem = dias.filter((x) => x.conDemanda && !x.cerrada);
+  const tot = { req: 0, adic: 0, rolCaj: 0, vend: 0, esc: Object.fromEntries(COV_ESCENARIOS.map((e) => [e.key, vacio()])) };
+  conDem.forEach((x) => {
+    ["req", "adic", "rolCaj", "vend"].forEach((k) => { tot[k] += x[k]; });
+    COV_ESCENARIOS.forEach(({ key }) => ["tengo", "falta", "sobra", "cubiertas"].forEach((k) => { tot.esc[key][k] += x.esc[key][k]; }));
+  });
   // Rango de horas con actividad en el período, para las tablas por hora
   let hMin = 23, hMax = 0;
   dias.forEach((x) => x.horas.forEach((o) => {
-    if (o.r || o.c || o.ro || o.rf) { hMin = Math.min(hMin, o.h); hMax = Math.max(hMax, o.h); }
+    if (o.r || o.conVend) { hMin = Math.min(hMin, o.h); hMax = Math.max(hMax, o.h); }
   }));
   if (hMin > hMax) { hMin = 8; hMax = 22; }
   return { dias, tot, hMin, hMax };
@@ -13102,127 +13112,114 @@ async function covExportarDetalle(desde, hasta, formato) {
   else await covExportarPDF(datos, desde, hasta, nombre);
 }
 
+const COV_COLUMNAS = ["Día", "Fecha", "Pedido (h)", "Tengo (h)", "Diferencia (h)", "Falta (h)", "Cumplimiento", "Franjas con faltante"];
+
+function covFilaEscenario(x, key) {
+  const e = x.esc[key];
+  if (x.cerrada) return [x.etiqueta.split(" ")[0], covFecha(x.fecha), "", "", "", "", "", "Tienda cerrada"];
+  if (!x.conDemanda) return [x.etiqueta.split(" ")[0], covFecha(x.fecha), "", covH(e.tengo), "", "", "", "Sin demanda cargada (no suma al total)"];
+  return [x.etiqueta.split(" ")[0], covFecha(x.fecha), covH(x.req), covH(e.tengo), covH(e.tengo - x.req), covH(e.falta),
+    covPct(e.cubiertas, x.req), e.franjas || "—"];
+}
+
 function covExportarExcel({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
   if (typeof XLSX === "undefined") { showToast("Error", "No se pudo cargar el generador de Excel."); return; }
   const wb = XLSX.utils.book_new();
-  const resumen = [
+  const filas = [
     [`Detalle de cobertura de cajas · ${covFecha(desde)} al ${covFecha(hasta)}`],
-    ["Horas = personas por hora. Faltan = suma de lo que falta en cada franja (lo que sobra en una hora no cubre otra)."],
-    ["Cajeros incluye turnos adicionales y rollers marcados como cajero ese día. Rollers y refuerzos (vendedores con fallo de caja) van aparte."],
-    [],
-    ["Día", "Fecha", "Requeridas (h)", "Cajeros (h)", "De eso, turnos adicionales (h)", "De eso, rollers como cajero (h)",
-      "Faltan solo cajeros (h)", "Cumplimiento solo cajeros", "Franjas con faltante", "Sobran (h)",
-      "Rollers (h)", "Faltan con rollers (h)", "Refuerzos (h)", "Faltan con rollers y refuerzos (h)",
-      "Cajeros (personas)", "Rollers (personas)", "Refuerzos (personas)", "Observación"],
+    ["Pedido = horas que pide Recaudaciones. Tengo = horas de personas por hora. Diferencia = Tengo − Pedido."],
+    ["Falta = suma de lo que falta en cada franja horaria: lo que sobra en una hora no cubre otra. Los totales suman solo días con demanda cargada."],
   ];
-  dias.forEach((x) => {
-    const obs = x.cerrada ? "Tienda cerrada" : !x.conDemanda ? "Sin demanda cargada (no suma al total)" : x.feriado ? "Feriado" : "";
-    const comp = x.conDemanda && !x.cerrada;
-    const v = (n) => (comp ? covH(n) : "");
-    resumen.push([x.etiqueta.split(" ")[0], covFecha(x.fecha), v(x.req), covH(x.caj), covH(x.adic), covH(x.rolCaj),
-      v(x.faltan), comp ? covPct(x.cubiertas, x.req) : "", x.franjas, v(x.sobran),
-      covH(x.rol), v(x.faltanConRol), covH(x.ref), v(x.faltanConTodo),
-      x.nCajeros, x.nRollers, x.nRefuerzos, obs]);
+  COV_ESCENARIOS.forEach((esc) => {
+    const t = tot.esc[esc.key];
+    filas.push([], [esc.titulo], [esc.desc], COV_COLUMNAS);
+    dias.forEach((x) => filas.push(covFilaEscenario(x, esc.key)));
+    filas.push(["Total", "", covH(tot.req), covH(t.tengo), covH(t.tengo - tot.req), covH(t.falta), covPct(t.cubiertas, tot.req), ""]);
   });
-  resumen.push(["Total", "", covH(tot.req), covH(tot.caj), covH(tot.adic), covH(tot.rolCaj), covH(tot.faltan), covPct(tot.cubiertas, tot.req), "",
-    covH(tot.sobran), covH(tot.rol), covH(tot.faltanConRol), covH(tot.ref), covH(tot.faltanConTodo), "", "", "", "Solo días con demanda"]);
-  const ws1 = XLSX.utils.aoa_to_sheet(resumen);
-  ws1["!cols"] = [10, 11, 14, 12, 18, 18, 16, 16, 24, 10, 11, 16, 12, 22, 12, 12, 12, 30].map((w) => ({ wch: w }));
-  XLSX.utils.book_append_sheet(wb, ws1, "Resumen por día");
+  const ws1 = XLSX.utils.aoa_to_sheet(filas);
+  ws1["!cols"] = [11, 11, 11, 11, 14, 11, 13, 30].map((w) => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, ws1, "Resumen");
 
   const horas = [];
   for (let h = hMin; h <= hMax; h++) horas.push(h);
   const porHora = [["Día", "Fecha", "Dato", ...horas.map((h) => `${h} h`), "Total"]];
   dias.forEach((x) => {
     const fila = (dato, f) => {
-      const vals = horas.map((h) => f(x.horas[h] || { r: 0, c: 0, ro: 0, rf: 0 }));
+      const vals = horas.map((h) => (x.horas[h] ? f(x.horas[h]) : 0));
       return [x.etiqueta.split(" ")[0], covFecha(x.fecha), dato, ...vals, vals.reduce((a, b) => a + b, 0)];
     };
-    porHora.push(fila("Requerido", (o) => o.r));
-    porHora.push(fila("Cajeros", (o) => o.c));
-    porHora.push(fila("Falta solo cajeros", (o) => Math.max(0, o.r - o.c)));
-    porHora.push(fila("Rollers", (o) => o.ro));
-    porHora.push(fila("Refuerzos", (o) => o.rf));
-    porHora.push(fila("Falta con todos", (o) => Math.max(0, o.r - o.c - o.ro - o.rf)));
+    porHora.push(fila("Pedido", (o) => o.r));
+    porHora.push(fila("1. Cajeros", (o) => o.caj));
+    porHora.push(fila("1. Falta", (o) => Math.max(0, o.r - o.caj)));
+    porHora.push(fila("2. Cajeros + vendedores", (o) => o.conVend));
+    porHora.push(fila("2. Falta", (o) => Math.max(0, o.r - o.conVend)));
+    porHora.push(fila("3. Sin adicionales", (o) => o.sinAdic));
+    porHora.push(fila("3. Falta", (o) => Math.max(0, o.r - o.sinAdic)));
   });
   const ws2 = XLSX.utils.aoa_to_sheet(porHora);
-  ws2["!cols"] = [{ wch: 10 }, { wch: 11 }, { wch: 17 }, ...horas.map(() => ({ wch: 5 })), { wch: 7 }];
+  ws2["!cols"] = [{ wch: 10 }, { wch: 11 }, { wch: 22 }, ...horas.map(() => ({ wch: 5 })), { wch: 7 }];
   XLSX.utils.book_append_sheet(wb, ws2, "Detalle por hora");
   XLSX.writeFile(wb, `${nombre}.xlsx`);
   showToast("Excel generado", "La descarga ha finalizado.");
 }
 
 async function covExportarPDF({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
-  const th = "padding:4px 4px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:9.5px;line-height:1.2;";
+  const th = "padding:4px 5px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:10px;";
   const td = "padding:3px 5px;border:1px solid #e2e8f0;font-size:10px;text-align:right;";
   const rojo = "color:#b91c1c;font-weight:700;";
-  const VIOLETA = "#6d28d9", NARANJA = "#c2410c", CELESTE = "#0891b2";
-  const n = (x) => (x ? covH(x) : "—");
-  // Escalera: lo que falta solo con cajeros, sumando rollers y sumando refuerzos
-  const paso = (titulo, valor, sub, color) => `<div style="flex:1;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;border-top:3px solid ${color};">
-      <div style="font-size:9px;color:#64748b;">${titulo}</div><div style="font-size:15px;font-weight:700;">${valor}</div><div style="font-size:9px;color:#64748b;">${sub}</div></div>`;
+  const COLOR = { caj: "#10b981", conVend: "#c2410c", sinAdic: "#0891b2" };
   let html = `<div style="font-family:sans-serif;color:#0f172a;width:1050px;">
     <h2 style="margin:0 0 2px;font-size:18px;">Detalle de cobertura de cajas</h2>
-    <div style="font-size:11px;color:#475569;margin-bottom:10px;">Período ${covFecha(desde)} al ${covFecha(hasta)} · Requerido según Recaudaciones</div>
+    <div style="font-size:11px;color:#475569;margin-bottom:4px;">Período ${covFecha(desde)} al ${covFecha(hasta)} · Pedido según Recaudaciones</div>
+    <div style="font-size:9px;color:#64748b;margin-bottom:10px;">Tengo = horas de personas por hora. Diferencia = Tengo − Pedido. Falta = suma de lo que falta en cada franja (lo que sobra en una hora no cubre otra). Los totales suman solo días con demanda cargada.</div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
-      ${paso("Pedido por Recaudaciones", `${covH(tot.req)} h`, "días con demanda cargada", "#334155")}
-      ${paso("Cajeros", `${covH(tot.caj)} h`, `incluye ${covH(tot.adic)} h adicionales y ${covH(tot.rolCaj)} h de rollers como cajero`, "#10b981")}
-      ${paso("Falta solo con cajeros", `${covH(tot.faltan)} h`, `cumplimiento ${covPct(tot.cubiertas, tot.req)}`, "#ef4444")}
-      ${paso("Falta sumando rollers", `${covH(tot.faltanConRol)} h`, `rollers: ${covH(tot.rol)} h`, VIOLETA)}
-      ${paso("Falta sumando rollers y refuerzos", `${covH(tot.faltanConTodo)} h`, `refuerzos: ${covH(tot.ref)} h`, NARANJA)}
-    </div>
-    <table style="border-collapse:collapse;width:100%;margin-bottom:6px;">
-      <tr>
-        <th style="${th}" rowspan="2">Día</th><th style="${th}" rowspan="2">Pedido (h)</th>
-        <th style="${th}" colspan="3">Cajeros (h)</th>
-        <th style="${th}" colspan="3">Solo con cajeros</th>
-        <th style="${th}color:${VIOLETA};" colspan="2">Sumando rollers</th>
-        <th style="${th}color:${NARANJA};" colspan="2">Sumando refuerzos</th>
-      </tr>
-      <tr>
-        <th style="${th}">Total</th><th style="${th}color:${CELESTE};">Adic.</th><th style="${th}color:${VIOLETA};">Roller como cajero</th>
-        <th style="${th}">Falta (h)</th><th style="${th}">Cumpl.</th><th style="${th}">Franjas con faltante</th>
-        <th style="${th}color:${VIOLETA};">Rollers (h)</th><th style="${th}">Falta (h)</th>
-        <th style="${th}color:${NARANJA};">Refuerzos (h)</th><th style="${th}">Falta (h)</th>
-      </tr>
-      ${dias.map((x) => {
-        const obs = x.cerrada ? "Tienda cerrada" : !x.conDemanda ? "Sin demanda cargada" : "";
-        return `<tr${x.feriado ? ' style="background:#fef9c3;"' : ""}>
-          <td style="${td}text-align:left;white-space:nowrap;">${x.etiqueta}${x.feriado ? " (feriado)" : ""}</td>
-          ${obs ? `<td colspan="11" style="${td}text-align:left;color:#64748b;">${obs}${x.caj || x.rol ? ` · ${covH(x.caj)} h de cajeros, ${covH(x.rol)} h de rollers y ${covH(x.ref)} h de refuerzos planificadas` : ""} (no suma al total)</td>` : `
-          <td style="${td}">${covH(x.req)}</td>
-          <td style="${td}font-weight:700;">${covH(x.caj)}</td><td style="${td}color:${CELESTE};">${n(x.adic)}</td><td style="${td}color:${VIOLETA};">${n(x.rolCaj)}</td>
-          <td style="${td}${x.faltan ? rojo : ""}">${covH(x.faltan)}</td><td style="${td}">${covPct(x.cubiertas, x.req)}</td>
-          <td style="${td}text-align:left;">${x.franjas || "—"}</td>
-          <td style="${td}color:${VIOLETA};">${n(x.rol)}</td><td style="${td}${x.faltanConRol ? rojo : ""}">${covH(x.faltanConRol)}</td>
-          <td style="${td}color:${NARANJA};">${n(x.ref)}</td><td style="${td}${x.faltanConTodo ? rojo : ""}">${covH(x.faltanConTodo)}</td>`}
-        </tr>`;
+      ${COV_ESCENARIOS.map((esc) => {
+        const t = tot.esc[esc.key];
+        return `<div style="flex:1;border:1px solid #cbd5e1;border-top:3px solid ${COLOR[esc.key]};border-radius:6px;padding:6px 8px;">
+          <div style="font-size:10px;font-weight:700;">${esc.titulo}</div>
+          <div style="font-size:9px;color:#64748b;">Pedido ${covH(tot.req)} h · Tengo ${covH(t.tengo)} h</div>
+          <div style="font-size:15px;font-weight:700;${t.falta ? rojo : ""}">Falta ${covH(t.falta)} h</div>
+          <div style="font-size:9px;color:#64748b;">Cumplimiento ${covPct(t.cubiertas, tot.req)}</div></div>`;
       }).join("")}
-      <tr style="font-weight:700;background:#f8fafc;"><td style="${td}text-align:left;">Total</td><td style="${td}">${covH(tot.req)}</td>
-        <td style="${td}">${covH(tot.caj)}</td><td style="${td}">${n(tot.adic)}</td><td style="${td}">${n(tot.rolCaj)}</td>
-        <td style="${td}">${covH(tot.faltan)}</td><td style="${td}">${covPct(tot.cubiertas, tot.req)}</td><td style="${td}"></td>
-        <td style="${td}">${n(tot.rol)}</td><td style="${td}">${covH(tot.faltanConRol)}</td>
-        <td style="${td}">${n(tot.ref)}</td><td style="${td}">${covH(tot.faltanConTodo)}</td></tr>
-    </table>
-    <div style="font-size:9px;color:#64748b;margin-bottom:14px;line-height:1.4;">
-      Cajeros incluye los turnos adicionales y los rollers marcados como cajero ese día. Rollers y refuerzos (vendedores con fallo de caja) no cuentan como cajeros: se muestran aparte para ver cuánto faltaría si se suman.
-      Falta = suma de lo que falta en cada franja horaria; lo que sobra en una hora no compensa otra. Los totales suman solo los días con demanda cargada.
-    </div>
-    <div class="html2pdf__page-break"></div>
-    <h3 style="margin:0 0 6px;font-size:14px;">Detalle por hora</h3>`;
+    </div>`;
+  COV_ESCENARIOS.forEach((esc) => {
+    const t = tot.esc[esc.key];
+    html += `<div style="margin-bottom:12px;page-break-inside:avoid;">
+      <div style="font-size:12px;font-weight:700;border-left:4px solid ${COLOR[esc.key]};padding-left:6px;margin-bottom:2px;">${esc.titulo}</div>
+      <div style="font-size:9px;color:#64748b;margin-bottom:4px;">${esc.desc}</div>
+      <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
+        <colgroup><col style="width:130px"><col style="width:95px"><col style="width:95px"><col style="width:105px"><col style="width:95px"><col style="width:105px"><col></colgroup>
+        <tr>${["Día", "Pedido (h)", "Tengo (h)", "Diferencia (h)", "Falta (h)", "Cumplimiento", "Franjas con faltante"].map((c) => `<th style="${th}">${c}</th>`).join("")}</tr>
+        ${dias.map((x) => {
+          const e = x.esc[esc.key];
+          const obs = x.cerrada ? "Tienda cerrada" : !x.conDemanda ? `Sin demanda cargada · tengo ${covH(e.tengo)} h (no suma al total)` : "";
+          return `<tr${x.feriado ? ' style="background:#fef9c3;"' : ""}><td style="${td}text-align:left;white-space:nowrap;width:110px;">${x.etiqueta}${x.feriado ? " (feriado)" : ""}</td>
+            ${obs ? `<td colspan="6" style="${td}text-align:left;color:#64748b;">${obs}</td>` : `
+            <td style="${td}">${covH(x.req)}</td><td style="${td}font-weight:700;">${covH(e.tengo)}</td>
+            <td style="${td}${e.tengo < x.req ? rojo : ""}">${covH(e.tengo - x.req)}</td>
+            <td style="${td}${e.falta ? rojo : ""}">${covH(e.falta)}</td>
+            <td style="${td}">${covPct(e.cubiertas, x.req)}</td>
+            <td style="${td}text-align:left;">${e.franjas || "—"}</td>`}</tr>`;
+        }).join("")}
+        <tr style="font-weight:700;background:#f8fafc;"><td style="${td}text-align:left;">Total</td><td style="${td}">${covH(tot.req)}</td><td style="${td}">${covH(t.tengo)}</td>
+          <td style="${td}">${covH(t.tengo - tot.req)}</td><td style="${td}">${covH(t.falta)}</td><td style="${td}">${covPct(t.cubiertas, tot.req)}</td><td style="${td}"></td></tr>
+      </table></div>`;
+  });
   const horas = [];
   for (let h = hMin; h <= hMax; h++) horas.push(h);
-  html += `<table style="border-collapse:collapse;width:100%;">
+  html += `<div class="html2pdf__page-break"></div>
+    <h3 style="margin:0 0 6px;font-size:14px;">Detalle por hora (cuadro 1: cajeros / pedido)</h3>
+    <table style="border-collapse:collapse;width:100%;">
     <tr><th style="${th}">Día</th>${horas.map((h) => `<th style="${th}">${h}</th>`).join("")}</tr>
     ${dias.map((x) => `<tr${x.feriado ? ' style="background:#fef9c3;"' : ""}><td style="${td}text-align:left;white-space:nowrap;">${x.etiqueta}</td>${horas.map((h) => {
       const o = x.horas[h];
       if (!o || x.cerrada) return `<td style="${td}"></td>`;
-      const falta = x.conDemanda && o.c < o.r;
-      const extra = [o.ro ? `<span style="color:${VIOLETA};">+${o.ro}</span>` : "", o.rf ? `<span style="color:${NARANJA};">+${o.rf}</span>` : ""].filter(Boolean).join(" ");
-      return `<td style="${td}text-align:center;${falta ? "background:#fee2e2;" : ""}"><span style="${falta ? rojo : ""}">${o.c}</span>/${o.r}${extra ? `<br><span style="font-size:8px;">${extra}</span>` : ""}</td>`;
+      const falta = x.conDemanda && o.caj < o.r;
+      const extra = [o.adic ? `<span style="color:${COLOR.sinAdic};">adic ${o.adic}</span>` : "", o.vend ? `<span style="color:${COLOR.conVend};">+${o.vend} vend</span>` : ""].filter(Boolean).join(" ");
+      return `<td style="${td}text-align:center;${falta ? "background:#fee2e2;" : ""}"><span style="${falta ? rojo : ""}">${o.caj}</span>/${o.r}${extra ? `<br><span style="font-size:7.5px;">${extra}</span>` : ""}</td>`;
     }).join("")}</tr>`).join("")}
   </table>
-  <div style="font-size:9px;color:#64748b;margin-top:4px;">Cada celda: cajeros / pedido. En rojo, las horas donde faltan cajeros. Abajo, en <span style="color:${VIOLETA};">violeta</span> los rollers y en <span style="color:${NARANJA};">naranja</span> los refuerzos de esa hora.</div></div>`;
+  <div style="font-size:9px;color:#64748b;margin-top:4px;">Cada celda: cajeros / pedido. En rojo, las horas donde faltan cajeros. Abajo: en <span style="color:${COLOR.sinAdic};">celeste</span> cuántos de esos cajeros están en turno adicional y en <span style="color:${COLOR.conVend};">naranja</span> los vendedores que pueden cobrar.</div></div>`;
 
   await html2pdf().set({
     margin: [8, 8, 8, 8],
@@ -13230,7 +13227,7 @@ async function covExportarPDF({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
     image: { type: "jpeg", quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true },
     jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-    pagebreak: { mode: ["css", "legacy"] },
+    pagebreak: { mode: ["css", "legacy"], avoid: "tr" },
   }).from(html).save();
   showToast("PDF generado", "La descarga ha finalizado.");
 }
