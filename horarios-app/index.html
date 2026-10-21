@@ -566,6 +566,11 @@
     }
     
     .mobile-hours-tag { display: none; }
+    .adic-indicator {
+       position: absolute; top: 1px; right: 2px; z-index: 2; pointer-events: none;
+       font-size: 0.55rem; font-weight: 800; line-height: 1; padding: 1px 3px; border-radius: 3px;
+       background: rgba(6, 182, 212, 0.2); color: #22d3ee; border: 1px solid rgba(34, 211, 238, 0.5);
+    }
 
     /* Modals/Alerts */
     .toast-container {
@@ -1368,6 +1373,10 @@
     .cdv-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
     .cdv-cov { position: relative; height: 72px; }
     .cdv-cov div { position: absolute; bottom: 0; border-radius: 2px; box-sizing: border-box; }
+    .cdv-tag.cdv-tag-adic { background: rgba(6, 182, 212, 0.18); color: #67e8f9; border-color: rgba(34, 211, 238, 0.45); }
+    .cdv-adic-h { color: #22d3ee; }
+    .cdv-time .cdv-adic-h, .cdv-time small.cdv-adic-h { font-weight: 700; color: #22d3ee; }
+    .cdv-bar-adic { background: repeating-linear-gradient(45deg, var(--c) 0 5px, rgba(34, 211, 238, 0.85) 5px 9px) !important; }
     .cdv-tag.cdv-tag-rolcaj { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border-color: rgba(139, 92, 246, 0.45); }
     .cdv-dif-falta { color: #fca5a5; }
     .cdv-dif-ok { color: #6ee7b7; }
@@ -3566,7 +3575,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.9
+            Versión: v1.6.10
           </div>
         </div>
       </div>
@@ -4443,7 +4452,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.9";
+  const APP_VERSION = "v1.6.10";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5446,6 +5455,21 @@ function calculateWeeklyHours(collabId, weekMondayStr, excludeDateStr) {
   return total;
 }
 
+// Turno adicional del día (ej: viene 8a13 y además 17a21). Se guarda aparte del turno
+// (obj.turnoAdicional): cuenta para la cobertura, pero sus horas no suman a la carga semanal.
+function turnoAdicionalInfo(obj) {
+  if (!obj || typeof obj !== "object" || !obj.turnoAdicional) return null;
+  const p = parseShift(obj.turnoAdicional);
+  if (!p || p.type !== "work" || p.isCortado || p.ausencia) return null;
+  return {
+    slot: obj.turnoAdicional,
+    start: p.start,
+    end: p.end <= p.start ? 24 : p.end,
+    hours: p.hours,
+    label: p.label.replace(/a/g, "–"),
+  };
+}
+
 // 6. CALCULO HORAS EXTRAS PARA MENÚ CONTEXTUAL
 function calculateOvertimeInfo(collabId, dateStr, newParsedSlot) {
   if (!newParsedSlot || newParsedSlot.type !== "work") return null;
@@ -5827,6 +5851,8 @@ function updateDynamicHours() {
       
       if (parsed && parsed.type === "work" && !isVac) {
         weeklyData[currentWeekNum].hours += parsed.hours;
+        const adicSemana = turnoAdicionalInfo(obj);
+        if (adicSemana) weeklyData[currentWeekNum].adic = (weeklyData[currentWeekNum].adic || 0) + adicSemana.hours;
       }
     }
 
@@ -5884,6 +5910,11 @@ function updateDynamicHours() {
       const data = weeklyData[weekNum];
       if (el && data) {
         el.innerHTML = renderBox(data.hours, data.vac, meta);
+        // Horas de turnos adicionales: aparte de la carga semanal
+        if (data.adic && !data.vac) {
+          const adicTxt = Math.round(data.adic * 10) / 10;
+          el.innerHTML += `<div title="Horas adicionales de la semana (no suman a la carga)" style="font-size: 0.55rem; font-weight: 800; color: #22d3ee; text-align: center; line-height: 1.1;">+${adicTxt}</div>`;
+        }
       }
     };
 
@@ -6845,11 +6876,15 @@ function cdvArmarDia(dStr) {
       start: t.start,
       end: t.end <= t.start ? 24 : t.end,
     }));
+    // Turno adicional: está en la tienda, así que cuenta para la cobertura (horas aparte)
+    const adicional = turnoAdicionalInfo(obj);
+    if (adicional) tramos.push({ start: adicional.start, end: adicional.end, adicional: true });
     // Roller marcado como cajero ese día: va con los cajeros y cuenta en la cobertura
     const rollerComoCajero = isRoller && !!obj.comoCajero;
     const persona = {
       id: collab.id, nombre, corto, isCruzado, fijado: !!obj.fijado, rollerComoCajero, tramos, hours: parsed.hours, start: parsed.start,
       etiqueta: parsed.label.replace(/a/g, "–"),
+      adicional,
     };
 
     let key = "cierre";
@@ -7042,13 +7077,14 @@ function renderCajasDayView() {
     if (!lista.length) return;
     bloquesHTML += `<div class="cdv-block-head"><span class="cdv-dot" style="background:${b.color}"></span><b>${b.label}</b><span>${lista.length} ${lista.length === 1 ? "persona" : "personas"}${b.nota ? ` · ${b.nota}` : ""}</span></div>`;
     lista.forEach((p) => {
-      const horario = p.tramos.map((t) => `${cdvHora(t.start)} a ${cdvHora(t.end)}`).join(" / ");
+      const horario = p.tramos.map((t) => `${cdvHora(t.start)} a ${cdvHora(t.end)}${t.adicional ? " (adicional)" : ""}`).join(" / ");
       const barras = p.tramos.map((t) =>
-        `<div class="cdv-bar" style="left:${pct(t.start)};width:${ancho(t.start, t.end)};background:${b.color}"></div>`).join("");
+        `<div class="cdv-bar${t.adicional ? " cdv-bar-adic" : ""}" style="left:${pct(t.start)};width:${ancho(t.start, t.end)};--c:${b.color};background:${b.color}"></div>`).join("");
+      const horasAdic = p.adicional ? `<small class="cdv-adic-h">+${Math.round(p.adicional.hours * 100) / 100} h adic.</small>` : "";
       bloquesHTML += `
         <div class="cdv-row" title="${cdvEsc(p.nombre)}: ${horario} (${Math.round(p.hours * 100) / 100} h)">
           <span class="cdv-name"><span class="cdv-name-txt">${cdvEsc(p.nombre)}</span>${p.isCruzado ? `<span class="cdv-tag">Refuerzo</span>` : ""}${p.rollerComoCajero ? `<span class="cdv-tag cdv-tag-rolcaj" title="Roller que hoy trabaja como cajero">Roller</span>` : ""}${p.fijado ? `<span class="cdv-tag cdv-tag-pedido" title="Turno fijado a pedido del colaborador">Pedido</span>` : ""}</span>
-          <span class="cdv-time">${p.tramos.map((t) => `${cdvHora(t.start)}–${cdvHora(t.end)}`).join(" / ")}<small>${Math.round(p.hours * 100) / 100} h</small></span>
+          <span class="cdv-time">${p.tramos.map((t) => `${t.adicional ? '<span class="cdv-adic-h">+' : ""}${cdvHora(t.start)}–${cdvHora(t.end)}${t.adicional ? "</span>" : ""}`).join(" / ")}<small>${Math.round(p.hours * 100) / 100} h</small>${horasAdic}</span>
           <div class="cdv-track" style="--cdv-n:${span}">${barras}</div>
         </div>`;
     });
@@ -7240,9 +7276,9 @@ function renderCajasMobileView() {
   const abrir = `onclick="window.openMobileContextMenu(this.querySelector('.cell-input'), event)"`;
   const fila = (p, color, extra = "") => `
     <div class="cmv-row" ${abrir}>
-      <span class="cmv-name" title="${cdvEsc(p.nombre)}"><span>${cdvEsc(p.corto || p.nombre)}</span>${p.rollerComoCajero ? `<span class="cdv-tag cdv-tag-rolcaj">Roller</span>` : ""}${p.fijado ? `<span class="cdv-tag cdv-tag-pedido">Pedido</span>` : ""}${extra}</span>
+      <span class="cmv-name" title="${cdvEsc(p.nombre)}"><span>${cdvEsc(p.corto || p.nombre)}</span>${p.rollerComoCajero ? `<span class="cdv-tag cdv-tag-rolcaj">Roller</span>` : ""}${p.adicional ? `<span class="cdv-tag cdv-tag-adic" title="Turno adicional ${p.adicional.label}">+${p.adicional.label}</span>` : ""}${p.fijado ? `<span class="cdv-tag cdv-tag-pedido">Pedido</span>` : ""}${extra}</span>
       ${celda(p.id, p.etiqueta)}
-      <div class="cmv-track" style="--cmv-n:${span}">${p.tramos.map((t) => `<div style="left:${pct(t.start)};width:${ancho(t.start, t.end)};background:${color}"></div>`).join("")}</div>
+      <div class="cmv-track" style="--cmv-n:${span}">${p.tramos.map((t) => `<div class="${t.adicional ? "cdv-bar-adic" : ""}" style="left:${pct(t.start)};width:${ancho(t.start, t.end)};--c:${color};background:${color}"></div>`).join("")}</div>
     </div>`;
 
   // Regla de horas alineada con las barras; queda fija arriba al deslizar
@@ -8377,9 +8413,17 @@ function renderDesktopView() {
           `;
         }
 
+        // Turno adicional del día: marca con las horas aparte
+        const adicCelda = parsed && parsed.type === "work" && !isOnVacation ? turnoAdicionalInfo(obj) : null;
+        if (adicCelda) {
+          const adicTitle = `Turno adicional ${adicCelda.label} (+${Math.round(adicCelda.hours * 100) / 100} h aparte)`;
+          titleAttr = titleAttr ? titleAttr.replace('title="', `title="${adicTitle} | `) : `title="${adicTitle}"`;
+        }
+
         html += `
             <td class="${isHoliday ? "holiday-col" : ""} ${finalWrapperClass} ${additionalCellClass} day-cell" ${titleAttr} data-collab="${collab.id}" data-date="${dStr}" style="position: relative; ${eventoCellStyle}">
               <div class="ot-indicator"></div>
+              ${adicCelda ? `<div class="adic-indicator">+${Math.round(adicCelda.hours * 10) / 10}</div>` : ""}
               
               <!-- Presentación visual (Apilada) -->
               ${displayHtml}
@@ -11723,6 +11767,19 @@ function handleContextMenu(e) {
           </div>
         </div>
 
+        <div id="ctxAdicionalBlock" class="ctx-row-card" style="flex-direction: column !important; align-items: stretch !important; gap: 6px !important;">
+          <label for="ctxAdicIn">Turno adicional<br><small style="font-weight: 400; color: #94a3b8;">Otro horario el mismo día. Sus horas van aparte como adicionales.</small></label>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div class="ctx-time-capsule" style="flex: 1; margin: 0;">
+              <input type="time" id="ctxAdicIn">
+              <span style="color: #64748b; font-size: 0.75rem;">a</span>
+              <input type="time" id="ctxAdicOut">
+            </div>
+            <button type="button" id="ctxAdicClear" title="Quitar turno adicional" style="background: transparent; border: 1px solid #334155; color: #94a3b8; border-radius: 6px; padding: 6px 8px; font-size: 0.72rem; cursor: pointer;">Quitar</button>
+          </div>
+          <span id="ctxAdicHoras" style="font-size: 0.7rem; color: #fbbf24;"></span>
+        </div>
+
         <div id="ctxComoCajeroBlock" class="ctx-row-card" style="display: none;">
           <label for="cellComoCajeroInput">Hoy trabaja como cajero<br><small style="font-weight: 400; color: #94a3b8;">Sus horas cuentan con los cajeros, no como roller</small></label>
           <input type="checkbox" id="cellComoCajeroInput" style="cursor: pointer;">
@@ -11861,6 +11918,27 @@ function handleContextMenu(e) {
     } else {
       ctxOtBlock.style.display = "none";
       document.getElementById("cellOvertimeCheck").checked = false;
+    }
+
+    // Turno adicional: precarga y muestra las horas
+    const adicIn = document.getElementById("ctxAdicIn"), adicOut = document.getElementById("ctxAdicOut");
+    if (adicIn && adicOut) {
+      const aHHMM = (h) => `${String(Math.floor(h) % 24).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
+      const adic = turnoAdicionalInfo(obj);
+      adicIn.value = adic ? aHHMM(adic.start) : "";
+      adicOut.value = adic ? aHHMM(adic.end) : "";
+      const mostrarHorasAdic = () => {
+        const el = document.getElementById("ctxAdicHoras");
+        if (!el) return;
+        const info = adicIn.value && adicOut.value
+          ? turnoAdicionalInfo({ turnoAdicional: `${adicIn.value.replace(/^0/, "").replace(/:00$/, "")}a${adicOut.value.replace(/^0/, "").replace(/:00$/, "")}` })
+          : null;
+        el.textContent = info ? `+${Math.round(info.hours * 100) / 100} h adicionales` : "";
+      };
+      adicIn.oninput = mostrarHorasAdic;
+      adicOut.oninput = mostrarHorasAdic;
+      document.getElementById("ctxAdicClear").onclick = () => { adicIn.value = ""; adicOut.value = ""; mostrarHorasAdic(); };
+      mostrarHorasAdic();
     }
 
     // Roller de Línea de Cajas: se puede marcar que ese día trabaja como cajero
@@ -12250,9 +12328,46 @@ async function autoSaveContextMenu() {
     return false;
   }
 
+  // Turno adicional: los dos horarios o ninguno, y sin pisarse con el turno del día
+  const adicInVal = document.getElementById("ctxAdicIn") ? document.getElementById("ctxAdicIn").value : null;
+  const adicOutVal = document.getElementById("ctxAdicOut") ? document.getElementById("ctxAdicOut").value : null;
+  let turnoAdicionalNuevo = null; // null = el menú no tiene el bloque, no se toca
+  if (adicInVal !== null && adicOutVal !== null) {
+    if (!!adicInVal !== !!adicOutVal) {
+      showToast("Turno adicional", "Cargá el horario de entrada y de salida del turno adicional, o quitalo.", "warning");
+      return false;
+    }
+    turnoAdicionalNuevo = "";
+    if (adicInVal && adicOutVal) {
+      const fmt = (t) => t.replace(/^0/, "").replace(/:00$/, "");
+      turnoAdicionalNuevo = `${fmt(adicInVal)}a${fmt(adicOutVal)}`;
+      const adic = turnoAdicionalInfo({ turnoAdicional: turnoAdicionalNuevo });
+      if (!adic) {
+        showToast("Turno adicional", "El horario del turno adicional no es válido.", "warning");
+        return false;
+      }
+      const principal = parsedWithNewTardanza;
+      if (!principal || principal.type !== "work") {
+        showToast("Turno adicional", "Cargá primero el turno del día; el adicional se suma a ese turno.", "warning");
+        return false;
+      }
+      const tramosPrincipal = (principal.isCortado ? principal.tramos : [principal])
+        .map((t) => ({ start: t.start, end: t.end <= t.start ? 24 : t.end }));
+      if (tramosPrincipal.some((t) => adic.start < t.end && adic.end > t.start)) {
+        showToast("Turno adicional", "El turno adicional se superpone con el turno del día.", "warning");
+        return false;
+      }
+    }
+  }
+
   const obj = getPlanningObj(collabId, dateStr) || {};
   const oldSlot = obj.slot || getPlanningSlot(collabId, dateStr) || currentContextCell.value;
   const oldComment = obj.comentario || "";
+  const oldAdicional = obj.turnoAdicional || "";
+  if (turnoAdicionalNuevo !== null) obj.turnoAdicional = turnoAdicionalNuevo;
+  if (turnoAdicionalNuevo !== null && turnoAdicionalNuevo !== oldAdicional && typeof window.registrarLogActividad === "function") {
+    window.registrarLogActividad(collabId, dateStr, oldAdicional ? `Adicional ${oldAdicional}` : "Sin adicional", turnoAdicionalNuevo ? `Adicional ${turnoAdicionalNuevo}` : "Sin adicional");
+  }
 
   const collabObjAuto = (state.collaborators || []).find((c) => c.id === collabId);
   if (collabObjAuto && isContractUnder119(collabObjAuto)) {
@@ -12328,6 +12443,7 @@ async function autoSaveContextMenu() {
           horaExtraValidada: obj.horaExtraValidada || false,
           esInventario: obj.esInventario || false,
           comoCajero: !!obj.comoCajero,
+          turnoAdicional: obj.turnoAdicional || "",
         },
         { merge: true },
       );
@@ -12892,7 +13008,7 @@ async function covCalcularPeriodo(desde, hasta) {
         cerrada: !!(evento && evento.tiendaCerrada),
         conDemanda: !!curva,
         horas: [],
-        req: 0, caj: 0, rol: 0, faltan: 0, faltanConRol: 0, sobran: 0, cubiertas: 0,
+        req: 0, caj: 0, rol: 0, adic: 0, faltan: 0, faltanConRol: 0, sobran: 0, cubiertas: 0,
         nCajeros: 0, nRollers: 0, franjas: "",
       };
       if (!dia.cerrada) {
@@ -12900,6 +13016,9 @@ async function covCalcularPeriodo(desde, hasta) {
         const counts = cdvCoberturaPorHora(dStr, bloques);
         dia.nRollers = bloques.roller.length;
         dia.nCajeros = bloques.apertura.length + bloques.siesta.length + bloques.cierre.length;
+        // Horas de turnos adicionales de cajeros (ya incluidas en las horas de cajeros)
+        dia.adic = [...bloques.apertura, ...bloques.siesta, ...bloques.cierre]
+          .reduce((t, p) => t + (p.adicional ? p.adicional.hours : 0), 0);
         const conFalta = [];
         for (let h = 0; h < 24; h++) {
           const r = curva ? Number(curva[h]) || 0 : 0;
@@ -12922,9 +13041,9 @@ async function covCalcularPeriodo(desde, hasta) {
   }
   // Los totales solo suman días con demanda cargada, para comparar contra lo pedido
   const tot = dias.filter((x) => x.conDemanda && !x.cerrada).reduce((t, x) => {
-    ["req", "caj", "rol", "faltan", "faltanConRol", "sobran", "cubiertas"].forEach((k) => { t[k] += x[k]; });
+    ["req", "caj", "rol", "adic", "faltan", "faltanConRol", "sobran", "cubiertas"].forEach((k) => { t[k] += x[k]; });
     return t;
-  }, { req: 0, caj: 0, rol: 0, faltan: 0, faltanConRol: 0, sobran: 0, cubiertas: 0 });
+  }, { req: 0, caj: 0, rol: 0, adic: 0, faltan: 0, faltanConRol: 0, sobran: 0, cubiertas: 0 });
   // Rango de horas con actividad en el período, para las tablas por hora
   let hMin = 23, hMax = 0;
   dias.forEach((x) => x.horas.forEach((o) => {
@@ -12954,17 +13073,17 @@ function covExportarExcel({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
     [`Detalle de cobertura de cajas · ${covFecha(desde)} al ${covFecha(hasta)}`],
     ["Horas = personas por hora. Faltan = suma de lo que falta en cada franja (lo que sobra en una hora no cubre otra)."],
     [],
-    ["Día", "Fecha", "Requeridas (h)", "Cajeros (h)", "Diferencia (h)", "Faltan por franja (h)", "Sobran por franja (h)", "Cumplimiento", "Franjas con faltante", "Rollers (h)", "Faltan con rollers (h)", "Cajeros (personas)", "Rollers (personas)", "Observación"],
+    ["Día", "Fecha", "Requeridas (h)", "Cajeros (h)", "De eso, adicionales (h)", "Diferencia (h)", "Faltan por franja (h)", "Sobran por franja (h)", "Cumplimiento", "Franjas con faltante", "Rollers (h)", "Faltan con rollers (h)", "Cajeros (personas)", "Rollers (personas)", "Observación"],
   ];
   dias.forEach((x) => {
     const obs = x.cerrada ? "Tienda cerrada" : !x.conDemanda ? "Sin demanda cargada (no suma al total)" : x.feriado ? "Feriado" : "";
     const comp = x.conDemanda && !x.cerrada;
-    resumen.push([x.etiqueta.split(" ")[0], covFecha(x.fecha), comp ? x.req : "", x.caj, comp ? x.caj - x.req : "", comp ? x.faltan : "", comp ? x.sobran : "",
+    resumen.push([x.etiqueta.split(" ")[0], covFecha(x.fecha), comp ? x.req : "", x.caj, x.adic, comp ? x.caj - x.req : "", comp ? x.faltan : "", comp ? x.sobran : "",
       comp ? covPct(x.cubiertas, x.req) : "", x.franjas, x.rol, comp ? x.faltanConRol : "", x.nCajeros, x.nRollers, obs]);
   });
-  resumen.push(["Total", "", tot.req, tot.caj, tot.caj - tot.req, tot.faltan, tot.sobran, covPct(tot.cubiertas, tot.req), "", tot.rol, tot.faltanConRol, "", "", ""]);
+  resumen.push(["Total", "", tot.req, tot.caj, tot.adic, tot.caj - tot.req, tot.faltan, tot.sobran, covPct(tot.cubiertas, tot.req), "", tot.rol, tot.faltanConRol, "", "", ""]);
   const ws1 = XLSX.utils.aoa_to_sheet(resumen);
-  ws1["!cols"] = [10, 11, 14, 12, 13, 18, 18, 13, 26, 11, 20, 16, 16, 20].map((w) => ({ wch: w }));
+  ws1["!cols"] = [10, 11, 14, 12, 20, 13, 18, 18, 13, 26, 11, 20, 16, 16, 20].map((w) => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, ws1, "Resumen por día");
 
   const horas = [];
@@ -12999,13 +13118,13 @@ async function covExportarPDF({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
         .map(([k, v]) => `<div style="flex:1;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;"><div style="font-size:9px;color:#64748b;">${k}</div><div style="font-size:15px;font-weight:700;">${v}</div></div>`).join("")}
     </div>
     <table style="border-collapse:collapse;width:100%;margin-bottom:6px;">
-      <tr>${["Día", "Req. (h)", "Cajeros (h)", "Dif. (h)", "Faltan (h)", "Sobran (h)", "Cumpl.", "Franjas con faltante", "Rollers (h)", "Faltan c/ rollers (h)"].map((t) => `<th style="${th}">${t}</th>`).join("")}</tr>
+      <tr>${["Día", "Req. (h)", "Cajeros (h)", "Adic. (h)", "Dif. (h)", "Faltan (h)", "Sobran (h)", "Cumpl.", "Franjas con faltante", "Rollers (h)", "Faltan c/ rollers (h)"].map((t) => `<th style="${th}">${t}</th>`).join("")}</tr>
       ${dias.map((x) => {
         const obs = x.cerrada ? "Tienda cerrada" : !x.conDemanda ? "Sin demanda cargada" : "";
         return `<tr${x.feriado ? ' style="background:#fef9c3;"' : ""}>
           <td style="${td}text-align:left;">${x.etiqueta}${x.feriado ? " (feriado)" : ""}</td>
-          ${obs ? `<td colspan="9" style="${td}text-align:left;color:#64748b;">${obs}${x.caj ? ` · ${x.caj} h de cajeros y ${x.rol} h de rollers planificadas` : ""} (no suma al total)</td>` : `
-          <td style="${td}">${x.req}</td><td style="${td}">${x.caj}</td>
+          ${obs ? `<td colspan="10" style="${td}text-align:left;color:#64748b;">${obs}${x.caj ? ` · ${x.caj} h de cajeros y ${x.rol} h de rollers planificadas` : ""} (no suma al total)</td>` : `
+          <td style="${td}">${x.req}</td><td style="${td}">${x.caj}</td><td style="${td}color:#0891b2;">${x.adic || ""}</td>
           <td style="${td}${x.caj < x.req ? rojo : ""}">${x.caj - x.req}</td>
           <td style="${td}${x.faltan ? rojo : ""}">${x.faltan}</td><td style="${td}">${x.sobran}</td>
           <td style="${td}">${covPct(x.cubiertas, x.req)}</td>
@@ -13013,11 +13132,11 @@ async function covExportarPDF({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
           <td style="${td}color:#6d28d9;">${x.rol}</td><td style="${td}">${x.faltanConRol}</td>`}
         </tr>`;
       }).join("")}
-      <tr style="font-weight:700;"><td style="${td}text-align:left;">Total</td><td style="${td}">${tot.req}</td><td style="${td}">${tot.caj}</td>
+      <tr style="font-weight:700;"><td style="${td}text-align:left;">Total</td><td style="${td}">${tot.req}</td><td style="${td}">${tot.caj}</td><td style="${td}">${tot.adic || ""}</td>
         <td style="${td}">${tot.caj - tot.req}</td><td style="${td}">${tot.faltan}</td><td style="${td}">${tot.sobran}</td>
         <td style="${td}">${covPct(tot.cubiertas, tot.req)}</td><td style="${td}"></td><td style="${td}">${tot.rol}</td><td style="${td}">${tot.faltanConRol}</td></tr>
     </table>
-    <div style="font-size:9px;color:#64748b;margin-bottom:14px;">Los totales suman solo los días con demanda cargada. Faltan = suma de lo que falta en cada franja horaria; lo que sobra en una hora no compensa otra. Dif. = total de horas de cajeros menos total requerido.</div>
+    <div style="font-size:9px;color:#64748b;margin-bottom:14px;">Los totales suman solo los días con demanda cargada. Faltan = suma de lo que falta en cada franja horaria; lo que sobra en una hora no compensa otra. Dif. = total de horas de cajeros menos total requerido. Adic. = horas de turnos adicionales, ya incluidas en Cajeros.</div>
     <div class="html2pdf__page-break"></div>
     <h3 style="margin:0 0 6px;font-size:14px;">Detalle por hora (cajeros / requerido · rollers)</h3>`;
   const horas = [];
