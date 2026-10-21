@@ -3566,7 +3566,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.8
+            Versión: v1.6.9
           </div>
         </div>
       </div>
@@ -3641,9 +3641,39 @@
   <!-- PDF MODAL -->
   <div class="login-overlay" id="pdfModal" style="display: none;">
     <div class="login-content">
-      <h2>Exportar PDF</h2>
-      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">Selecciona el periodo a exportar (Máx. 21 días).</p>
+      <h2>Exportar</h2>
       <form id="pdfForm" style="display: flex; flex-direction: column; gap: 1rem; text-align: left;">
+        <div id="pdfTipoBlock" style="display: flex; flex-direction: column; gap: 0.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border);">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="radio" name="pdfTipo" value="grilla" checked>
+            <span>Grilla de horarios (PDF)</span>
+          </label>
+          <label id="pdfTipoCoberturaLabel" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="radio" name="pdfTipo" value="cobertura">
+            <span>Detalle de cobertura de cajas (período)</span>
+          </label>
+        </div>
+
+        <div id="pdfCoberturaOpts" style="display: none; flex-direction: column; gap: 0.6rem;">
+          <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Compara por día y por hora lo que pide Recaudaciones contra los cajeros planificados. Los rollers van aparte.</p>
+          <div style="display: flex; gap: 0.5rem;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 0.2rem;">
+              <label style="font-size: 0.8rem; color: var(--text-muted);">Desde</label>
+              <input type="date" id="covDesde" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; border-radius: 0.25rem;">
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 0.2rem;">
+              <label style="font-size: 0.8rem; color: var(--text-muted);">Hasta</label>
+              <input type="date" id="covHasta" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; border-radius: 0.25rem;">
+            </div>
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="covFormato" value="pdf" checked><span>PDF</span></label>
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="covFormato" value="xlsx"><span>Excel</span></label>
+          </div>
+        </div>
+
+        <div id="pdfGrillaOpts" style="display: flex; flex-direction: column; gap: 1rem;">
+        <p style="color: var(--text-muted); margin: 0; font-size: 0.9rem;">Selecciona el periodo a exportar (Máx. 21 días).</p>
         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
           <input type="radio" name="pdfRange" value="current" checked>
           <span>Semana Actual (En pantalla)</span>
@@ -3659,6 +3689,7 @@
               <input type="date" id="pdfDateStart" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; border-radius: 0.25rem;">
            </div>
            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">La exportación incluirá automáticamente 3 semanas (21 días) a partir de la fecha seleccionada.</p>
+        </div>
         </div>
 
         <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
@@ -4412,7 +4443,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.8";
+  const APP_VERSION = "v1.6.9";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -12609,6 +12640,14 @@ const pdfRadios = document.getElementsByName("pdfRange");
 
 if (document.getElementById("pdfBtn")) {
   document.getElementById("pdfBtn").addEventListener("click", () => {
+    // El detalle de cobertura es de Línea de Cajas
+    const esCajas = (state.currentArea || "") === "Linea de Cajas";
+    document.getElementById("pdfTipoCoberturaLabel").style.display = esCajas ? "flex" : "none";
+    if (!esCajas) document.querySelector('input[name="pdfTipo"][value="grilla"]').checked = true;
+    const desde = document.getElementById("covDesde"), hasta = document.getElementById("covHasta");
+    if (!desde.value) desde.value = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
+    if (!hasta.value) hasta.value = formatDate(addDays(new Date(desde.value + "T00:00:00"), 6));
+    covActualizarTipo();
     pdfModal.style.display = "flex";
   });
 }
@@ -12627,8 +12666,38 @@ pdfRadios.forEach((radio) => {
   });
 });
 
+function covActualizarTipo() {
+  const tipo = (document.querySelector('input[name="pdfTipo"]:checked') || {}).value;
+  document.getElementById("pdfCoberturaOpts").style.display = tipo === "cobertura" ? "flex" : "none";
+  document.getElementById("pdfGrillaOpts").style.display = tipo === "cobertura" ? "none" : "flex";
+}
+document.getElementsByName("pdfTipo").forEach((r) => r.addEventListener("change", covActualizarTipo));
+
 pdfForm.addEventListener("submit", async (e) => {
   e.preventDefault();
+  if ((document.querySelector('input[name="pdfTipo"]:checked') || {}).value === "cobertura") {
+    const desde = document.getElementById("covDesde").value;
+    const hasta = document.getElementById("covHasta").value;
+    if (!desde || !hasta || hasta < desde) {
+      showToast("Error", "Elegí un período válido (Desde y Hasta).");
+      return;
+    }
+    const dias = Math.round((new Date(hasta + "T00:00:00") - new Date(desde + "T00:00:00")) / 86400000) + 1;
+    if (dias > 62) {
+      showToast("Error", "El período puede tener hasta 62 días.");
+      return;
+    }
+    const formato = document.querySelector('input[name="covFormato"]:checked').value;
+    pdfModal.style.display = "none";
+    showToast("Generando detalle", "Preparando el detalle de cobertura...", 3000);
+    try {
+      await covExportarDetalle(desde, hasta, formato);
+    } catch (err) {
+      console.error("Error al generar el detalle de cobertura:", err);
+      showToast("Error", "Hubo un problema al generar el detalle.");
+    }
+    return;
+  }
   const rangeType = document.querySelector(
     'input[name="pdfRange"]:checked',
   ).value;
@@ -12769,6 +12838,210 @@ async function buildAndDownloadPDF(startDate, endDate) {
     console.error("PDF error:", e);
     showToast("Error", "Falló la generación del PDF.");
   }
+}
+
+// -- DETALLE DE COBERTURA DE CAJAS POR PERÍODO --
+// Trae turnos y demanda del período (aunque no estén en pantalla) y arma, por día y por hora,
+// lo que pide Recaudaciones contra los cajeros planificados. Los rollers van aparte, salvo
+// los marcados ese día como cajeros, que cuentan con los cajeros (igual que la vista del día).
+async function covTraerPeriodo(desde, hasta) {
+  const planning = { ...state.planning };
+  const demanda = { ...(state.demandaCajas || {}) };
+  if (!isMockMode) {
+    // Un día antes, por los turnos que cruzan la medianoche
+    const desdePrev = formatDate(addDays(new Date(desde + "T00:00:00"), -1));
+    const [snapPlan, snapDem] = await Promise.all([
+      getDocs(query(collection(db, "planificacion"), where("fecha", ">=", desdePrev), where("fecha", "<=", hasta))),
+      getDocs(query(collection(db, "demanda_cajas"), where("fecha", ">=", desde), where("fecha", "<=", hasta))),
+    ]);
+    snapPlan.docs.forEach((d) => {
+      const data = d.data();
+      planning[`${data.colaboradorId}_${data.fecha}`] = data;
+    });
+    snapDem.docs.forEach((d) => { demanda[d.id] = d.data().curva; });
+  }
+  return { planning, demanda };
+}
+
+function covRangos(horas) {
+  const rangos = [];
+  horas.forEach((h) => {
+    const ult = rangos[rangos.length - 1];
+    if (ult && ult[1] === h - 1) ult[1] = h; else rangos.push([h, h]);
+  });
+  return rangos.map(([a, b]) => `${a}–${b + 1}`).join(", ");
+}
+
+async function covCalcularPeriodo(desde, hasta) {
+  const { planning, demanda } = await covTraerPeriodo(desde, hasta);
+  const diasLargos = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const dias = [];
+  // cdvArmarDia y cdvCoberturaPorHora leen del estado: se les presta el del período y se devuelve
+  const planOrig = state.planning, demOrig = state.demandaCajas;
+  state.planning = planning;
+  state.demandaCajas = demanda;
+  try {
+    for (let d = new Date(desde + "T00:00:00"); formatDate(d) <= hasta; d = addDays(d, 1)) {
+      const dStr = formatDate(d);
+      const evento = state.eventos && state.eventos[dStr];
+      const curva = demanda[dStr] || null;
+      const dia = {
+        fecha: dStr,
+        etiqueta: `${diasLargos[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
+        feriado: (state.holidays || []).includes(dStr),
+        cerrada: !!(evento && evento.tiendaCerrada),
+        conDemanda: !!curva,
+        horas: [],
+        req: 0, caj: 0, rol: 0, faltan: 0, faltanConRol: 0, sobran: 0, cubiertas: 0,
+        nCajeros: 0, nRollers: 0, franjas: "",
+      };
+      if (!dia.cerrada) {
+        const { bloques } = cdvArmarDia(dStr);
+        const counts = cdvCoberturaPorHora(dStr, bloques);
+        dia.nRollers = bloques.roller.length;
+        dia.nCajeros = bloques.apertura.length + bloques.siesta.length + bloques.cierre.length;
+        const conFalta = [];
+        for (let h = 0; h < 24; h++) {
+          const r = curva ? Number(curva[h]) || 0 : 0;
+          const c = counts[h], ro = counts.rollers[h];
+          dia.horas.push({ h, r, c, ro });
+          dia.req += r; dia.caj += c; dia.rol += ro;
+          dia.faltan += Math.max(0, r - c);
+          dia.faltanConRol += Math.max(0, r - c - ro);
+          dia.sobran += Math.max(0, c - r);
+          dia.cubiertas += Math.min(c, r);
+          if (curva && c < r) conFalta.push(h);
+        }
+        dia.franjas = covRangos(conFalta);
+      }
+      dias.push(dia);
+    }
+  } finally {
+    state.planning = planOrig;
+    state.demandaCajas = demOrig;
+  }
+  // Los totales solo suman días con demanda cargada, para comparar contra lo pedido
+  const tot = dias.filter((x) => x.conDemanda && !x.cerrada).reduce((t, x) => {
+    ["req", "caj", "rol", "faltan", "faltanConRol", "sobran", "cubiertas"].forEach((k) => { t[k] += x[k]; });
+    return t;
+  }, { req: 0, caj: 0, rol: 0, faltan: 0, faltanConRol: 0, sobran: 0, cubiertas: 0 });
+  // Rango de horas con actividad en el período, para las tablas por hora
+  let hMin = 23, hMax = 0;
+  dias.forEach((x) => x.horas.forEach((o) => {
+    if (o.r || o.c || o.ro) { hMin = Math.min(hMin, o.h); hMax = Math.max(hMax, o.h); }
+  }));
+  if (hMin > hMax) { hMin = 8; hMax = 22; }
+  return { dias, tot, hMin, hMax };
+}
+
+const covPct = (cub, req) => (req ? `${Math.round((cub / req) * 100)}%` : "—");
+const covFecha = (s) => s.split("-").reverse().join("/");
+
+async function covExportarDetalle(desde, hasta, formato) {
+  const datos = await covCalcularPeriodo(desde, hasta);
+  if (!datos.dias.some((x) => x.conDemanda)) {
+    showToast("Sin demanda", "No hay demanda de Recaudaciones cargada en ese período.", "warning");
+  }
+  const nombre = `Cobertura_cajas_${desde}_al_${hasta}`;
+  if (formato === "xlsx") covExportarExcel(datos, desde, hasta, nombre);
+  else await covExportarPDF(datos, desde, hasta, nombre);
+}
+
+function covExportarExcel({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
+  if (typeof XLSX === "undefined") { showToast("Error", "No se pudo cargar el generador de Excel."); return; }
+  const wb = XLSX.utils.book_new();
+  const resumen = [
+    [`Detalle de cobertura de cajas · ${covFecha(desde)} al ${covFecha(hasta)}`],
+    ["Horas = personas por hora. Faltan = suma de lo que falta en cada franja (lo que sobra en una hora no cubre otra)."],
+    [],
+    ["Día", "Fecha", "Requeridas (h)", "Cajeros (h)", "Diferencia (h)", "Faltan por franja (h)", "Sobran por franja (h)", "Cumplimiento", "Franjas con faltante", "Rollers (h)", "Faltan con rollers (h)", "Cajeros (personas)", "Rollers (personas)", "Observación"],
+  ];
+  dias.forEach((x) => {
+    const obs = x.cerrada ? "Tienda cerrada" : !x.conDemanda ? "Sin demanda cargada (no suma al total)" : x.feriado ? "Feriado" : "";
+    const comp = x.conDemanda && !x.cerrada;
+    resumen.push([x.etiqueta.split(" ")[0], covFecha(x.fecha), comp ? x.req : "", x.caj, comp ? x.caj - x.req : "", comp ? x.faltan : "", comp ? x.sobran : "",
+      comp ? covPct(x.cubiertas, x.req) : "", x.franjas, x.rol, comp ? x.faltanConRol : "", x.nCajeros, x.nRollers, obs]);
+  });
+  resumen.push(["Total", "", tot.req, tot.caj, tot.caj - tot.req, tot.faltan, tot.sobran, covPct(tot.cubiertas, tot.req), "", tot.rol, tot.faltanConRol, "", "", ""]);
+  const ws1 = XLSX.utils.aoa_to_sheet(resumen);
+  ws1["!cols"] = [10, 11, 14, 12, 13, 18, 18, 13, 26, 11, 20, 16, 16, 20].map((w) => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, ws1, "Resumen por día");
+
+  const horas = [];
+  for (let h = hMin; h <= hMax; h++) horas.push(h);
+  const porHora = [["Día", "Fecha", "Dato", ...horas.map((h) => `${h} h`), "Total"]];
+  dias.forEach((x) => {
+    const fila = (dato, f) => {
+      const vals = horas.map((h) => f(x.horas[h] || { r: 0, c: 0, ro: 0 }));
+      return [x.etiqueta.split(" ")[0], covFecha(x.fecha), dato, ...vals, vals.reduce((a, b) => a + b, 0)];
+    };
+    porHora.push(fila("Requerido", (o) => o.r));
+    porHora.push(fila("Cajeros", (o) => o.c));
+    porHora.push(fila("Diferencia", (o) => o.c - o.r));
+    porHora.push(fila("Rollers", (o) => o.ro));
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(porHora);
+  ws2["!cols"] = [{ wch: 10 }, { wch: 11 }, { wch: 11 }, ...horas.map(() => ({ wch: 5 })), { wch: 7 }];
+  XLSX.utils.book_append_sheet(wb, ws2, "Detalle por hora");
+  XLSX.writeFile(wb, `${nombre}.xlsx`);
+  showToast("Excel generado", "La descarga ha finalizado.");
+}
+
+async function covExportarPDF({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
+  const th = "padding:4px 5px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:10px;";
+  const td = "padding:3px 5px;border:1px solid #e2e8f0;font-size:10px;text-align:right;";
+  const rojo = "color:#b91c1c;font-weight:700;";
+  let html = `<div style="font-family:sans-serif;color:#0f172a;width:1050px;">
+    <h2 style="margin:0 0 2px;font-size:18px;">Detalle de cobertura de cajas</h2>
+    <div style="font-size:11px;color:#475569;margin-bottom:10px;">Período ${covFecha(desde)} al ${covFecha(hasta)} · Requerido según Recaudaciones · Rollers aparte (no cuentan como cajeros)</div>
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      ${[["Requeridas", `${tot.req} h`], ["Cajeros", `${tot.caj} h`], ["Faltan por franja", `${tot.faltan} h`], ["Cumplimiento", covPct(tot.cubiertas, tot.req)], ["Rollers", `${tot.rol} h`], ["Faltan con rollers", `${tot.faltanConRol} h`]]
+        .map(([k, v]) => `<div style="flex:1;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;"><div style="font-size:9px;color:#64748b;">${k}</div><div style="font-size:15px;font-weight:700;">${v}</div></div>`).join("")}
+    </div>
+    <table style="border-collapse:collapse;width:100%;margin-bottom:6px;">
+      <tr>${["Día", "Req. (h)", "Cajeros (h)", "Dif. (h)", "Faltan (h)", "Sobran (h)", "Cumpl.", "Franjas con faltante", "Rollers (h)", "Faltan c/ rollers (h)"].map((t) => `<th style="${th}">${t}</th>`).join("")}</tr>
+      ${dias.map((x) => {
+        const obs = x.cerrada ? "Tienda cerrada" : !x.conDemanda ? "Sin demanda cargada" : "";
+        return `<tr${x.feriado ? ' style="background:#fef9c3;"' : ""}>
+          <td style="${td}text-align:left;">${x.etiqueta}${x.feriado ? " (feriado)" : ""}</td>
+          ${obs ? `<td colspan="9" style="${td}text-align:left;color:#64748b;">${obs}${x.caj ? ` · ${x.caj} h de cajeros y ${x.rol} h de rollers planificadas` : ""} (no suma al total)</td>` : `
+          <td style="${td}">${x.req}</td><td style="${td}">${x.caj}</td>
+          <td style="${td}${x.caj < x.req ? rojo : ""}">${x.caj - x.req}</td>
+          <td style="${td}${x.faltan ? rojo : ""}">${x.faltan}</td><td style="${td}">${x.sobran}</td>
+          <td style="${td}">${covPct(x.cubiertas, x.req)}</td>
+          <td style="${td}text-align:left;">${x.franjas || "—"}</td>
+          <td style="${td}color:#6d28d9;">${x.rol}</td><td style="${td}">${x.faltanConRol}</td>`}
+        </tr>`;
+      }).join("")}
+      <tr style="font-weight:700;"><td style="${td}text-align:left;">Total</td><td style="${td}">${tot.req}</td><td style="${td}">${tot.caj}</td>
+        <td style="${td}">${tot.caj - tot.req}</td><td style="${td}">${tot.faltan}</td><td style="${td}">${tot.sobran}</td>
+        <td style="${td}">${covPct(tot.cubiertas, tot.req)}</td><td style="${td}"></td><td style="${td}">${tot.rol}</td><td style="${td}">${tot.faltanConRol}</td></tr>
+    </table>
+    <div style="font-size:9px;color:#64748b;margin-bottom:14px;">Los totales suman solo los días con demanda cargada. Faltan = suma de lo que falta en cada franja horaria; lo que sobra en una hora no compensa otra. Dif. = total de horas de cajeros menos total requerido.</div>
+    <div class="html2pdf__page-break"></div>
+    <h3 style="margin:0 0 6px;font-size:14px;">Detalle por hora (cajeros / requerido · rollers)</h3>`;
+  const horas = [];
+  for (let h = hMin; h <= hMax; h++) horas.push(h);
+  html += `<table style="border-collapse:collapse;width:100%;">
+    <tr><th style="${th}">Día</th>${horas.map((h) => `<th style="${th}">${h}</th>`).join("")}</tr>
+    ${dias.map((x) => `<tr${x.feriado ? ' style="background:#fef9c3;"' : ""}><td style="${td}text-align:left;white-space:nowrap;">${x.etiqueta}</td>${horas.map((h) => {
+      const o = x.horas[h];
+      if (!o || x.cerrada) return `<td style="${td}"></td>`;
+      const falta = x.conDemanda && o.c < o.r;
+      return `<td style="${td}text-align:center;${falta ? "background:#fee2e2;" : ""}"><span style="${falta ? rojo : ""}">${o.c}</span>/${o.r}${o.ro ? `<br><span style="color:#6d28d9;font-size:8px;">+${o.ro}</span>` : ""}</td>`;
+    }).join("")}</tr>`).join("")}
+  </table>
+  <div style="font-size:9px;color:#64748b;margin-top:4px;">Cada celda: cajeros / requerido. En rojo, las horas con faltante. En violeta, los rollers de esa hora.</div></div>`;
+
+  await html2pdf().set({
+    margin: [8, 8, 8, 8],
+    filename: `${nombre}.pdf`,
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+    pagebreak: { mode: ["css", "legacy"] },
+  }).from(html).save();
+  showToast("PDF generado", "La descarga ha finalizado.");
 }
 
 // -- LOGS DE ACTIVIDAD (Auditoría de Turnos) --
