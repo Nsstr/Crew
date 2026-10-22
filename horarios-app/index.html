@@ -3571,7 +3571,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.16
+            Versión: v1.6.17
           </div>
         </div>
       </div>
@@ -3657,10 +3657,14 @@
             <input type="radio" name="pdfTipo" value="cobertura">
             <span>Detalle de cobertura de cajas (período)</span>
           </label>
+          <label id="pdfTipoDiasLabel" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="radio" name="pdfTipo" value="dias">
+            <span>Vista del día para imprimir (una hoja por día)</span>
+          </label>
         </div>
 
         <div id="pdfCoberturaOpts" style="display: none; flex-direction: column; gap: 0.6rem;">
-          <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Tres cuadros contra lo que pide Recaudaciones: cajeros, cajeros + vendedores y cajeros sin horas adicionales.</p>
+          <p id="covDescCobertura" style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Tres cuadros contra lo que pide Recaudaciones: cajeros, cajeros + vendedores y cajeros sin horas adicionales.</p>
           <div style="display: flex; gap: 0.5rem;">
             <div style="flex: 1; display: flex; flex-direction: column; gap: 0.2rem;">
               <label style="font-size: 0.8rem; color: var(--text-muted);">Desde</label>
@@ -3671,7 +3675,8 @@
               <input type="date" id="covHasta" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; border-radius: 0.25rem;">
             </div>
           </div>
-          <div style="display: flex; gap: 1rem;">
+          <p id="covDescDias" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una hoja por día con los turnos de 7 a 23 h, la cobertura por hora, los comparativos, francos, vacaciones y observaciones. Se abre para imprimir o guardar como PDF.</p>
+          <div id="covFormatoRow" style="display: flex; gap: 1rem;">
             <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="covFormato" value="pdf" checked><span>PDF</span></label>
             <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="covFormato" value="xlsx"><span>Excel</span></label>
           </div>
@@ -4448,7 +4453,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.16";
+  const APP_VERSION = "v1.6.17";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -12785,6 +12790,7 @@ if (document.getElementById("pdfBtn")) {
     // El detalle de cobertura es de Línea de Cajas
     const esCajas = (state.currentArea || "") === "Linea de Cajas";
     document.getElementById("pdfTipoCoberturaLabel").style.display = esCajas ? "flex" : "none";
+    document.getElementById("pdfTipoDiasLabel").style.display = esCajas ? "flex" : "none";
     if (!esCajas) document.querySelector('input[name="pdfTipo"][value="grilla"]').checked = true;
     const desde = document.getElementById("covDesde"), hasta = document.getElementById("covHasta");
     if (!desde.value) desde.value = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
@@ -12810,14 +12816,45 @@ pdfRadios.forEach((radio) => {
 
 function covActualizarTipo() {
   const tipo = (document.querySelector('input[name="pdfTipo"]:checked') || {}).value;
-  document.getElementById("pdfCoberturaOpts").style.display = tipo === "cobertura" ? "flex" : "none";
-  document.getElementById("pdfGrillaOpts").style.display = tipo === "cobertura" ? "none" : "flex";
+  const porPeriodo = tipo === "cobertura" || tipo === "dias";
+  document.getElementById("pdfCoberturaOpts").style.display = porPeriodo ? "flex" : "none";
+  document.getElementById("pdfGrillaOpts").style.display = porPeriodo ? "none" : "flex";
+  document.getElementById("covFormatoRow").style.display = tipo === "dias" ? "none" : "flex";
+  document.getElementById("covDescCobertura").style.display = tipo === "dias" ? "none" : "block";
+  document.getElementById("covDescDias").style.display = tipo === "dias" ? "block" : "none";
 }
 document.getElementsByName("pdfTipo").forEach((r) => r.addEventListener("change", covActualizarTipo));
 
 pdfForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  if ((document.querySelector('input[name="pdfTipo"]:checked') || {}).value === "cobertura") {
+  const tipoExport = (document.querySelector('input[name="pdfTipo"]:checked') || {}).value;
+  if (tipoExport === "dias") {
+    const desde = document.getElementById("covDesde").value;
+    const hasta = document.getElementById("covHasta").value;
+    if (!desde || !hasta || hasta < desde) {
+      showToast("Error", "Elegí un período válido (Desde y Hasta).");
+      return;
+    }
+    const dias = Math.round((new Date(hasta + "T00:00:00") - new Date(desde + "T00:00:00")) / 86400000) + 1;
+    if (dias > 31) {
+      showToast("Error", "Para imprimir, elegí hasta 31 días.");
+      return;
+    }
+    // La ventana se abre ya, dentro del clic, para que el navegador no la bloquee
+    const win = window.open("", "_blank");
+    if (win) win.document.write('<p style="font-family:sans-serif;padding:20px">Preparando las hojas para imprimir…</p>');
+    pdfModal.style.display = "none";
+    showToast("Preparando impresión", `${dias} ${dias === 1 ? "hoja" : "hojas"}, una por día.`, 3000);
+    try {
+      await covImprimirDias(desde, hasta, win);
+    } catch (err) {
+      console.error("Error al preparar la impresión:", err);
+      if (win) win.close();
+      showToast("Error", "Hubo un problema al preparar la impresión.");
+    }
+    return;
+  }
+  if (tipoExport === "cobertura") {
     const desde = document.getElementById("covDesde").value;
     const hasta = document.getElementById("covHasta").value;
     if (!desde || !hasta || hasta < desde) {
@@ -13230,6 +13267,214 @@ async function covExportarPDF({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
     pagebreak: { mode: ["css", "legacy"], avoid: "tr" },
   }).from(html).save();
   showToast("PDF generado", "La descarga ha finalizado.");
+}
+
+// -- VISTA DEL DÍA PARA IMPRIMIR (una hoja por día) --
+// Misma información que la vista del día de Línea de Cajas, en formato papel: bloques con barras
+// de 7 a 23 h, cobertura por hora con los números, comparativos, francos, vacaciones y observaciones.
+function covHojaDiaHTML(dStr, demanda) {
+  const d = new Date(dStr + "T00:00:00");
+  const diasLargos = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const titulo = `${diasLargos[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]} de ${d.getFullYear()}`;
+  const evento = state.eventos && state.eventos[dStr];
+  const etiquetas = [(state.holidays || []).includes(dStr) ? "Feriado" : "", evento ? `${evento.tipo || "Evento"}${evento.descripcion ? ": " + evento.descripcion : ""}` : ""].filter(Boolean);
+  const cabecera = `<div class="hd"><div><div class="area">Línea de Cajas</div><h1>${titulo}</h1>${etiquetas.length ? `<div class="ev">${cdvEsc(etiquetas.join(" · "))}</div>` : ""}</div></div>`;
+  if (evento && evento.tiendaCerrada) return `<section class="pg">${cabecera}<div class="cerrada">Tienda cerrada</div></section>`;
+
+  const { bloques, listas, notas, respaldo } = cdvArmarDia(dStr);
+  const counts = cdvCoberturaPorHora(dStr, bloques);
+  const curva = demanda[dStr] || null;
+  const req = (h) => (curva ? Number(curva[h]) || 0 : 0);
+  const cajeros = [...bloques.apertura, ...bloques.siesta, ...bloques.cierre];
+
+  // Eje fijo de 7 a 23 h; se amplía si hay turnos o demanda fuera de ese rango
+  let hMin = 7, hMax = 23;
+  [...Object.values(bloques).flat(), ...respaldo].forEach((p) => p.tramos.forEach((t) => {
+    hMin = Math.min(hMin, Math.floor(t.start)); hMax = Math.max(hMax, Math.ceil(t.end));
+  }));
+  for (let h = 0; h < 24; h++) if (req(h) > 0) { hMin = Math.min(hMin, h); hMax = Math.max(hMax, h + 1); }
+  const span = hMax - hMin;
+  const horas = Array.from({ length: span }, (_, i) => hMin + i);
+  const pct = (h) => `${((h - hMin) / span) * 100}%`;
+  const ancho = (a, b) => `${((b - a) / span) * 100}%`;
+  const r2 = (n) => Math.round(n * 100) / 100;
+
+  // Por hora: cajeros, rollers, vendedores (respaldo) y horas de turnos adicionales
+  const porHora = (personas, filtro = () => true) => {
+    const arr = Array(24).fill(0);
+    personas.forEach((p) => p.tramos.filter(filtro).forEach((t) => { for (let h = 0; h < 24; h++) if (h >= t.start && h < t.end) arr[h]++; }));
+    return arr;
+  };
+  const vend = porHora(respaldo), adic = porHora(cajeros, (t) => t.adicional);
+
+  // Planilla de personas
+  const colgroup = `<colgroup><col style="width:128px"><col style="width:66px"><col style="width:34px"><col></colgroup>`;
+  let filas = `<tr class="eje"><th></th><th></th><th></th><th><div class="trk">${horas.map((h) => `<span style="left:${pct(h)}">${h}</span>`).join("")}<span style="left:100%">${hMax}</span></div></th></tr>`;
+  const grupos = CDV_BLOQUES.map((b) => ({ ...b, lista: bloques[b.key] }));
+  grupos.push({ key: "respaldo", label: "Vendedores · fallo de caja", color: "#64748b", lista: respaldo, nota: "no cuentan como cajeros" });
+  grupos.forEach((b) => {
+    if (!b.lista.length) return;
+    filas += `<tr class="gr"><td colspan="4"><i style="background:${b.color}"></i><b>${b.label}</b> ${b.lista.length} ${b.lista.length === 1 ? "persona" : "personas"}${b.nota ? ` · ${b.nota}` : ""}</td></tr>`;
+    b.lista.forEach((p) => {
+      const tags = [p.rollerComoCajero ? `<em class="t rc">Roller</em>` : "", p.adicional ? `<em class="t ad">+${p.adicional.label}</em>` : "", p.fijado ? `<em class="t pe">Pedido</em>` : ""].join("");
+      const horario = p.tramos.filter((t) => !t.adicional).map((t) => `${cdvHora(t.start)}–${cdvHora(t.end)}`).join(" / ");
+      const barras = p.tramos.map((t) => `<div class="bar${t.adicional ? " adic" : ""}" style="left:${pct(t.start)};width:${ancho(t.start, t.end)};--c:${b.color}"></div>`).join("");
+      filas += `<tr><td class="nm">${cdvEsc(p.nombre)}${tags}</td><td class="hr">${horario}${p.adicional ? `<div class="adh">+${p.adicional.label}</div>` : ""}</td>
+        <td class="hs">${r2(p.hours)}${p.adicional ? `<div class="adh">+${r2(p.adicional.hours)}</div>` : ""}</td>
+        <td><div class="trk grid" style="--n:${span}">${barras}</div></td></tr>`;
+    });
+  });
+  if (!grupos.some((b) => b.lista.length)) filas += `<tr><td colspan="4" class="vacio">No hay turnos cargados para este día.</td></tr>`;
+
+  // Cobertura por hora alineada con las mismas columnas
+  const maxVal = Math.max(1, ...horas.map((h) => Math.max(counts[h] + counts.rollers[h], req(h))));
+  const barrasCob = horas.map((h) => {
+    const c = counts[h], ro = counts.rollers[h], r = req(h), falta = curva && c < r;
+    const l = `calc(${pct(h)} + 2px)`, w = `calc(${ancho(0, 1)} - 4px)`;
+    return `<div class="cb" style="left:${l};width:${w};height:${(c / maxVal) * 100}%;background:${falta ? "#ef4444" : "#10b981"}"></div>` +
+      (ro ? `<div class="cb" style="left:${l};width:${w};bottom:${(c / maxVal) * 100}%;height:${(ro / maxVal) * 100}%;background:#a78bfa"></div>` : "") +
+      (r ? `<div class="cb req" style="left:${l};width:${w};height:${(r / maxVal) * 100}%"></div>` : "");
+  }).join("");
+  const filaNum = (lbl, f, cls = "") => `<tr class="num ${cls}"><td colspan="3">${lbl}</td><td><div class="trk">${horas.map((h) => {
+    const v = f(h);
+    return `<span style="left:${pct(h + 0.5)}" class="${v.cls || ""}">${v.t}</span>`;
+  }).join("")}</div></td></tr>`;
+  let cobertura = `<tr><td colspan="3" class="cobt">Personas por hora</td><td><div class="trk cob" style="--n:${span}">${barrasCob}</div></td></tr>
+    ${filaNum("Hora", (h) => ({ t: h }), "hh")}
+    ${curva ? filaNum("Pedido", (h) => ({ t: req(h) })) : ""}
+    ${filaNum("Cajeros", (h) => ({ t: counts[h], cls: curva && counts[h] < req(h) ? "falta" : "" }), "bold")}
+    ${curva ? filaNum("Diferencia", (h) => { const v = counts[h] - req(h); return { t: v > 0 ? `+${v}` : v, cls: v < 0 ? "falta" : v > 0 ? "sobra" : "" }; }) : ""}
+    ${horas.some((h) => counts.rollers[h]) ? filaNum("Rollers", (h) => ({ t: counts.rollers[h] || "·" }), "rol") : ""}
+    ${horas.some((h) => vend[h]) ? filaNum("Vendedores", (h) => ({ t: vend[h] || "·" }), "ven") : ""}
+    ${horas.some((h) => adic[h]) ? filaNum("De eso, adic.", (h) => ({ t: adic[h] || "·" }), "adn") : ""}`;
+
+  // Comparativos del día (mismos cálculos que el detalle de período)
+  const escenario = (titulo, f) => {
+    let tengo = 0, falta = 0, cub = 0, totReq = 0; const fr = [];
+    for (let h = 0; h < 24; h++) {
+      const c = f(h), r = req(h);
+      tengo += c; totReq += r; falta += Math.max(0, r - c); cub += Math.min(c, r);
+      if (curva && c < r) fr.push(h);
+    }
+    return `<div class="cmp"><b>${titulo}</b><div>Tengo <b>${r2(tengo)} h</b>${curva ? ` / pedido ${r2(totReq)} h` : ""}</div>
+      ${curva ? `<div class="${falta ? "falta" : "ok"}">${falta ? `Falta ${r2(falta)} h` : "Cubierto"} · ${covPct(cub, totReq)}</div><div class="fr">${fr.length ? covRangos(fr) + " h" : "—"}</div>` : `<div class="fr">Sin demanda cargada</div>`}</div>`;
+  };
+  const comparativos = `<div class="cmps">
+    ${escenario("Cajeros", (h) => counts[h])}
+    ${escenario("Cajeros + rollers", (h) => counts[h] + counts.rollers[h])}
+    ${escenario("Cajeros + vendedores", (h) => counts[h] + vend[h])}
+    ${escenario("Cajeros sin adicionales", (h) => counts[h] - adic[h])}
+  </div>`;
+
+  // Listas de abajo
+  const caja = (titulo, items, siempre = false) => (items.length || siempre)
+    ? `<div class="lst"><h4>${titulo}</h4>${items.length ? items.map((n) => `<span>${cdvEsc(n)}</span>`).join("") : `<span class="nadie">Nadie</span>`}</div>` : "";
+  const listasHTML = `<div class="lsts">
+    ${caja("Francos", listas.francos, true)}${caja("Vacaciones", listas.vacaciones, true)}${caja("Libres", listas.libres)}
+    ${caja("No viene el feriado", listas.noViene)}${caja("Ausencias y licencias", listas.ausencias)}
+    ${caja("Sin turno cargado", listas.sinTurno)}${caja("Revisar formato", listas.revisar)}
+    <div class="lst obs"><h4>Observaciones</h4>${notas.length ? notas.map((n) => `<p><b>${cdvEsc(n.nombre)}:</b> ${cdvEsc(n.texto)}</p>`).join("") : `<span class="nadie">Sin observaciones</span>`}</div>
+  </div>`;
+
+  return `<section class="pg">${cabecera}
+    <table class="pl">${colgroup}${filas}</table>
+    <h3>Cobertura por hora</h3>
+    <table class="pl">${colgroup}${cobertura}</table>
+    <div class="ley"><i style="background:#10b981"></i>Cajeros <i style="background:#ef4444"></i>Falta gente <i class="lreq"></i>Pedido <i style="background:#a78bfa"></i>Rollers (aparte) <i class="ladic"></i>Turno adicional</div>
+    ${comparativos}${listasHTML}</section>`;
+}
+
+const COV_ESTILOS_IMPRESION = `
+  @page { size: A4 portrait; margin: 8mm; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; font-family: "Plus Jakarta Sans", Arial, sans-serif; color: #0f172a; font-size: 10px; background: #fff; }
+  .pg { page-break-after: always; break-after: page; padding: 2mm 1mm; }
+  .pg:last-child { page-break-after: auto; break-after: auto; }
+  .hd { border-bottom: 2px solid #0f172a; padding-bottom: 4px; margin-bottom: 6px; }
+  .area { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: #64748b; }
+  h1 { margin: 0; font-size: 17px; }
+  .ev { font-size: 10px; color: #b45309; font-weight: 700; }
+  .cerrada { margin-top: 20px; font-size: 16px; font-weight: 700; color: #b91c1c; }
+  h3 { font-size: 11px; margin: 8px 0 2px; text-transform: uppercase; letter-spacing: .05em; }
+  table.pl { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px; }
+  table.pl td, table.pl th { padding: 1px 3px; vertical-align: middle; }
+  tr.eje th { height: 14px; font-weight: 600; color: #64748b; font-size: 8.5px; }
+  tr.gr td { padding-top: 5px; font-size: 9.5px; color: #475569; border-bottom: 1px solid #cbd5e1; }
+  tr.gr i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  tr.gr b { text-transform: uppercase; color: #0f172a; letter-spacing: .04em; margin-right: 3px; }
+  td.nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid #eef2f7; }
+  td.hr { font-weight: 700; white-space: nowrap; border-bottom: 1px solid #eef2f7; font-variant-numeric: tabular-nums; }
+  td.hs { color: #64748b; text-align: right; border-bottom: 1px solid #eef2f7; }
+  .adh { color: #0891b2; font-weight: 700; font-size: 8.5px; }
+  em.t { font-style: normal; font-size: 7.5px; font-weight: 700; padding: 0 3px; border-radius: 3px; margin-left: 3px; border: 1px solid; }
+  em.rc { color: #6d28d9; border-color: #c4b5fd; } em.ad { color: #0e7490; border-color: #67e8f9; } em.pe { color: #b45309; border-color: #fcd34d; }
+  .trk { position: relative; height: 14px; }
+  .trk.grid { background: repeating-linear-gradient(90deg, #e2e8f0 0 1px, transparent 1px calc(100% / var(--n))), #f8fafc; border-right: 1px solid #e2e8f0; }
+  tr.eje .trk span, tr.num .trk span { position: absolute; transform: translateX(-50%); top: 1px; }
+  .bar { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; background: var(--c); }
+  .bar.adic { background: repeating-linear-gradient(45deg, var(--c) 0 4px, #22d3ee 4px 7px); }
+  .trk.cob { height: 70px; border-bottom: 1px solid #94a3b8; background: repeating-linear-gradient(90deg, #eef2f7 0 1px, transparent 1px calc(100% / var(--n))); }
+  .cb { position: absolute; bottom: 0; border-radius: 2px 2px 0 0; }
+  .cb.req { border: 1.5px dashed #0f172a; background: transparent; }
+  td.cobt { color: #64748b; vertical-align: bottom; }
+  tr.num td { font-size: 9.5px; font-variant-numeric: tabular-nums; border-bottom: 1px solid #f1f5f9; }
+  tr.num td:first-child { color: #64748b; }
+  tr.hh td { color: #64748b; font-size: 8.5px; }
+  tr.bold .trk span { font-weight: 800; }
+  .falta { color: #b91c1c; font-weight: 800; } .sobra { color: #047857; } .ok { color: #047857; font-weight: 700; }
+  tr.rol .trk span, tr.rol td:first-child { color: #6d28d9; } tr.ven .trk span, tr.ven td:first-child { color: #c2410c; }
+  tr.adn .trk span, tr.adn td:first-child { color: #0891b2; }
+  .ley { margin: 4px 0 6px; color: #475569; font-size: 8.5px; }
+  .ley i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin: 0 3px 0 8px; vertical-align: -1px; }
+  .ley i.lreq { border: 1.5px dashed #0f172a; } .ley i.ladic { background: repeating-linear-gradient(45deg, #3b82f6 0 3px, #22d3ee 3px 5px); }
+  .cmps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 8px; }
+  .cmp { border: 1px solid #cbd5e1; border-radius: 5px; padding: 4px 6px; font-size: 9px; line-height: 1.35; }
+  .cmp > b { display: block; font-size: 9.5px; }
+  .cmp .fr { color: #64748b; font-size: 8.5px; }
+  .lsts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .lst { border: 1px solid #e2e8f0; border-radius: 5px; padding: 4px 6px; }
+  .lst.obs { grid-column: 1 / -1; }
+  .lst h4 { margin: 0 0 3px; font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #475569; }
+  .lst span { display: inline-block; background: #f1f5f9; border-radius: 3px; padding: 1px 5px; margin: 0 3px 3px 0; font-size: 9px; }
+  .lst span.nadie { background: none; color: #94a3b8; padding: 0; }
+  .lst p { margin: 0 0 2px; font-size: 9px; }
+  .vacio { color: #64748b; padding: 8px 0; }
+`;
+
+async function covImprimirDias(desde, hasta, win) {
+  const { planning, demanda } = await covTraerPeriodo(desde, hasta);
+  const planOrig = state.planning, demOrig = state.demandaCajas;
+  state.planning = planning;
+  state.demandaCajas = demanda;
+  let paginas = "";
+  try {
+    for (let d = new Date(desde + "T00:00:00"); formatDate(d) <= hasta; d = addDays(d, 1)) {
+      paginas += covHojaDiaHTML(formatDate(d), demanda);
+    }
+  } finally {
+    state.planning = planOrig;
+    state.demandaCajas = demOrig;
+  }
+  const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Línea de Cajas · ${covFecha(desde)} al ${covFecha(hasta)}</title>
+    <style>${COV_ESTILOS_IMPRESION}</style></head><body>${paginas}</body></html>`;
+  // Ventana nueva si el navegador la permitió; si no, un marco oculto dentro de la app
+  let destino = win && !win.closed ? win : null;
+  let marco = null;
+  if (!destino) {
+    marco = document.createElement("iframe");
+    marco.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+    document.body.appendChild(marco);
+    destino = marco.contentWindow;
+  }
+  destino.document.open();
+  destino.document.write(doc);
+  destino.document.close();
+  setTimeout(() => {
+    destino.focus();
+    destino.print();
+    if (marco) setTimeout(() => marco.remove(), 60000);
+  }, 400);
 }
 
 // -- LOGS DE ACTIVIDAD (Auditoría de Turnos) --
