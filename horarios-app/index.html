@@ -2195,11 +2195,29 @@
     .cell-wrapper::after,
     .cell-wrapper::before,
     .cell-wrapper.has-comment::after,
-    .ot-indicator,
-    .cell-wrapper.has-overtime-pending .ot-indicator,
-    .cell-wrapper.has-overtime-validated .ot-indicator {
+    .ot-indicator {
       display: none !important;
       visibility: hidden !important;
+    }
+
+    /* Horas extras: triángulo abajo a la izquierda (amarillo pendiente, verde validado) */
+    .cell-wrapper.has-overtime-pending .ot-indicator,
+    .cell-wrapper.has-overtime-validated .ot-indicator {
+      display: block !important;
+      visibility: visible !important;
+      position: absolute !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      width: 0 !important;
+      height: 0 !important;
+      border-style: solid !important;
+      border-width: 10px 0 0 10px !important;
+      border-color: transparent transparent transparent #f59e0b !important;
+      z-index: 3 !important;
+      pointer-events: none !important;
+    }
+    .cell-wrapper.has-overtime-validated .ot-indicator {
+      border-color: transparent transparent transparent #10b981 !important;
     }
 
     .cell-wrapper.is-fixed::before {
@@ -3571,7 +3589,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.19
+            Versión: v1.6.20
           </div>
         </div>
       </div>
@@ -4453,7 +4471,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.19";
+  const APP_VERSION = "v1.6.20";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
