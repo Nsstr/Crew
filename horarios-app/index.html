@@ -3589,7 +3589,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.20
+            Versión: v1.6.21
           </div>
         </div>
       </div>
@@ -3682,7 +3682,7 @@
         </div>
 
         <div id="pdfCoberturaOpts" style="display: none; flex-direction: column; gap: 0.6rem;">
-          <p id="covDescCobertura" style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Cuatro cuadros contra lo que pide Recaudaciones: cajeros, cajeros + vendedores, sin horas adicionales y solo horas de contrato.</p>
+          <p id="covDescCobertura" style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Tres cuadros contra lo que pide Recaudaciones: cajeros, cajeros + vendedores y solo horas de contrato.</p>
           <div style="display: flex; gap: 0.5rem;">
             <div style="flex: 1; display: flex; flex-direction: column; gap: 0.2rem;">
               <label style="font-size: 0.8rem; color: var(--text-muted);">Desde</label>
@@ -4471,7 +4471,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.20";
+  const APP_VERSION = "v1.6.21";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -13071,10 +13071,9 @@ function covRangos(horas) {
 
 // Escenarios del detalle: mismo cálculo (pedido, tengo, diferencia, falta) con distinta gente
 const COV_ESCENARIOS = [
-  { key: "caj", titulo: "1. Cajeros", desc: "Cajeros con turno, incluye los rollers marcados como cajero ese día y los turnos adicionales." },
+  { key: "caj", titulo: "1. Cajeros", desc: "Todas las horas cargadas de los cajeros (contrato + horas por encima del contrato), incluye los rollers marcados como cajero ese día." },
   { key: "conVend", titulo: "2. Cajeros + vendedores", desc: "Lo mismo que el cuadro 1, sumando a los vendedores con fallo de caja que trabajan ese día." },
-  { key: "sinAdic", titulo: "3. Cajeros sin horas adicionales", desc: "Solo cajeros, con los rollers marcados como cajero ese día, sin las horas de sus turnos adicionales." },
-  { key: "contrato", titulo: "4. Solo horas de contrato", desc: "Cajeros (y rollers marcados como cajero) contando solo hasta las horas de su contrato semanal: sin horas extra ni turnos adicionales. Cada semana (lunes a domingo) se cuenta desde el primer día del período; lo que pasa del contrato se descuenta desde ese turno en adelante." },
+  { key: "contrato", titulo: "3. Solo horas de contrato", desc: "Cajeros (y rollers marcados como cajero) contando solo hasta las horas de su contrato semanal: sin ninguna hora por encima del contrato (horas extra o turnos adicionales). Cada semana (lunes a domingo) se cuenta desde el primer día del período; lo que pasa del contrato se descuenta desde ese turno en adelante." },
 ];
 
 // Horas "de contrato" de cada persona por día: se recorre cada semana (lunes a domingo) en orden,
@@ -13162,7 +13161,7 @@ async function covCalcularPeriodo(desde, hasta) {
         const faltaH = Object.fromEntries(COV_ESCENARIOS.map((e) => [e.key, []]));
         for (let h = 0; h < 24; h++) {
           const r = curva ? Number(curva[h]) || 0 : 0;
-          const c = { caj: counts[h], conVend: counts[h] + vendH[h], sinAdic: counts[h] - adicH[h], contrato: contratoH[h] };
+          const c = { caj: counts[h], conVend: counts[h] + vendH[h], contrato: contratoH[h] };
           dia.horas.push({ h, r, ...c, vend: vendH[h], adic: adicH[h] });
           dia.req += r; dia.adic += adicH[h]; dia.vend += vendH[h]; dia.rolCaj += rolCajH[h];
           COV_ESCENARIOS.forEach(({ key }) => {
@@ -13253,10 +13252,8 @@ function covExportarExcel({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
     porHora.push(fila("1. Falta", (o) => Math.max(0, o.r - o.caj)));
     porHora.push(fila("2. Cajeros + vendedores", (o) => o.conVend));
     porHora.push(fila("2. Falta", (o) => Math.max(0, o.r - o.conVend)));
-    porHora.push(fila("3. Sin horas adicionales", (o) => o.sinAdic));
-    porHora.push(fila("3. Falta", (o) => Math.max(0, o.r - o.sinAdic)));
-    porHora.push(fila("4. Solo contrato", (o) => o.contrato));
-    porHora.push(fila("4. Falta", (o) => Math.max(0, o.r - o.contrato)));
+    porHora.push(fila("3. Solo contrato", (o) => o.contrato));
+    porHora.push(fila("3. Falta", (o) => Math.max(0, o.r - o.contrato)));
   });
   const ws2 = XLSX.utils.aoa_to_sheet(porHora);
   ws2["!cols"] = [{ wch: 10 }, { wch: 11 }, { wch: 22 }, ...horas.map(() => ({ wch: 5 })), { wch: 7 }];
@@ -13269,7 +13266,7 @@ async function covExportarPDF({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
   const th = "padding:4px 5px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:10px;";
   const td = "padding:3px 5px;border:1px solid #e2e8f0;font-size:10px;text-align:right;";
   const rojo = "color:#b91c1c;font-weight:700;";
-  const COLOR = { caj: "#10b981", conVend: "#c2410c", sinAdic: "#0891b2", contrato: "#475569" };
+  const COLOR = { caj: "#10b981", conVend: "#c2410c", contrato: "#475569" };
   let html = `<div style="font-family:sans-serif;color:#0f172a;width:1050px;">
     <h2 style="margin:0 0 2px;font-size:18px;">Detalle de cobertura de cajas</h2>
     <div style="font-size:11px;color:#475569;margin-bottom:4px;">Período ${covFecha(desde)} al ${covFecha(hasta)} · Pedido según Recaudaciones</div>
@@ -13317,11 +13314,11 @@ async function covExportarPDF({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
       const o = x.horas[h];
       if (!o || x.cerrada) return `<td style="${td}"></td>`;
       const falta = x.conDemanda && o.caj < o.r;
-      const extra = [o.adic ? `<span style="color:${COLOR.sinAdic};">adic ${o.adic}</span>` : "", o.vend ? `<span style="color:${COLOR.conVend};">+${o.vend} vend</span>` : ""].filter(Boolean).join(" ");
+      const extra = [o.adic ? `<span style="color:#0891b2;">adic ${o.adic}</span>` : "", o.vend ? `<span style="color:${COLOR.conVend};">+${o.vend} vend</span>` : ""].filter(Boolean).join(" ");
       return `<td style="${td}text-align:center;${falta ? "background:#fee2e2;" : ""}"><span style="${falta ? rojo : ""}">${o.caj}</span>/${o.r}${extra ? `<br><span style="font-size:7.5px;">${extra}</span>` : ""}</td>`;
     }).join("")}</tr>`).join("")}
   </table>
-  <div style="font-size:9px;color:#64748b;margin-top:4px;">Cada celda: cajeros / pedido. En rojo, las horas donde faltan cajeros. Abajo: en <span style="color:${COLOR.sinAdic};">celeste</span> cuántos de esos cajeros están en turno adicional y en <span style="color:${COLOR.conVend};">naranja</span> los vendedores que pueden cobrar.</div></div>`;
+  <div style="font-size:9px;color:#64748b;margin-top:4px;">Cada celda: cajeros / pedido. En rojo, las horas donde faltan cajeros. Abajo: en <span style="color:#0891b2;">celeste</span> cuántos de esos cajeros están en turno adicional y en <span style="color:${COLOR.conVend};">naranja</span> los vendedores que pueden cobrar.</div></div>`;
 
   await html2pdf().set({
     margin: [8, 8, 8, 8],
@@ -13337,7 +13334,7 @@ async function covExportarPDF({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
 // -- VISTA DEL DÍA PARA IMPRIMIR (una hoja por día) --
 // Misma información que la vista del día de Línea de Cajas, en formato papel: bloques con barras
 // de 7 a 23 h, cobertura por hora con los números, comparativos, francos, vacaciones y observaciones.
-function covHojaDiaHTML(dStr, demanda) {
+function covHojaDiaHTML(dStr, demanda, contratoDia = {}) {
   const d = new Date(dStr + "T00:00:00");
   const diasLargos = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -13429,7 +13426,7 @@ function covHojaDiaHTML(dStr, demanda) {
     ${escenario("Cajeros", (h) => counts[h])}
     ${escenario("Cajeros + rollers", (h) => counts[h] + counts.rollers[h])}
     ${escenario("Cajeros + vendedores", (h) => counts[h] + vend[h])}
-    ${escenario("Cajeros sin adicionales", (h) => counts[h] - adic[h])}
+    ${escenario("Solo contrato", (h) => cajeros.reduce((t, p) => t + ((contratoDia[p.id] || []).includes(h) ? 1 : 0), 0))}
   </div>`;
 
   // Listas de abajo
@@ -13514,8 +13511,10 @@ async function covImprimirDias(desde, hasta, win) {
   state.demandaCajas = demanda;
   let paginas = "";
   try {
+    const contrato = covHorasDeContrato(desde, hasta);
     for (let d = new Date(desde + "T00:00:00"); formatDate(d) <= hasta; d = addDays(d, 1)) {
-      paginas += covHojaDiaHTML(formatDate(d), demanda);
+      const dStr = formatDate(d);
+      paginas += covHojaDiaHTML(dStr, demanda, contrato[dStr] || {});
     }
   } finally {
     state.planning = planOrig;
