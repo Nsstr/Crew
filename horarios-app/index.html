@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.39
+            Versión: v1.6.40
           </div>
         </div>
       </div>
@@ -4487,7 +4487,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.39";
+  const APP_VERSION = "v1.6.40";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -7817,6 +7817,7 @@ window.renderUI = function renderUI() {
   }
   renderCajasDayView();
   renderCajasMobileView();
+  if (celdasVigiladas && alertasVivas && (celdasVigiladas.size || alertasVivas.size)) revisarAlertasVivas();
 
   if (!window.hasInitialScrolled) {
     setTimeout(() => {
@@ -9269,6 +9270,7 @@ async function handleInputChange(e) {
     delete state.planning[`${collabId}_${dateStr}`];
   } else {
     state.planning[`${collabId}_${dateStr}`] = obj;
+    vigilarCelda(collabId, dateStr);
   }
 
   if (oldValue !== finalValue) {
@@ -9381,7 +9383,93 @@ function showToast(title, msg, type = "info", persistente = false) {
       }
     }, duracionMs);
   }
+  return toast;
 }
+
+// -- ALERTAS QUE ESPERAN LA CORRECCIÓN --
+// No bloquean: dejan guardar, pero el cartel queda hasta que el turno se corrige.
+// Al corregirlo, el mismo cartel se pone verde ("¡Genial, ahora sí!") y se va solo.
+// Se vigilan las celdas que se tocaron; si se cierra el cartel con la ✕, ese problema no vuelve a avisar.
+// (var: la grilla se dibuja al arrancar, antes de llegar a estas líneas)
+var alertasVivas = new Map();      // clave -> { toast, nombre, fecha }
+var alertasCerradas = new Set();   // claves cerradas a mano mientras el problema sigue
+var celdasVigiladas = new Set();   // "legajo|fecha"
+
+function chequeosSuaves(collabId, dStr) {
+  const collab = (state.collaborators || []).find((c) => c.id === collabId);
+  if (!collab) return [];
+  if ((state.vacations || []).some((v) => v.colaboradorId === collabId && dStr >= v.startDate && dStr <= v.endDate)) return [];
+  const obj = getPlanningObj(collabId, dStr) || {};
+  const p = parseShift(getSlotEfectivo(collabId, dStr) || "", obj.tardanzaMinutosTotales || 0);
+  if (!p || p.type !== "work" || p.isNV) return [];
+  const nombre = nombreCortoCelular(collab) || (collab.name || "").split("(")[0].trim();
+  const fecha = dStr.split("-").reverse().slice(0, 2).join("/");
+  const r = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+  const problemas = [];
+
+  // Turno cortado (o con turno adicional): al menos 4 h entre la salida y el regreso del mismo día
+  const tramos = (p.isCortado ? p.tramos : [p]).map((t) => ({ start: t.start, end: t.end <= t.start ? 24 : t.end }));
+  const adic = turnoAdicionalInfo(obj);
+  if (adic) tramos.push({ start: adic.start, end: adic.end });
+  tramos.sort((a, b) => a.start - b.start);
+  for (let i = 1; i < tramos.length; i++) {
+    const corte = tramos[i].start - tramos[i - 1].end;
+    if (corte > 0 && corte < 4) {
+      problemas.push({ clave: `corte|${collabId}|${dStr}`, nombre, fecha, titulo: "Corte corto", msg: `${nombre} el ${fecha}: vuelve con ${r(corte)}\u00a0h de corte. Mínimo 4\u00a0h.` });
+      break;
+    }
+  }
+
+  // Contratos chicos: hasta 8,5 h en el día (contando el turno adicional)
+  const contrato = parseFloat(collab.hours) || parseFloat(collab.cargaHoraria) || parseFloat(collab.contractHours) || 0;
+  const horasDia = (p.hours || 0) + (adic ? adic.hours : 0);
+  if (contrato > 0 && contrato <= 30 && horasDia > 8.5) {
+    problemas.push({ clave: `dia|${collabId}|${dStr}`, nombre, fecha, titulo: "Día largo", msg: `${nombre} el ${fecha} hace ${r(horasDia)}\u00a0h. Contrato chico: hasta 8,5\u00a0h.` });
+  }
+  return problemas;
+}
+
+function revisarAlertasVivas() {
+  const activas = new Set();
+  celdasVigiladas.forEach((k) => {
+    const [collabId, dStr] = k.split("|");
+    const problemas = chequeosSuaves(collabId, dStr);
+    if (!problemas.length) celdasVigiladas.delete(k);
+    problemas.forEach((pr) => {
+      activas.add(pr.clave);
+      const viva = alertasVivas.get(pr.clave);
+      if (viva && viva.toast.isConnected) {
+        viva.toast.querySelector(".toast-desc").textContent = pr.msg; // el número puede haber cambiado
+      } else if (!alertasCerradas.has(pr.clave)) {
+        const toast = showToast(pr.titulo, pr.msg, "warning", true);
+        if (toast) {
+          toast.querySelector(".toast-close")?.addEventListener("click", () => { alertasCerradas.add(pr.clave); alertasVivas.delete(pr.clave); });
+          alertasVivas.set(pr.clave, { toast, nombre: pr.nombre, fecha: pr.fecha });
+        }
+      }
+    });
+  });
+  // Lo que ya no tiene problema: verde y se va
+  alertasVivas.forEach((viva, clave) => {
+    if (activas.has(clave)) return;
+    alertasVivas.delete(clave);
+    const t = viva.toast;
+    if (!t.isConnected) return;
+    t.classList.remove("warning");
+    t.classList.add("success");
+    t.querySelector(".toast-title").textContent = "¡Genial, ahora sí!";
+    t.querySelector(".toast-desc").textContent = `${viva.nombre} el ${viva.fecha} quedó bien.`;
+    setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 400); }, 3500);
+  });
+  alertasCerradas.forEach((clave) => { if (!activas.has(clave)) alertasCerradas.delete(clave); });
+}
+
+function vigilarCelda(collabId, dStr) {
+  if (!collabId || !dStr) return;
+  celdasVigiladas.add(`${collabId}|${dStr}`);
+  setTimeout(revisarAlertasVivas, 0);
+}
+window.vigilarCelda = vigilarCelda;
 
 // En Línea de Cajas con 1 semana, las flechas mueven el día del panel lateral
 function cajasPanelActivo() {
@@ -12363,6 +12451,7 @@ window.setQuickState = async function (stateVal) {
 
   obj.slot = nuevoSlot;
   state.planning[`${collabId}_${dateStr}`] = obj;
+  vigilarCelda(collabId, dateStr);
 
   if (!isMockMode) {
     try {
@@ -12427,6 +12516,7 @@ window.setNoVieneQuickState = async function () {
 
   obj.slot = newSlot;
   state.planning[`${collabId}_${dateStr}`] = obj;
+  vigilarCelda(collabId, dateStr);
 
   if (!isMockMode) {
     try {
@@ -12484,6 +12574,7 @@ window.applyCustomSchedule = async function () {
 
   obj.slot = newSlotStr;
   state.planning[`${collabId}_${dateStr}`] = obj;
+  vigilarCelda(collabId, dateStr);
 
   if (!isMockMode) {
     try {
@@ -12540,6 +12631,7 @@ document
     obj.fijado = isFixedNow;
 
     state.planning[`${collabId}_${dateStr}`] = obj;
+    vigilarCelda(collabId, dateStr);
 
     if (!isMockMode) {
       try {
@@ -12700,6 +12792,7 @@ async function autoSaveContextMenu() {
   }
 
   state.planning[`${collabId}_${dateStr}`] = obj;
+  vigilarCelda(collabId, dateStr);
 
   if (!isMockMode) {
     try {
@@ -12767,6 +12860,7 @@ document
       currentContextCell.value;
     obj.esInventario = e.target.checked;
     state.planning[`${collabId}_${dateStr}`] = obj;
+    vigilarCelda(collabId, dateStr);
     if (!isMockMode) {
       try {
         setDoc(
