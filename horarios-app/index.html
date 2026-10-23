@@ -566,6 +566,32 @@
     }
     
     .mobile-hours-tag { display: none; }
+    /* Recordatorios de eventos: nota abajo a la izquierda, distinta de las alertas de arriba */
+    .rec-panel {
+      position: fixed; left: 18px; bottom: 18px; z-index: 9990; width: 340px; max-width: calc(100vw - 32px);
+      max-height: 70vh; display: flex; flex-direction: column;
+      background: linear-gradient(160deg, #fff7e0 0%, #fdecc8 100%); color: #3b2f1e;
+      border-radius: 12px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(146, 99, 30, 0.25);
+      transform: translateX(-120%) rotate(-1.5deg); opacity: 0; transition: transform 0.45s cubic-bezier(.2, .9, .3, 1.15), opacity 0.3s;
+      font-family: inherit;
+    }
+    .rec-panel.visible { transform: translateX(0) rotate(-0.6deg); opacity: 1; }
+    .rec-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px 6px 14px; font-weight: 800; font-size: 0.85rem; letter-spacing: 0.02em; border-bottom: 1px dashed rgba(146, 99, 30, 0.35); }
+    .rec-cerrar { background: transparent; border: none; color: #7c5a22; font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 0 2px; }
+    .rec-lista { overflow-y: auto; padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 8px; }
+    .rec-item { background: rgba(255, 255, 255, 0.65); border-left: 4px solid var(--c); border-radius: 8px; padding: 8px 10px; transition: opacity 0.25s, transform 0.25s; }
+    .rec-item.saliendo { opacity: 0; transform: translateX(-20px); }
+    .rec-cuando { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #92631e; margin-bottom: 4px; }
+    .rec-cuando.hoy { color: #b45309; }
+    .rec-texto { display: flex; gap: 8px; align-items: flex-start; font-size: 0.85rem; line-height: 1.35; }
+    .rec-texto b { color: #1f160b; }
+    .rec-ico { font-size: 1.35rem; line-height: 1; }
+    .rec-cerrada { color: #b91c1c; font-weight: 700; font-size: 0.78rem; }
+    .rec-botones { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .rec-botones button { flex: 1; border-radius: 6px; padding: 6px 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+    .rec-ok { background: #92631e; color: #fff; border: 1px solid #92631e; }
+    .rec-luego { background: transparent; color: #7c5a22; border: 1px solid rgba(146, 99, 30, 0.5); }
+    @media (max-width: 768px) { .rec-panel { left: 12px; bottom: 150px; width: calc(100vw - 24px); } }
     .evm-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr) 360px; flex: 1; min-height: 0; }
     @media (max-width: 1100px) {
       .evm-layout { grid-template-columns: minmax(0, 1fr); overflow-y: auto; }
@@ -3598,7 +3624,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.24
+            Versión: v1.6.25
           </div>
         </div>
       </div>
@@ -4087,6 +4113,7 @@
                   <option value="Inventario">Inventario</option>
                   <option value="Evento">Evento</option>
                   <option value="Reunión">Reunión</option>
+                  <option value="Cumpleaños">Cumpleaños</option>
                   <option value="Otro">Otro</option>
                 </select>
               </div>
@@ -4486,7 +4513,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.24";
+  const APP_VERSION = "v1.6.25";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5398,6 +5425,8 @@ async function loadWeekPlanning(append = false) {
               const startStr = formatDate(realStartD);
               const endStr = formatDate(realEndD);
               await loadEventos(startStr, endStr);
+              // Ayuda memoria con los eventos de hoy y mañana (una vez por apertura de la app)
+              setTimeout(() => window.mostrarRecordatoriosEventos && window.mostrarRecordatoriosEventos(), 1200);
               
               if (window.unsubscribeDemandaCajas) window.unsubscribeDemandaCajas();
               window.unsubscribeDemandaCajas = onSnapshot(
@@ -13581,6 +13610,112 @@ async function covImprimirDias(desde, hasta, win) {
     if (marco) setTimeout(() => marco.remove(), 60000);
   }, 400);
 }
+
+// -- RECORDATORIOS DE EVENTOS (ayuda memoria al abrir la app) --
+// Al abrir la app aparece una nota abajo a la izquierda con los eventos de hoy y de mañana.
+// "Lo tengo, gracias" no lo vuelve a mostrar (el aviso de mañana y el de hoy son independientes).
+// "Seguir recordándomelo" lo cierra por ahora y vuelve la próxima vez que se abra la app.
+const REC_CLAVE = "crewRecordatoriosVistos";
+const REC_ICONOS = { "Cumpleaños": "🎂", "Inventario": "📦", "Evento": "📅", "Reunión": "👥", "Otro": "📌" };
+
+function recLeerVistos() {
+  try {
+    const v = JSON.parse(localStorage.getItem(REC_CLAVE) || "{}");
+    // Se limpian los avisos de más de 15 días
+    const limite = Date.now() - 15 * 86400000;
+    Object.keys(v).forEach((k) => { if (v[k] < limite) delete v[k]; });
+    return v;
+  } catch (e) {
+    return {};
+  }
+}
+function recMarcarVisto(clave) {
+  try {
+    const v = recLeerVistos();
+    v[clave] = Date.now();
+    localStorage.setItem(REC_CLAVE, JSON.stringify(v));
+  } catch (e) { /* sin almacenamiento: se vuelve a mostrar la próxima vez */ }
+}
+
+async function recEventosDe(dStr) {
+  if (!isMockMode) {
+    try {
+      const snap = await getDoc(doc(db, "eventos_diarios", dStr));
+      return evLista(snap.exists() ? snap.data() : null);
+    } catch (e) { /* se usa lo que haya en memoria */ }
+  }
+  return evLista(state.eventos && state.eventos[dStr]);
+}
+
+window.mostrarRecordatoriosEventos = async function (forzar = false) {
+  if (window.__recordatoriosMostrados && !forzar) return;
+  window.__recordatoriosMostrados = true;
+  const hoy = formatDate(new Date());
+  const manana = formatDate(addDays(new Date(), 1));
+  const [deHoy, deManana] = await Promise.all([recEventosDe(hoy), recEventosDe(manana)]);
+  const vistos = recLeerVistos();
+  const claveEv = (ev, fecha) => (ev.grupo ? `g:${ev.grupo}` : `${fecha}|${ev.id}`);
+  const items = [];
+  deHoy.forEach((ev) => items.push({ ev, cuando: "hoy", fecha: hoy, clave: `${claveEv(ev, hoy)}|hoy` }));
+  deManana.forEach((ev) => {
+    // Si es un evento de varios días que ya está en curso hoy, alcanza con el aviso de hoy
+    if (ev.grupo && deHoy.some((h) => h.grupo === ev.grupo)) return;
+    items.push({ ev, cuando: "manana", fecha: manana, clave: `${claveEv(ev, manana)}|manana` });
+  });
+  const pendientes = items.filter((it) => !vistos[it.clave]);
+  if (!pendientes.length) return;
+
+  document.getElementById("recordatoriosEventos")?.remove();
+  const esc = (t) => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const diasSem = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  const fechaTxt = (f) => { const d = new Date(f + "T00:00:00"); return `${diasSem[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`; };
+
+  const panel = document.createElement("div");
+  panel.id = "recordatoriosEventos";
+  panel.className = "rec-panel";
+  panel.setAttribute("role", "status");
+  panel.innerHTML = `
+    <div class="rec-head">
+      <span>📝 Para tener en cuenta</span>
+      <button type="button" class="rec-cerrar" title="Cerrar por ahora (vuelve la próxima vez)">&times;</button>
+    </div>
+    <div class="rec-lista">
+      ${pendientes.map((it, i) => {
+        const ev = it.ev;
+        const rango = ev.rangoFin && ev.rangoFin !== it.fecha && it.cuando === "hoy" ? ` · hasta el ${fechaTxt(ev.rangoFin)}` : "";
+        return `<div class="rec-item" data-i="${i}" style="--c:${esc(ev.color || "#f59e0b")}">
+          <div class="rec-cuando ${it.cuando}">${it.cuando === "hoy" ? "Hoy" : `Mañana · ${fechaTxt(it.fecha)}`}${rango}</div>
+          <div class="rec-texto"><span class="rec-ico">${REC_ICONOS[ev.tipo] || "📌"}</span><div><b>${esc(ev.tipo)}</b>${ev.descripcion ? `<div>${esc(ev.descripcion)}</div>` : ""}${ev.tiendaCerrada ? `<div class="rec-cerrada">Tienda cerrada</div>` : ""}</div></div>
+          <div class="rec-botones">
+            <button type="button" class="rec-ok">Lo tengo, gracias</button>
+            <button type="button" class="rec-luego">Seguir recordándomelo</button>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+  document.body.appendChild(panel);
+  requestAnimationFrame(() => panel.classList.add("visible"));
+
+  const cerrarPanelSiVacio = () => {
+    if (!panel.querySelector(".rec-item")) {
+      panel.classList.remove("visible");
+      setTimeout(() => panel.remove(), 350);
+    }
+  };
+  const quitarItem = (el) => {
+    el.classList.add("saliendo");
+    setTimeout(() => { el.remove(); cerrarPanelSiVacio(); }, 250);
+  };
+  panel.querySelectorAll(".rec-item").forEach((el) => {
+    const it = pendientes[Number(el.dataset.i)];
+    el.querySelector(".rec-ok").onclick = () => { recMarcarVisto(it.clave); quitarItem(el); };
+    el.querySelector(".rec-luego").onclick = () => quitarItem(el);
+  });
+  panel.querySelector(".rec-cerrar").onclick = () => {
+    panel.classList.remove("visible");
+    setTimeout(() => panel.remove(), 350);
+  };
+};
 
 // -- LOGS DE ACTIVIDAD (Auditoría de Turnos) --
 window.registrarLogActividad = async function (
