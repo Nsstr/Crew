@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.54
+            Versión: v1.6.55
           </div>
         </div>
       </div>
@@ -3842,8 +3842,24 @@
       #seccionVacaciones .vz-hist-anio { font-size: 0.8rem; font-weight: 700; color: var(--text); margin: 8px 0 4px; }
       #seccionVacaciones .vz-hist-item { font-size: 0.82rem; color: var(--text); padding: 3px 0; font-variant-numeric: tabular-nums; }
       #seccionVacaciones .vz-hist-item span { color: var(--text-muted); }
+      #seccionVacaciones .vz-movil { display: none; }
       @media (max-width: 1000px) {
         #seccionVacaciones .vz-top { grid-template-columns: 1fr; }
+      }
+      /* Celular: primero consultar (quién está, buscar a alguien); cargar queda a un toque */
+      @media (max-width: 768px) {
+        #seccionVacaciones .vz-movil { display: flex; flex-direction: column; gap: 14px; }
+        #seccionVacaciones:not(.vz-cargando) .vz-wrap > .vz-card,
+        #seccionVacaciones:not(.vz-cargando) .vz-wrap > .vz-top { display: none; }
+        #seccionVacaciones.vz-cargando .vz-movil-consulta { display: none !important; }
+        #seccionVacaciones:not(.vz-cargando) .vz-m-volver { display: none; }
+        #seccionVacaciones .vz-m-in { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border); font: inherit; font-size: 1rem; }
+        #seccionVacaciones .vz-m-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+        #seccionVacaciones .vz-m-item:first-child { border-top: 0; }
+        #seccionVacaciones .vz-m-nom { font-weight: 700; color: var(--text); font-size: 0.95rem; }
+        #seccionVacaciones .vz-m-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+        #seccionVacaciones .vz-m-der { text-align: right; font-size: 0.82rem; color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+        #seccionVacaciones .vz-m-btn { width: 100%; padding: 12px; border-radius: 10px; background: transparent; color: var(--text); border: 1px solid var(--border); font: inherit; font-weight: 700; cursor: pointer; }
       }
       @media (max-width: 768px) {
         #seccionVacaciones { padding: 76px 12px 24px !important; }
@@ -3855,6 +3871,23 @@
       }
     </style>
     <div class="vz-wrap">
+      <!-- Celular: consulta -->
+      <div class="vz-movil">
+        <div class="vz-movil-consulta" style="display: contents;">
+          <div class="vz-card">
+            <div class="vz-h"><h3>¿Quién está de vacaciones?</h3></div>
+            <input type="date" id="vzMovilFecha" class="vz-m-in" onchange="renderVacMovil()">
+            <div id="vzMovilDia" style="margin-top: 10px;"></div>
+          </div>
+          <div class="vz-card">
+            <div class="vz-h"><h3>Buscar a alguien</h3></div>
+            <input type="search" id="vzMovilBuscar" class="vz-m-in" placeholder="Nombre o legajo" oninput="renderVacMovil()">
+            <div id="vzMovilPersona" style="margin-top: 10px;"></div>
+          </div>
+          <button type="button" class="vz-m-btn" onclick="document.getElementById('seccionVacaciones').classList.add('vz-cargando'); window.scrollTo(0,0);">+ Cargar vacaciones</button>
+        </div>
+        <button type="button" class="vz-m-btn vz-m-volver" onclick="document.getElementById('seccionVacaciones').classList.remove('vz-cargando'); renderVacMovil();">← Volver a consultar</button>
+      </div>
       <div class="vz-top">
         <!-- Cargar vacaciones -->
         <div class="vz-card">
@@ -4525,7 +4558,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.54";
+  const APP_VERSION = "v1.6.55";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -10929,9 +10962,67 @@ window.renderVacationTable = function renderVacationTable() {
       tbody.appendChild(tr);
     });
 
+  if (typeof window.renderVacMovil === "function") window.renderVacMovil();
   if (document.getElementById("seccionVacaciones").style.display !== "none") {
     renderVacationCalendar();
   }
+};
+
+// Celular: quién está de vacaciones en una fecha y las vacaciones de una persona
+window.renderVacMovil = function renderVacMovil() {
+  const boxDia = document.getElementById("vzMovilDia");
+  const boxPer = document.getElementById("vzMovilPersona");
+  if (!boxDia || !boxPer) return;
+  const area = state.currentArea || "Disponibilidad";
+  const gente = state.collaborators.filter((c) => (c.area || "Disponibilidad") === area);
+  const ids = new Set(gente.map((c) => c.id));
+  const vacs = (state.vacations || []).filter((v) => ids.has(v.colaboradorId));
+  const nombre = (id) => { const c = state.collaborators.find((x) => x.id === id); return c ? c.name.split("(")[0].trim() : id; };
+  const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const f = (str) => { const d = new Date(str + "T00:00:00"); return `${dn[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`; };
+  const vuelve = (v) => formatDate(addDays(new Date(v.endDate + "T00:00:00"), 1));
+  const dias = (v) => Math.round((new Date(v.endDate + "T00:00:00") - new Date(v.startDate + "T00:00:00")) / 86400000) + 1;
+  const esc = (t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const hoy = formatDate(new Date());
+
+  const inFecha = document.getElementById("vzMovilFecha");
+  if (!inFecha.value) inFecha.value = hoy;
+  const fecha = inFecha.value;
+  const enFecha = vacs.filter((v) => v.startDate <= fecha && v.endDate >= fecha).sort((a, b) => a.endDate.localeCompare(b.endDate));
+  boxDia.innerHTML = enFecha.length
+    ? enFecha.map((v) => `<div class="vz-m-item">
+        <div><div class="vz-m-nom"><span class="vz-dot" style="background: ${getCollabColor(v.colaboradorId)};"></span>${esc(nombre(v.colaboradorId))}</div><div class="vz-m-sub">Salió el ${f(v.startDate)}</div></div>
+        <div class="vz-m-der">Vuelve el<br><b>${f(vuelve(v))}</b></div>
+      </div>`).join("")
+    : `<div class="vz-m-sub">Nadie de ${esc({ "Linea de Cajas": "Línea de Cajas" }[area] || area)} está de vacaciones ese día.</div>`;
+
+  const q = (document.getElementById("vzMovilBuscar").value || "").trim().toLowerCase();
+  if (!q) {
+    // Sin búsqueda: las próximas salidas
+    const prox = vacs.filter((v) => v.startDate > hoy).sort((a, b) => a.startDate.localeCompare(b.startDate)).slice(0, 6);
+    boxPer.innerHTML = prox.length
+      ? `<div class="vz-m-sub" style="margin-bottom: 4px;">Próximas salidas</div>` + prox.map((v) => `<div class="vz-m-item">
+          <div><div class="vz-m-nom"><span class="vz-dot" style="background: ${getCollabColor(v.colaboradorId)};"></span>${esc(nombre(v.colaboradorId))}</div><div class="vz-m-sub">${dias(v)} días</div></div>
+          <div class="vz-m-der">Sale ${f(v.startDate)}<br>Vuelve ${f(vuelve(v))}</div>
+        </div>`).join("")
+      : `<div class="vz-m-sub">No hay próximas salidas cargadas.</div>`;
+    return;
+  }
+  const encontrados = gente.filter((c) => c.name.toLowerCase().includes(q) || String(c.id).includes(q)).slice(0, 5);
+  if (!encontrados.length) { boxPer.innerHTML = `<div class="vz-m-sub">No encontré a nadie con "${esc(q)}".</div>`; return; }
+  boxPer.innerHTML = encontrados.map((c) => {
+    const suyas = vacs.filter((v) => v.colaboradorId === c.id).sort((a, b) => b.startDate.localeCompare(a.startDate));
+    const lista = suyas.length
+      ? suyas.map((v) => {
+          const est = v.endDate < hoy ? "Tomada" : v.startDate <= hoy ? "De vacaciones" : "Próxima";
+          return `<div class="vz-m-item" style="${est === "Tomada" ? "opacity: 0.6;" : ""}">
+            <div><div style="color: var(--text); font-size: 0.88rem;">Sale ${f(v.startDate)} · vuelve ${f(vuelve(v))}</div><div class="vz-m-sub">${dias(v)} días · saldo ${getVacationYear(v)}</div></div>
+            <div class="vz-m-der"><span class="vz-estado ${est === "De vacaciones" ? "curso" : est === "Próxima" ? "prox" : ""}">${est}</span></div>
+          </div>`;
+        }).join("")
+      : `<div class="vz-m-sub">No tiene vacaciones cargadas.</div>`;
+    return `<div style="margin-top: 6px;"><div class="vz-m-nom" style="margin-bottom: 2px;"><span class="vz-dot" style="background: ${getCollabColor(c.id)};"></span>${esc(c.name.split("(")[0].trim())} <span class="vz-m-sub">· Leg. ${esc(c.id)}</span></div>${lista}</div>`;
+  }).join('<div style="height: 10px;"></div>');
 };
 
 window.editVacation = function (id) {
