@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.43
+            Versión: v1.6.44
           </div>
         </div>
       </div>
@@ -4487,7 +4487,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.43";
+  const APP_VERSION = "v1.6.44";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -9430,13 +9430,19 @@ function chequeosSuaves(collabId, dStr) {
     }
   }
 
-  // Turno adicional: entre 4 h y 8,5 h (vale para todos los contratos)
+  // Turno adicional: mínimo 4 h para todos. Máximo 8,5 h; en los de 48 h puede pasarse,
+  // así que ahí es solo un aviso que se cierra con la ✕ y no vuelve.
+  const contratoAdic = parseFloat(collab.hours) || parseFloat(collab.cargaHoraria) || parseFloat(collab.contractHours) || 0;
   if (adic && (adic.hours < 4 || adic.hours > 8.5)) {
     const fh = (h) => { const m = Math.round((h % 1) * 60); return m ? `${Math.floor(h)}:${String(m).padStart(2, "0")}` : `${Math.floor(h)}`; };
-    problemas.push({
-      clave: `adic|${collabId}|${dStr}`, nombre, fecha, titulo: "Turno adicional",
-      msg: `${nombre} el ${fecha}: el adicional de ${fh(adic.start)} a ${fh(adic.end % 24)} dura ${r(adic.hours)}\u00a0h. ${adic.hours < 4 ? "Mínimo 4\u00a0h." : "Máximo 8,5\u00a0h."}`,
-    });
+    const tramo = `${nombre} el ${fecha}: el adicional de ${fh(adic.start)} a ${fh(adic.end % 24)} dura ${r(adic.hours)}\u00a0h.`;
+    if (adic.hours < 4) {
+      problemas.push({ clave: `adic|${collabId}|${dStr}`, nombre, fecha, titulo: "Turno adicional", msg: `${tramo} Mínimo 4\u00a0h.` });
+    } else if (contratoAdic >= 48) {
+      problemas.push({ clave: `adic48|${collabId}|${dStr}|${adic.slot}`, nombre, fecha, titulo: "Adicional largo", msg: `${tramo} Pasa de 8,5\u00a0h. Si está bien así, cerrá el aviso.`, tipo: "info", soloAviso: true });
+    } else {
+      problemas.push({ clave: `adic|${collabId}|${dStr}`, nombre, fecha, titulo: "Turno adicional", msg: `${tramo} Máximo 8,5\u00a0h.` });
+    }
   }
 
   problemas.push(...problemasDescanso(collabId, dStr, collab, nombre));
@@ -9518,7 +9524,7 @@ function revisarAlertasVivas() {
         const toast = showToast(pr.titulo, pr.msg, pr.tipo || "warning", true);
         if (toast) {
           toast.querySelector(".toast-close")?.addEventListener("click", () => { alertasCerradas.add(pr.clave); alertasVivas.delete(pr.clave); });
-          alertasVivas.set(pr.clave, { toast, nombre: pr.nombre, fecha: pr.fecha, resuelto: pr.resuelto });
+          alertasVivas.set(pr.clave, { toast, nombre: pr.nombre, fecha: pr.fecha, resuelto: pr.resuelto, soloAviso: pr.soloAviso });
         }
       }
     });
@@ -9529,6 +9535,7 @@ function revisarAlertasVivas() {
     alertasVivas.delete(clave);
     const t = viva.toast;
     if (!t.isConnected) return;
+    if (viva.soloAviso) { t.classList.remove("show"); setTimeout(() => t.remove(), 400); return; } // era solo un aviso: se va sin festejo
     t.classList.remove("warning", "error");
     t.classList.add("success");
     t.querySelector(".toast-title").textContent = "¡Genial, ahora sí!";
