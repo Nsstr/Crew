@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.51
+            Versión: v1.6.52
           </div>
         </div>
       </div>
@@ -3909,7 +3909,7 @@
    <!-- SECCIÓN MÉTRICAS Y AUDITORÍA -->
    <div id="seccionMetricas" class="metrics-container" style="display: none; padding: 20px; background: var(--surface); height: 100%; overflow-y: auto;">
       <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 20px;">
-         <h2 style="margin: 0; color: var(--primary);">Dashboard de Métricas y Auditoría</h2>
+         <h2 style="margin: 0; color: var(--text);">Métricas <span id="metricsAreaLabel" style="font-weight: 500; color: var(--text-muted);"></span></h2>
          <select id="metricsYearSelector" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem; outline: none;"></select>
       </div>
       <div id="metricsBentoGrid" class="bento-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
@@ -4487,7 +4487,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.51";
+  const APP_VERSION = "v1.6.52";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -10149,101 +10149,127 @@ window.renderMetrics = async function () {
     });
   });
 
-  // SORTING: Peores a Mejores (más alertas y tardanzas primero)
+  // ── Vista simple: resumen arriba + una fila por persona ──
+  const revisar = (d) => d.partesPegados.length > 0;
   metricsData.sort((a, b) => {
-    if (b.partesPegados.length !== a.partesPegados.length) {
-      return b.partesPegados.length - a.partesPegados.length;
-    }
-    if (b.tardanzaTotalMins !== a.tardanzaTotalMins) {
-      return b.tardanzaTotalMins - a.tardanzaTotalMins;
-    }
+    if (revisar(b) !== revisar(a)) return revisar(b) ? 1 : -1;
+    if (b.partesPegados.length !== a.partesPegados.length) return b.partesPegados.length - a.partesPegados.length;
+    if (b.tardanzaTotalMins !== a.tardanzaTotalMins) return b.tardanzaTotalMins - a.tardanzaTotalMins;
     return a.collab.name.localeCompare(b.collab.name);
   });
 
-  metricsData.forEach((data) => {
-    const {
-      collab,
-      tardanzaTotalMins,
-      partesPegados,
-      cambiosSolicitados,
-      feriadosTrabajados,
-      feriadosLibres,
-      enfermedadTotalDias,
-    } = data;
+  const esc = (t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const fmtMin = (m) => {
+    m = Math.round(m || 0);
+    if (!m) return "";
+    const h = Math.floor(m / 60), r = m % 60;
+    return h ? `${h} h${r ? ` ${r} min` : ""}` : `${r} min`;
+  };
+  const fc = (f) => `${f.substring(8, 10)}/${f.substring(5, 7)}`;
+  const nada = `<span class="mt-nada">—</span>`;
+  const nombreArea = { "Linea de Cajas": "Línea de Cajas" }[areaMetricas] || areaMetricas;
+  const lbl = document.getElementById("metricsAreaLabel");
+  if (lbl) lbl.textContent = nombreArea;
 
-    // Crear UI para colaborador
-    const tardanzaHs = (tardanzaTotalMins / 60).toFixed(1);
-    const ratioFeriados =
-      feriadosTrabajados + feriadosLibres > 0
-        ? Math.round(
-            (feriadosTrabajados / (feriadosTrabajados + feriadosLibres)) * 100,
-          )
-        : 0;
+  const tot = metricsData.reduce((t, d) => {
+    t.tarde += d.tardanzaTotalMins; t.enf += d.enfermedadTotalDias; t.partes += d.partesPegados.length;
+    t.ft += d.feriadosTrabajados; t.fl += d.feriadosLibres; t.rev += revisar(d) ? 1 : 0;
+    return t;
+  }, { tarde: 0, enf: 0, partes: 0, ft: 0, fl: 0, rev: 0 });
 
-    let alertsHtml = partesPegados
-      .map(
-        (p) =>
-          `<div style="font-size: 0.75rem; color: var(--danger); margin-bottom: 2px;">⚠ Parte el ${p.substring(8, 10)}/${p.substring(5, 7)} pegado a Franco</div>`,
-      )
-      .join("");
+  const filtro = window.__metricsFiltro === "revisar" ? "revisar" : "todos";
+  const visibles = filtro === "revisar" ? metricsData.filter(revisar) : metricsData;
 
-    const card = document.createElement("div");
-    card.style = `background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;`;
-    card.onmouseover = () => {
-      card.style.transform = "translateY(-2px)";
-      card.style.boxShadow = "0 6px 12px rgba(0,0,0,0.3)";
-    };
-    card.onmouseout = () => {
-      card.style.transform = "translateY(0)";
-      card.style.boxShadow = "0 4px 6px -1px rgba(0,0,0,0.1)";
-    };
-    card.onclick = () => openMetricsDetail(collab.id);
+  const tile = (titulo, valor, sub, marcar) => `
+    <div class="mt-tile${marcar ? " mt-tile-ojo" : ""}">
+      <div class="mt-tile-t">${titulo}</div>
+      <div class="mt-tile-v">${valor}</div>
+      <div class="mt-tile-s">${sub}</div>
+    </div>`;
 
-    card.innerHTML = `
-            <div style="font-weight: bold; font-size: 1.1rem; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 4px; display: flex; justify-content: space-between; align-items: baseline;">
-               <span>${collab.name.split("(")[0].trim()}</span>
-               <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">Leg: ${collab.id}</span>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
-               <div style="background: var(--surface); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
-                  <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Tardanza Total</div>
-                  <div style="font-size: 1rem; font-weight: bold; color: ${tardanzaTotalMins > 0 ? "var(--warning)" : "var(--success)"};">${tardanzaTotalMins} min <span style="font-size: 0.7rem; font-weight: normal;">(${tardanzaHs}h)</span></div>
-               </div>
-               
-               <div style="background: var(--surface); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
-                  <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Turnos Fijados</div>
-                  <div style="font-size: 1rem; font-weight: bold; color: var(--text);">${cambiosSolicitados}</div>
-               </div>
-               
-               <div style="background: var(--surface); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
-                  <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Presentismo en Feriados</div>
-                  <div style="font-size: 1rem; font-weight: bold; color: var(--text);">${feriadosTrabajados} trab. / ${feriadosLibres} lib. <span style="font-size: 0.8rem; font-weight: normal; color: var(--info);">(${ratioFeriados}%)</span></div>
-               </div>
+  const filas = visibles.map((d) => {
+    const c = d.collab;
+    const nombre = esc(c.name.split("(")[0].trim());
+    const totalFer = d.feriadosTrabajados + d.feriadosLibres;
+    const partes = d.partesPegados.length
+      ? `<b>${d.partesPegados.length}</b><span class="mt-sub">${d.partesPegados.map(fc).join(", ")}</span>`
+      : nada;
+    return `
+      <div class="mt-fila${revisar(d) ? " mt-fila-ojo" : ""}" onclick="openMetricsDetail('${esc(c.id)}')" title="Ver el detalle">
+        <div class="mt-c mt-nombre">
+          <span>${nombre}</span>
+          <span class="mt-sub">Leg. ${esc(c.id)}${revisar(d) ? ` · <span class="mt-pill">Revisar</span>` : ""}</span>
+        </div>
+        <div class="mt-c" data-l="Llegadas tarde">${fmtMin(d.tardanzaTotalMins) || nada}</div>
+        <div class="mt-c" data-l="Enfermedad">${d.enfermedadTotalDias ? `${d.enfermedadTotalDias} día${d.enfermedadTotalDias !== 1 ? "s" : ""}` : nada}</div>
+        <div class="mt-c" data-l="Partes junto a franco">${partes}</div>
+        <div class="mt-c" data-l="Feriados trabajados">${totalFer ? `${d.feriadosTrabajados} de ${totalFer}` : nada}</div>
+        <div class="mt-c" data-l="Turnos fijados">${d.cambiosSolicitados || nada}</div>
+      </div>`;
+  }).join("");
 
-               <div style="background: var(--surface); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
-                  <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Enfermedad (Año)</div>
-                  <div style="font-size: 1rem; font-weight: bold; color: ${enfermedadTotalDias > 0 ? "var(--danger)" : "var(--success)"};">${enfermedadTotalDias} día${enfermedadTotalDias !== 1 ? "s" : ""}</div>
-               </div>
-            </div>
-            
-            ${
-              partesPegados.length > 0
-                ? `
-            <div style="margin-top: 4px; background: rgba(225, 29, 72, 0.1); border: 1px solid rgba(225, 29, 72, 0.3); padding: 8px; border-radius: 6px;">
-               <div style="font-size: 0.75rem; font-weight: bold; color: var(--danger); margin-bottom: 4px;">Alertas de Auditoría:</div>
-               ${alertsHtml}
-            </div>`
-                : `
-            <div style="margin-top: 4px; font-size: 0.75rem; color: var(--success); text-align: center; padding: 4px; border: 1px dashed var(--border); border-radius: 6px;">
-               ✓ Sin alertas de ausentismo estratégico
-            </div>
-            `
-            }
-          `;
-
-    container.appendChild(card);
-  });
+  container.style.display = "block";
+  container.innerHTML = `
+    <style>
+      .mt-resumen { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+      .mt-tile { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+      .mt-tile-ojo { border-color: rgba(6, 182, 212, 0.7); box-shadow: inset 3px 0 0 #06b6d4; }
+      .mt-tile-t { font-size: 0.78rem; color: var(--text-muted); }
+      .mt-tile-v { font-size: 1.5rem; font-weight: 800; color: var(--text); margin: 2px 0; font-variant-numeric: tabular-nums; }
+      .mt-tile-s { font-size: 0.72rem; color: var(--text-muted); }
+      .mt-barra { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+      .mt-barra-t { font-size: 0.85rem; color: var(--text-muted); }
+      .mt-filtro { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+      .mt-filtro button { background: transparent; color: var(--text-muted); border: 0; padding: 6px 12px; font: inherit; font-size: 0.8rem; cursor: pointer; }
+      .mt-filtro button.on { background: var(--surface); color: var(--text); font-weight: 700; }
+      .mt-tabla { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg); }
+      .mt-fila { display: grid; grid-template-columns: minmax(180px, 2fr) repeat(5, minmax(90px, 1fr)); align-items: center; border-top: 1px solid var(--border); cursor: pointer; }
+      .mt-fila:hover { background: rgba(148, 163, 184, 0.07); }
+      .mt-fila-ojo { box-shadow: inset 3px 0 0 #06b6d4; }
+      .mt-head { cursor: default; border-top: 0; background: var(--surface); font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+      .mt-head:hover { background: var(--surface); }
+      .mt-c { padding: 10px 12px; font-size: 0.9rem; color: var(--text); font-variant-numeric: tabular-nums; display: flex; flex-direction: column; gap: 2px; }
+      .mt-nombre { font-weight: 700; }
+      .mt-sub { font-size: 0.72rem; font-weight: 400; color: var(--text-muted); }
+      .mt-nada { color: var(--text-muted); opacity: 0.5; }
+      .mt-pill { color: #06b6d4; font-weight: 700; }
+      .mt-vacio { padding: 28px; text-align: center; color: var(--text-muted); font-size: 0.9rem; }
+      .mt-nota { margin-top: 12px; font-size: 0.75rem; color: var(--text-muted); line-height: 1.6; }
+      .mt-nota b { color: var(--text); font-weight: 600; }
+      @media (max-width: 768px) {
+        .mt-resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .mt-head { display: none; }
+        .mt-fila { grid-template-columns: 1fr 1fr; padding: 4px 0; }
+        .mt-nombre { grid-column: 1 / -1; }
+        .mt-c { padding: 5px 14px; }
+        .mt-c[data-l]::before { content: attr(data-l); font-size: 0.68rem; color: var(--text-muted); }
+      }
+    </style>
+    <div class="mt-resumen">
+      ${tile("Llegadas tarde", fmtMin(tot.tarde) || "0", "sumando a todo el equipo")}
+      ${tile("Días de enfermedad", tot.enf, tot.enf === 1 ? "día en el año" : "días en el año")}
+      ${tile("Partes junto a franco", tot.partes, tot.rev ? `${tot.rev} ${tot.rev === 1 ? "persona" : "personas"} para revisar` : "nada para revisar", tot.partes > 0)}
+      ${tile("Feriados trabajados", tot.ft + tot.fl ? `${tot.ft} de ${tot.ft + tot.fl}` : "—", tot.ft + tot.fl ? `${Math.round((tot.ft / (tot.ft + tot.fl)) * 100)}% de los que tocaban` : "sin feriados todavía")}
+    </div>
+    <div class="mt-barra">
+      <span class="mt-barra-t">${metricsData.length} ${metricsData.length === 1 ? "persona" : "personas"} · tocá una fila para ver el detalle</span>
+      <span class="mt-filtro">
+        <button type="button" class="${filtro === "todos" ? "on" : ""}" onclick="window.__metricsFiltro='todos'; renderMetrics()">Todos</button>
+        <button type="button" class="${filtro === "revisar" ? "on" : ""}" onclick="window.__metricsFiltro='revisar'; renderMetrics()">Para revisar (${tot.rev})</button>
+      </span>
+    </div>
+    <div class="mt-tabla">
+      <div class="mt-fila mt-head">
+        <div class="mt-c">Colaborador</div><div class="mt-c">Llegadas tarde</div><div class="mt-c">Enfermedad</div>
+        <div class="mt-c">Partes junto a franco</div><div class="mt-c">Feriados trabajados</div><div class="mt-c">Turnos fijados</div>
+      </div>
+      ${filas || `<div class="mt-vacio">${filtro === "revisar" ? "Nadie para revisar. ¡Bien!" : "No hay colaboradores en este sector."}</div>`}
+    </div>
+    <div class="mt-nota">
+      <b>Partes junto a franco:</b> enfermedad de 1 o 2 días pegada a un franco, libre o vacaciones. Son los que conviene mirar.<br>
+      <b>Feriados trabajados:</b> cuántos trabajó de los feriados que le tocaban (no cuenta 1/1, 1/5, 25/12 ni vacaciones).<br>
+      <b>Turnos fijados:</b> turnos que quedaron fijos a pedido.
+    </div>`;
 };
 
 window.openMetricsDetail = async function (collabId) {
