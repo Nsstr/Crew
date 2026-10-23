@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.40
+            Versión: v1.6.41
           </div>
         </div>
       </div>
@@ -4487,7 +4487,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.40";
+  const APP_VERSION = "v1.6.41";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -9203,10 +9203,9 @@ async function handleInputChange(e) {
   // sin bloquear el cambio
 
   if (!isRepositor) {
-    if (!validation.valid) {
-      if (validation.type === "legal") {
-        showToast("No llega al descanso", `Necesita ${validation.req} de descanso entre turnos (ley).`, "error");
-      } else if (validation.type === "exceso_horas") {
+    // El descanso de 12 h / 35 h no bloquea: se guarda y queda la alerta hasta corregirlo
+    if (!validation.valid && validation.type !== "legal") {
+      if (validation.type === "exceso_horas") {
         showToast("No se puede cargar", validation.msg, "error");
       } else {
         showToast("No se puede cargar", validation.msg, "error");
@@ -9401,8 +9400,8 @@ function chequeosSuaves(collabId, dStr) {
   if ((state.vacations || []).some((v) => v.colaboradorId === collabId && dStr >= v.startDate && dStr <= v.endDate)) return [];
   const obj = getPlanningObj(collabId, dStr) || {};
   const p = parseShift(getSlotEfectivo(collabId, dStr) || "", obj.tardanzaMinutosTotales || 0);
-  if (!p || p.type !== "work" || p.isNV) return [];
   const nombre = nombreCortoCelular(collab) || (collab.name || "").split("(")[0].trim();
+  if (!p || p.type !== "work" || p.isNV) return problemasDescanso(collabId, dStr, collab, nombre);
   const fecha = dStr.split("-").reverse().slice(0, 2).join("/");
   const r = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
   const problemas = [];
@@ -9421,11 +9420,65 @@ function chequeosSuaves(collabId, dStr) {
   }
 
   // Contratos chicos: hasta 8,5 h en el día (contando el turno adicional)
+  problemas.push(...problemasDescanso(collabId, dStr, collab, nombre));
+
   const contrato = parseFloat(collab.hours) || parseFloat(collab.cargaHoraria) || parseFloat(collab.contractHours) || 0;
   const horasDia = (p.hours || 0) + (adic ? adic.hours : 0);
   if (contrato > 0 && contrato <= 30 && horasDia > 8.5) {
     problemas.push({ clave: `dia|${collabId}|${dStr}`, nombre, fecha, titulo: "Día largo", msg: `${nombre} el ${fecha} hace ${r(horasDia)}\u00a0h. Contrato chico: hasta 8,5\u00a0h.` });
   }
+  return problemas;
+}
+
+// Descanso entre turnos (ley): 12 h entre días seguidos y 35 h cuando hay un franco, libre o vacaciones en el medio.
+// Devuelve un problema por cada par de días que no cumple (la clave es el par, así no se duplica).
+function problemasDescanso(collabId, dStr, collab, nombre) {
+  const turno = (f) => parseShift(getSlotEfectivo(collabId, f) || "");
+  const esDescanso = (t) => !t || ["franco", "libre", "vacation", "none"].includes(t.type);
+  const trabaja = (t) => t && t.type === "work" && !t.isNV;
+  const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const r = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+  const buscar = (desde, paso) => {
+    for (let i = 1; i <= 14; i++) {
+      const f = formatDate(addDays(new Date(desde + "T00:00:00"), paso * i));
+      const t = turno(f);
+      if (trabaja(t)) return { f, t };
+      if (t && !esDescanso(t)) return null; // ausencia u otra sigla: no se mide
+    }
+    return null;
+  };
+  const medir = (a, ta, b, tb) => {
+    const fin = getShiftAbsoluteTimes(a, ta), ini = getShiftAbsoluteTimes(b, tb);
+    return fin && ini ? (ini.start - fin.end) / 3600000 : null;
+  };
+  const pares = [];
+  const hoy = turno(dStr);
+  const ayer = formatDate(addDays(new Date(dStr + "T00:00:00"), -1));
+  const manana = formatDate(addDays(new Date(dStr + "T00:00:00"), 1));
+  if (trabaja(hoy)) {
+    const tAyer = turno(ayer), tMan = turno(manana);
+    if (trabaja(tAyer)) pares.push([ayer, tAyer, dStr, hoy, 12]);
+    else if (esDescanso(tAyer)) { const u = buscar(dStr, -1); if (u) pares.push([u.f, u.t, dStr, hoy, 35]); }
+    if (trabaja(tMan)) pares.push([dStr, hoy, manana, tMan, 12]);
+    else if (esDescanso(tMan)) { const s = buscar(dStr, 1); if (s) pares.push([dStr, hoy, s.f, s.t, 35]); }
+  } else if (esDescanso(hoy)) {
+    const u = buscar(dStr, -1), s = buscar(dStr, 1);
+    if (u && s) pares.push([u.f, u.t, s.f, s.t, 35]);
+  }
+  const problemas = [];
+  pares.forEach(([a, ta, b, tb, minimo]) => {
+    const h = medir(a, ta, b, tb);
+    if (h === null || h >= minimo) return;
+    problemas.push({
+      clave: `desc|${collabId}|${a}|${b}`, nombre, fecha: `${fc(a)} al ${fc(b)}`,
+      titulo: "No llega al descanso",
+      msg: minimo === 12
+        ? `${nombre}: del ${fc(a)} al ${fc(b)} descansa ${r(h)}\u00a0h. Mínimo 12\u00a0h.`
+        : `${nombre}: del ${fc(a)} al ${fc(b)} descansa ${r(h)}\u00a0h con el franco. Mínimo 35\u00a0h.`,
+      resuelto: `${nombre} ya descansa lo que corresponde.`,
+      tipo: "error",
+    });
+  });
   return problemas;
 }
 
@@ -9441,10 +9494,10 @@ function revisarAlertasVivas() {
       if (viva && viva.toast.isConnected) {
         viva.toast.querySelector(".toast-desc").textContent = pr.msg; // el número puede haber cambiado
       } else if (!alertasCerradas.has(pr.clave)) {
-        const toast = showToast(pr.titulo, pr.msg, "warning", true);
+        const toast = showToast(pr.titulo, pr.msg, pr.tipo || "warning", true);
         if (toast) {
           toast.querySelector(".toast-close")?.addEventListener("click", () => { alertasCerradas.add(pr.clave); alertasVivas.delete(pr.clave); });
-          alertasVivas.set(pr.clave, { toast, nombre: pr.nombre, fecha: pr.fecha });
+          alertasVivas.set(pr.clave, { toast, nombre: pr.nombre, fecha: pr.fecha, resuelto: pr.resuelto });
         }
       }
     });
@@ -9455,10 +9508,10 @@ function revisarAlertasVivas() {
     alertasVivas.delete(clave);
     const t = viva.toast;
     if (!t.isConnected) return;
-    t.classList.remove("warning");
+    t.classList.remove("warning", "error");
     t.classList.add("success");
     t.querySelector(".toast-title").textContent = "¡Genial, ahora sí!";
-    t.querySelector(".toast-desc").textContent = `${viva.nombre} el ${viva.fecha} quedó bien.`;
+    t.querySelector(".toast-desc").textContent = viva.resuelto || `${viva.nombre} el ${viva.fecha} quedó bien.`;
     setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 400); }, 3500);
   });
   alertasCerradas.forEach((clave) => { if (!activas.has(clave)) alertasCerradas.delete(clave); });
@@ -12685,11 +12738,7 @@ async function autoSaveContextMenu() {
 
   const parsedWithNewTardanza = parseShift(slotValue, tardanzaMins);
 
-  const validation = validateTurn(collabId, dateStr, parsedWithNewTardanza);
-  if (!validation.valid && validation.type === "legal") {
-    showToast("No llega al descanso", `Tiene ${validation.actual} h y necesita ${validation.req} (ley).`, "error");
-    return false;
-  }
+  // El descanso de 12 h / 35 h no bloquea: se guarda y queda la alerta hasta corregirlo (ver chequeosSuaves)
 
   // Turno adicional: los dos horarios o ninguno, y sin pisarse con el turno del día
   const adicInVal = document.getElementById("ctxAdicIn") ? document.getElementById("ctxAdicIn").value : null;
