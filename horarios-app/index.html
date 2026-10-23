@@ -566,16 +566,17 @@
     }
     
     .mobile-hours-tag { display: none; }
-    /* Rotación semanal (Línea de Cajas): semana anterior › semanas visibles */
-    .rot-chip { display: inline-flex; align-items: center; gap: 1px; flex-shrink: 0; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.02em; padding: 1px 4px; border-radius: 4px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.03); line-height: 1.3; font-variant-numeric: tabular-nums; }
-    .rot-chip .rot-prev { color: var(--text-muted); opacity: 0.7; }
-    .rot-chip .rot-sep { color: var(--text-muted); opacity: 0.6; margin: 0 1px; }
-    .rot-chip .rot-ok { color: var(--success); }
-    .rot-chip .rot-mal { color: var(--danger); }
-    .rot-chip .rot-na { color: var(--text-muted); }
-    .rot-punto { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--success); }
-    .rot-punto.rot-alerta { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
-    .rot-chip.rot-alerta { border-color: var(--danger); }
+    /* Rotación en el detalle del colaborador */
+    .rot-col { border-left: 1px solid #334155; padding-left: 12px; min-width: 210px; }
+    .rot-fila { display: grid; grid-template-columns: 92px 64px auto; gap: 6px; align-items: center; padding: 3px 6px; border-radius: 4px; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+    .rot-fila.visible { background: rgba(59, 130, 246, 0.12); color: var(--text); }
+    .rot-fila.repite { box-shadow: inset 3px 0 0 var(--danger); }
+    .rot-fila.repite .rot-det { color: var(--danger); font-weight: 700; }
+    .rot-tipo { font-weight: 800; text-align: center; border-radius: 3px; padding: 0 4px; font-size: 0.68rem; }
+    .rot-tipo.t-M { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+    .rot-tipo.t-T { background: rgba(139, 92, 246, 0.22); color: #c4b5fd; }
+    .rot-tipo.t-n { color: var(--text-muted); font-weight: 600; }
+    .rot-det { font-size: 0.66rem; }
     /* Recordatorios de eventos: tarjeta clara (colores de la app invertidos) para que resalte sobre la grilla oscura */
     .rec-panel {
       position: fixed; left: 18px; bottom: 18px; z-index: 9990; width: 340px; max-width: calc(100vw - 32px);
@@ -3625,7 +3626,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.35
+            Versión: v1.6.36
           </div>
         </div>
       </div>
@@ -4514,7 +4515,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.35";
+  const APP_VERSION = "v1.6.36";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -4847,6 +4848,10 @@ try {
 // Rotación semanal de Línea de Cajas: cada semana se toma como de Mañana (la mayoría de los turnos
 // entra antes de las 14) o de Tarde. Los cajeros deberían alternar semana a semana.
 function rotTipoSemana(collabId, lunes) {
+  return rotResumenSemana(collabId, lunes).tipo;
+}
+
+function rotResumenSemana(collabId, lunes) {
   let m = 0, t = 0;
   for (let i = 0; i < 7; i++) {
     const dStr = formatDate(addDays(lunes, i));
@@ -4855,37 +4860,56 @@ function rotTipoSemana(collabId, lunes) {
     if (!p || p.type !== "work" || p.isNV) continue;
     if (p.start < 14) m++; else t++;
   }
-  if (!m && !t) return "-";
-  return m >= t ? "M" : "T";
+  return { tipo: !m && !t ? "-" : m >= t ? "M" : "T", m, t };
 }
 
-function rotChipHTML(collabId, days) {
-  const nombres = { M: "Mañana", T: "Tarde", "-": "sin turnos" };
-  // Tantas semanas como muestra la vista elegida (1, 2 o 4 sem)
-  const porVista = { "1": 1, "2": 2, "4": 4 }[state.cajasVista];
-  const semanas = Math.min(porVista || 4, Math.max(1, Math.round(days.length / 7)));
-  const primerLunes = getStartOfWeek(days[0]);
-  const tipos = [];
-  for (let w = -1; w < semanas; w++) tipos.push(rotTipoSemana(collabId, addDays(primerLunes, w * 7)));
-  let html = `<span class="rot-prev">${tipos[0]}</span><span class="rot-sep">›</span>`;
-  const detalle = [`Semana anterior: ${nombres[tipos[0]]}`];
-  let repite = false;
-  for (let i = 1; i < tipos.length; i++) {
-    const t = tipos[i], previo = tipos[i - 1];
-    let cls = "na", txt = "";
-    if (t !== "-" && previo !== "-") {
-      cls = t === previo ? "mal" : "ok";
-      txt = t === previo ? " · repite turno" : " · rotó";
-      if (t === previo) repite = true;
-    }
-    html += `<span class="rot-${cls}">${t}</span>`;
-    detalle.push(`${semanas === 1 ? "Esta semana" : `Semana ${i}`}: ${nombres[t]}${txt}`);
+// Turnos de las semanas anteriores que no están cargados en pantalla (se guardan aparte, sin tocar la grilla)
+const rotPlanCache = {};
+async function rotTraerPlanificacion(desde, hasta) {
+  const clave = `${desde}|${hasta}`;
+  if (rotPlanCache[clave]) return rotPlanCache[clave];
+  const extra = {};
+  if (!isMockMode) {
+    try {
+      const snap = await getDocs(query(collection(db, "planificacion"), where("fecha", ">=", desde), where("fecha", "<=", hasta)));
+      snap.docs.forEach((d) => { const x = d.data(); extra[`${x.colaboradorId}_${x.fecha}`] = x; });
+    } catch (e) { console.warn("No se pudo traer la rotación anterior:", e); }
   }
-  // En 4 semanas no hay lugar para la secuencia: queda un punto (alerta si alguna semana repite turno)
-  if (semanas >= 4) {
-    return `<span class="rot-punto${repite ? " rot-alerta" : ""}" title="${detalle.join(" · ")}"></span>`;
+  rotPlanCache[clave] = extra;
+  return extra;
+}
+
+// Sección "Rotación" del detalle del colaborador: últimas semanas hasta la última visible en la grilla
+async function rotSeccionHTML(collabId) {
+  const porVista = { "1": 1, "2": 2, "4": 4 }[state.cajasVista] || 1;
+  const lunesVisible = getStartOfWeek(new Date(state.currentWeekStart));
+  const semanasAtras = 5;
+  const primero = addDays(lunesVisible, -7 * semanasAtras);
+  const ultimoLunes = addDays(lunesVisible, 7 * (porVista - 1));
+  const extra = await rotTraerPlanificacion(formatDate(primero), formatDate(addDays(ultimoLunes, 6)));
+  const planOrig = state.planning;
+  state.planning = { ...extra, ...planOrig }; // lo de la pantalla manda (puede tener cambios recientes)
+  const filas = [];
+  try {
+    for (let l = new Date(primero); l <= ultimoLunes; l = addDays(l, 7)) filas.push({ lunes: new Date(l), ...rotResumenSemana(collabId, l) });
+  } finally {
+    state.planning = planOrig;
   }
-  return `<span class="rot-chip${repite ? " rot-alerta" : ""}" title="${detalle.join(" · ")}">${html}</span>`;
+  const collab = state.collaborators.find((c) => c.id === collabId) || {};
+  const esCajero = (collab.area || "") === "Linea de Cajas" && !((collab.pasillo || "") + " " + (collab.esquema || "")).toLowerCase().includes("roller");
+  const nombres = { M: "Mañana", T: "Tarde", "-": "Sin turnos" };
+  const fc = (d) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return filas.map((f, i) => {
+    const previo = filas[i - 1];
+    const repite = esCajero && previo && f.tipo !== "-" && f.tipo === previo.tipo;
+    const visible = f.lunes >= lunesVisible;
+    const detalle = [f.m ? `M ${f.m}` : "", f.t ? `T ${f.t}` : ""].filter(Boolean).join(" · ");
+    return `<div class="rot-fila${visible ? " visible" : ""}${repite ? " repite" : ""}">
+      <span class="rot-fecha">${fc(f.lunes)} – ${fc(addDays(f.lunes, 6))}</span>
+      <span class="rot-tipo t-${f.tipo === "-" ? "n" : f.tipo}">${nombres[f.tipo]}</span>
+      <span class="rot-det">${detalle}${repite ? " · repite" : ""}</span>
+    </div>`;
+  }).join("");
 }
 
 function getMonthlyRotationCompliance(collab, currentWeekDays) {
@@ -6192,13 +6216,14 @@ window.toggleCollabDetails = function(collabId, event) {
     font-size: 0.72rem;
     color: #f8fafc;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    gap: 14px;
+    align-items: flex-start;
     min-width: 180px;
     animation: fadeIn 0.15s ease-out;
   `;
 
   popover.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 180px;">
     <div style="font-weight: 700; color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 4px; margin-bottom: 2px;">
       ${collab.name}
     </div>
@@ -6208,19 +6233,37 @@ window.toggleCollabDetails = function(collabId, event) {
     <div><strong style="color: #94a3b8;">Esquema:</strong> ${collab.esquema || 'Rotativo'}</div>
     <div><strong style="color: #94a3b8;">Carga Horaria:</strong> ${collab.hours}hs semanales</div>
     <div><strong style="color: #94a3b8;">Domingos meta:</strong> ${collab.domingosAcordados ?? '-'}</div>
+    </div>
+    <div class="rot-col">
+      <div style="font-weight: 700; color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 4px; margin-bottom: 4px;">Rotación</div>
+      <div id="rot-filas" style="color: #94a3b8;">Cargando…</div>
+    </div>
   `;
 
   document.body.appendChild(popover);
+  rotSeccionHTML(collabId).then((html) => {
+    const cont = popover.querySelector("#rot-filas");
+    if (cont) { cont.innerHTML = html; cont.style.color = ""; }
+    ajustarPosicion();
+  }).catch(() => {
+    const cont = popover.querySelector("#rot-filas");
+    if (cont) cont.textContent = "No se pudo calcular.";
+  });
 
   // Mantener la ventanita dentro de la pantalla: si no entra abajo del nombre, se abre arriba
   const margen = 8;
-  const popRect = popover.getBoundingClientRect();
-  if (rect.bottom + 4 + popRect.height > window.innerHeight - margen) {
-    popover.style.top = `${Math.max(margen, rect.top - 4 - popRect.height)}px`;
+  function ajustarPosicion() {
+    popover.style.top = `${rect.bottom + 4}px`;
+    popover.style.left = `${rect.left}px`;
+    const popRect = popover.getBoundingClientRect();
+    if (rect.bottom + 4 + popRect.height > window.innerHeight - margen) {
+      popover.style.top = `${Math.max(margen, rect.top - 4 - popRect.height)}px`;
+    }
+    if (rect.left + popRect.width > window.innerWidth - margen) {
+      popover.style.left = `${Math.max(margen, window.innerWidth - margen - popRect.width)}px`;
+    }
   }
-  if (rect.left + popRect.width > window.innerWidth - margen) {
-    popover.style.left = `${Math.max(margen, window.innerWidth - margen - popRect.width)}px`;
-  }
+  ajustarPosicion();
 
   // Cerrar al hacer clic afuera
   const closeHandler = (e) => {
@@ -8171,9 +8214,7 @@ function renderDesktopView() {
                 
                 <!-- Nombre Compacto e Indicador (Izquierda) -->
                 <div style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; overflow: hidden;" onclick="window.toggleCollabDetails('${collab.id}', event)">
-                  ${(state.currentArea || "") === "Linea de Cajas" && !isRoller && !isCruzado
-                    ? rotChipHTML(collab.id, days)
-                    : `<div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;"></div>`}
+                  <div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;"></div>
                   <span style="font-weight: 600; font-size: 0.78rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">
                     ${shortName}
                   </span>
