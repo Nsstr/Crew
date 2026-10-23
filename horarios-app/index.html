@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.58
+            Versión: v1.6.59
           </div>
         </div>
       </div>
@@ -3854,7 +3854,10 @@
       #seccionVacaciones .vac-cal-grid { grid-template-columns: repeat(7, 28px) !important; gap: 3px !important; }
       #seccionVacaciones .vac-cal-cell { width: 26px !important; height: 26px !important; font-size: 0.72rem !important; }
       #seccionVacaciones .vac-cal-header { font-size: 0.85rem !important; padding-bottom: 4px !important; margin-bottom: 4px !important; }
-      #seccionVacaciones #vacationDetailContainer { position: relative; margin-top: 14px; padding: 12px 14px; background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 10px; box-shadow: none !important; }
+      #seccionVacaciones .vz-top > .vz-izq > .vz-card:first-child { display: flex; flex-direction: column; overflow: hidden; }
+      #seccionVacaciones .vz-dia-lista { overflow-y: auto; min-height: 0; flex: 1; }
+      #seccionVacaciones #vacationDetailContainer:not([style*="none"]) { display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 90px; }
+      #seccionVacaciones #vacationDetailContainer { position: relative; margin-top: 14px; padding: 10px 12px; background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 10px; box-shadow: none !important; }
       /* Saldos */
       #seccionVacaciones .vz-saldos { display: flex; flex-direction: column; gap: 6px; }
       #seccionVacaciones .vz-saldo-head, #seccionVacaciones .saldo-year-row { display: grid; grid-template-columns: 52px minmax(90px, 1fr) 76px 60px 76px 34px; gap: 8px; align-items: center; }
@@ -4585,7 +4588,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.58";
+  const APP_VERSION = "v1.6.59";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -11014,6 +11017,15 @@ window.renderVacationTable = function renderVacationTable() {
   }
 };
 
+// "Alvarez Bocca Alberto Daniel" → "Alvarez Alberto"; "Aguirre Gladys del Rosario" → "Aguirre Gladys"
+window.nombreVacCorto = function (n) {
+  const p = String(n || "").split(/\s+/).filter(Boolean);
+  if (p.length <= 2) return p.join(" ");
+  const particula = (w) => ["de", "del", "la", "las", "los", "y"].includes(w.toLowerCase());
+  const nombre = p.length >= 4 && !particula(p[2]) ? p[2] : p[1];
+  return `${p[0]} ${nombre}`;
+};
+
 // Celular: quién está de vacaciones en una fecha y las vacaciones de una persona
 window.renderVacMovil = function renderVacMovil() {
   const boxDia = document.getElementById("vzMovilDia");
@@ -11983,12 +11995,19 @@ window.renderVacationCalendar = function () {
       .sort((a, b) => a.startDate.localeCompare(b.startDate))
       .map((v) => v.colaboradorId))];
     const nombre = (id) => { const c = state.collaborators.find((x) => x.id === id); return c ? c.name.split("(")[0].trim() : id; };
-    leyenda.innerHTML = (ids.length
-      ? ids.map((id) => `<span><i class="vz-sw" style="background: ${getCollabColor(id)};"></i>${nombre(id)}</span>`).join("")
-      : `<span>Nadie de vacaciones en estos meses.</span>`) +
+    const corto = (n) => window.nombreVacCorto(n);
+    const chips = ids.map((id) => `<span title="${nombre(id)}"><i class="vz-sw" style="background: ${getCollabColor(id)};"></i>${corto(nombre(id))}</span>`).join("");
+    const muchas = ids.length > 6;
+    const abiertas = window.__vzLeyendaAbierta === true;
+    leyenda.innerHTML = (!ids.length
+      ? `<span>Nadie de vacaciones en estos meses.</span>`
+      : muchas
+        ? `<button type="button" onclick="window.__vzLeyendaAbierta = !window.__vzLeyendaAbierta; renderVacationCalendar();" style="background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px; font: inherit; font-size: 0.78rem; cursor: pointer;">${abiertas ? "Ocultar colores" : `Ver colores de las ${ids.length} personas`} ${abiertas ? "▴" : "▾"}</button>`
+        : chips) +
       `<span style="margin-left: auto;"><i class="vz-sw" style="background: #f8fafc; box-shadow: 0 0 0 2px #ef4444 inset;"></i>Semana con 3 o más</span>` +
       `<span><i class="vz-sw" style="background: transparent; border-bottom: 3px solid var(--danger); border-radius: 0; height: 9px;"></i>Feriado</span>` +
-      `<span>Tocá un día para ver quién está</span>`;
+      `<span>Tocá un día para ver quién está</span>` +
+      (muchas && abiertas ? `<div style="flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 10px; background: var(--surface); border-radius: 8px;">${chips}</div>` : "");
   }
 };
 
@@ -12004,21 +12023,24 @@ window.showVacationDetails = function (dStr, idsStr) {
   const feriado = (state.holidays || []).includes(dStr) ? ` <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">· feriado</span>` : "";
 
   let filas = "";
+  let cuantos = 0;
+  const nombreCorto = (n) => window.nombreVacCorto(n);
   ids.forEach((id) => {
     const collab = state.collaborators.find((c) => c.id === id);
     const v = (state.vacations || []).find((x) => x.colaboradorId === id && x.startDate <= dStr && x.endDate >= dStr);
     if (!v) return;
     const vuelve = formatDate(addDays(new Date(v.endDate + "T00:00:00"), 1));
     const nombre = collab ? collab.name.split("(")[0].trim() : id;
-    filas += `<div style="padding: 7px 0; border-top: 1px solid var(--border);">
-        <div><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: ${getCollabColor(id)}; margin-right: 7px;"></span><b style="color: var(--text);">${nombre}</b></div>
-        <div style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 16px;">Salió el ${fc(v.startDate)} · vuelve el <b style="color: var(--text);">${fc(vuelve)}</b></div>
+    cuantos++;
+    filas += `<div style="display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-top: 1px solid var(--border); font-size: 0.82rem;" title="${nombre}: salió el ${fc(v.startDate)}, vuelve el ${fc(vuelve)}">
+        <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${getCollabColor(id)}; margin-right: 6px;"></span><b style="color: var(--text);">${nombreCorto(nombre)}</b></span>
+        <span style="color: var(--text-muted); white-space: nowrap;">vuelve <b style="color: var(--text);">${fc(vuelve)}</b></span>
       </div>`;
   });
 
   box.innerHTML = `${cerrar}
-    <div style="font-weight: 700; color: var(--text); margin-bottom: 6px; padding-right: 24px;">${titulo}${feriado}</div>
-    ${filas || `<div style="font-size: 0.85rem; color: var(--text-muted);">Nadie de vacaciones ese día.</div>`}`;
+    <div style="font-weight: 700; color: var(--text); margin-bottom: 6px; padding-right: 24px;">${titulo}${feriado}${cuantos ? ` <span style="font-weight: 400; font-size: 0.78rem; color: var(--text-muted);">· ${cuantos} de vacaciones</span>` : ""}</div>
+    <div class="vz-dia-lista">${filas || `<div style="font-size: 0.85rem; color: var(--text-muted);">Nadie de vacaciones ese día.</div>`}</div>`;
   box.style.display = "block";
 };
 
