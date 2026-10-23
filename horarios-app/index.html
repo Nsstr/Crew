@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.55
+            Versión: v1.6.56
           </div>
         </div>
       </div>
@@ -3792,7 +3792,11 @@
   <div id="seccionVacaciones" class="vacation-container" style="display: none; padding: 16px 20px 28px; background: var(--surface); flex-direction: column; flex: 1; overflow-y: auto; box-sizing: border-box;">
     <style>
       #seccionVacaciones .vz-wrap { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 1500px; margin: 0 auto; box-sizing: border-box; }
-      #seccionVacaciones .vz-top { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.5fr); gap: 16px; align-items: start; }
+      #seccionVacaciones .vz-top { display: grid; grid-template-columns: minmax(380px, 1fr) minmax(0, 1.35fr); gap: 16px; align-items: start; }
+      #seccionVacaciones .vz-izq { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+      #seccionVacaciones .vz-cal { position: sticky; top: 0; }
+      #seccionVacaciones .vac-cal-cell.week-danger { background: #f8fafc !important; color: #b91c1c !important; box-shadow: 0 0 0 2px #ef4444 inset; }
+      #seccionVacaciones .vac-cal-cell.vz-prev { outline: 2px dashed var(--vz-prev, #fff); outline-offset: 1px; }
       #seccionVacaciones .vz-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; box-sizing: border-box; min-width: 0; }
       #seccionVacaciones .vz-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
       #seccionVacaciones .vz-h h3 { margin: 0; font-size: 1.02rem; color: var(--text); }
@@ -3889,6 +3893,7 @@
         <button type="button" class="vz-m-btn vz-m-volver" onclick="document.getElementById('seccionVacaciones').classList.remove('vz-cargando'); renderVacMovil();">← Volver a consultar</button>
       </div>
       <div class="vz-top">
+        <div class="vz-izq">
         <!-- Cargar vacaciones -->
         <div class="vz-card">
           <div class="vz-h"><h3 id="vFormTitle">Cargar vacaciones</h3></div>
@@ -3934,7 +3939,21 @@
           <div class="vz-h4">Vacaciones que tomó</div>
           <div id="historialVacacionesContainer"></div>
         </div>
-      </div>
+        </div>
+      <!-- Calendario -->
+        <div class="vz-card vz-cal">
+          <div class="vz-h">
+            <h3>Calendario</h3>
+            <div class="vz-nav">
+              <button type="button" id="vCalPrevMonth" title="Meses anteriores">&lt;</button>
+              <button type="button" id="vCalNextMonth" title="Meses siguientes">&gt;</button>
+            </div>
+          </div>
+          <div id="vacationCalendarLegend" class="vz-leyenda"></div>
+          <div id="vacationCalendarContainer" class="vac-cal-container"></div>
+          <div id="vacationDetailContainer" style="display: none;"></div>
+        </div>
+        </div>
 
       <!-- Vacaciones del sector -->
       <div class="vz-card">
@@ -3961,19 +3980,6 @@
         </div>
       </div>
 
-      <!-- Calendario -->
-      <div class="vz-card">
-        <div class="vz-h">
-          <h3>Calendario</h3>
-          <div class="vz-nav">
-            <button type="button" id="vCalPrevMonth" title="Meses anteriores">&lt;</button>
-            <button type="button" id="vCalNextMonth" title="Meses siguientes">&gt;</button>
-          </div>
-        </div>
-        <div id="vacationCalendarLegend" class="vz-leyenda"></div>
-        <div id="vacationCalendarContainer" class="vac-cal-container"></div>
-        <div id="vacationDetailContainer" style="display: none;"></div>
-      </div>
     </div>
   </div>
 
@@ -4558,7 +4564,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.55";
+  const APP_VERSION = "v1.6.56";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -10781,20 +10787,39 @@ function getContrastColor(hex) {
   return r * 0.299 + g * 0.587 + b * 0.114 > 150 ? "#000000" : "#ffffff";
 }
 
+// Un color único por colaborador dentro de su sector: los tonos se reparten parejo en la rueda de
+// color según cuántas personas hay, alternando brillo para que dos vecinos no se confundan.
+var cacheColoresCollab = { firma: "", mapa: {} };
 function getCollabColor(id) {
-  const sortedVacations = [...state.vacations].sort(
-    (a, b) => new Date(a.startDate) - new Date(b.startDate),
-  );
-  const uniqueIdsInOrder = [
-    ...new Set(sortedVacations.map((v) => v.colaboradorId)),
-  ];
-  let index = uniqueIdsInOrder.indexOf(id);
-  if (index === -1) {
-    const allIds = state.collaborators.map((c) => c.id).sort();
-    index = allIds.indexOf(id);
-    if (index === -1) index = 0;
+  const firma = state.collaborators.map((c) => `${c.id}:${c.area || ""}`).join("|");
+  if (cacheColoresCollab.firma !== firma) {
+    const mapa = {};
+    const porArea = {};
+    state.collaborators.forEach((c) => { (porArea[c.area || "Disponibilidad"] = porArea[c.area || "Disponibilidad"] || []).push(c.id); });
+    const hslHex = (h, sat, l) => {
+      sat /= 100; l /= 100;
+      const k = (n) => (n + h / 30) % 12, a = sat * Math.min(l, 1 - l);
+      const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))))).toString(16).padStart(2, "0");
+      return `#${f(0)}${f(8)}${f(4)}`;
+    };
+    Object.values(porArea).forEach((ids) => {
+      ids.sort((x, y) => String(x).localeCompare(String(y), undefined, { numeric: true }));
+      const n = ids.length;
+      // Orden salteado para que legajos seguidos no queden con tonos parecidos
+      const paso = n > 2 ? Math.max(1, Math.round(n / 2.618)) : 1;
+      let pasoOk = paso;
+      const mcd = (x, y) => (y ? mcd(y, x % y) : x);
+      while (n > 1 && mcd(pasoOk, n) !== 1) pasoOk++;
+      ids.forEach((cid, i) => {
+        const pos = (i * pasoOk) % Math.max(n, 1);
+        const h = (pos * 360) / Math.max(n, 1) + 8;
+        const l = pos % 2 ? 46 : 62;
+        mapa[cid] = hslHex(h % 360, 85, l);
+      });
+    });
+    cacheColoresCollab = { firma, mapa };
   }
-  return collabColors[index % collabColors.length];
+  return cacheColoresCollab.mapa[id] || collabColors[0];
 }
 
 function getVacationYear(v) {
@@ -11059,11 +11084,19 @@ function actualizarRangoVac() {
   const f = (d) => `${dn[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
   let aviso = "";
   if (d0.getDay() !== 1) aviso = ` <span style="color: #06b6d4;">· No es lunes</span>`;
-  el.innerHTML = `Del <b>${f(d0)}</b> al <b>${f(d1)}</b> · ${sem * 7} días${aviso}`;
+  el.innerHTML = `Del <b>${f(d0)}</b> al <b>${f(d1)}</b> · ${sem * 7} días${aviso} <span style="color: var(--text-muted);">· punteado en el calendario</span>`;
+  // Que el calendario muestre el mes que se está cargando
+  const primerMes = new Date(calCurrentMonth.getFullYear(), calCurrentMonth.getMonth(), 1);
+  const ultimoMes = new Date(calCurrentMonth.getFullYear(), calCurrentMonth.getMonth() + 6, 0);
+  if (d0 < primerMes || d0 > ultimoMes) calCurrentMonth = new Date(d0.getFullYear(), d0.getMonth(), 1);
 }
-window.actualizarRangoVac = actualizarRangoVac;
-document.getElementById("vWeeks").addEventListener("change", actualizarRangoVac);
-document.getElementById("vStartDate").addEventListener("change", actualizarRangoVac);
+window.actualizarRangoVac = function () {
+  actualizarRangoVac();
+  if (document.getElementById("seccionVacaciones")?.style.display !== "none" && typeof renderVacationCalendar === "function") renderVacationCalendar();
+};
+document.getElementById("vWeeks").addEventListener("change", () => window.actualizarRangoVac());
+document.getElementById("vStartDate").addEventListener("change", () => window.actualizarRangoVac());
+document.getElementById("vCollab").addEventListener("change", () => window.actualizarRangoVac());
 
 document.getElementById("vCancelBtn").addEventListener("click", () => {
   document.getElementById("vacationForm").reset();
@@ -11769,6 +11802,13 @@ window.renderVacationCalendar = function () {
     state.collaborators.filter(c => (c.area || "Disponibilidad") === targetArea).map(c => c.id)
   );
 
+  // Lo que se está cargando en el formulario se marca punteado con el color de la persona
+  const prevIni = document.getElementById("vStartDate")?.value || "";
+  const prevSem = parseInt(document.getElementById("vWeeks")?.value, 10) || 0;
+  const prevCollab = document.getElementById("vCollab")?.value || "";
+  const prevFin = prevIni && prevSem ? formatDate(addDays(new Date(prevIni + "T00:00:00"), prevSem * 7 - 1)) : "";
+  const prevColor = prevCollab ? getCollabColor(prevCollab) : "#fff";
+
   // Generar 6 meses en grilla 2x3
   for (let i = 0; i < 6; i++) {
     const mDate = new Date(
@@ -11900,7 +11940,9 @@ window.renderVacationCalendar = function () {
 
           const clickHandler = `onclick="window.showVacationDetails('${wday.dStr}', '${wday.onVacationIds.join(",")}')"`;
           const curPointer = "cursor: pointer;";
-          html += `<div class="vac-cal-cell ${densClass}" style="${inlineStyle} ${curPointer}" title="${tooltip}" ${clickHandler}>${wday.day}</div>`;
+          const enPrevia = prevFin && wday.dStr >= prevIni && wday.dStr <= prevFin;
+          if (enPrevia) { densClass += " vz-prev"; tooltip = "Lo que estás cargando" + (count > 0 ? " | " + tooltip : ""); }
+          html += `<div class="vac-cal-cell ${densClass}" style="${inlineStyle} ${curPointer}${enPrevia ? ` --vz-prev: ${prevColor};` : ""}" title="${tooltip}" ${clickHandler}>${wday.day}</div>`;
         }
       });
     });
@@ -11923,7 +11965,7 @@ window.renderVacationCalendar = function () {
     leyenda.innerHTML = (ids.length
       ? ids.map((id) => `<span><i class="vz-sw" style="background: ${getCollabColor(id)};"></i>${nombre(id)}</span>`).join("")
       : `<span>Nadie de vacaciones en estos meses.</span>`) +
-      `<span style="margin-left: auto;"><i class="vz-sw" style="background: var(--danger);"></i>Semana con 3 o más</span>` +
+      `<span style="margin-left: auto;"><i class="vz-sw" style="background: #f8fafc; box-shadow: 0 0 0 2px #ef4444 inset;"></i>Semana con 3 o más</span>` +
       `<span><i class="vz-sw" style="background: transparent; border-bottom: 3px solid var(--danger); border-radius: 0; height: 9px;"></i>Feriado</span>` +
       `<span>Tocá un día para ver quién está</span>`;
   }
