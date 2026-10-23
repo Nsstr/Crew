@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.41
+            Versión: v1.6.42
           </div>
         </div>
       </div>
@@ -4487,7 +4487,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.41";
+  const APP_VERSION = "v1.6.42";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -9419,8 +9419,20 @@ function chequeosSuaves(collabId, dStr) {
     }
   }
 
-  // Contratos chicos: hasta 8,5 h en el día (contando el turno adicional)
+  // Turno cortado: cada tramo tiene que durar al menos 4 h (vale para todos los contratos)
+  if (p.isCortado) {
+    const fh = (h) => { const m = Math.round((h % 1) * 60); return m ? `${Math.floor(h)}:${String(m).padStart(2, "0")}` : `${Math.floor(h)}`; };
+    const corto = p.tramos
+      .map((t) => ({ start: t.start, end: t.end <= t.start ? t.end + 24 : t.end }))
+      .find((t) => t.end - t.start < 4);
+    if (corto) {
+      problemas.push({ clave: `tramo|${collabId}|${dStr}`, nombre, fecha, titulo: "Tramo corto", msg: `${nombre} el ${fecha}: el tramo de ${fh(corto.start)} a ${fh(corto.end % 24)} dura ${r(corto.end - corto.start)}\u00a0h. Mínimo 4\u00a0h.` });
+    }
+  }
+
   problemas.push(...problemasDescanso(collabId, dStr, collab, nombre));
+
+  // Contratos chicos: hasta 8,5 h en el día (contando el turno adicional)
 
   const contrato = parseFloat(collab.hours) || parseFloat(collab.cargaHoraria) || parseFloat(collab.contractHours) || 0;
   const horasDia = (p.hours || 0) + (adic ? adic.hours : 0);
