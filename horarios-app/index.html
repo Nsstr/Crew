@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.57
+            Versión: v1.6.58
           </div>
         </div>
       </div>
@@ -3854,7 +3854,7 @@
       #seccionVacaciones .vac-cal-grid { grid-template-columns: repeat(7, 28px) !important; gap: 3px !important; }
       #seccionVacaciones .vac-cal-cell { width: 26px !important; height: 26px !important; font-size: 0.72rem !important; }
       #seccionVacaciones .vac-cal-header { font-size: 0.85rem !important; padding-bottom: 4px !important; margin-bottom: 4px !important; }
-      #seccionVacaciones #vacationDetailContainer { position: relative; margin-top: 16px; padding: 14px 16px; background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 10px; box-shadow: none !important; }
+      #seccionVacaciones #vacationDetailContainer { position: relative; margin-top: 14px; padding: 12px 14px; background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 10px; box-shadow: none !important; }
       /* Saldos */
       #seccionVacaciones .vz-saldos { display: flex; flex-direction: column; gap: 6px; }
       #seccionVacaciones .vz-saldo-head, #seccionVacaciones .saldo-year-row { display: grid; grid-template-columns: 52px minmax(90px, 1fr) 76px 60px 76px 34px; gap: 8px; align-items: center; }
@@ -3950,6 +3950,8 @@
             <button type="submit" form="vacationForm" id="vSubmitBtn" class="primary">Guardar vacaciones</button>
             <button type="button" id="vCancelBtn" class="vz-btn-sec" style="display: none;">Cancelar</button>
           </div>
+          <!-- Lo que se toca en el calendario aparece acá, a la vista -->
+          <div id="vacationDetailContainer" style="display: none;"></div>
         </div>
 
         <!-- Saldo e historial de la persona elegida -->
@@ -3971,7 +3973,6 @@
           </div>
           <div id="vacationCalendarLegend" class="vz-leyenda"></div>
           <div id="vacationCalendarContainer" class="vac-cal-container"></div>
-          <div id="vacationDetailContainer" style="display: none;"></div>
         </div>
         </div>
 
@@ -4584,7 +4585,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.57";
+  const APP_VERSION = "v1.6.58";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -11992,70 +11993,33 @@ window.renderVacationCalendar = function () {
 };
 
 window.showVacationDetails = function (dStr, idsStr) {
-  const detailContainer = document.getElementById("vacationDetailContainer");
-  if (!detailContainer) return;
+  const box = document.getElementById("vacationDetailContainer");
+  if (!box) return;
+  const dn = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  const fc = (str) => str.split("-").reverse().slice(0, 2).join("/");
+  const d = new Date(dStr + "T00:00:00");
+  const titulo = `${dn[d.getDay()].charAt(0).toUpperCase() + dn[d.getDay()].slice(1)} ${fc(dStr)}`;
+  const cerrar = `<button type="button" onclick="document.getElementById('vacationDetailContainer').style.display='none'" title="Cerrar" style="position: absolute; top: 6px; right: 8px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.3rem; line-height: 1; padding: 4px;">&times;</button>`;
+  const ids = (idsStr || "").split(",").filter(Boolean);
+  const feriado = (state.holidays || []).includes(dStr) ? ` <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">· feriado</span>` : "";
 
-  if (!idsStr || idsStr.length === 0) {
-    detailContainer.innerHTML = `
-             <button onclick="document.getElementById('vacationDetailContainer').style.display='none'" style="position: absolute; top: 15px; right: 15px; z-index: 10000; background: transparent; border: none; color: #fff; cursor: pointer; padding: 10px; line-height: 1; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">&times;</button>
-             <div style="text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-top: 10px;">
-                Sin novedades para el ${dStr.split("-").reverse().join("/")}
-             </div>
-           `;
-    detailContainer.style.display = "block";
-    return;
-  }
-
-  const ids = idsStr.split(",");
-  const targetD = new Date(dStr + "T00:00:00");
-
-  let detailsHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-             <h4 style="margin: 0; color: #fff; font-size: 1rem;">Vacaciones del ${dStr.split("-").reverse().join("/")}</h4>
-             <button onclick="document.getElementById('vacationDetailContainer').style.display='none'" style="position: absolute; top: 15px; right: 15px; z-index: 10000; background: transparent; border: none; color: #fff; cursor: pointer; padding: 10px; line-height: 1; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">&times;</button>
-          </div>
-       `;
-  detailsHTML += `<div style="display: flex; flex-direction: column; gap: 8px;">`;
-
+  let filas = "";
   ids.forEach((id) => {
     const collab = state.collaborators.find((c) => c.id === id);
-    const collabName = collab ? collab.name : "Desconocido";
-    const collabLegajo = collab ? collab.legajo || "-" : "-";
-
-    let vacEntry = null;
-    for (let v of state.vacations || []) {
-      if (v.colaboradorId === id) {
-        const vStart = new Date(v.startDate + "T00:00:00");
-        const vEnd = new Date(v.endDate + "T00:00:00");
-        if (targetD >= vStart && targetD <= vEnd) {
-          vacEntry = v;
-          break;
-        }
-      }
-    }
-
-    if (vacEntry) {
-      const startStr = vacEntry.startDate.split("-").reverse().join("/");
-      const endStr = vacEntry.endDate.split("-").reverse().join("/");
-      const vColor = getCollabColor(id);
-      detailsHTML += `
-                 <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg); padding: 10px 14px; border-radius: 6px; border-left: 4px solid ${vColor}; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);">
-                    <div style="display: flex; flex-direction: column;">
-                       <span style="font-weight: 600; font-size: 0.95rem; color: #fff;">${collabName}</span>
-                       <span style="font-size: 0.8rem; color: var(--text-muted);">Legajo: ${collabLegajo}</span>
-                    </div>
-                    <div style="display: flex; flex-direction: column; text-align: right;">
-                       <span style="font-size: 0.85rem; color: #fff; font-weight: bold;">${startStr}</span>
-                       <span style="font-size: 0.75rem; color: var(--text-muted);">al ${endStr}</span>
-                    </div>
-                 </div>
-               `;
-    }
+    const v = (state.vacations || []).find((x) => x.colaboradorId === id && x.startDate <= dStr && x.endDate >= dStr);
+    if (!v) return;
+    const vuelve = formatDate(addDays(new Date(v.endDate + "T00:00:00"), 1));
+    const nombre = collab ? collab.name.split("(")[0].trim() : id;
+    filas += `<div style="padding: 7px 0; border-top: 1px solid var(--border);">
+        <div><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: ${getCollabColor(id)}; margin-right: 7px;"></span><b style="color: var(--text);">${nombre}</b></div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 16px;">Salió el ${fc(v.startDate)} · vuelve el <b style="color: var(--text);">${fc(vuelve)}</b></div>
+      </div>`;
   });
 
-  detailsHTML += `</div>`;
-  detailContainer.innerHTML = detailsHTML;
-  detailContainer.style.display = "block";
+  box.innerHTML = `${cerrar}
+    <div style="font-weight: 700; color: var(--text); margin-bottom: 6px; padding-right: 24px;">${titulo}${feriado}</div>
+    ${filas || `<div style="font-size: 0.85rem; color: var(--text-muted);">Nadie de vacaciones ese día.</div>`}`;
+  box.style.display = "block";
 };
 
 // -- LÓGICA DE LOGIN Y RBAC --
