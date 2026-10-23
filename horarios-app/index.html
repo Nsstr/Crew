@@ -3626,7 +3626,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.36
+            Versión: v1.6.37
           </div>
         </div>
       </div>
@@ -4515,7 +4515,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.36";
+  const APP_VERSION = "v1.6.37";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -8187,8 +8187,7 @@ function renderDesktopView() {
 
       // Collab info
       // Calculamos rotación mensual para este colaborador.
-      const rotationInfo = getMonthlyRotationCompliance(collab, days);
-      let indClass = rotationInfo.compliant ? "" : "red"; // default is green
+      // (El punto de rotación mensual se sacó: la rotación se ve en el detalle del colaborador)
 
       const isExported = state.exportedRows[collab.id];
 
@@ -8214,7 +8213,6 @@ function renderDesktopView() {
                 
                 <!-- Nombre Compacto e Indicador (Izquierda) -->
                 <div style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; overflow: hidden;" onclick="window.toggleCollabDetails('${collab.id}', event)">
-                  <div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;"></div>
                   <span style="font-weight: 600; font-size: 0.78rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">
                     ${shortName}
                   </span>
