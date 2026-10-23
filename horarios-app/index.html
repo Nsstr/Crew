@@ -3629,7 +3629,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.26
+            Versión: v1.6.27
           </div>
         </div>
       </div>
@@ -4518,7 +4518,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.26";
+  const APP_VERSION = "v1.6.27";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -13667,7 +13667,22 @@ window.mostrarRecordatoriosEventos = async function (forzar = false) {
     if (ev.grupo && deHoy.some((h) => h.grupo === ev.grupo)) return;
     items.push({ ev, cuando: "manana", fecha: manana, clave: `${claveEv(ev, manana)}|manana` });
   });
-  const pendientes = items.filter((it) => !vistos[it.clave]);
+  // Cumpleaños cargados en el perfil de cada colaborador (fecha de nacimiento): no hace falta cargarlos como evento
+  const areaTxt = { "Linea de Cajas": "Línea de Cajas" };
+  [[hoy, "hoy"], [manana, "manana"]].forEach(([fecha, cuando]) => {
+    (state.collaborators || [])
+      .filter((c) => c.fechaNacimiento && c.fechaNacimiento.slice(5) === fecha.slice(5))
+      .forEach((c) => {
+        const nombre = (c.name || "").split("(")[0].trim();
+        const area = c.area ? areaTxt[c.area] || c.area : "";
+        items.push({
+          ev: { tipo: "Cumpleaños", descripcion: `${nombre}${area ? " · " + area : ""}`, color: "#ec4899" },
+          cuando, fecha, clave: `cumple:${c.id}:${fecha}|${cuando}`,
+        });
+      });
+  });
+  const pendientes = items.filter((it) => !vistos[it.clave])
+    .sort((a, b) => (a.cuando === b.cuando ? 0 : a.cuando === "hoy" ? -1 : 1));
   if (!pendientes.length) return;
 
   document.getElementById("recordatoriosEventos")?.remove();
