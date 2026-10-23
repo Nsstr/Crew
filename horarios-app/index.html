@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.62
+            Versión: v1.6.63
           </div>
         </div>
       </div>
@@ -3796,7 +3796,7 @@
       #seccionVacaciones .vz-wrap { max-width: 1800px; }
       #seccionVacaciones .vz-top { display: grid; grid-template-columns: minmax(270px, 310px) minmax(340px, 420px) minmax(0, 1fr); gap: 14px; align-items: stretch; }
       #seccionVacaciones .vz-izq { display: contents; }
-      #seccionVacaciones .vz-top > .vz-izq > .vz-card, #seccionVacaciones .vz-top > .vz-cal { max-height: calc(100vh - 110px); overflow-y: auto; }
+      #seccionVacaciones .vz-top > .vz-cal { max-height: calc(100vh - 110px); overflow-y: auto; }
       #seccionVacaciones .vz-top .vz-campos { grid-template-columns: 1fr; gap: 10px; }
       #seccionVacaciones .vz-top .vz-card { padding: 14px 16px; }
       #seccionVacaciones .vz-top .vz-h { margin-bottom: 10px; }
@@ -3811,9 +3811,10 @@
         #seccionVacaciones .vz-cal .vac-cal-cell { width: min(22px, 100%) !important; height: 22px !important; font-size: 0.66rem !important; }
       }
       @media (max-width: 1150px) {
-        #seccionVacaciones .vz-top { grid-template-columns: minmax(300px, 1fr) minmax(0, 1.3fr); }
-        #seccionVacaciones .vz-izq { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-        #seccionVacaciones .vz-top > .vz-izq > .vz-card { max-height: none; }
+        #seccionVacaciones .vz-top { grid-template-columns: minmax(300px, 1fr) minmax(0, 1.3fr); grid-template-areas: "form cal" "saldo cal" "dia cal"; grid-template-rows: auto auto minmax(0, 1fr); }
+      }
+      @media (max-width: 1000px) {
+        #seccionVacaciones .vz-top { grid-template-columns: 1fr; grid-template-areas: "form" "saldo" "cal" "dia"; grid-template-rows: none; }
       }
       #seccionVacaciones .vac-cal-cell.week-danger { background: #f8fafc !important; color: #b91c1c !important; box-shadow: 0 0 0 2px #ef4444 inset; }
       #seccionVacaciones .vac-cal-cell.vz-prev { outline: 2px dashed var(--vz-prev, #fff); outline-offset: 1px; }
@@ -3854,10 +3855,14 @@
       #seccionVacaciones .vac-cal-grid { grid-template-columns: repeat(7, 28px) !important; gap: 3px !important; }
       #seccionVacaciones .vac-cal-cell { width: 26px !important; height: 26px !important; font-size: 0.72rem !important; }
       #seccionVacaciones .vac-cal-header { font-size: 0.85rem !important; padding-bottom: 4px !important; margin-bottom: 4px !important; }
-      #seccionVacaciones .vz-top > .vz-izq > .vz-card:first-child { display: flex; flex-direction: column; overflow: hidden; }
-      #seccionVacaciones .vz-dia-lista { overflow-y: auto; min-height: 0; flex: 1; }
-      #seccionVacaciones #vacationDetailContainer:not([style*="none"]) { display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 90px; }
-      #seccionVacaciones #vacationDetailContainer { position: relative; margin-top: 14px; padding: 10px 12px; background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 10px; box-shadow: none !important; }
+      #seccionVacaciones .vz-top { grid-template-areas: "form saldo cal" "dia dia cal"; grid-template-rows: auto minmax(0, 1fr); }
+      #seccionVacaciones .vz-c-form { grid-area: form; }
+      #seccionVacaciones .vz-c-saldo { grid-area: saldo; }
+      #seccionVacaciones .vz-cal { grid-area: cal; }
+      #seccionVacaciones .vz-c-dia { grid-area: dia; min-height: 0; overflow-y: auto; max-height: none !important; }
+      #seccionVacaciones .vz-dia-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); column-gap: 18px; }
+      #seccionVacaciones #vacationDetailContainer { position: relative; margin: 0 !important; padding: 0 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+      #seccionVacaciones #vacationDetailContainer > button { top: -6px !important; right: -6px !important; }
       /* Saldos */
       #seccionVacaciones .vz-saldos { display: flex; flex-direction: column; gap: 6px; }
       #seccionVacaciones .vz-saldo-head, #seccionVacaciones .saldo-year-row { display: grid; grid-template-columns: 52px minmax(90px, 1fr) 76px 60px 76px 34px; gap: 8px; align-items: center; }
@@ -3918,7 +3923,7 @@
       <div class="vz-top">
         <div class="vz-izq">
         <!-- Cargar vacaciones -->
-        <div class="vz-card">
+        <div class="vz-card vz-c-form">
           <div class="vz-h" style="flex-wrap: nowrap;">
             <h3 id="vFormTitle">Cargar vacaciones</h3>
             <div style="display: flex; gap: 6px;">
@@ -3954,16 +3959,20 @@
             </div>
             <div id="vRangoResumen" class="vz-rango"></div>
           </form>
-          <!-- Lo que se toca en el calendario aparece acá, a la vista -->
-          <div id="vacationDetailContainer" style="display: none;"></div>
+
         </div>
 
         <!-- Saldo e historial de la persona elegida -->
-        <div class="vz-card">
+        <div class="vz-card vz-c-saldo">
           <div class="vz-h" style="flex-wrap: nowrap;"><h3 id="vPersonaTitulo" style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Saldo</h3><div id="vPersonaAnios" style="display: flex; gap: 6px; flex-shrink: 0;"></div></div>
           <div id="saldosVacacionesContainer"></div>
           <div class="vz-h4">Vacaciones que tomó</div>
           <div id="historialVacacionesContainer"></div>
+        </div>
+        <!-- Lo que se toca en el calendario aparece acá, a la vista -->
+        <div class="vz-card vz-c-dia">
+          <div id="vacationDetailContainer" style="display: none;"></div>
+          <div id="vacationDetailVacio" class="vz-ayuda" style="padding: 4px 0;">Tocá un día del calendario para ver quién está de vacaciones.</div>
         </div>
         </div>
       <!-- Calendario -->
@@ -4589,7 +4598,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.62";
+  const APP_VERSION = "v1.6.63";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -12032,7 +12041,9 @@ window.showVacationDetails = function (dStr, idsStr) {
   const fc = (str) => str.split("-").reverse().slice(0, 2).join("/");
   const d = new Date(dStr + "T00:00:00");
   const titulo = `${dn[d.getDay()].charAt(0).toUpperCase() + dn[d.getDay()].slice(1)} ${fc(dStr)}`;
-  const cerrar = `<button type="button" onclick="document.getElementById('vacationDetailContainer').style.display='none'" title="Cerrar" style="position: absolute; top: 6px; right: 8px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.3rem; line-height: 1; padding: 4px;">&times;</button>`;
+  const vacio = document.getElementById("vacationDetailVacio");
+  if (vacio) vacio.style.display = "none";
+  const cerrar = `<button type="button" onclick="document.getElementById('vacationDetailContainer').style.display='none'; const v = document.getElementById('vacationDetailVacio'); if (v) v.style.display = '';" title="Cerrar" style="position: absolute; top: 6px; right: 8px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.3rem; line-height: 1; padding: 4px;">&times;</button>`;
   const ids = (idsStr || "").split(",").filter(Boolean);
   const feriado = (state.holidays || []).includes(dStr) ? ` <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">· feriado</span>` : "";
 
@@ -12048,7 +12059,7 @@ window.showVacationDetails = function (dStr, idsStr) {
     cuantos++;
     filas += `<div style="display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-top: 1px solid var(--border); font-size: 0.82rem;" title="${nombre}: salió el ${fc(v.startDate)}, vuelve el ${fc(vuelve)}">
         <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${getCollabColor(id)}; margin-right: 6px;"></span><b style="color: var(--text);">${nombreCorto(nombre)}</b></span>
-        <span style="color: var(--text-muted); white-space: nowrap;">vuelve <b style="color: var(--text);">${fc(vuelve)}</b></span>
+        <span style="color: var(--text-muted); white-space: nowrap;">salió ${fc(v.startDate)} · vuelve <b style="color: var(--text);">${fc(vuelve)}</b></span>
       </div>`;
   });
 
