@@ -3633,7 +3633,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.31
+            Versión: v1.6.32
           </div>
         </div>
       </div>
@@ -4522,7 +4522,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.31";
+  const APP_VERSION = "v1.6.32";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5585,6 +5585,24 @@ function turnoAdicionalInfo(obj) {
 }
 
 // 6. CALCULO HORAS EXTRAS PARA MENÚ CONTEXTUAL
+// Por ahora los contratos de 48 h no hacen horas extras: si un turno los pasa de 48 en la semana,
+// se avisa fuerte (queda en pantalla hasta cerrarlo) pero se deja guardar.
+function avisarExtra48(collabId, dateStr, parsedSlot, adicHorasDia) {
+  const collab = (state.collaborators || []).find((c) => c.id === collabId);
+  const contrato = collab ? parseFloat(collab.hours) || parseFloat(collab.cargaHoraria) || parseFloat(collab.contractHours) || 0 : 0;
+  if (contrato < 48) return;
+  const info = calculateOvertimeInfo(collabId, dateStr, parsedSlot, adicHorasDia);
+  if (!info) return;
+  const nombre = (collab.name || "").split("(")[0].trim();
+  const r = (n) => Math.round(n * 10) / 10;
+  showToast(
+    "Contrato de 48 h con horas extras",
+    `${nombre} queda en <b>${r(info.projected)} h</b> esta semana (<b>${r(info.excess)} h</b> por encima del contrato).<br>Por ahora los contratos de 48 h no hacen horas extras. Revisá si corresponde.`,
+    "warning",
+    true,
+  );
+}
+
 function calculateOvertimeInfo(collabId, dateStr, newParsedSlot, adicHorasDia) {
   if (!newParsedSlot || newParsedSlot.type !== "work") return null;
 
@@ -9154,6 +9172,7 @@ async function handleInputChange(e) {
   // Validación automática de Horas Extras al escribir directo en la celda
   if (parsedNew && parsedNew.type === "work") {
     const otInfo = calculateOvertimeInfo(collabId, dateStr, parsedNew);
+    if (otInfo && finalValue !== oldValue) avisarExtra48(collabId, dateStr, parsedNew);
     if (otInfo && checkAccess("modificarHorario")) {
       obj.horaExtraValidada = true;
     } else if (!otInfo) {
@@ -9228,7 +9247,7 @@ async function handleInputChange(e) {
 
 // 12. UTILS Y EVENTOS
 
-function showToast(title, msg, type = "info") {
+function showToast(title, msg, type = "info", persistente = false) {
   const container = document.getElementById("toastContainer");
   const toast = document.createElement("div");
 
@@ -9239,7 +9258,8 @@ function showToast(title, msg, type = "info") {
 
   toast.className = `toast ${typeClass}`;
 
-  const isPersistent = typeClass === "error" || typeClass === "danger";
+  // Los errores y los avisos marcados como persistentes quedan hasta que se cierran con la ✕
+  const isPersistent = typeClass === "error" || typeClass === "danger" || persistente;
 
   let html = `
         <div class="toast-title">${title}</div>
@@ -12586,6 +12606,12 @@ async function autoSaveContextMenu() {
   obj.tardanzaMinutosTotales = tardanzaMins;
   obj.tardanzaConfirmada = document.getElementById("cellTardanzaCheck").checked;
   obj.horaExtraValidada = document.getElementById("cellOvertimeCheck").checked;
+
+  // Aviso de horas extras en contratos de 48 h (solo si cambió el turno o el adicional)
+  if (oldSlot !== slotValue || (turnoAdicionalNuevo !== null && turnoAdicionalNuevo !== oldAdicional)) {
+    const adicInfo = turnoAdicionalInfo(obj);
+    avisarExtra48(collabId, dateStr, parsedWithNewTardanza, adicInfo ? adicInfo.hours : 0);
+  }
 
   const isFixed = document.getElementById("cellFixedInput").checked;
   obj.fijado = isFixed;
