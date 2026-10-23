@@ -3591,7 +3591,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.22
+            Versión: v1.6.23
           </div>
         </div>
       </div>
@@ -4473,7 +4473,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.22";
+  const APP_VERSION = "v1.6.23";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -14656,7 +14656,71 @@ window.renderEventosList = async function () {
   }
 };
 
-window.editEvento = function (evDataStr) {
+// Lee la lista de eventos de un día (de la base; si no se puede, de lo que hay en memoria)
+async function evLeerLista(dStr, cache) {
+  if (cache && cache[dStr]) return cache[dStr];
+  let data = null;
+  try {
+    const snap = await getDoc(doc(db, "eventos_diarios", dStr));
+    data = snap.exists() ? snap.data() : null;
+  } catch (e) {
+    data = state.eventos[dStr] || null;
+  }
+  const lista = evLista(data).map((e) => ({ ...e }));
+  if (cache) cache[dStr] = lista;
+  return lista;
+}
+
+// Todos los días de un evento. Los que se cargan con inicio y fin comparten "grupo".
+// Los cargados antes de este cambio no lo tienen: se toman como el mismo evento los días
+// seguidos con exactamente el mismo tipo, descripción, color y tienda cerrada.
+async function evBuscarRango(fecha, itemId, cache) {
+  const lista = await evLeerLista(fecha, cache);
+  const item = lista.find((e) => e.id === itemId);
+  if (!item) return { inicio: fecha, fin: fecha, dias: [], item: null };
+  const dias = [{ fecha, id: item.id }];
+  if (item.grupo && item.rangoInicio && item.rangoFin) {
+    for (let d = new Date(item.rangoInicio + "T00:00:00"); formatDate(d) <= item.rangoFin; d = addDays(d, 1)) {
+      const dStr = formatDate(d);
+      if (dStr === fecha) continue;
+      const otro = (await evLeerLista(dStr, cache)).find((e) => e.grupo === item.grupo);
+      if (otro) dias.push({ fecha: dStr, id: otro.id });
+    }
+  } else {
+    const igual = (e) => !e.grupo && e.tipo === item.tipo && (e.descripcion || "") === (item.descripcion || "") &&
+      e.color === item.color && !!e.tiendaCerrada === !!item.tiendaCerrada;
+    for (const paso of [-1, 1]) {
+      let d = addDays(new Date(fecha + "T00:00:00"), paso);
+      for (let n = 0; n < 62; n++, d = addDays(d, paso)) {
+        const dStr = formatDate(d);
+        const otro = (await evLeerLista(dStr, cache)).find(igual);
+        if (!otro) break;
+        dias.push({ fecha: dStr, id: otro.id });
+      }
+    }
+  }
+  dias.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  return { inicio: dias[0].fecha, fin: dias[dias.length - 1].fecha, dias, item };
+}
+
+// Escribe en la base las listas de los días tocados
+async function evGuardarListas(listas) {
+  const batch = writeBatch(db);
+  Object.entries(listas).forEach(([dStr, lista]) => {
+    if (lista.length) {
+      batch.set(doc(db, "eventos_diarios", dStr), evDocDia(lista));
+      state.eventos[dStr] = evResumen(lista);
+    } else {
+      batch.delete(doc(db, "eventos_diarios", dStr));
+      delete state.eventos[dStr];
+    }
+  });
+  await batch.commit();
+}
+
+const evFechaCorta = (s) => s.split("-").reverse().slice(0, 2).join("/");
+
+window.editEvento = async function (evDataStr) {
   try {
     const ev = JSON.parse(decodeURIComponent(evDataStr));
     document.getElementById("eventoEditId").value = `${ev.fecha}|${ev.id}`;
@@ -14670,6 +14734,14 @@ window.editEvento = function (evDataStr) {
     document.getElementById("eventoFormTitle").textContent = "Editar Evento";
     document.getElementById("eventoSaveBtn").textContent = "Actualizar Evento";
     document.getElementById("eventoCancelBtn").style.display = "block";
+
+    // Si el evento abarca varios días, se edita completo: se muestran su inicio y su fin
+    if (!isMockMode) {
+      const rango = await evBuscarRango(ev.fecha, ev.id, {});
+      if (document.getElementById("eventoEditId").value !== `${ev.fecha}|${ev.id}`) return;
+      document.getElementById("eventoFechaInput").value = rango.inicio;
+      document.getElementById("eventoFechaFinInput").value = rango.fin !== rango.inicio ? rango.fin : "";
+    }
   } catch (err) {
     console.error("Error al cargar evento para edición:", err);
   }
@@ -14705,58 +14777,35 @@ window.saveEvento = async function () {
     showToast("Error", "Selecciona al menos una fecha de inicio.");
     return;
   }
-
-  const startD = new Date(fechaInicioStr + "T00:00:00");
-  const endD = new Date(fechaFinStr + "T00:00:00");
-  if (endD < startD) {
+  if (fechaFinStr < fechaInicioStr) {
     showToast("Error", "La fecha de fin es anterior a la de inicio.");
     return;
   }
   const [editFecha, editItemId] = editId ? editId.split("|") : ["", ""];
-
-  // Lista actual de cada día que se toca (se lee de la base para no pisar eventos ya cargados)
   const listas = {};
-  const leerLista = async (dStr) => {
-    if (listas[dStr]) return listas[dStr];
-    let data = null;
-    try {
-      const snap = await getDoc(doc(db, "eventos_diarios", dStr));
-      data = snap.exists() ? snap.data() : null;
-    } catch (e) {
-      data = state.eventos[dStr] || null;
-    }
-    listas[dStr] = evLista(data).map((e) => ({ ...e }));
-    return listas[dStr];
-  };
 
   try {
-    // Edición: se saca el evento de su día original (si sigue en el mismo día, se reemplaza en su lugar)
-    let posOriginal = -1;
+    // Edición: se saca el evento de todos sus días y se vuelve a cargar con las fechas del formulario
+    let grupo = null;
     if (editFecha) {
-      const original = await leerLista(editFecha);
-      posOriginal = original.findIndex((e) => e.id === editItemId);
-      if (posOriginal >= 0) original.splice(posOriginal, 1);
-    }
-    const idNuevo = () => `ev${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-    for (let curr = new Date(startD); curr <= endD; curr = addDays(curr, 1)) {
-      const dStr = formatDate(curr);
-      const lista = await leerLista(dStr);
-      const item = { id: editFecha === dStr && editItemId ? editItemId : idNuevo(), tipo, descripcion, color, tiendaCerrada };
-      if (editFecha === dStr && posOriginal >= 0) lista.splice(posOriginal, 0, item);
-      else lista.push(item);
-    }
-
-    const batch = writeBatch(db);
-    Object.entries(listas).forEach(([dStr, lista]) => {
-      if (lista.length) {
-        batch.set(doc(db, "eventos_diarios", dStr), evDocDia(lista));
-        state.eventos[dStr] = evResumen(lista);
-      } else {
-        batch.delete(doc(db, "eventos_diarios", dStr));
-        delete state.eventos[dStr];
+      const rango = await evBuscarRango(editFecha, editItemId, listas);
+      if (rango.item && rango.item.grupo) grupo = rango.item.grupo;
+      for (const d of rango.dias) {
+        const l = await evLeerLista(d.fecha, listas);
+        const i = l.findIndex((e) => e.id === d.id);
+        if (i >= 0) l.splice(i, 1);
       }
-    });
-    await batch.commit();
+    }
+    const nuevoId = (p) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const varios = fechaFinStr !== fechaInicioStr;
+    if (varios && !grupo) grupo = nuevoId("g");
+    for (let curr = new Date(fechaInicioStr + "T00:00:00"); formatDate(curr) <= fechaFinStr; curr = addDays(curr, 1)) {
+      const dStr = formatDate(curr);
+      const item = { id: nuevoId("ev"), tipo, descripcion, color, tiendaCerrada };
+      if (varios) Object.assign(item, { grupo, rangoInicio: fechaInicioStr, rangoFin: fechaFinStr });
+      (await evLeerLista(dStr, listas)).push(item);
+    }
+    await evGuardarListas(listas);
     showToast("Éxito", editId ? "Evento actualizado correctamente." : "Evento guardado.", "success");
     window.cancelEditEvento();
     if (typeof window.renderEventosList === 'function') await window.renderEventosList();
@@ -14773,23 +14822,22 @@ window.deleteEvento = async function(dStr, itemId) {
 
   if (!isMockMode) {
     try {
-      // Se borra solo ese evento; los demás del mismo día quedan
-      const snap = await getDoc(doc(db, "eventos_diarios", dStr));
-      const lista = evLista(snap.exists() ? snap.data() : null);
-      const ev = lista.find((e) => e.id === itemId) || lista[0];
-      if (!ev) return;
-      if (!confirm(`¿Eliminar el evento "${ev.tipo}${ev.descripcion ? ": " + ev.descripcion : ""}" del ${dStr.split("-").reverse().join("/")}?`)) return;
-      const resto = lista.filter((e) => e !== ev);
-      const batch = writeBatch(db);
-      if (resto.length) {
-        batch.set(doc(db, "eventos_diarios", dStr), evDocDia(resto));
-        state.eventos[dStr] = evResumen(resto);
-      } else {
-        batch.delete(doc(db, "eventos_diarios", dStr));
-        delete state.eventos[dStr];
+      // Se borra el evento completo (todos sus días); los demás eventos de esos días quedan
+      const listas = {};
+      const rango = await evBuscarRango(dStr, itemId, listas);
+      if (!rango.item) return;
+      const ev = rango.item;
+      const cuando = rango.inicio === rango.fin
+        ? `del ${evFechaCorta(rango.inicio)}`
+        : `del ${evFechaCorta(rango.inicio)} al ${evFechaCorta(rango.fin)} (${rango.dias.length} días)`;
+      if (!confirm(`¿Eliminar el evento "${ev.tipo}${ev.descripcion ? ": " + ev.descripcion : ""}" ${cuando}?`)) return;
+      for (const d of rango.dias) {
+        const l = await evLeerLista(d.fecha, listas);
+        const i = l.findIndex((e) => e.id === d.id);
+        if (i >= 0) l.splice(i, 1);
       }
-      await batch.commit();
-      showToast("Evento eliminado", "El evento fue borrado exitosamente.", "success");
+      await evGuardarListas(listas);
+      showToast("Evento eliminado", rango.dias.length > 1 ? `Se borraron los ${rango.dias.length} días del evento.` : "El evento fue borrado exitosamente.", "success");
       if (typeof window.renderEventosList === 'function') await window.renderEventosList();
       renderUI();
     } catch (err) {
