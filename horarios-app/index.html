@@ -3633,7 +3633,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.30
+            Versión: v1.6.31
           </div>
         </div>
       </div>
@@ -4522,7 +4522,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.30";
+  const APP_VERSION = "v1.6.31";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5057,6 +5057,18 @@ function getPlanningSlot(collabId, dateStr) {
   return obj.slot || "";
 }
 
+// Turno que vale para las cuentas: el domingo previo a vacaciones la grilla lo muestra y lo toma
+// como franco (salvo contratos chicos con turno cargado), aunque haya un turno guardado debajo.
+function getSlotEfectivo(collabId, dateStr) {
+  const val = getPlanningSlot(collabId, dateStr);
+  const d = new Date(dateStr + "T00:00:00");
+  if (d.getDay() === 0 && checkIsPreVacationSunday(collabId, d)) {
+    const collab = (state.collaborators || []).find((c) => c.id === collabId);
+    if (!isContractUnder119(collab) || !val) return "F";
+  }
+  return val;
+}
+
 function getPlanningObj(collabId, dateStr) {
   const obj = state.planning[`${collabId}_${dateStr}`];
   if (!obj) return null;
@@ -5542,7 +5554,7 @@ function calculateWeeklyHours(collabId, weekMondayStr, excludeDateStr) {
     }
     if (isOnVacation) continue;
 
-    const val = getPlanningSlot(collabId, dStr);
+    const val = getSlotEfectivo(collabId, dStr);
     const objForTardanza = getPlanningObj(collabId, dStr) || {};
     const parsed = parseShift(val, objForTardanza.tardanzaMinutosTotales || 0);
 
@@ -5768,7 +5780,7 @@ function validateTurn(collabId, dateStr, parsedNewSlot) {
         }
       } else {
         // Si es otro día de la semana, sumamos lo que ya estaba cargado en memoria
-        const valDay = getPlanningSlot(collabId, currentDStr);
+        const valDay = getSlotEfectivo(collabId, currentDStr);
         const parsedDay = parseShift(valDay);
         if (parsedDay && parsedDay.type === "work") {
           totalWeekHoursWithNewTurn += parsedDay.hours;
@@ -5943,7 +5955,7 @@ function updateDynamicHours() {
       if (currentWeekNum > 4) continue;
 
       const dStr = formatDate(d);
-      const val = getPlanningSlot(collab.id, dStr);
+      const val = getSlotEfectivo(collab.id, dStr);
       const obj = getPlanningObj(collab.id, dStr) || {};
       const parsed = parseShift(val, obj.tardanzaMinutosTotales || 0);
 
@@ -15956,6 +15968,12 @@ async function cargarAjusteProductividad(periodoKey, fechaCorte) {
     snapPlan.docs.forEach((d) => {
       const p = d.data();
       if (!p.colaboradorId || !p.fecha || enVacaciones(p.colaboradorId, p.fecha)) return;
+      // El domingo previo a vacaciones cuenta como franco, igual que en la grilla
+      const fd = new Date(p.fecha + "T00:00:00");
+      if (fd.getDay() === 0 && checkIsPreVacationSunday(p.colaboradorId, fd)) {
+        const cc = (state.collaborators || []).find((c) => String(c.id) === String(p.colaboradorId));
+        if (!isContractUnder119(cc) || !p.slot) return;
+      }
       const turno = parseShift(p.slot);
       if (!turno || turno.type !== "work" || turno.isNV || !(turno.hours > 0)) return;
       porCollab[p.colaboradorId] = (porCollab[p.colaboradorId] || 0) + turno.hours;
