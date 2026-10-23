@@ -566,6 +566,16 @@
     }
     
     .mobile-hours-tag { display: none; }
+    /* Rotación semanal (Línea de Cajas): semana anterior › semanas visibles */
+    .rot-chip { display: inline-flex; align-items: center; gap: 1px; flex-shrink: 0; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.02em; padding: 1px 4px; border-radius: 4px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.03); line-height: 1.3; font-variant-numeric: tabular-nums; }
+    .rot-chip .rot-prev { color: var(--text-muted); opacity: 0.7; }
+    .rot-chip .rot-sep { color: var(--text-muted); opacity: 0.6; margin: 0 1px; }
+    .rot-chip .rot-ok { color: var(--success); }
+    .rot-chip .rot-mal { color: var(--danger); }
+    .rot-chip .rot-na { color: var(--text-muted); }
+    .rot-punto { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--success); }
+    .rot-punto.rot-alerta { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+    .rot-chip.rot-alerta { border-color: var(--danger); }
     /* Recordatorios de eventos: tarjeta clara (colores de la app invertidos) para que resalte sobre la grilla oscura */
     .rec-panel {
       position: fixed; left: 18px; bottom: 18px; z-index: 9990; width: 340px; max-width: calc(100vw - 32px);
@@ -3615,7 +3625,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.34
+            Versión: v1.6.35
           </div>
         </div>
       </div>
@@ -4504,7 +4514,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.34";
+  const APP_VERSION = "v1.6.35";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -4834,6 +4844,50 @@ try {
 }
 
 // Helpers para metadatos de turnos
+// Rotación semanal de Línea de Cajas: cada semana se toma como de Mañana (la mayoría de los turnos
+// entra antes de las 14) o de Tarde. Los cajeros deberían alternar semana a semana.
+function rotTipoSemana(collabId, lunes) {
+  let m = 0, t = 0;
+  for (let i = 0; i < 7; i++) {
+    const dStr = formatDate(addDays(lunes, i));
+    if ((state.vacations || []).some((v) => v.colaboradorId === collabId && dStr >= v.startDate && dStr <= v.endDate)) continue;
+    const p = parseShift(getSlotEfectivo(collabId, dStr));
+    if (!p || p.type !== "work" || p.isNV) continue;
+    if (p.start < 14) m++; else t++;
+  }
+  if (!m && !t) return "-";
+  return m >= t ? "M" : "T";
+}
+
+function rotChipHTML(collabId, days) {
+  const nombres = { M: "Mañana", T: "Tarde", "-": "sin turnos" };
+  // Tantas semanas como muestra la vista elegida (1, 2 o 4 sem)
+  const porVista = { "1": 1, "2": 2, "4": 4 }[state.cajasVista];
+  const semanas = Math.min(porVista || 4, Math.max(1, Math.round(days.length / 7)));
+  const primerLunes = getStartOfWeek(days[0]);
+  const tipos = [];
+  for (let w = -1; w < semanas; w++) tipos.push(rotTipoSemana(collabId, addDays(primerLunes, w * 7)));
+  let html = `<span class="rot-prev">${tipos[0]}</span><span class="rot-sep">›</span>`;
+  const detalle = [`Semana anterior: ${nombres[tipos[0]]}`];
+  let repite = false;
+  for (let i = 1; i < tipos.length; i++) {
+    const t = tipos[i], previo = tipos[i - 1];
+    let cls = "na", txt = "";
+    if (t !== "-" && previo !== "-") {
+      cls = t === previo ? "mal" : "ok";
+      txt = t === previo ? " · repite turno" : " · rotó";
+      if (t === previo) repite = true;
+    }
+    html += `<span class="rot-${cls}">${t}</span>`;
+    detalle.push(`${semanas === 1 ? "Esta semana" : `Semana ${i}`}: ${nombres[t]}${txt}`);
+  }
+  // En 4 semanas no hay lugar para la secuencia: queda un punto (alerta si alguna semana repite turno)
+  if (semanas >= 4) {
+    return `<span class="rot-punto${repite ? " rot-alerta" : ""}" title="${detalle.join(" · ")}"></span>`;
+  }
+  return `<span class="rot-chip${repite ? " rot-alerta" : ""}" title="${detalle.join(" · ")}">${html}</span>`;
+}
+
 function getMonthlyRotationCompliance(collab, currentWeekDays) {
   const weekDates = currentWeekDays.slice(0, 7);
   const monthCounts = {};
@@ -8117,7 +8171,9 @@ function renderDesktopView() {
                 
                 <!-- Nombre Compacto e Indicador (Izquierda) -->
                 <div style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; overflow: hidden;" onclick="window.toggleCollabDetails('${collab.id}', event)">
-                  <div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;"></div>
+                  ${(state.currentArea || "") === "Linea de Cajas" && !isRoller && !isCruzado
+                    ? rotChipHTML(collab.id, days)
+                    : `<div class="indicator ${indClass}" title="${rotationInfo.tooltip}" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;"></div>`}
                   <span style="font-weight: 600; font-size: 0.78rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">
                     ${shortName}
                   </span>
