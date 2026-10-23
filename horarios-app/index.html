@@ -1395,6 +1395,8 @@
       /* La izquierda puede achicarse (las pestañas pasan a dos renglones) antes de pisar el navegador */
       .main-app-nav.main-app-nav-grid { grid-template-columns: minmax(0, auto) minmax(max-content, 1fr) auto; }
       .main-app-nav-left.app-tabs { gap: 2px 0.5rem; min-width: 0; flex-wrap: wrap; }
+      /* El navegador de fechas va a la derecha, junto al botón de deshacer */
+      .main-app-nav-grid > .main-app-nav-center { justify-content: flex-end; }
       .date-nav .dn-btn { width: 26px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; color: var(--text-muted); }
       .date-nav .dn-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
       .date-nav #prevDayBtn { margin-left: -2px; }
@@ -3589,7 +3591,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.21
+            Versión: v1.6.22
           </div>
         </div>
       </div>
@@ -4471,7 +4473,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.21";
+  const APP_VERSION = "v1.6.22";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5420,6 +5422,31 @@ async function loadWeekPlanning(append = false) {
   }
 }
 
+// Eventos del día: cada documento de eventos_diarios (id = fecha) guarda una lista de eventos
+// en "lista". Los campos sueltos (tipo, descripcion, color, tiendaCerrada) quedan como resumen
+// del día para el resto de la app. Los documentos viejos (un solo evento) se leen igual.
+function evLista(data) {
+  if (!data) return [];
+  if (Array.isArray(data.lista)) return data.lista;
+  if (!data.tipo && !data.descripcion) return [];
+  return [{ id: "ev0", tipo: data.tipo || "Evento", descripcion: data.descripcion || "", color: data.color || "#10b981", tiendaCerrada: !!data.tiendaCerrada }];
+}
+function evResumen(lista) {
+  if (!lista.length) return null;
+  if (lista.length === 1) return { ...lista[0], lista };
+  return {
+    tipo: `${lista.length} eventos`,
+    descripcion: lista.map((e) => `${e.tipo}${e.descripcion ? ": " + e.descripcion : ""}`).join(" · "),
+    color: lista[0].color,
+    tiendaCerrada: lista.some((e) => e.tiendaCerrada),
+    lista,
+  };
+}
+function evDocDia(lista) {
+  const r = evResumen(lista);
+  return { tipo: r.tipo, descripcion: r.descripcion, color: r.color, tiendaCerrada: !!r.tiendaCerrada, lista };
+}
+
 // Carga eventos del rango visible desde Firebase
 async function loadEventos(startStr, endStr) {
   if (isMockMode) return;
@@ -5431,7 +5458,8 @@ async function loadEventos(startStr, endStr) {
     );
     const snap = await getDocs(q);
     snap.forEach((docSnap) => {
-      state.eventos[docSnap.id] = docSnap.data();
+      const r = evResumen(evLista(docSnap.data()));
+      if (r) state.eventos[docSnap.id] = r; else delete state.eventos[docSnap.id];
     });
   } catch (e) {
     console.warn("Error cargando eventos_diarios:", e);
@@ -14550,11 +14578,12 @@ window.renderEventosList = async function () {
     );
     const snap = await getDocs(q);
     const eventos = [];
-    snap.forEach((d) => eventos.push({ id: d.id, ...d.data() }));
-    eventos.sort((a, b) => a.id.localeCompare(b.id));
+    snap.forEach((d) => { evLista(d.data()).forEach((ev) => eventos.push({ ...ev, fecha: d.id })); });
 
+    // Calendario arriba (eventos compactos) y debajo la lista del mes con cada evento completo
     let calendarHtml =
-      '<div style="display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: auto repeat(6, 1fr); gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); flex: 1; min-height: 0;">';
+      '<div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; text-align: left; padding-right: 2px;">' +
+      '<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto; grid-auto-rows: minmax(78px, auto); gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); flex-shrink: 0;">';
 
     // Cabeceras de días
     const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -14573,18 +14602,20 @@ window.renderEventosList = async function () {
     let daysInMonth = new Date(y, m + 1, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
       let dayStr = `${y}-${(m + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
-      let dayEvents = eventos.filter((ev) => ev.id === dayStr);
+      let dayEvents = eventos.filter((ev) => ev.fecha === dayStr);
+      const esc = (t) => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-      let cellHtml = `<div style="background: var(--surface); border: 1px solid var(--border); border-radius: 4px; min-height: 0; overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 4px;">
+      let cellHtml = `<div style="background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 4px; display: flex; flex-direction: column; gap: 4px; min-width: 0;">
                 <div style="font-size: 0.8rem; font-weight: bold; color: var(--text-muted); align-self: flex-end; margin-bottom: 2px;">${day}</div>`;
 
       dayEvents.forEach((ev) => {
         const evJsonStr = encodeURIComponent(JSON.stringify(ev));
         cellHtml += `
-          <div onclick="window.editEvento('${evJsonStr}')" style="background: ${ev.color}22; border-left: 3px solid ${ev.color}; border-radius: 4px; padding: 4px; position: relative; font-size: 0.65rem; color: var(--text); line-height: 1.2; cursor: pointer; transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-            <div style="font-weight: bold; margin-bottom: 2px; padding-right: 12px; word-break: break-word;">${ev.tipo}</div>
-            <div style="word-break: break-word; opacity: 0.9;" title="${ev.descripcion}">${ev.descripcion}</div>
-            <button onclick="event.stopPropagation(); window.deleteEvento('${ev.id}')" title="Borrar" style="position: absolute; top: 4px; right: 4px; background: transparent; border: none; color: var(--text); cursor: pointer; font-size: 0.85rem; padding: 0; line-height: 1; opacity: 0.7;">&times;</button>
+          <div onclick="window.editEvento('${evJsonStr}')" title="${esc(ev.tipo)}${ev.descripcion ? ": " + esc(ev.descripcion) : ""}" style="flex-shrink: 0; background: ${ev.color}26; border-left: 3px solid ${ev.color}; border-radius: 4px; padding: 4px 5px; position: relative; font-size: 0.7rem; color: var(--text); line-height: 1.25; cursor: pointer; text-align: left; min-width: 0;">
+            <div style="font-weight: 800; padding-right: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(ev.tipo)}</div>
+            ${ev.descripcion ? `<div style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; opacity: 0.95;">${esc(ev.descripcion)}</div>` : ""}
+            ${ev.tiendaCerrada ? '<div style="color:#fca5a5; font-weight: 700;">Tienda cerrada</div>' : ""}
+            <button onclick="event.stopPropagation(); window.deleteEvento('${ev.fecha}', '${ev.id}')" title="Borrar" style="position: absolute; top: 3px; right: 4px; background: transparent; border: none; color: var(--text); cursor: pointer; font-size: 0.95rem; padding: 0; line-height: 1; opacity: 0.75;">&times;</button>
           </div>`;
       });
 
@@ -14600,6 +14631,23 @@ window.renderEventosList = async function () {
     }
 
     calendarHtml += "</div>";
+
+    // Lista del mes: cada evento completo, en orden de fecha
+    const diasSem = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    const escL = (t) => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const ordenados = [...eventos].sort((a, b) => a.fecha.localeCompare(b.fecha));
+    calendarHtml += `<div style="flex-shrink: 0;">
+      <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 6px 2px;">Eventos del mes (${ordenados.length})</div>
+      ${ordenados.length ? ordenados.map((ev) => {
+        const f = new Date(ev.fecha + "T00:00:00");
+        const evJsonStr = encodeURIComponent(JSON.stringify(ev));
+        return `<div onclick="window.editEvento('${evJsonStr}')" style="display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px 10px; margin-bottom: 4px; border: 1px solid var(--border); border-left: 4px solid ${ev.color}; border-radius: 6px; background: ${ev.color}14; cursor: pointer;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">${diasSem[f.getDay()]} ${String(f.getDate()).padStart(2, "0")}/${String(f.getMonth() + 1).padStart(2, "0")}</div>
+          <div style="font-size: 0.85rem; line-height: 1.35;"><b>${escL(ev.tipo)}</b>${ev.tiendaCerrada ? ' <span style="color:#fca5a5; font-weight: 700;">· Tienda cerrada</span>' : ""}${ev.descripcion ? `<div style="color: var(--text); opacity: 0.9; overflow-wrap: break-word;">${escL(ev.descripcion)}</div>` : ""}</div>
+          <button onclick="event.stopPropagation(); window.deleteEvento('${ev.fecha}', '${ev.id}')" title="Borrar" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 2px;">&times;</button>
+        </div>`;
+      }).join("") : '<div style="color: var(--text-muted); font-size: 0.85rem; padding: 4px 2px;">No hay eventos cargados este mes.</div>'}
+    </div></div>`;
     container.innerHTML = calendarHtml;
   } catch (e) {
     container.innerHTML =
@@ -14611,8 +14659,8 @@ window.renderEventosList = async function () {
 window.editEvento = function (evDataStr) {
   try {
     const ev = JSON.parse(decodeURIComponent(evDataStr));
-    document.getElementById("eventoEditId").value = ev.id;
-    document.getElementById("eventoFechaInput").value = ev.id;
+    document.getElementById("eventoEditId").value = `${ev.fecha}|${ev.id}`;
+    document.getElementById("eventoFechaInput").value = ev.fecha;
     document.getElementById("eventoFechaFinInput").value = "";
     document.getElementById("eventoTipoInput").value = ev.tipo || "Inventario";
     document.getElementById("eventoColorInput").value = ev.color || "#10b981";
@@ -14660,24 +14708,54 @@ window.saveEvento = async function () {
 
   const startD = new Date(fechaInicioStr + "T00:00:00");
   const endD = new Date(fechaFinStr + "T00:00:00");
-  const batch = writeBatch(db);
-
-  // Si editó la fecha y cambió el ID del día original, borrar el anterior
-  if (editId && editId !== fechaInicioStr) {
-    batch.delete(doc(db, "eventos_diarios", editId));
-    delete state.eventos[editId];
+  if (endD < startD) {
+    showToast("Error", "La fecha de fin es anterior a la de inicio.");
+    return;
   }
+  const [editFecha, editItemId] = editId ? editId.split("|") : ["", ""];
 
-  let curr = new Date(startD);
-  while (curr <= endD) {
-    const dStr = formatDate(curr);
-    const evData = { tipo, descripcion, color, tiendaCerrada };
-    batch.set(doc(db, "eventos_diarios", dStr), evData);
-    state.eventos[dStr] = evData;
-    curr = addDays(curr, 1);
-  }
+  // Lista actual de cada día que se toca (se lee de la base para no pisar eventos ya cargados)
+  const listas = {};
+  const leerLista = async (dStr) => {
+    if (listas[dStr]) return listas[dStr];
+    let data = null;
+    try {
+      const snap = await getDoc(doc(db, "eventos_diarios", dStr));
+      data = snap.exists() ? snap.data() : null;
+    } catch (e) {
+      data = state.eventos[dStr] || null;
+    }
+    listas[dStr] = evLista(data).map((e) => ({ ...e }));
+    return listas[dStr];
+  };
 
   try {
+    // Edición: se saca el evento de su día original (si sigue en el mismo día, se reemplaza en su lugar)
+    let posOriginal = -1;
+    if (editFecha) {
+      const original = await leerLista(editFecha);
+      posOriginal = original.findIndex((e) => e.id === editItemId);
+      if (posOriginal >= 0) original.splice(posOriginal, 1);
+    }
+    const idNuevo = () => `ev${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    for (let curr = new Date(startD); curr <= endD; curr = addDays(curr, 1)) {
+      const dStr = formatDate(curr);
+      const lista = await leerLista(dStr);
+      const item = { id: editFecha === dStr && editItemId ? editItemId : idNuevo(), tipo, descripcion, color, tiendaCerrada };
+      if (editFecha === dStr && posOriginal >= 0) lista.splice(posOriginal, 0, item);
+      else lista.push(item);
+    }
+
+    const batch = writeBatch(db);
+    Object.entries(listas).forEach(([dStr, lista]) => {
+      if (lista.length) {
+        batch.set(doc(db, "eventos_diarios", dStr), evDocDia(lista));
+        state.eventos[dStr] = evResumen(lista);
+      } else {
+        batch.delete(doc(db, "eventos_diarios", dStr));
+        delete state.eventos[dStr];
+      }
+    });
     await batch.commit();
     showToast("Éxito", editId ? "Evento actualizado correctamente." : "Evento guardado.", "success");
     window.cancelEditEvento();
@@ -14689,33 +14767,27 @@ window.saveEvento = async function () {
   }
 };
 
-window.deleteEvento = async function(dStr) {
+window.deleteEvento = async function(dStr, itemId) {
   if (!requireAuth()) return;
   if (!checkAccessWithToast("gestionarEventos")) return;
 
-  const ev = state.eventos[dStr];
-  if (!ev) return;
-
-  if (!confirm(`¿Eliminar el evento "${ev.descripcion}"?`)) return;
-
   if (!isMockMode) {
     try {
-      const startStr = ev.rangoInicio || dStr;
-      const endStr = ev.rangoFin || dStr;
-
-      const startD = new Date(startStr + "T00:00:00");
-      const endD = new Date(endStr + "T00:00:00");
-
+      // Se borra solo ese evento; los demás del mismo día quedan
+      const snap = await getDoc(doc(db, "eventos_diarios", dStr));
+      const lista = evLista(snap.exists() ? snap.data() : null);
+      const ev = lista.find((e) => e.id === itemId) || lista[0];
+      if (!ev) return;
+      if (!confirm(`¿Eliminar el evento "${ev.tipo}${ev.descripcion ? ": " + ev.descripcion : ""}" del ${dStr.split("-").reverse().join("/")}?`)) return;
+      const resto = lista.filter((e) => e !== ev);
       const batch = writeBatch(db);
-      let cur = new Date(startD);
-
-      while (cur <= endD) {
-        const curStr = formatDate(cur);
-        batch.delete(doc(db, "eventos_diarios", curStr));
-        delete state.eventos[curStr];
-        cur = addDays(cur, 1);
+      if (resto.length) {
+        batch.set(doc(db, "eventos_diarios", dStr), evDocDia(resto));
+        state.eventos[dStr] = evResumen(resto);
+      } else {
+        batch.delete(doc(db, "eventos_diarios", dStr));
+        delete state.eventos[dStr];
       }
-
       await batch.commit();
       showToast("Evento eliminado", "El evento fue borrado exitosamente.", "success");
       if (typeof window.renderEventosList === 'function') await window.renderEventosList();
