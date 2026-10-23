@@ -636,82 +636,36 @@
       max-width: 90vw;
     }
 
+    /* Carteles: tarjeta clara con color fuerte por tipo, para que se lean de una sobre la grilla oscura */
     .toast {
-      background: var(--surface);
-      border-left: 4px solid var(--primary);
-      padding: 1rem 1.5rem 1.25rem 1.5rem;
-      border-radius: 0.5rem;
-      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6);
+      --t: #2563eb;
+      background: #f8fafc;
+      color: #0f172a;
+      border-left: 6px solid var(--t);
+      padding: 0.8rem 2.4rem 1rem 1rem;
+      border-radius: 10px;
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12), 0 18px 40px rgba(0, 0, 0, 0.55);
       transform: translateY(-150%) scale(0.9);
       opacity: 0;
-      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       position: relative;
       overflow: hidden;
-      min-width: 320px;
+      min-width: 280px;
+      max-width: 420px;
     }
-
-    .toast.show {
-      transform: translateY(0) scale(1);
-      opacity: 1;
-    }
-
-    .toast-title {
-      font-weight: 600;
-      margin-bottom: 0.25rem;
-      font-size: 1.05rem;
-    }
-
-    .toast-desc {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      line-height: 1.4;
-      padding-right: 1.5rem;
-      pointer-events: auto;
-    }
-    
-    .toast-desc a:hover {
-      background: rgba(16, 185, 129, 0.28) !important;
-    }
-    
-    .toast-close {
-      position: absolute;
-      top: 0.5rem;
-      right: 0.5rem;
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 1.5rem;
-      padding: 0 5px;
-      line-height: 1;
-    }
-    .toast-close:hover {
-      color: var(--text);
-    }
-
-    .toast-progress {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      height: 4px;
-      background: rgba(255,255,255,0.1);
-      width: 100%;
-    }
-    .toast-progress-bar {
-      height: 100%;
-      background: var(--primary);
-      width: 100%;
-      transition: width 5s linear;
-    }
-
-    .toast.error { border-left-color: var(--danger); }
-    .toast.error .toast-progress-bar { background: var(--danger); }
-    .toast.success { border-left-color: var(--success); }
-    .toast.success .toast-progress-bar { background: var(--success); }
-    .toast.warning { border-left-color: var(--warning); }
-    .toast.warning .toast-progress-bar { background: var(--warning); }
-    .toast.info { border-left-color: var(--primary); }
-    .toast.info .toast-progress-bar { background: var(--primary); }
+    .toast.show { transform: translateY(0) scale(1); opacity: 1; }
+    .toast-title { font-weight: 800; font-size: 1rem; color: var(--t); margin-bottom: 0.15rem; line-height: 1.25; }
+    .toast-desc { font-size: 0.9rem; font-weight: 500; color: #1e293b; line-height: 1.4; pointer-events: auto; }
+    .toast-desc b { color: #0f172a; }
+    .toast-desc a:hover { background: rgba(16, 185, 129, 0.28) !important; }
+    .toast-close { position: absolute; top: 0.45rem; right: 0.5rem; background: transparent; border: none; color: #64748b; cursor: pointer; font-size: 1.4rem; padding: 0 5px; line-height: 1; }
+    .toast-close:hover { color: #0f172a; }
+    .toast-progress { position: absolute; bottom: 0; left: 0; height: 3px; background: rgba(15, 23, 42, 0.08); width: 100%; }
+    .toast-progress-bar { height: 100%; background: var(--t); width: 100%; transition: width 5s linear; }
+    .toast.error { --t: #dc2626; }
+    .toast.success { --t: #15803d; }
+    .toast.warning { --t: #c2410c; }
+    .toast.info { --t: #2563eb; }
 
     /* Date controls */
     .date-nav {
@@ -3644,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.38
+            Versión: v1.6.39
           </div>
         </div>
       </div>
@@ -4533,7 +4487,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.38";
+  const APP_VERSION = "v1.6.39";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5677,8 +5631,8 @@ function avisarExtra48(collabId, dateStr, parsedSlot, adicHorasDia) {
   const nombre = (collab.name || "").split("(")[0].trim();
   const r = (n) => Math.round(n * 10) / 10;
   showToast(
-    "Contrato de 48 h con horas extras",
-    `${nombre} queda en <b>${r(info.projected)} h</b> esta semana (<b>${r(info.excess)} h</b> por encima del contrato).<br>Por ahora los contratos de 48 h no hacen horas extras. Revisá si corresponde.`,
+    "¡Ojo! Se pasa de 48 h",
+    `${nombre} llega a <b>${r(info.projected)} h</b> esta semana (+${r(info.excess)} h). Los de 48 h no hacen extras.`,
     "warning",
     true,
   );
@@ -5892,7 +5846,7 @@ function validateTurn(collabId, dateStr, parsedNewSlot) {
       return {
         valid: false,
         type: "exceso_horas",
-        msg: `Exceso de horas: Este colaborador tiene un contrato de ${collab.hours}hs y no puede superar las 42 horas semanales máximas permitidas. (Total calculado con este turno: ${totalWeekHoursWithNewTurn}hs)`,
+        msg: `Con este turno llega a ${totalWeekHoursWithNewTurn} h y su tope es 42 h (contrato de ${collab.hours} h).`,
       };
     }
   }
@@ -5908,7 +5862,7 @@ function validateTurn(collabId, dateStr, parsedNewSlot) {
       return {
         valid: false,
         type: "exceso_horas",
-        msg: `Mínimo de horas diarias: El turno ingresado (${checkHours} hs) es inferior al mínimo legal obligatorio de 4 horas por día.`,
+        msg: `El turno tiene ${checkHours} h y el mínimo es 4 h.`,
       };
     }
 
@@ -5917,7 +5871,7 @@ function validateTurn(collabId, dateStr, parsedNewSlot) {
       return {
         valid: false,
         type: "exceso_horas",
-        msg: `Límite legal absoluto excedido: La jornada máxima no puede superar las 12 horas diarias para garantizar el descanso de Ley (Turno ingresado: ${checkHours} hs).`,
+        msg: `El turno tiene ${checkHours} h y el máximo es 12 h.`,
       };
     }
 
@@ -5935,7 +5889,7 @@ function validateTurn(collabId, dateStr, parsedNewSlot) {
         return {
           valid: false,
           type: "exceso_horas",
-          msg: `Tope en horas extras: Para contratos de ${collab.hours}hs, un día que incluye horas extras no puede superar las 8.5 horas totales (Turno ingresado: ${checkHours} hs).`,
+          msg: `Un día con extras no puede pasar de 8,5 h (tiene ${checkHours} h).`,
         };
       }
 
@@ -5944,7 +5898,7 @@ function validateTurn(collabId, dateStr, parsedNewSlot) {
         return {
           valid: false,
           type: "exceso_horas",
-          msg: `Jornada ordinaria excedida: La jornada regular máxima es de 9 horas diarias (Turno ingresado: ${checkHours} hs).`,
+          msg: `El turno tiene ${checkHours} h y la jornada normal llega a 9 h.`,
         };
       }
     }
@@ -7919,13 +7873,13 @@ function attachScheduleEventListeners() {
         const objFijado = getPlanningObj(cId, dStr);
         if (objFijado && objFijado.fijado) {
           const pedido = objFijado.fechaFijado ? ` el ${objFijado.fechaFijado}` : "";
-          showToast("Turno fijado", `Este horario lo pidió el colaborador${pedido}. Podés cambiarlo, pero tenelo en cuenta.`, "warning");
+          showToast("Turno pedido", `Lo pidió el colaborador${pedido}. Si lo cambiás, avisale.`, "warning");
         }
         const collabObj = (state.collaborators || []).find(c => c.id === cId);
         if (collabObj && isContractUnder119(collabObj)) {
           const dateObj = new Date(dStr + "T00:00:00");
           if (checkIsPreVacationSunday(cId, dateObj)) {
-            showToast("Aviso", "¡Ojo! Que el colaborador sale de vacaciones", "warning");
+            showToast("¡Ojo!", "Sale de vacaciones, por eso el domingo es franco.", "warning");
           }
         }
       }
@@ -9231,10 +9185,7 @@ async function handleInputChange(e) {
   } else {
     parsedNew = parseShift(rawValue);
     if (parsedNew && parsedNew.type === "error") {
-      showToast(
-        "Error de Formato",
-        `El turno '${rawValue}' no es válido. Usa '6a14', 'F', 'V', 'E'.`,
-      );
+      showToast("Turno no válido", `"${rawValue}" no se entiende. Probá con 6a14, F, V o E.`, "error");
       input.value = oldValue; // Revert
       return;
     }
@@ -9253,14 +9204,11 @@ async function handleInputChange(e) {
   if (!isRepositor) {
     if (!validation.valid) {
       if (validation.type === "legal") {
-        showToast(
-          "ERROR CRÍTICO DE LEY",
-          `No se puede asignar este horario.<br>El colaborador no cumple con las ${validation.req} de descanso obligatorio por Ley.`,
-        );
+        showToast("No llega al descanso", `Necesita ${validation.req} de descanso entre turnos (ley).`, "error");
       } else if (validation.type === "exceso_horas") {
-        showToast("LÍMITE OPERATIVO VIOLADO", validation.msg);
+        showToast("No se puede cargar", validation.msg, "error");
       } else {
-        showToast("Restricción Violada", validation.msg);
+        showToast("No se puede cargar", validation.msg, "error");
       }
       input.value = oldValue;
       input.classList.add("input-error");
@@ -9278,10 +9226,7 @@ async function handleInputChange(e) {
         const lastYear = currYear - 1;
         const twoYearsAgo = currYear - 2;
         if (hist[lastYear] === "Buena" || hist[twoYearsAgo] === "Buena") {
-          showToast(
-            "Regla 2x1",
-            `El colaborador ${collab?.name || collabId} ya tuvo temporada Buena en los últimos 2 años. Solo le corresponde temporada Mala.`,
-          );
+          showToast("Regla 2x1", `${collab?.name || collabId} ya tuvo temporada Buena: le toca Mala.`, "warning");
           return;
         }
       }
@@ -9293,7 +9238,7 @@ async function handleInputChange(e) {
   if (collabObjForNotice && isContractUnder119(collabObjForNotice)) {
     const editDateObj = new Date(dateStr + "T00:00:00");
     if (checkIsPreVacationSunday(collabId, editDateObj)) {
-      showToast("Aviso Operativo", "El colaborador se encuentra de vacaciones", "warning");
+      showToast("¡Ojo!", "Está de vacaciones.", "warning");
     }
   }
 
@@ -9348,10 +9293,7 @@ async function handleInputChange(e) {
     const collabName =
       state.collaborators.find((c) => c.id === collabId)?.name ||
       "el colaborador";
-    showToast(
-      "Error de Planificación",
-      `El colaborador ${collabName} tiene más de un Franco asignado en esta semana calendario. Usa 'Libre' para días extra.`,
-    );
+    showToast("Dos francos", `${collabName} ya tiene franco esta semana. Para otro día usá Libre.`, "error");
   }
 
   renderHeatmap(); // Update heat map in real time
@@ -9376,7 +9318,7 @@ async function handleInputChange(e) {
       );
     } catch (err) {
       console.error("Error guardando:", err);
-      showToast("Error de conexión", "No se pudo guardar en la base de datos.");
+      showToast("No se guardó", "Revisá la conexión y volvé a intentar.", "error");
     }
   }
 
@@ -9385,6 +9327,7 @@ async function handleInputChange(e) {
 
 // 12. UTILS Y EVENTOS
 
+window.showToast = (...args) => showToast(...args);
 function showToast(title, msg, type = "info", persistente = false) {
   const container = document.getElementById("toastContainer");
   const toast = document.createElement("div");
@@ -9397,7 +9340,8 @@ function showToast(title, msg, type = "info", persistente = false) {
   toast.className = `toast ${typeClass}`;
 
   // Los errores y los avisos marcados como persistentes quedan hasta que se cierran con la ✕
-  const isPersistent = typeClass === "error" || typeClass === "danger" || persistente;
+  const isPersistent = persistente;
+  const duracionMs = typeClass === "error" ? 8000 : 5000;
 
   let html = `
         <div class="toast-title">${title}</div>
@@ -9423,6 +9367,7 @@ function showToast(title, msg, type = "info", persistente = false) {
       if (bar) {
         // Forzar reflow para animación
         bar.getBoundingClientRect();
+        bar.style.transition = `width ${duracionMs / 1000}s linear`;
         bar.style.width = "0%";
       }
     }
@@ -9434,7 +9379,7 @@ function showToast(title, msg, type = "info", persistente = false) {
         toast.classList.remove("show");
         setTimeout(() => toast.remove(), 400);
       }
-    }, 5000);
+    }, duracionMs);
   }
 }
 
@@ -9567,7 +9512,7 @@ collabForm.addEventListener("submit", async (e) => {
       );
     } catch (err) {
       console.error("Error al guardar colaborador", err);
-      showToast("Error", "No se pudo guardar en la base de datos.");
+      showToast("No se guardó", "Revisá la conexión y volvé a intentar.", "error");
       return;
     }
   }
@@ -9577,10 +9522,10 @@ collabForm.addEventListener("submit", async (e) => {
   const idx = state.collaborators.findIndex((c) => c.id === legajo);
   if (idx >= 0) {
     state.collaborators[idx] = mergedCollab;
-    showToast("Éxito", "Colaborador actualizado.");
+    showToast("Listo", "Colaborador actualizado.", "success");
   } else {
     state.collaborators.push(mergedCollab);
-    showToast("Éxito", "Colaborador agregado.");
+    showToast("Listo", "Colaborador agregado.", "success");
   }
 
   // Ordenar estrictamente por legajo de forma ascendente
@@ -9703,7 +9648,7 @@ window.editCollab = function (id) {
 
 window.deleteCollab = async function (id) {
   if (!requireAuth()) return;
-  if (!confirm("¿Seguro que deseas eliminar al colaborador " + id + "?"))
+  if (!confirm("¿Borrás al colaborador " + id + "?"))
     return;
 
   if (!isMockMode) {
@@ -9711,7 +9656,7 @@ window.deleteCollab = async function (id) {
       await deleteDoc(doc(db, "colaboradores", id));
     } catch (err) {
       console.error("Error al eliminar", err);
-      showToast("Error", "No se pudo eliminar en la base de datos.");
+      showToast("No se borró", "Revisá la conexión y volvé a intentar.", "error");
       return;
     }
   }
@@ -9727,7 +9672,7 @@ window.deleteCollab = async function (id) {
 
   renderConfigModalList();
   renderUI(); // Renderizar DOM sin recargar
-  showToast("Éxito", "Colaborador eliminado.");
+  showToast("Listo", "Colaborador borrado.", "success");
 };
 
 // 14. MODULO ANUAL DE VACACIONES Y METRICAS
@@ -11135,7 +11080,7 @@ async function renderSaldosVacaciones() {
             delBtn.onclick = async (e) => {
               e.preventDefault();
               e.stopPropagation();
-              if (!confirm(`¿Seguro que deseas eliminar el ${att.tooltip}?`))
+              if (!confirm(`¿Borrás el ${att.tooltip}?`))
                 return;
 
               try {
@@ -11147,11 +11092,11 @@ async function renderSaldosVacaciones() {
                   },
                   { merge: true },
                 );
-                showToast("Comprobante eliminado", "success");
+                showToast("Listo", "Comprobante borrado.", "success");
                 renderSaldosVacaciones();
               } catch (err) {
                 console.error(err);
-                showToast("Error al eliminar", "error");
+                showToast("No se borró", "Volvé a intentar.", "error");
               }
             };
             wrap.appendChild(delBtn);
@@ -11354,7 +11299,7 @@ async function renderSaldosVacaciones() {
             const lawDays = parseInt(asignadosInput.dataset.lawDays, 10);
             if (lawDays > 0 && asignados !== lawDays) {
               const confirmed = confirm(
-                `Atención: Estás modificando los días de vacaciones calculados por Ley. El valor original era de ${lawDays} días.\n\n¿Deseas confirmar el cambio manual?`,
+                `Por ley le corresponden ${lawDays} días. ¿Cambiás igual el valor?`,
               );
               if (!confirmed) {
                 asignadosInput.value = lawDays; // revert
@@ -11461,7 +11406,7 @@ async function renderSaldosVacaciones() {
   const removeBtn = document.getElementById("removeYearBtn");
   if (removeBtn) {
     removeBtn.addEventListener("click", async () => {
-      if (!confirm(`¿Seguro que deseas eliminar el año ${maxYear}?`)) return;
+      if (!confirm(`¿Borrás el año ${maxYear}?`)) return;
 
       if (collab.saldosVacaciones && collab.saldosVacaciones[maxYear]) {
         delete collab.saldosVacaciones[maxYear];
@@ -11528,10 +11473,7 @@ document
         document.getElementById("vStartDate").value = newStartDateStr;
         const partes = newStartDateStr.split("-");
         const fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
-        showToast(
-          "Traslado Automático",
-          `La fecha de inicio fue trasladada automáticamente al día ${fechaFormateada} por coincidir con feriado/descanso (Art. 151 LCT).`,
-        );
+        showToast("Fecha movida", `Arranca el ${fechaFormateada}: caía en feriado o descanso (art. 151 LCT).`, "info");
       }
     }
     document.getElementById("vStartDateError").style.display = "none";
@@ -11553,8 +11495,7 @@ document
       const hist = collab?.historialVacaciones || {};
       if (hist.year1 === "Buena" || hist.year2 === "Buena") {
         const confirmadoBuena = confirm(
-          `Regla 2x1: ${collab?.name || collabId} ya tuvo temporada Buena en los últimos 2 años, ` +
-          `así que le correspondería temporada Mala.\n\n¿Querés cargar las vacaciones igual?`,
+          `Regla 2x1: ${collab?.name || collabId} ya tuvo temporada Buena, le toca Mala. ¿Las cargás igual?`,
         );
         if (!confirmadoBuena) return;
       }
@@ -11598,9 +11539,7 @@ document
 
     if (semanasExcedidas.length) {
       const confirmado = confirm(
-        `Ya hay 2 o más ${grupoTope} de vacaciones en este período:\n\n` +
-        `${semanasExcedidas.join("\n")}\n\n` +
-        `¿Querés cargar las vacaciones igual?`,
+        `Ya hay 2 o más ${grupoTope} de vacaciones en:\n${semanasExcedidas.join("\n")}\n\n¿Las cargás igual?`,
       );
       if (!confirmado) return;
     }
@@ -11636,10 +11575,7 @@ document
           `${weeks} Semanas`,
         );
       } catch (err) {
-        showToast(
-          "Error",
-          "No se pudo guardar la vacación en la base de datos.",
-        );
+        showToast("No se guardó", "Las vacaciones no se guardaron. Volvé a intentar.", "error");
         return;
       }
     }
@@ -11647,9 +11583,9 @@ document
     if (editId) {
       if (isMockMode)
         state.vacations = state.vacations.filter((v) => v.id !== editId);
-      showToast("Éxito", "Vacaciones actualizadas correctamente.");
+      showToast("Listo", "Vacaciones actualizadas.", "success");
     } else {
-      showToast("Éxito", "Vacaciones registradas correctamente.");
+      showToast("Listo", "Vacaciones cargadas.", "success");
     }
 
     if (isMockMode) {
@@ -11660,13 +11596,13 @@ document
   });
 
 window.deleteVacation = async function (id) {
-  if (!confirm("¿Eliminar este registro de vacaciones?")) return;
+  if (!confirm("¿Borrás estas vacaciones?")) return;
   if (!isMockMode) {
     try {
       await deleteDoc(doc(db, "vacaciones", id));
       logAudit("Eliminar Vacaciones", id.split("_")[0], id, "Eliminado", "");
     } catch (err) {
-      showToast("Error", "No se pudo eliminar de la base de datos.");
+      showToast("No se borró", "Revisá la conexión y volvé a intentar.", "error");
       return;
     }
   } else {
@@ -11923,11 +11859,7 @@ const checkAccess = window.checkAccess;
 
 window.checkAccessWithToast = function (permiso) {
   if (!checkAccess(permiso)) {
-    showToast(
-      "Acceso denegado",
-      "No tenés permiso para realizar esta acción.",
-      "warning",
-    );
+    showToast("Sin permiso", "Tu usuario no puede hacer esto.", "warning");
     return false;
   }
   return true;
@@ -12415,7 +12347,7 @@ window.setQuickState = async function (stateVal) {
   if (collabObjCtx && isContractUnder119(collabObjCtx)) {
     const editDateObj = new Date(dateStr + "T00:00:00");
     if (checkIsPreVacationSunday(collabId, editDateObj)) {
-      showToast("Aviso Operativo", "El colaborador se encuentra de vacaciones", "warning");
+      showToast("¡Ojo!", "Está de vacaciones.", "warning");
     }
   }
 
@@ -12663,10 +12595,7 @@ async function autoSaveContextMenu() {
 
   const validation = validateTurn(collabId, dateStr, parsedWithNewTardanza);
   if (!validation.valid && validation.type === "legal") {
-    showToast(
-      "ERROR CRÍTICO DE LEY",
-      `No se puede asignar esta modificación.<br>El colaborador no cumple con las ${validation.req} de descanso obligatorio por Ley. (Descanso calculado: ${validation.actual} horas)`,
-    );
+    showToast("No llega al descanso", `Tiene ${validation.actual} h y necesita ${validation.req} (ley).`, "error");
     return false;
   }
 
@@ -12676,7 +12605,7 @@ async function autoSaveContextMenu() {
   let turnoAdicionalNuevo = null; // null = el menú no tiene el bloque, no se toca
   if (adicInVal !== null && adicOutVal !== null) {
     if (!!adicInVal !== !!adicOutVal) {
-      showToast("Turno adicional", "Cargá el horario de entrada y de salida del turno adicional, o quitalo.", "warning");
+      showToast("Turno adicional", "Falta la entrada o la salida.", "warning");
       return false;
     }
     turnoAdicionalNuevo = "";
@@ -12685,18 +12614,18 @@ async function autoSaveContextMenu() {
       turnoAdicionalNuevo = `${fmt(adicInVal)}a${fmt(adicOutVal)}`;
       const adic = turnoAdicionalInfo({ turnoAdicional: turnoAdicionalNuevo });
       if (!adic) {
-        showToast("Turno adicional", "El horario del turno adicional no es válido.", "warning");
+        showToast("Turno adicional", "Ese horario no es válido.", "warning");
         return false;
       }
       const principal = parsedWithNewTardanza;
       if (!principal || principal.type !== "work") {
-        showToast("Turno adicional", "Cargá primero el turno del día; el adicional se suma a ese turno.", "warning");
+        showToast("Turno adicional", "Primero cargá el turno del día.", "warning");
         return false;
       }
       const tramosPrincipal = (principal.isCortado ? principal.tramos : [principal])
         .map((t) => ({ start: t.start, end: t.end <= t.start ? 24 : t.end }));
       if (tramosPrincipal.some((t) => adic.start < t.end && adic.end > t.start)) {
-        showToast("Turno adicional", "El turno adicional se superpone con el turno del día.", "warning");
+        showToast("Turno adicional", "Se pisa con el turno del día.", "warning");
         return false;
       }
     }
@@ -12715,7 +12644,7 @@ async function autoSaveContextMenu() {
   if (collabObjAuto && isContractUnder119(collabObjAuto)) {
     const editDateObj = new Date(dateStr + "T00:00:00");
     if (checkIsPreVacationSunday(collabId, editDateObj)) {
-      showToast("Aviso Operativo", "El colaborador se encuentra de vacaciones", "warning");
+      showToast("¡Ojo!", "Está de vacaciones.", "warning");
     }
   }
 
@@ -12941,7 +12870,7 @@ document.getElementById("loginForm").addEventListener("submit", (e) => {
   const pass = isAdminUI ? document.getElementById("loginPass").value : "EquipoCrew2026!";
 
   if (isAdminUI && !pass) {
-    showToast("Error", "Ingresa tu contraseña de administrador.");
+    showToast("Falta la contraseña", "Escribí la contraseña de administrador.", "warning");
     document.getElementById("loginPass").focus();
     return;
   }
@@ -12966,12 +12895,12 @@ document.getElementById("loginForm").addEventListener("submit", (e) => {
           createUserWithEmailAndPassword(auth, email, pass)
             .then(() => finishLogin())
             .catch((err2) => {
-                showToast("Acceso denegado", "No se pudo validar el legajo.");
+                showToast("Legajo no válido", "No lo pudimos validar. Revisalo.", "error");
                 submitBtn.disabled = false;
                 submitBtn.textContent = "Ingresar";
             });
       } else {
-          showToast("Error", "Contraseña de administrador incorrecta.");
+          showToast("Contraseña incorrecta", "Revisala y probá de nuevo.", "error");
           document.getElementById("loginPass").select();
           submitBtn.disabled = false;
           submitBtn.textContent = "Ingresar como Admin";
@@ -13029,7 +12958,7 @@ document.getElementById("editorForm").addEventListener("submit", async (e) => {
   const nom = document.getElementById("editorNombre").value.trim();
   const leg = document.getElementById("editorLegajo").value.trim();
   if (!nom) {
-    showToast("Error", "Legajo inválido o sin nombre asociado.");
+    showToast("Legajo no válido", "No existe o no tiene nombre cargado.", "error");
     return;
   }
   if (nom && leg) {
@@ -13038,7 +12967,7 @@ document.getElementById("editorForm").addEventListener("submit", async (e) => {
     currentRole = "editor";
     editorModal.style.display = "none";
     checkLogin();
-    showToast("Firma", `Habilitado como editor: ${nom}`);
+    showToast("Listo", `${nom} ya puede editar.`, "success");
   }
 
   if (pendingEditTarget) {
@@ -13149,25 +13078,25 @@ pdfForm.addEventListener("submit", async (e) => {
     const desde = document.getElementById("covDesde").value;
     const hasta = document.getElementById("covHasta").value;
     if (!desde || !hasta || hasta < desde) {
-      showToast("Error", "Elegí un período válido (Desde y Hasta).");
+      showToast("Revisá las fechas", "Elegí Desde y Hasta.", "warning");
       return;
     }
     const dias = Math.round((new Date(hasta + "T00:00:00") - new Date(desde + "T00:00:00")) / 86400000) + 1;
     if (dias > 31) {
-      showToast("Error", "Para imprimir, elegí hasta 31 días.");
+      showToast("Muchos días", "Para imprimir, hasta 31 días.", "warning");
       return;
     }
     // La ventana se abre ya, dentro del clic, para que el navegador no la bloquee
     const win = window.open("", "_blank");
     if (win) win.document.write('<p style="font-family:sans-serif;padding:20px">Preparando las hojas para imprimir…</p>');
     pdfModal.style.display = "none";
-    showToast("Preparando impresión", `${dias} ${dias === 1 ? "hoja" : "hojas"}, una por día.`, 3000);
+    showToast("Preparando", `${dias} ${dias === 1 ? "hoja" : "hojas"} para imprimir.`, "info");
     try {
       await covImprimirDias(desde, hasta, win);
     } catch (err) {
       console.error("Error al preparar la impresión:", err);
       if (win) win.close();
-      showToast("Error", "Hubo un problema al preparar la impresión.");
+      showToast("No se pudo imprimir", "Volvé a intentar.", "error");
     }
     return;
   }
@@ -13175,22 +13104,22 @@ pdfForm.addEventListener("submit", async (e) => {
     const desde = document.getElementById("covDesde").value;
     const hasta = document.getElementById("covHasta").value;
     if (!desde || !hasta || hasta < desde) {
-      showToast("Error", "Elegí un período válido (Desde y Hasta).");
+      showToast("Revisá las fechas", "Elegí Desde y Hasta.", "warning");
       return;
     }
     const dias = Math.round((new Date(hasta + "T00:00:00") - new Date(desde + "T00:00:00")) / 86400000) + 1;
     if (dias > 62) {
-      showToast("Error", "El período puede tener hasta 62 días.");
+      showToast("Muchos días", "El detalle va hasta 62 días.", "warning");
       return;
     }
     const formato = document.querySelector('input[name="covFormato"]:checked').value;
     pdfModal.style.display = "none";
-    showToast("Generando detalle", "Preparando el detalle de cobertura...", 3000);
+    showToast("Preparando", "Armando el detalle de cobertura…", "info");
     try {
       await covExportarDetalle(desde, hasta, formato);
     } catch (err) {
       console.error("Error al generar el detalle de cobertura:", err);
-      showToast("Error", "Hubo un problema al generar el detalle.");
+      showToast("No se pudo armar", "El detalle falló. Volvé a intentar.", "error");
     }
     return;
   }
@@ -13204,7 +13133,7 @@ pdfForm.addEventListener("submit", async (e) => {
   if (rangeType === "custom") {
     const valStart = document.getElementById("pdfDateStart").value;
     if (!valStart) {
-      showToast("Error", "Debes seleccionar la fecha de inicio.");
+      showToast("Falta la fecha", "Elegí desde cuándo.", "warning");
       return;
     }
     startD = new Date(valStart + "T00:00:00");
@@ -13213,13 +13142,13 @@ pdfForm.addEventListener("submit", async (e) => {
   }
 
   pdfModal.style.display = "none";
-  showToast("Generando PDF", "El documento se está preparando...", 3000);
+  showToast("Preparando", "Armando el PDF…", "info");
 
   try {
     await buildAndDownloadPDF(startD, endD);
   } catch (err) {
     console.error("Error al generar PDF:", err);
-    showToast("Error", "Hubo un problema al generar el PDF.");
+    showToast("No se pudo armar", "El PDF falló. Volvé a intentar.", "error");
   }
 });
 
@@ -13329,10 +13258,10 @@ async function buildAndDownloadPDF(startDate, endDate) {
   try {
     const worker = html2pdf().set(opt).from(htmlStr);
     await worker.save();
-    showToast("PDF Generado", "La descarga ha finalizado.");
+    showToast("Listo", "PDF descargado.", "success");
   } catch (e) {
     console.error("PDF error:", e);
-    showToast("Error", "Falló la generación del PDF.");
+    showToast("No se pudo armar", "El PDF falló. Volvé a intentar.", "error");
   }
 }
 
@@ -13503,7 +13432,7 @@ const covH = (n) => Math.round(n * 100) / 100;
 async function covExportarDetalle(desde, hasta, formato) {
   const datos = await covCalcularPeriodo(desde, hasta);
   if (!datos.dias.some((x) => x.conDemanda)) {
-    showToast("Sin demanda", "No hay demanda de Recaudaciones cargada en ese período.", "warning");
+    showToast("Sin demanda", "Recaudaciones no cargó nada en esas fechas.", "warning");
   }
   const nombre = `Cobertura_cajas_${desde}_al_${hasta}`;
   if (formato === "xlsx") covExportarExcel(datos, desde, hasta, nombre);
@@ -13521,7 +13450,7 @@ function covFilaEscenario(x, key) {
 }
 
 function covExportarExcel({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
-  if (typeof XLSX === "undefined") { showToast("Error", "No se pudo cargar el generador de Excel."); return; }
+  if (typeof XLSX === "undefined") { showToast("No se pudo armar", "El Excel no cargó. Recargá la página.", "error"); return; }
   const wb = XLSX.utils.book_new();
   const filas = [
     [`Detalle de cobertura de cajas · ${covFecha(desde)} al ${covFecha(hasta)}`],
@@ -13558,7 +13487,7 @@ function covExportarExcel({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
   ws2["!cols"] = [{ wch: 10 }, { wch: 11 }, { wch: 22 }, ...horas.map(() => ({ wch: 5 })), { wch: 7 }];
   XLSX.utils.book_append_sheet(wb, ws2, "Detalle por hora");
   XLSX.writeFile(wb, `${nombre}.xlsx`);
-  showToast("Excel generado", "La descarga ha finalizado.");
+  showToast("Listo", "Excel descargado.", "success");
 }
 
 async function covExportarPDF({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
@@ -13627,7 +13556,7 @@ async function covExportarPDF({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
     jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
     pagebreak: { mode: ["css", "legacy"], avoid: "tr" },
   }).from(html).save();
-  showToast("PDF generado", "La descarga ha finalizado.");
+  showToast("Listo", "PDF descargado.", "success");
 }
 
 // -- VISTA DEL DÍA PARA IMPRIMIR (una hoja por día) --
@@ -14233,7 +14162,7 @@ async function generarBackupSheets() {
     console.log(">>> [BACKUP] Respuesta Apps Script:", resText);
 
     if (resText.includes("ERROR")) {
-      showToast("Aviso de Sheets", resText, "warning");
+      showToast("Copia en Sheets", resText, "warning");
     } else {
       const sheetsUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`;
 
@@ -14253,11 +14182,11 @@ async function generarBackupSheets() {
         </div>
       `;
 
-      showToast("Backup Exitoso", successMsg, "success");
+      showToast("Copia hecha", successMsg, "success");
     }
   } catch (err) {
     console.error(">>> [BACKUP] Error de conexión:", err);
-    showToast("Error de Backup", "No se pudo conectar con Google Sheets.", "error");
+    showToast("Sin copia", "Google Sheets no respondió.", "error");
   } finally {
     if (indicator) indicator.style.display = "none";
     if (btn) {
@@ -14831,7 +14760,7 @@ window.handleRecaudacionesFile = function(file) {
       console.log("Días procesados con éxito:", dayKeys);
 
       if (dayKeys.length === 0) {
-        showToast("Formato no reconocido", "No se encontraron fechas válidas en las filas del archivo.", "warning");
+        showToast("No se leyó", "El archivo no tiene fechas que se entiendan.", "warning");
         return;
       }
 
@@ -14852,10 +14781,10 @@ window.handleRecaudacionesFile = function(file) {
         preview.style.display = "block";
         btnConfirmar.style.display = "inline-flex";
       }
-      showToast("Excel Procesado", `Se detectaron ${dayKeys.length} días de demanda de cajas.`, "success");
+      showToast("Listo", `${dayKeys.length} días de demanda leídos.`, "success");
     } catch (err) {
       console.error("Error al procesar archivo:", err);
-      showToast("Error de Lectura", "Ocurrió un error al interpretar el Excel.", "danger");
+      showToast("No se leyó", "El Excel no se pudo leer. Revisá el archivo.", "error");
     }
   };
   reader.readAsArrayBuffer(file);
@@ -14879,7 +14808,7 @@ window.guardarDemandaRecaudaciones = async function(parsedDays) {
     if (!state.demandaCajas) state.demandaCajas = {};
     Object.assign(state.demandaCajas, parsedDays);
 
-    showToast("Curva Guardada", `Se sincronizaron ${count} días en la base de datos.`, "success");
+    showToast("Listo", `${count} días de demanda guardados.`, "success");
 
     const modal = document.getElementById("recaudacionesModal");
     if (modal) {
@@ -14890,7 +14819,7 @@ window.guardarDemandaRecaudaciones = async function(parsedDays) {
     renderHeatmap();
   } catch (err) {
     console.error("Error guardando en Firestore:", err);
-    showToast("Error de Guardado", "No se pudo guardar la demanda en Firestore.", "danger");
+    showToast("No se guardó", "La demanda no se guardó. Volvé a intentar.", "error");
   }
 };
 
@@ -15180,11 +15109,11 @@ window.saveEvento = async function () {
   const tiendaCerrada = document.getElementById("eventoTiendaCerradaInput").checked;
 
   if (!fechaInicioStr) {
-    showToast("Error", "Selecciona al menos una fecha de inicio.");
+    showToast("Falta la fecha", "Elegí cuándo empieza.", "warning");
     return;
   }
   if (fechaFinStr < fechaInicioStr) {
-    showToast("Error", "La fecha de fin es anterior a la de inicio.");
+    showToast("Revisá las fechas", "El fin es antes que el inicio.", "warning");
     return;
   }
   const [editFecha, editItemId] = editId ? editId.split("|") : ["", ""];
@@ -15212,13 +15141,13 @@ window.saveEvento = async function () {
       (await evLeerLista(dStr, listas)).push(item);
     }
     await evGuardarListas(listas);
-    showToast("Éxito", editId ? "Evento actualizado correctamente." : "Evento guardado.", "success");
+    showToast("Listo", editId ? "Evento actualizado." : "Evento guardado.", "success");
     window.cancelEditEvento();
     if (typeof window.renderEventosList === 'function') await window.renderEventosList();
     renderUI();
   } catch (err) {
     console.error("Error guardando evento:", err);
-    showToast("Error", "No se pudo guardar el evento.");
+    showToast("No se guardó", "El evento no se guardó. Volvé a intentar.", "error");
   }
 };
 
@@ -15243,12 +15172,12 @@ window.deleteEvento = async function(dStr, itemId) {
         if (i >= 0) l.splice(i, 1);
       }
       await evGuardarListas(listas);
-      showToast("Evento eliminado", rango.dias.length > 1 ? `Se borraron los ${rango.dias.length} días del evento.` : "El evento fue borrado exitosamente.", "success");
+      showToast("Listo", rango.dias.length > 1 ? `Evento borrado (${rango.dias.length} días).` : "Evento borrado.", "success");
       if (typeof window.renderEventosList === 'function') await window.renderEventosList();
       renderUI();
     } catch (err) {
       console.error("Error al eliminar evento:", err);
-      showToast("Error", "No se pudo eliminar el evento.", "error");
+      showToast("No se borró", "El evento sigue ahí. Volvé a intentar.", "error");
     }
   }
 };
@@ -15306,7 +15235,7 @@ function renderYearAttachments(adjuntos) {
 }
 
 window.deleteYearAttachment = async function (index) {
-  if (!confirm("¿Estás seguro de que deseas eliminar este adjunto?")) return;
+  if (!confirm("¿Borrás este adjunto?")) return;
   const collab = state.collaborators.find(
     (c) => c.id === currentYearModalCollabId,
   );
@@ -15327,11 +15256,11 @@ window.deleteYearAttachment = async function (index) {
           { saldosVacaciones: collab.saldosVacaciones },
           { merge: true },
         );
-        showToast("Adjunto eliminado", "El adjunto ha sido removido.", "info");
+        showToast("Listo", "Adjunto borrado.", "success");
         renderYearAttachments(yearData.adjuntos);
         if (typeof renderVacationTable === "function") renderVacationTable();
       } catch (e) {
-        showToast("Error", "No se pudo eliminar el adjunto.", "error");
+        showToast("No se borró", "El adjunto sigue ahí. Volvé a intentar.", "error");
         console.error(e);
       }
     } else {
@@ -15371,16 +15300,12 @@ document
             { saldosVacaciones: collab.saldosVacaciones },
             { merge: true },
           );
-          showToast(
-            "Guardado exitoso",
-            "Las notas de la temporada se han guardado.",
-            "success",
-          );
+          showToast("Listo", "Notas guardadas.", "success");
           document
             .getElementById("yearManagementModal")
             .classList.remove("active");
         } catch (e) {
-          showToast("Error", "No se pudo guardar la nota.", "error");
+          showToast("No se guardó", "La nota no se guardó. Volvé a intentar.", "error");
           console.error("Error guardando notas de temporada:", e);
         }
       } else {
@@ -15406,16 +15331,12 @@ if (btnUploadYearFile && yearModalFileInput) {
     const file = e.target.files[0];
     if (!file) return;
     if (isMockMode) {
-      showToast(
-        "Modo Demo",
-        "La subida de archivos está deshabilitada en modo demo.",
-        "info",
-      );
+      showToast("Modo demo", "Acá no se pueden subir archivos.", "info");
       yearModalFileInput.value = "";
       return;
     }
     if (!storage) {
-      showToast("Error", "Storage no está inicializado.", "error");
+      showToast("No se pudo subir", "El almacenamiento no respondió. Recargá la página.", "error");
       return;
     }
 
@@ -15449,18 +15370,9 @@ if (btnUploadYearFile && yearModalFileInput) {
             (error.message && error.message.toLowerCase().includes("cors")) ||
             (error.message && error.message.toLowerCase().includes("network"))
           ) {
-            showToast(
-              "Error de CORS (Entorno Local)",
-              "Para subir archivos desde localhost, debes configurar las reglas de CORS en Firebase Storage usando gsutil. También puedes probar desde producción.",
-              "error",
-            );
+            showToast("No se pudo subir", "Desde una copia local no se suben archivos. Probá en la app publicada.", "error");
           } else {
-            showToast(
-              "Error",
-              "Hubo un problema al subir el archivo: " +
-                (error.message || error.code),
-              "error",
-            );
+            showToast("No se pudo subir", "El archivo no se subió. Volvé a intentar.", "error");
           }
           btnUploadYearFile.style.display = "flex";
           yearModalUploadProgress.style.display = "none";
@@ -15487,11 +15399,7 @@ if (btnUploadYearFile && yearModalFileInput) {
             { merge: true },
           );
 
-          showToast(
-            "Archivo subido",
-            "El adjunto se guardó correctamente.",
-            "success",
-          );
+          showToast("Listo", "Archivo subido.", "success");
           renderYearAttachments(
             collab.saldosVacaciones[currentYearModalYear].adjuntos,
           );
@@ -15504,7 +15412,7 @@ if (btnUploadYearFile && yearModalFileInput) {
       );
     } catch (err) {
       console.error("Catch error upload:", err);
-      showToast("Error", "Hubo un problema al iniciar la subida.", "error");
+      showToast("No se pudo subir", "Volvé a intentar.", "error");
       btnUploadYearFile.style.display = "flex";
       yearModalUploadProgress.style.display = "none";
       yearModalFileInput.value = "";
@@ -15700,21 +15608,18 @@ if (
       if (id) {
         await updateDoc(doc(db, "repositores", id), data);
         if (window.showToast)
-          window.showToast(
-            "Repositores",
-            "Repositor actualizado exitosamente.",
-          );
+          window.showToast("Listo", "Repositor actualizado.", "success");
       } else {
         await setDoc(doc(collection(db, "repositores")), data);
         if (window.showToast)
-          window.showToast("Repositores", "Repositor creado exitosamente.");
+          window.showToast("Listo", "Repositor agregado.", "success");
       }
       repositorForm.reset();
       document.getElementById("repoId").value = "";
     } catch (err) {
       console.error("Error guardando repositor:", err);
       if (window.showToast)
-        window.showToast("Error", "No se pudo guardar el repositor.", true);
+        window.showToast("No se guardó", "El repositor no se guardó. Volvé a intentar.", "error");
     } finally {
       btn.textContent = originalText;
       btn.disabled = false;
@@ -15753,19 +15658,15 @@ if (
 
       if (btnDel) {
         const id = btnDel.closest("tr").dataset.id;
-        if (confirm("¿Estás seguro de eliminar este repositor?")) {
+        if (confirm("¿Borrás este repositor?")) {
           try {
             await deleteDoc(doc(db, "repositores", id));
             if (window.showToast)
-              window.showToast("Repositores", "Repositor eliminado.");
+              window.showToast("Listo", "Repositor borrado.", "success");
           } catch (err) {
             console.error("Error eliminando repositor:", err);
             if (window.showToast)
-              window.showToast(
-                "Error",
-                "No se pudo eliminar el repositor.",
-                true,
-              );
+              window.showToast("No se borró", "El repositor sigue ahí. Volvé a intentar.", "error");
           }
         }
       }
@@ -15923,11 +15824,7 @@ window.showEventInfo = function(dateStr) {
   if (!evento) return;
   const partes = dateStr.split('-');
   const fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
-  showToast(
-    `Evento: ${evento.tipo} (${fechaFormateada})`, 
-    evento.descripcion || "Sin descripción adicional", 
-    "info"
-  );
+  showToast(`${evento.tipo} · ${fechaFormateada}`, evento.descripcion || "Sin descripción.", "info");
 };
 
 
@@ -15965,8 +15862,8 @@ function cambioEsDelAreaActual(data) {
 function avisarCambiosAjenos(cantidad) {
   const area = (state.currentArea || "Disponibilidad") === "Linea de Cajas" ? "Línea de Cajas" : "Disponibilidad";
   showToast(
-    "Horarios actualizados",
-    `${cantidad === 1 ? "Se actualizó 1 horario" : `Se actualizaron ${cantidad} horarios`} de ${area} desde otro dispositivo. La grilla ya está al día.`,
+    "Grilla al día",
+    `${cantidad === 1 ? "Cambió 1 horario" : `Cambiaron ${cantidad} horarios`} de ${area} desde otro equipo.`,
     "info",
   );
 }
@@ -16062,7 +15959,7 @@ window.undoLastAction = async function() {
     }
   }
 
-  showToast("Deshecho", `Turno restaurado para ${dateStr.split("-").reverse().join("/")}`);
+  showToast("Listo", `Volvió el turno del ${dateStr.split("-").reverse().join("/")}.`, "success");
   renderUI();
 };
 
@@ -17180,7 +17077,7 @@ window.exportarPlacasWhatsApp = async function() {
       });
     } catch (err) {
       console.error(err);
-      if (window.showToast) window.showToast("Error", "No se pudo cargar html2canvas.", "danger");
+      if (window.showToast) window.showToast("No se pudo armar", "Las placas no cargaron. Recargá la página.", "error");
       return;
     }
   }
@@ -17215,15 +17112,15 @@ window.exportarPlacasWhatsApp = async function() {
 
   if (placas.length === 0) {
     if (window.showToast) {
-      window.showToast("Sin placas", "No hay placas disponibles para exportar.", "warning");
+      window.showToast("Sin placas", "No hay nada para exportar.", "warning");
     } else {
-      alert("No hay placas disponibles para exportar.");
+      
     }
     return;
   }
 
   if (window.showToast) {
-    window.showToast("Generando Placas", "Procesando imágenes de alta resolución para WhatsApp...", "info");
+    window.showToast("Preparando", "Armando las placas para WhatsApp…", "info");
   }
 
   try {
@@ -17287,15 +17184,15 @@ window.exportarPlacasWhatsApp = async function() {
 
     if (window.showToast) {
       window.showToast(
-        "Placas descargadas",
-        `Se descargaron las ${placas.length} placas verticales en formato PNG nítido para WhatsApp`,
+        "Listo",
+        `${placas.length} placas descargadas.`,
         "success"
       );
     }
   } catch (err) {
     console.error("Error exportando placas:", err);
     if (window.showToast) {
-      window.showToast("Error al exportar", "Hubo un problema al generar las imágenes.", "danger");
+      window.showToast("No se pudo armar", "Las placas fallaron. Volvé a intentar.", "error");
     }
   }
 };
@@ -18122,11 +18019,11 @@ document.addEventListener("DOMContentLoaded", () => {
               const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[firstSheet], { raw: false });
               pasteInput.value = csv;
             } else {
-              if (window.showToast) window.showToast("Error", "Librería XLSX no disponible.", "danger");
+              if (window.showToast) window.showToast("No se leyó", "El lector de Excel no cargó. Recargá la página.", "error");
             }
           } catch (err) {
             console.error("Error leyendo Excel de productividad:", err);
-            if (window.showToast) window.showToast("Error", "No se pudo leer el archivo Excel.", "danger");
+            if (window.showToast) window.showToast("No se leyó", "El Excel no se pudo leer. Revisá el archivo.", "error");
           }
         };
         reader.readAsArrayBuffer(file);
@@ -18163,9 +18060,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const ecData = window.parseExtraCashData(text);
         if (!ecData || !ecData.items || ecData.items.length === 0) {
           if (window.showToast) {
-            window.showToast("Sin datos", "No se detectaron registros válidos de Extra Cash.", "warning");
+            window.showToast("Sin datos", "El archivo no tiene Extra Cash.", "warning");
           } else {
-            alert("No se detectaron registros válidos de Extra Cash.");
+            
           }
           return;
         }
@@ -18205,8 +18102,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (window.showToast) {
           window.showToast(
-            "Extra Cash Procesado",
-            `Total dispersado: $${ecData.totalTienda.toLocaleString('es-AR')} (${ecData.items.length} operadores).`,
+            "Extra Cash listo",
+            `$${ecData.totalTienda.toLocaleString('es-AR')} en ${ecData.items.length} operadores.`,
             "success"
           );
         }
@@ -18223,9 +18120,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const cpData = window.parseCodigosPostalesData(text);
         if (!cpData || cpData.totalOperadoresValidos === 0) {
           if (window.showToast) {
-            window.showToast("Sin datos válidos", "No se detectaron registros de códigos postales pertenecientes a colaboradores activos de la nómina.", "warning");
+            window.showToast("Sin datos", "No hay códigos postales de cajeros activos.", "warning");
           } else {
-            alert("No se detectaron registros de códigos postales pertenecientes a colaboradores activos de la nómina.");
+            
           }
           return;
         }
@@ -18261,8 +18158,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (window.showToast) {
           window.showToast(
-            "Códigos Postales Procesados",
-            `${cpData.totalTickets.toLocaleString('es-AR')} tickets cruzados con éxito para ${cpData.totalOperadoresValidos} colaboradores activos.`,
+            "Códigos postales listos",
+            `${cpData.totalTickets.toLocaleString('es-AR')} tickets de ${cpData.totalOperadoresValidos} cajeros.`,
             "success"
           );
         }
@@ -18282,9 +18179,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const distData = window.parseProductividadDistrital(text);
         if (!distData || (!distData.tiendas["1092"] && !distData.distritoTotal && (!distData.tiendasSanJuan || distData.tiendasSanJuan.length === 0))) {
           if (window.showToast) {
-            window.showToast("Sin datos de distrito", "No se pudieron procesar las tiendas de San Juan.", "warning");
+            window.showToast("Sin datos", "No se leyeron las tiendas de San Juan.", "warning");
           } else {
-            alert("No se pudieron procesar las tiendas de San Juan.");
+            
           }
           return;
         }
@@ -18324,8 +18221,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (window.showToast) {
           window.showToast(
-            "Distrito Procesado",
-            "Datos de 1092, 1081 y 1006 actualizados correctamente.",
+            "Distrito listo",
+            "1092, 1081 y 1006 actualizadas.",
             "success"
           );
         }
@@ -18336,9 +18233,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const items = window.parseProductividadData(text);
       if (!items || items.length === 0) {
         if (window.showToast) {
-          window.showToast("Sin datos", "No se detectaron filas válidas para procesar.", "warning");
+          window.showToast("Sin datos", "El archivo no tiene filas para leer.", "warning");
         } else {
-          alert("No se detectaron datos de productividad válidos.");
+          
         }
         return;
       }
@@ -18390,8 +18287,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (window.showToast) {
         window.showToast(
-          "Productividad 1092 guardada",
-          `Productividad 1092 guardada (${items.length} cajeros procesados).`,
+          "Productividad lista",
+          `${items.length} cajeros cargados.`,
           "success"
         );
       }
@@ -20197,7 +20094,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const isSilent = silent === true;
         const rawTAWText = (document.getElementById("breakInputTAW")?.value || "").trim();
         if (!rawTAWText) {
-          if (!isSilent) alert("Por favor pegá o subí el reporte Parte Diario TAW mensual para indexar.");
+          if (!isSilent) (window.showToast || ((t, m) => alert(m)))("Falta el archivo", "Pegá o subí el Parte Diario TAW del mes.", "warning");
           return;
         }
 
@@ -20206,7 +20103,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const count = Object.keys(newMap).length;
 
         if (count === 0) {
-          if (!isSilent) alert("No se pudieron detectar fichadas válidas en el Parte Diario TAW provisto. Verificá que los legajos existan en el sistema.");
+          if (!isSilent) (window.showToast || ((t, m) => alert(m)))("Sin fichadas", "No se leyeron fichadas. Revisá que los legajos existan.", "warning");
           return;
         }
 
@@ -20216,12 +20113,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (isSilent) {
           if (typeof showToast === "function") {
-            showToast("Éxito", "Parte TAW indexado correctamente desde el archivo.", "success");
+            showToast("Listo", "Parte TAW cargado.", "success");
           } else if (window.showToast) {
-            window.showToast("Éxito", "Parte TAW indexado correctamente desde el archivo.", "success");
+            window.showToast("Listo", "Parte TAW cargado.", "success");
           }
         } else {
-          alert(`✅ Base TAW Mensual actualizada con éxito: ${count} fichadas procesadas e indexadas permanentemente.`);
+          (window.showToast || ((t, m) => alert(m)))("Listo", `${count} fichadas TAW cargadas.`, "success");
         }
 
         // Recalcular y pintar inmediatamente la matriz en pantalla sin necesidad de recargar la página
@@ -20252,7 +20149,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!rawR25Text && !hasGlobalTaw && !rawTAWText) {
           if (!silent) {
-            alert("Por favor pegá o subí el Reporte 25 del día o indexá primero el Parte Diario TAW mensual.");
+            (window.showToast || ((t, m) => alert(m)))("Falta el archivo", "Pegá el Reporte 25 del día o cargá el TAW del mes.", "warning");
           }
           return;
         }
@@ -21378,7 +21275,7 @@ document.addEventListener("DOMContentLoaded", () => {
       function exportCSV() {
         const tbody = document.getElementById("tablaAuditoriaBreaksBody");
         if (!tbody) {
-          alert("No hay datos para exportar.");
+          (window.showToast || ((t, m) => alert(m)))("Sin datos", "No hay nada para exportar.", "warning");
           return;
         }
 
@@ -21390,7 +21287,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const dataRows = trs.filter(tr => tr.children.length === 13);
 
         if (dataRows.length === 0) {
-          alert("No hay registros para exportar en la tabla.");
+          (window.showToast || ((t, m) => alert(m)))("Sin datos", "La tabla está vacía.", "warning");
           return;
         }
 
@@ -21692,7 +21589,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (allRows.length === 0) {
-          alert("No hay datos cargados para la fecha seleccionada. Carga el Reporte 25 o selecciona una fecha válida.");
+          (window.showToast || ((t, m) => alert(m)))("Sin datos", "Esa fecha no tiene datos. Cargá el Reporte 25 o elegí otra.", "warning");
           return;
         }
 
@@ -21804,7 +21701,7 @@ document.addEventListener("DOMContentLoaded", () => {
           try {
             canvas.toBlob(async (blob) => {
               if (!blob) {
-                alert("No se pudo procesar la imagen para el portapapeles.");
+                (window.showToast || ((t, m) => alert(m)))("No se copió", "La imagen no se pudo copiar.", "error");
                 return;
               }
               if (navigator.clipboard && window.ClipboardItem) {
@@ -21817,12 +21714,12 @@ document.addEventListener("DOMContentLoaded", () => {
                   setTimeout(() => { btn.innerHTML = originalText; }, 2000);
                 }
               } else {
-                alert("Tu navegador no soporta el copiado directo de imágenes. Por favor usa el botón 'Descargar PNG'.");
+                (window.showToast || ((t, m) => alert(m)))("No se copió", "Tu navegador no copia imágenes. Usá Descargar PNG.", "warning");
               }
             }, "image/png");
           } catch (err) {
             console.error("Error al copiar imagen:", err);
-            alert("No se pudo copiar directamente al portapapeles. Utiliza el botón de descarga.");
+            (window.showToast || ((t, m) => alert(m)))("No se copió", "Usá el botón de descarga.", "warning");
           }
         };
 
@@ -22059,9 +21956,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     globalTawMap = { ...globalTawMap, ...newMap };
                     saveGlobalTawMap(globalTawMap);
                     if (typeof showToast === "function") {
-                      showToast("Éxito", "Parte TAW indexado correctamente desde el archivo.", "success");
+                      showToast("Listo", "Parte TAW cargado.", "success");
                     } else if (window.showToast) {
-                      window.showToast("Éxito", "Parte TAW indexado correctamente desde el archivo.", "success");
+                      window.showToast("Listo", "Parte TAW cargado.", "success");
                     }
                     const inR25 = (document.getElementById("breakInputR25")?.value || "").trim();
                     if (inR25 && typeof processAuditoria === "function") {
@@ -22073,9 +21970,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
               } else {
                 if (typeof showToast === "function") {
-                  showToast("Atención", "No se pudieron extraer filas del archivo TAW.", "warning");
+                  showToast("Sin datos", "El archivo TAW no tiene filas para leer.", "warning");
                 } else if (window.showToast) {
-                  window.showToast("Atención", "No se pudieron extraer filas del archivo TAW.", "warning");
+                  window.showToast("Sin datos", "El archivo TAW no tiene filas para leer.", "warning");
                 }
               }
             });
