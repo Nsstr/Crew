@@ -1640,6 +1640,24 @@
     #planningTable.cajas-semanas-2 [id^="desktop-hours-w3-"],
     #planningTable.cajas-semanas-2 [id^="desktop-hours-w4-"] { display: none !important; }
     #planningTable.cajas-grilla th[data-header-date] { cursor: pointer; }
+    /* Contexto: domingo anterior y lunes siguiente, tenues y de solo lectura */
+    #planningTable.cajas-semanas-1 .ctx-next,
+    #planningTable.cajas-semanas-2 .ctx-next { display: table-cell !important; }
+    /* Más angostas que un día: son solo de referencia */
+    table#planningTable.cajas-grilla th.ctx-dia,
+    table#planningTable.cajas-grilla td.ctx-dia { width: 58px !important; min-width: 58px !important; max-width: 58px !important; }
+    #planningTable .ctx-dia { pointer-events: none; opacity: 0.5;
+      background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.035) 0 6px, transparent 6px 12px) !important; }
+    #planningTable th.ctx-dia { cursor: default; }
+    #planningTable td.ctx-prev { border-right: 2px dashed rgba(148, 163, 184, 0.35) !important; text-align: center; vertical-align: middle; }
+    #planningTable .ctx-next { border-left: 2px dashed rgba(148, 163, 184, 0.35) !important; }
+    #planningTable .ctx-txt { font-size: 0.72rem; font-weight: 700; color: var(--text); white-space: nowrap; line-height: 1.1; }
+    #planningTable .ctx-adic { color: #22d3ee; font-size: 0.62rem; }
+    /* Columna de nombres más angosta (nombres cortos y domingos solo "1/1") */
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) th:first-child,
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) td:first-child { width: 200px !important; min-width: 200px !important; max-width: 200px !important; }
+    .collab-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; width: 100%; padding: 0 6px; box-sizing: border-box; }
+    .collab-head-tags { display: flex; gap: 6px; font-size: 0.55rem; font-weight: 600; color: var(--text-muted); text-transform: none; letter-spacing: 0; white-space: nowrap; }
     #planningTable.cajas-grilla th[data-header-date]:hover { box-shadow: inset 0 -2px 0 var(--primary); }
     #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) td.day-cell { height: 30px !important; }
     #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell { height: 30px !important; flex-direction: row !important; }
@@ -3626,7 +3644,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.37
+            Versión: v1.6.38
           </div>
         </div>
       </div>
@@ -4515,7 +4533,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.37";
+  const APP_VERSION = "v1.6.38";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5435,11 +5453,14 @@ async function loadWeekPlanning(append = false) {
     try {
       // Consulta ampliada: Traemos los datos desde el primer día del mes inicial hasta el último día del mes final
       // Esto es CRÍTICO para que el contador de domingos calcule correctamente la cuota mensual, incluso si no están en pantalla.
-      const fetchStart = new Date(
+      let fetchStart = new Date(
         realStartD.getFullYear(),
         realStartD.getMonth(),
         1,
       );
+      // El domingo anterior a la semana se muestra como contexto: traerlo aunque sea del mes anterior
+      const domingoPrevio = addDays(realStartD, -1);
+      if (domingoPrevio < fetchStart) fetchStart = domingoPrevio;
       const fetchEnd = new Date(
         realEndD.getFullYear(),
         realEndD.getMonth() + 1,
@@ -6165,7 +6186,12 @@ function updateDynamicHours() {
           ? (monthDays[0].getMonth() + 1).toString().padStart(2, "0")
           : "00";
       domBadge.className = `dom-badge ${domClass}`;
-      domBadge.innerText = `D${monthNumStr}: ${restCount}/${limit}`;
+      domBadge.innerText = `${restCount}/${limit}`;
+      const mesesTxt = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+      const mesTxt = monthDays.length > 0 ? mesesTxt[monthDays[0].getMonth()] : "";
+      domBadge.title = `Domingos de descanso en ${mesTxt}: ${restCount} de ${limit} acordados`;
+      const domHead = document.getElementById("dom-header-label");
+      if (domHead && mesTxt) domHead.textContent = `Dom. ${mesTxt}`;
     }
   });
 
@@ -6909,7 +6935,29 @@ window.setCajasVista = function (modo) {
 
 // Clases para ocultar las columnas que quedan fuera del rango de semanas elegido
 function cajasDayBeyondClass(dayIndex) {
-  return (dayIndex >= 7 ? " day-beyond-1" : "") + (dayIndex >= 14 ? " day-beyond-2" : "");
+  // El lunes siguiente a lo visible queda a la vista como contexto (solo lectura)
+  const sig = cajasContextoActivo() ? { "1": 7, "2": 14 }[state.cajasVista] : undefined;
+  return (dayIndex >= 7 ? " day-beyond-1" : "") + (dayIndex >= 14 ? " day-beyond-2" : "") + (dayIndex === sig ? " ctx-dia ctx-next" : "");
+}
+
+// Domingo anterior y lunes siguiente como contexto en la grilla de 1 o 2 semanas de Línea de Cajas (PC)
+function cajasContextoActivo() {
+  return (state.currentArea || "") === "Linea de Cajas" && window.innerWidth > 768 && ["1", "2"].includes(state.cajasVista);
+}
+
+function ctxCeldaTexto(collab, dStr) {
+  if ((state.vacations || []).some((v) => v.colaboradorId === collab.id && dStr >= v.startDate && dStr <= v.endDate)) return "V";
+  const val = getSlotEfectivo(collab.id, dStr);
+  const p = parseShift(val || "");
+  if (!p || p.type === "none") return "–";
+  if (p.type === "franco") return "F";
+  if (p.type === "libre") return "L";
+  if (p.type === "vacation") return "V";
+  if (p.type === "work") {
+    const adic = turnoAdicionalInfo(getPlanningObj(collab.id, dStr));
+    return `${p.label.replace(/a/g, "–")}${adic ? `<div class="ctx-adic">${adic.label}</div>` : ""}`;
+  }
+  return cdvEsc(val);
 }
 
 // Panel del día junto a la grilla de 1 semana
@@ -8162,7 +8210,20 @@ function renderDesktopView() {
   );
 
   if (trHead.firstElementChild) {
-    trHead.firstElementChild.textContent = targetArea.toUpperCase();
+    // Título de la columna: sector a la izquierda; arriba de los indicadores, qué es cada uno
+    trHead.firstElementChild.innerHTML = `<div class="collab-head"><span>${targetArea.toUpperCase()}</span><span class="collab-head-tags"><span id="dom-header-label" title="Domingos de descanso en el mes / domingos acordados">Dom.</span><span title="Horas de la semana">hs</span></span></div>`;
+  }
+  const conContexto = cajasContextoActivo();
+  const domingoPrevio = addDays(days[0], -1);
+  const domingoPrevioStr = formatDate(domingoPrevio);
+  if (conContexto) {
+    const mesesCortos = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
+    trHead.firstElementChild.insertAdjacentHTML("afterend", `<th class="day-col ctx-dia ctx-prev" title="Domingo anterior (solo para ver)" style="text-align: center; padding: 2px 0 !important;">
+      <div style="display: flex; flex-direction: column; align-items: center; line-height: 1;">
+        <span style="font-size: 8px; opacity: 0.8;">DOM</span>
+        <span style="font-size: 9.5px; font-weight: bold; margin-top: 1px;">${String(domingoPrevio.getDate()).padStart(2, "0")}</span>
+        <span style="font-size: 7.5px; opacity: 0.65; font-weight: 600; margin-top: 1px;">${mesesCortos[domingoPrevio.getMonth()]}</span>
+      </div></th>`);
   }
 
   let absoluteRowIndex = 0;
@@ -8655,6 +8716,9 @@ function renderDesktopView() {
       });
 
       tr.innerHTML = html;
+      if (conContexto && tr.firstElementChild) {
+        tr.firstElementChild.insertAdjacentHTML("afterend", `<td class="day-cell ctx-dia ctx-prev" title="Domingo ${domingoPrevioStr.split("-").reverse().join("/")} (semana anterior, solo para ver)"><div class="ctx-txt">${ctxCeldaTexto(collab, domingoPrevioStr)}</div></td>`);
+      }
       tbody.appendChild(tr);
     });
 
@@ -8668,6 +8732,9 @@ function renderDesktopView() {
     trTotals.className = "area-totals-row";
     trTotals.dataset.area = targetArea;
     trTotals.innerHTML = areaTotalsHTML;
+    if (conContexto && trTotals.firstElementChild) {
+      trTotals.firstElementChild.insertAdjacentHTML("afterend", `<td class="subtotal-day-cell ctx-dia ctx-prev"></td>`);
+    }
     tbody.appendChild(trTotals);
 
   // ── INYECCIÓN DE REPOSITORES EXTERNOS (FORMATO SINTÉTICO) ──
