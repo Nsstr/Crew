@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.6.46
+            Versión: v1.6.47
           </div>
         </div>
       </div>
@@ -4487,7 +4487,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.6.46";
+  const APP_VERSION = "v1.6.47";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5626,16 +5626,8 @@ function avisarExtra48(collabId, dateStr, parsedSlot, adicHorasDia) {
   const collab = (state.collaborators || []).find((c) => c.id === collabId);
   const contrato = collab ? parseFloat(collab.hours) || parseFloat(collab.cargaHoraria) || parseFloat(collab.contractHours) || 0 : 0;
   if (contrato < 48) return;
-  const info = calculateOvertimeInfo(collabId, dateStr, parsedSlot, adicHorasDia);
-  if (!info) return;
-  const nombre = (collab.name || "").split("(")[0].trim();
-  const r = (n) => Math.round(n * 10) / 10;
-  showToast(
-    "¡Ojo! Se pasa de 48 h",
-    `${nombre} llega a <b>${r(info.projected)} h</b> esta semana (+${r(info.excess)} h). Los de 48 h no hacen extras.`,
-    "warning",
-    true,
-  );
+  // El aviso lo maneja chequeosSuaves: queda mientras la semana pase de 48 h y se pone verde al corregirla
+  vigilarCelda(collabId, dateStr);
 }
 
 function calculateOvertimeInfo(collabId, dateStr, newParsedSlot, adicHorasDia) {
@@ -9425,7 +9417,8 @@ function chequeosSuaves(collabId, dStr) {
   const obj = getPlanningObj(collabId, dStr) || {};
   const p = parseShift(getSlotEfectivo(collabId, dStr) || "", obj.tardanzaMinutosTotales || 0);
   const nombre = nombreCortoCelular(collab) || (collab.name || "").split("(")[0].trim();
-  if (!p || p.type !== "work" || p.isNV) return problemasDescanso(collabId, dStr, collab, nombre);
+  const semana48 = problemaSemana48(collabId, dStr, collab);
+  if (!p || p.type !== "work" || p.isNV) return [...semana48, ...problemasDescanso(collabId, dStr, collab, nombre)];
   const fecha = dStr.split("-").reverse().slice(0, 2).join("/");
   const r = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
   const problemas = [];
@@ -9469,7 +9462,7 @@ function chequeosSuaves(collabId, dStr) {
     }
   }
 
-  problemas.push(...problemasDescanso(collabId, dStr, collab, nombre));
+  problemas.push(...semana48, ...problemasDescanso(collabId, dStr, collab, nombre));
 
   // Contratos chicos: hasta 8,5 h en el día (contando el turno adicional)
 
@@ -9479,6 +9472,24 @@ function chequeosSuaves(collabId, dStr) {
     problemas.push({ clave: `dia|${collabId}|${dStr}`, nombre, fecha, titulo: "Día largo", msg: `${nombre} el ${fecha} hace ${r(horasDia)}\u00a0h. Contrato chico: hasta 8,5\u00a0h.` });
   }
   return problemas;
+}
+
+// Contratos de 48 h: no hacen extras. Si la semana pasa de 48 h queda el aviso hasta corregirla.
+function problemaSemana48(collabId, dStr, collab) {
+  const contrato = parseFloat(collab.hours) || parseFloat(collab.cargaHoraria) || parseFloat(collab.contractHours) || 0;
+  if (contrato < 48) return [];
+  const lunes = formatDate(getStartOfWeek(new Date(dStr + "T00:00:00")));
+  const total = calculateWeeklyHours(collabId, lunes);
+  if (!(total > contrato)) return [];
+  const r = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+  const nombre = nombreCortoCelular(collab) || (collab.name || "").split("(")[0].trim();
+  const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  return [{
+    clave: `sem48|${collabId}|${lunes}`, nombre, fecha: `la semana del ${fc(lunes)}`,
+    titulo: "¡Ojo! Se pasa de 48\u00a0h",
+    msg: `${nombre} llega a ${r(total)}\u00a0h la semana del ${fc(lunes)} (+${r(total - contrato)}\u00a0h). Los de 48\u00a0h no hacen extras.`,
+    resuelto: `${nombre} ya no pasa de 48\u00a0h la semana del ${fc(lunes)}.`,
+  }];
 }
 
 // Descanso entre turnos (ley): 12 h entre días seguidos y 35 h cuando hay un franco, libre o vacaciones en el medio.
@@ -9523,7 +9534,9 @@ function problemasDescanso(collabId, dStr, collab, nombre) {
     problemas.push({
       clave: `desc|${collabId}|${a}|${b}`, nombre, fecha: `${fc(a)} al ${fc(b)}`,
       titulo: "No llega al descanso",
-      msg: minimo === 12
+      msg: h <= 0
+        ? `${nombre}: los turnos del ${fc(a)} y del ${fc(b)} se pisan. Revisá los horarios.`
+        : minimo === 12
         ? `${nombre}: del ${fc(a)} al ${fc(b)} descansa ${r(h)}\u00a0h. Mínimo 12\u00a0h.`
         : `${nombre}: del ${fc(a)} al ${fc(b)} descansa ${r(h)}\u00a0h con el franco. Mínimo 35\u00a0h.`,
       resuelto: `${nombre} ya descansa lo que corresponde.`,
