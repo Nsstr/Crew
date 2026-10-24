@@ -838,20 +838,7 @@
            padding: 0 !important;
            width: 100% !important;
        }
-       #closeRepositoresModal {
-           position: absolute !important;
-           top: 16px !important;
-           right: 16px !important;
-           z-index: 10 !important;
-           font-size: 1.8rem !important;
-           background: var(--surface) !important;
-           border-radius: 50% !important;
-           width: 40px !important;
-           height: 40px !important;
-           display: flex !important;
-           align-items: center !important;
-           justify-content: center !important;
-       }
+
        #repositoresTable thead {
            display: none;
        }
@@ -3608,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.10
+            Versión: v1.7.11
           </div>
         </div>
       </div>
@@ -4414,86 +4401,99 @@
 
   <!-- MODAL GESTION REPOSITORES -->
   <div class="modal-overlay" id="repositoresModal">
-    <div class="modal-content" style="max-width: 1100px; width: 94%; height: 85vh; max-height: 85vh; flex-direction: row; gap: 20px; display: flex; overflow: hidden; box-sizing: border-box;">
-      <div class="modal-left" style="flex: 35; border-right: 1px solid var(--border); padding-right: 20px;">
-        <div class="modal-header">
-          <h2 style="display: flex; align-items: center; gap: 6px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
-            Gestión de Repositores
-          </h2>
-        </div>
-        <form id="repositorForm">
-          <input type="hidden" id="repoId" value="">
-          <div class="form-group">
-            <label>Nombre del Repositor</label>
-            <input type="text" id="repoNombre" required>
-          </div>
-          <div class="form-group">
-            <label>Celular</label>
-            <input type="text" id="repoCelular" required>
-          </div>
-          <div class="form-group">
-            <label>Empresa</label>
-            <input type="text" id="repoEmpresa" required>
-          </div>
-          <div class="form-group">
-            <label>Marcas que maneja</label>
-            <input type="text" id="repoMarcas" required>
-          </div>
-          <div class="form-group">
-            <label>Horario / Horas semanales</label>
-            <input type="text" id="repoHorario" required>
-          </div>
-          <div class="form-group">
-            <label style="margin-bottom: 8px; display: block;">Días de visita</label>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="L"> L</label>
-              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="M"> M</label>
-              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="X"> X</label>
-              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="J"> J</label>
-              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="V"> V</label>
-              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="S"> S</label>
-              <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem;"><input type="checkbox" name="repoDias" value="D"> D</label>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Nombre del supervisor</label>
-            <input type="text" id="repoSupervisor" required>
-          </div>
-          <div class="form-group">
-            <label>Teléfono del supervisor</label>
-            <input type="text" id="repoTelSupervisor" required>
-          </div>
-          <div class="form-group">
-            <label>Correo electrónico</label>
-            <input type="email" id="repoEmail" required>
-          </div>
-          <div style="display: flex; gap: 8px; margin-top: 15px;">
-            <button type="submit" class="submit-btn" id="repoSubmitBtn" style="flex: 1;">Guardar Repositor</button>
-            <button type="button" class="cancel-btn" onclick="document.getElementById('repositorForm').reset(); document.getElementById('repoId').value='';" style="background: var(--surface-hover); color: var(--text); border: none; border-radius: 6px; padding: 0.75rem; cursor: pointer;">Limpiar</button>
-          </div>
-        </form>
+    <style>
+      #repositoresModal .rp-caja { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: min(1180px, 95vw); height: min(86vh, 860px); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.45); }
+      #repositoresModal .rp-top { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--bg); flex-wrap: wrap; }
+      #repositoresModal .rp-top h2 { margin: 0; font-size: 1.1rem; color: var(--text); display: flex; align-items: center; gap: 8px; }
+      #repositoresModal .rp-cant { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
+      #repositoresModal .rp-buscar { flex: 1 1 220px; max-width: 360px; margin-left: auto; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 0.88rem; }
+      #repositoresModal .rp-btn { padding: 8px 14px; border-radius: 8px; font: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text); }
+      #repositoresModal .rp-btn.prim { background: var(--primary); border-color: var(--primary); color: #fff; }
+      #repositoresModal .rp-x { background: transparent; border: none; color: var(--text-muted); font-size: 1.6rem; line-height: 1; cursor: pointer; padding: 0 4px; }
+      #repositoresModal .rp-cuerpo { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 360px; }
+      #repositoresModal .rp-lista { overflow-y: auto; padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; align-content: start; }
+      #repositoresModal .rp-card { position: relative; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
+      #repositoresModal .rp-card.editando { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+      #repositoresModal .rp-nom { font-weight: 800; color: var(--text); font-size: 0.98rem; padding-right: 60px; line-height: 1.25; }
+      #repositoresModal .rp-emp { display: inline-block; font-size: 0.75rem; font-weight: 700; color: #22d3ee; background: rgba(6,182,212,0.12); border-radius: 999px; padding: 2px 10px; align-self: flex-start; }
+      #repositoresModal .rp-marcas { font-size: 0.78rem; color: var(--text-muted); line-height: 1.35; }
+      #repositoresModal .rp-dias { display: flex; gap: 3px; }
+      #repositoresModal .rp-dias span { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; color: #475569; border: 1px solid var(--border); }
+      #repositoresModal .rp-dias span.on { color: #0b1220; background: #22d3ee; border-color: #22d3ee; }
+      #repositoresModal .rp-linea { font-size: 0.8rem; color: var(--text); display: flex; align-items: center; gap: 6px; min-width: 0; }
+      #repositoresModal .rp-linea span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #repositoresModal .rp-linea a { color: var(--text); text-decoration: none; }
+      #repositoresModal .rp-linea a:hover { color: #22d3ee; }
+      #repositoresModal .rp-sub { color: var(--text-muted); }
+      #repositoresModal .rp-acc { position: absolute; top: 8px; right: 8px; display: flex; gap: 2px; }
+      #repositoresModal .rp-acc button { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 6px; display: flex; }
+      #repositoresModal .rp-acc button:hover { background: var(--surface); color: var(--text); }
+      #repositoresModal .rp-acc button.borrar:hover { color: #f87171; }
+      #repositoresModal .rp-vacio { grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 30px; font-size: 0.9rem; }
+      #repositoresModal .rp-form { border-left: 1px solid var(--border); padding: 16px 18px; overflow-y: auto; background: var(--surface); }
+      #repositoresModal .rp-form h3 { margin: 0 0 12px; font-size: 1rem; color: var(--text); }
+      #repositoresModal .rp-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      #repositoresModal .rp-campo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+      #repositoresModal .rp-campo.full { grid-column: 1 / -1; }
+      #repositoresModal .rp-campo label { font-size: 0.74rem; color: var(--text-muted); }
+      #repositoresModal .rp-campo input { width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 0.86rem; }
+      #repositoresModal .rp-diasform { display: flex; gap: 4px; }
+      #repositoresModal .rp-diasform label { flex: 1; cursor: pointer; }
+      #repositoresModal .rp-diasform input { display: none; }
+      #repositoresModal .rp-diasform span { display: flex; align-items: center; justify-content: center; height: 30px; border-radius: 7px; border: 1px solid var(--border); font-size: 0.8rem; font-weight: 800; color: var(--text-muted); background: var(--bg); user-select: none; }
+      #repositoresModal .rp-diasform input:checked + span { background: #22d3ee; border-color: #22d3ee; color: #0b1220; }
+      #repositoresModal .rp-sep { grid-column: 1 / -1; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-top: 4px; border-top: 1px solid var(--border); padding-top: 10px; }
+      @media (max-width: 860px) {
+        #repositoresModal .rp-caja { width: 100vw; height: 100vh; border-radius: 0; }
+        #repositoresModal .rp-cuerpo { grid-template-columns: 1fr; overflow-y: auto; }
+        #repositoresModal .rp-lista { overflow: visible; }
+        #repositoresModal .rp-form { border-left: none; border-top: 1px solid var(--border); overflow: visible; }
+        #repositoresModal .rp-buscar { max-width: none; order: 3; flex-basis: 100%; }
+      }
+    </style>
+    <div class="rp-caja">
+      <div class="rp-top">
+        <h2>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+          Repositores externos <span id="repoCant" class="rp-cant"></span>
+        </h2>
+        <input type="search" id="repoBuscar" class="rp-buscar" placeholder="Buscar por nombre, empresa o marca">
+        <button type="button" id="repoNuevoBtn" class="rp-btn">+ Nuevo</button>
+        <button type="button" class="rp-x" id="closeRepositoresModal" title="Cerrar">&times;</button>
       </div>
-      <div class="modal-right" style="flex: 65; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-left: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-           <h3 style="margin: 0;">Repositores Registrados</h3>
-           <button class="close-modal" id="closeRepositoresModal" title="Cerrar modal">&times;</button>
-        </div>
-        <div class="table-container" style="flex: 1; min-height: 0; height: 100%; overflow-y: auto !important; overscroll-behavior: contain;">
-          <table class="data-table" id="repositoresTable">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Empresa</th>
-                <th>Celular</th>
-                <th>Días</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Se llenará dinámicamente -->
-            </tbody>
-          </table>
+      <div class="rp-cuerpo">
+        <div class="rp-lista" id="repoLista"></div>
+        <div class="rp-form">
+          <h3 id="repoFormTitulo">Nuevo repositor</h3>
+          <form id="repositorForm">
+            <input type="hidden" id="repoId" value="">
+            <div class="rp-campos">
+              <div class="rp-campo full"><label for="repoNombre">Nombre</label><input type="text" id="repoNombre" required></div>
+              <div class="rp-campo"><label for="repoEmpresa">Empresa</label><input type="text" id="repoEmpresa" required></div>
+              <div class="rp-campo"><label for="repoCelular">Celular</label><input type="text" id="repoCelular" inputmode="tel"></div>
+              <div class="rp-campo full"><label for="repoMarcas">Marcas que maneja</label><input type="text" id="repoMarcas"></div>
+              <div class="rp-campo full"><label for="repoHorario">Horario / horas semanales</label><input type="text" id="repoHorario" placeholder="Ej: 8 a 12 · 12 h"></div>
+              <div class="rp-campo full"><label>Días de visita</label>
+                <div class="rp-diasform">
+                  <label><input type="checkbox" name="repoDias" value="L"><span>L</span></label>
+                  <label><input type="checkbox" name="repoDias" value="M"><span>M</span></label>
+                  <label><input type="checkbox" name="repoDias" value="X"><span>X</span></label>
+                  <label><input type="checkbox" name="repoDias" value="J"><span>J</span></label>
+                  <label><input type="checkbox" name="repoDias" value="V"><span>V</span></label>
+                  <label><input type="checkbox" name="repoDias" value="S"><span>S</span></label>
+                  <label><input type="checkbox" name="repoDias" value="D"><span>D</span></label>
+                </div>
+              </div>
+              <div class="rp-sep">Supervisor</div>
+              <div class="rp-campo full"><label for="repoSupervisor">Nombre</label><input type="text" id="repoSupervisor"></div>
+              <div class="rp-campo"><label for="repoTelSupervisor">Teléfono</label><input type="text" id="repoTelSupervisor" inputmode="tel"></div>
+              <div class="rp-campo"><label for="repoEmail">Correo</label><input type="email" id="repoEmail"></div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 14px;">
+              <button type="submit" class="rp-btn prim" id="repoSubmitBtn" style="flex: 1;">Guardar</button>
+              <button type="button" class="rp-btn" id="repoCancelarBtn">Limpiar</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -4666,7 +4666,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.10";
+  const APP_VERSION = "v1.7.11";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -16433,8 +16433,51 @@ const repositoresNavBtn = document.getElementById("repositoresNavBtn");
 const repositoresModal = document.getElementById("repositoresModal");
 const closeRepositoresModal = document.getElementById("closeRepositoresModal");
 const repositorForm = document.getElementById("repositorForm");
-const repositoresTableBody = document.querySelector("#repositoresTable tbody");
+const repositoresTableBody = document.getElementById("repoLista");
 let unsubscribeRepositores = null;
+let repoDatos = [];
+
+window.__repoPintarCon = (arr) => { repoDatos = arr; repoPintarLista(); };
+function repoLimpiarForm() {
+  repositorForm.reset();
+  document.getElementById("repoId").value = "";
+  document.getElementById("repoFormTitulo").textContent = "Nuevo repositor";
+  document.getElementById("repoSubmitBtn").textContent = "Guardar";
+  document.querySelectorAll("#repoLista .rp-card.editando").forEach((c) => c.classList.remove("editando"));
+}
+
+function repoPintarLista() {
+  if (!repositoresTableBody) return;
+  const q = (document.getElementById("repoBuscar")?.value || "").trim().toLowerCase();
+  const esc = (t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  const lista = repoDatos
+    .filter((r) => !q || [r.nombre, r.empresa, r.marcas].some((v) => String(v || "").toLowerCase().includes(q)))
+    .sort((a, b) => String(a.empresa || "").localeCompare(String(b.empresa || "")) || String(a.nombre || "").localeCompare(String(b.nombre || "")));
+  const cant = document.getElementById("repoCant");
+  if (cant) cant.textContent = `· ${repoDatos.length}`;
+  const editando = document.getElementById("repoId").value;
+  const tel = (t) => { const n = String(t || "").replace(/\D/g, ""); return n.length >= 8 ? n : ""; };
+  const icoTel = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; color: var(--text-muted);"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>`;
+  repositoresTableBody.innerHTML = lista.length ? lista.map((r) => {
+    const dias = String(r.diasVisita || "").split(",").map((x) => x.trim());
+    const t1 = tel(r.celular), t2 = tel(r.telSupervisor);
+    return `<div class="rp-card${editando === r.id ? " editando" : ""}" data-id="${esc(r.id)}">
+      <div class="rp-acc">
+        <button type="button" class="edit-repo-btn" title="Editar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>
+        <button type="button" class="delete-repo-btn borrar" title="Borrar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+      </div>
+      <div class="rp-nom">${esc(r.nombre || "Sin nombre")}</div>
+      ${r.empresa ? `<span class="rp-emp">${esc(r.empresa)}</span>` : ""}
+      ${r.marcas ? `<div class="rp-marcas">${esc(r.marcas)}</div>` : ""}
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+        <div class="rp-dias">${["L", "M", "X", "J", "V", "S", "D"].map((d) => `<span class="${dias.includes(d) ? "on" : ""}">${d}</span>`).join("")}</div>
+        ${r.horario ? `<span style="font-size: 0.75rem; color: var(--text-muted);">${esc(r.horario)}</span>` : ""}
+      </div>
+      <div class="rp-linea">${icoTel}${t1 ? `<a href="https://wa.me/${t1}" target="_blank" rel="noopener" title="Escribir por WhatsApp"><span>${esc(r.celular)}</span></a>` : `<span class="rp-sub">${esc(r.celular || "Sin celular")}</span>`}</div>
+      ${r.supervisor || r.telSupervisor ? `<div class="rp-linea rp-sub"><span>Sup.: ${esc(r.supervisor || "—")}</span>${t2 ? ` · <a href="https://wa.me/${t2}" target="_blank" rel="noopener"><span>${esc(r.telSupervisor)}</span></a>` : ""}</div>` : ""}
+    </div>`;
+  }).join("") : `<div class="rp-vacio">${q ? `No hay repositores que coincidan con "${esc(q)}".` : "Todavía no hay repositores cargados."}</div>`;
+}
 
 if (
   repositoresNavBtn &&
@@ -16446,8 +16489,13 @@ if (
     const dm = document.getElementById("navDropdownMenu");
     if (dm) dm.style.display = "none";
     repositoresModal.classList.add("active");
+    repoLimpiarForm();
     cargarRepositores();
   });
+  document.getElementById("repoBuscar")?.addEventListener("input", repoPintarLista);
+  document.getElementById("repoNuevoBtn")?.addEventListener("click", () => { repoLimpiarForm(); document.getElementById("repoNombre").focus(); });
+  document.getElementById("repoCancelarBtn")?.addEventListener("click", () => { repoLimpiarForm(); });
+  repositoresModal.addEventListener("click", (e) => { if (e.target === repositoresModal) closeRepositoresModal.click(); });
 
   closeRepositoresModal.addEventListener("click", () => {
     repositoresModal.classList.remove("active");
@@ -16496,8 +16544,7 @@ if (
         if (window.showToast)
           window.showToast("Listo", "Repositor agregado.", "success");
       }
-      repositorForm.reset();
-      document.getElementById("repoId").value = "";
+      repoLimpiarForm();
     } catch (err) {
       console.error("Error guardando repositor:", err);
       if (window.showToast)
@@ -16514,33 +16561,31 @@ if (
       const btnDel = e.target.closest(".delete-repo-btn");
 
       if (btnEdit) {
-        const tr = btnEdit.closest("tr");
-        document.getElementById("repoId").value = tr.dataset.id;
-        document.getElementById("repoNombre").value = tr.dataset.nombre;
-        document.getElementById("repoCelular").value = tr.dataset.celular;
-        document.getElementById("repoEmpresa").value = tr.dataset.empresa;
-        document.getElementById("repoMarcas").value = tr.dataset.marcas;
-        document.getElementById("repoHorario").value = tr.dataset.horario;
-        document.getElementById("repoSupervisor").value = tr.dataset.supervisor;
-        document.getElementById("repoTelSupervisor").value =
-          tr.dataset.telsupervisor;
-        document.getElementById("repoEmail").value = tr.dataset.email;
-
-        const diasCheckboxes = document.querySelectorAll(
-          'input[name="repoDias"]',
-        );
-        diasCheckboxes.forEach((cb) => (cb.checked = false));
-        if (tr.dataset.diasvisita) {
-          const diasArr = tr.dataset.diasvisita.split(",").map((s) => s.trim());
-          diasCheckboxes.forEach((cb) => {
-            if (diasArr.includes(cb.value)) cb.checked = true;
-          });
-        }
+        const card = btnEdit.closest("[data-id]");
+        const r = repoDatos.find((x) => x.id === card.dataset.id);
+        if (!r) return;
+        document.getElementById("repoId").value = r.id;
+        document.getElementById("repoNombre").value = r.nombre || "";
+        document.getElementById("repoCelular").value = r.celular || "";
+        document.getElementById("repoEmpresa").value = r.empresa || "";
+        document.getElementById("repoMarcas").value = r.marcas || "";
+        document.getElementById("repoHorario").value = r.horario || "";
+        document.getElementById("repoSupervisor").value = r.supervisor || "";
+        document.getElementById("repoTelSupervisor").value = r.telSupervisor || "";
+        document.getElementById("repoEmail").value = r.email || "";
+        const diasArr = String(r.diasVisita || "").split(",").map((s) => s.trim());
+        document.querySelectorAll('input[name="repoDias"]').forEach((cb) => { cb.checked = diasArr.includes(cb.value); });
+        document.getElementById("repoFormTitulo").textContent = `Editar · ${r.nombre || ""}`;
+        document.getElementById("repoSubmitBtn").textContent = "Guardar cambios";
+        document.querySelectorAll("#repoLista .rp-card").forEach((c) => c.classList.toggle("editando", c.dataset.id === r.id));
+        if (window.innerWidth <= 860) document.getElementById("repositorForm").scrollIntoView({ behavior: "smooth", block: "start" });
+        else document.getElementById("repoNombre").focus();
       }
 
       if (btnDel) {
-        const id = btnDel.closest("tr").dataset.id;
-        if (confirm("¿Borrás este repositor?")) {
+        const id = btnDel.closest("[data-id]").dataset.id;
+        const r = repoDatos.find((x) => x.id === id);
+        if (confirm(`¿Borrás a ${r && r.nombre ? r.nombre : "este repositor"}${r && r.empresa ? ` (${r.empresa})` : ""}?`)) {
           try {
             await deleteDoc(doc(db, "repositores", id));
             if (window.showToast)
@@ -16561,39 +16606,8 @@ function cargarRepositores() {
 
   const q = query(collection(db, "repositores"));
   unsubscribeRepositores = onSnapshot(q, (snap) => {
-    if (!repositoresTableBody) return;
-    repositoresTableBody.innerHTML = "";
-    snap.forEach((docSnap) => {
-      const data = docSnap.data();
-      const tr = document.createElement("tr");
-
-      tr.dataset.id = docSnap.id;
-      tr.dataset.nombre = data.nombre || "";
-      tr.dataset.celular = data.celular || "";
-      tr.dataset.empresa = data.empresa || "";
-      tr.dataset.marcas = data.marcas || "";
-      tr.dataset.horario = data.horario || "";
-      tr.dataset.diasvisita = data.diasVisita || "";
-      tr.dataset.supervisor = data.supervisor || "";
-      tr.dataset.telsupervisor = data.telSupervisor || "";
-      tr.dataset.email = data.email || "";
-
-      tr.innerHTML = `
-                <td>${data.nombre || "-"}</td>
-                <td>${data.empresa || "-"}</td>
-                <td style="white-space: nowrap;"><div style="display: flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>${data.celular || "-"}</div></td>
-                <td style="white-space: nowrap;"><div style="display: flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>${data.diasVisita || "-"}</div></td>
-                <td style="white-space: nowrap;" class="repo-actions-td">
-                   <button type="button" class="action-btn edit-repo-btn" title="Editar" style="background: transparent; border: none; box-shadow: none; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; padding: 8px;">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                   </button>
-                   <button type="button" class="action-btn delete-repo-btn" title="Eliminar" style="background: transparent; border: none; box-shadow: none; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; padding: 8px;">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                   </button>
-                </td>
-             `;
-      repositoresTableBody.appendChild(tr);
-    });
+    repoDatos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    repoPintarLista();
   });
 }
 
