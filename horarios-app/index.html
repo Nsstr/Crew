@@ -3595,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.19
+            Versión: v1.7.20
           </div>
         </div>
       </div>
@@ -4671,7 +4671,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.19";
+  const APP_VERSION = "v1.7.20";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -9645,40 +9645,35 @@ function chequeosSuaves(collabId, dStr) {
     }
   }
 
-  // Turno cortado: cada tramo tiene que durar al menos 4 h (vale para todos los contratos)
-  if (p.isCortado) {
+  // Cada tramo del día (del cortado o del turno adicional) dura al menos 4 h. Vale para todos.
+  // Las extras son extras: se cargue con "/" o con "+", la regla y el aviso son los mismos.
+  {
     const fh = (h) => { const m = Math.round((h % 1) * 60); return m ? `${Math.floor(h)}:${String(m).padStart(2, "0")}` : `${Math.floor(h)}`; };
-    const corto = p.tramos
-      .map((t) => ({ start: t.start, end: t.end <= t.start ? t.end + 24 : t.end }))
-      .find((t) => t.end - t.start < 4);
-    if (corto) {
-      problemas.push({ clave: `tramo|${collabId}|${dStr}`, nombre, fecha, titulo: "Tramo corto", msg: `${nombre} el ${fecha}: el tramo de ${fh(corto.start)} a ${fh(corto.end % 24)} dura ${r(corto.end - corto.start)}\u00a0h. Mínimo 4\u00a0h.` });
-    }
-  }
-
-  // Turno adicional: mínimo 4 h para todos. Máximo 8,5 h; en los de 48 h puede pasarse,
-  // así que ahí es solo un aviso que se cierra con la ✕ y no vuelve.
-  const contratoAdic = parseFloat(collab.hours) || parseFloat(collab.cargaHoraria) || parseFloat(collab.contractHours) || 0;
-  if (adic && (adic.hours < 4 || adic.hours > 8.5)) {
-    const fh = (h) => { const m = Math.round((h % 1) * 60); return m ? `${Math.floor(h)}:${String(m).padStart(2, "0")}` : `${Math.floor(h)}`; };
-    const tramo = `${nombre} el ${fecha}: el adicional de ${fh(adic.start)} a ${fh(adic.end % 24)} dura ${r(adic.hours)}\u00a0h.`;
-    if (adic.hours < 4) {
-      problemas.push({ clave: `adic|${collabId}|${dStr}`, nombre, fecha, titulo: "Turno adicional", msg: `${tramo} Mínimo 4\u00a0h.` });
-    } else if (contratoAdic >= 48) {
-      problemas.push({ clave: `adic48|${collabId}|${dStr}|${adic.slot}`, nombre, fecha, titulo: "Adicional largo", msg: `${tramo} Pasa de 8,5\u00a0h. Si está bien así, cerrá el aviso.`, tipo: "info", soloAviso: true });
-    } else {
-      problemas.push({ clave: `adic|${collabId}|${dStr}`, nombre, fecha, titulo: "Turno adicional", msg: `${tramo} Máximo 8,5\u00a0h.` });
+    const lista = (p.isCortado ? p.tramos : []).map((t) => ({ start: t.start, end: t.end <= t.start ? t.end + 24 : t.end }));
+    if (adic) lista.push({ start: adic.start, end: adic.end <= adic.start ? adic.end + 24 : adic.end });
+    if (lista.length) {
+      const corto = lista.find((t) => t.end - t.start < 4);
+      if (corto) {
+        problemas.push({ clave: `tramo|${collabId}|${dStr}`, nombre, fecha, titulo: "Tramo corto", msg: `${nombre} el ${fecha}: el tramo de ${fh(corto.start)} a ${fh(corto.end % 24)} dura ${r(corto.end - corto.start)}\u00a0h. Mínimo 4\u00a0h.` });
+      }
     }
   }
 
   problemas.push(...semana48, ...problemasDescanso(collabId, dStr, collab, nombre));
 
-  // Contratos chicos: hasta 8,5 h en el día (contando el turno adicional)
-
+  // Contratos chicos (part time): un día con extras llega hasta 8,5 h; un día normal, hasta 9 h.
+  // Cuenta todo el día (turno, cortado y adicional). Los de 36/48 h no tienen máximo diario de extras.
   const contrato = parseFloat(collab.hours) || parseFloat(collab.cargaHoraria) || parseFloat(collab.contractHours) || 0;
   const horasDia = (p.hours || 0) + (adic ? adic.hours : 0);
   if (contrato > 0 && contrato <= 30 && horasDia > 8.5) {
-    problemas.push({ clave: `dia|${collabId}|${dStr}`, nombre, fecha, titulo: "Día largo", msg: `${nombre} el ${fecha} hace ${r(horasDia)}\u00a0h. Contrato chico: hasta 8,5\u00a0h.` });
+    const lunes = formatDate(getStartOfWeek(new Date(dStr + "T00:00:00")));
+    const semana = calculateWeeklyHours(collabId, lunes, dStr) + horasDia;
+    const conExtras = semana > contrato;
+    if (conExtras || horasDia > 9) {
+      problemas.push({ clave: `dia|${collabId}|${dStr}`, nombre, fecha, titulo: "Día largo", msg: conExtras
+        ? `${nombre} el ${fecha} hace ${r(horasDia)}\u00a0h. Un día con extras llega hasta 8,5\u00a0h.`
+        : `${nombre} el ${fecha} hace ${r(horasDia)}\u00a0h. La jornada normal llega hasta 9\u00a0h.` });
+    }
   }
   return problemas;
 }
