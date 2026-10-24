@@ -3595,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.12
+            Versión: v1.7.13
           </div>
         </div>
       </div>
@@ -3681,6 +3681,10 @@
             <input type="radio" name="pdfTipo" value="cobertura">
             <span>Detalle de cobertura de cajas (período)</span>
           </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="radio" name="pdfTipo" value="planilla">
+            <span>Planilla de horarios en Excel (período, con vacaciones)</span>
+          </label>
           <label id="pdfTipoDiasLabel" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
             <input type="radio" name="pdfTipo" value="dias">
             <span>Vista del día para imprimir (una hoja por día)</span>
@@ -3699,6 +3703,7 @@
               <input type="date" id="covHasta" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; border-radius: 0.25rem;">
             </div>
           </div>
+          <p id="covDescPlanilla" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una fila por persona del sector y una columna por día, como la grilla. Los días de vacaciones dicen VACACIONES en lugar del horario. Trae también las horas por semana y una hoja con las vacaciones del período.</p>
           <p id="covDescDias" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una hoja por día con los turnos de 7 a 23 h, la cobertura por hora, los comparativos, francos, vacaciones y observaciones. Se abre para imprimir o guardar como PDF.</p>
           <div id="covFormatoRow" style="display: flex; gap: 1rem;">
             <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="covFormato" value="pdf" checked><span>PDF</span></label>
@@ -4666,7 +4671,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.12";
+  const APP_VERSION = "v1.7.13";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -13840,18 +13845,31 @@ pdfRadios.forEach((radio) => {
 
 function covActualizarTipo() {
   const tipo = (document.querySelector('input[name="pdfTipo"]:checked') || {}).value;
-  const porPeriodo = tipo === "cobertura" || tipo === "dias";
+  const porPeriodo = tipo === "cobertura" || tipo === "dias" || tipo === "planilla";
   document.getElementById("pdfCoberturaOpts").style.display = porPeriodo ? "flex" : "none";
   document.getElementById("pdfGrillaOpts").style.display = porPeriodo ? "none" : "flex";
-  document.getElementById("covFormatoRow").style.display = tipo === "dias" ? "none" : "flex";
-  document.getElementById("covDescCobertura").style.display = tipo === "dias" ? "none" : "block";
+  document.getElementById("covFormatoRow").style.display = tipo === "cobertura" ? "flex" : "none";
+  document.getElementById("covDescCobertura").style.display = tipo === "cobertura" ? "block" : "none";
   document.getElementById("covDescDias").style.display = tipo === "dias" ? "block" : "none";
+  document.getElementById("covDescPlanilla").style.display = tipo === "planilla" ? "block" : "none";
 }
 document.getElementsByName("pdfTipo").forEach((r) => r.addEventListener("change", covActualizarTipo));
 
 pdfForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const tipoExport = (document.querySelector('input[name="pdfTipo"]:checked') || {}).value;
+  if (tipoExport === "planilla") {
+    const desde = document.getElementById("covDesde").value;
+    const hasta = document.getElementById("covHasta").value;
+    if (!desde || !hasta || hasta < desde) { showToast("Revisá las fechas", "Elegí Desde y Hasta.", "warning"); return; }
+    const dias = Math.round((new Date(hasta + "T00:00:00") - new Date(desde + "T00:00:00")) / 86400000) + 1;
+    if (dias > 93) { showToast("Muchos días", "La planilla va hasta 93 días (3 meses).", "warning"); return; }
+    pdfModal.style.display = "none";
+    showToast("Preparando", "Armando la planilla…", "info");
+    try { await exportarPlanillaHorarios(desde, hasta); }
+    catch (err) { console.error("Error al armar la planilla:", err); showToast("No se pudo armar", "La planilla falló. Volvé a intentar.", "error"); }
+    return;
+  }
   if (tipoExport === "dias") {
     const desde = document.getElementById("covDesde").value;
     const hasta = document.getElementById("covHasta").value;
@@ -14226,6 +14244,78 @@ function covFilaEscenario(x, key) {
   return [x.etiqueta.split(" ")[0], covFecha(x.fecha), covH(x.req), covH(e.tengo), covH(e.tengo - x.req), covH(e.falta),
     covPct(e.cubiertas, x.req), e.franjas || "—"];
 }
+
+// Planilla de horarios de un período: una fila por persona del sector, una columna por día.
+// Los días de vacaciones dicen VACACIONES en lugar del horario.
+async function exportarPlanillaHorarios(desde, hasta) {
+  if (typeof XLSX === "undefined") { showToast("No se pudo armar", "El Excel no cargó. Recargá la página.", "error"); return; }
+  // Turnos del período (los que no están en pantalla se traen de la base)
+  const plan = {};
+  if (!isMockMode) {
+    const snap = await getDocs(query(collection(db, "planificacion"), where("fecha", ">=", desde), where("fecha", "<=", hasta)));
+    snap.docs.forEach((d) => { const x = d.data(); plan[`${x.colaboradorId}_${x.fecha}`] = x; });
+  }
+  const obj = (id, f) => {
+    const k = `${id}_${f}`;
+    const o = state.planning[k] !== undefined ? state.planning[k] : plan[k];
+    return !o ? {} : typeof o === "string" ? { slot: o } : o;
+  };
+  const area = state.currentArea || "Disponibilidad";
+  const esRoller = (c) => ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller");
+  const gente = state.collaborators
+    .filter((c) => (c.area || "Disponibilidad") === area)
+    .sort((a, b) => (area === "Linea de Cajas" ? Number(esRoller(a)) - Number(esRoller(b)) : 0) || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+  const fechas = [];
+  for (let d = new Date(desde + "T00:00:00"); formatDate(d) <= hasta; d = addDays(d, 1)) fechas.push(formatDate(d));
+  const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const enVac = (id, f) => (state.vacations || []).find((v) => v.colaboradorId === id && f >= v.startDate && f <= v.endDate);
+  const semanas = [...new Set(fechas.map((f) => formatDate(getStartOfWeek(new Date(f + "T00:00:00")))))];
+  const r1 = (n) => Math.round(n * 10) / 10;
+
+  const encabezado = ["Legajo", "Colaborador", "Contrato (h)", ...fechas.map((f) => `${dn[new Date(f + "T00:00:00").getDay()]} ${fc(f)}`), ...semanas.map((l) => `Horas sem. ${fc(l)}`)];
+  const filas = [[`Horarios · ${area === "Linea de Cajas" ? "Línea de Cajas" : area} · del ${fc(desde)} al ${fc(hasta)}`], [], encabezado];
+  gente.forEach((c) => {
+    const horasSem = {};
+    const celdas = fechas.map((f) => {
+      if (enVac(c.id, f)) return "VACACIONES";
+      const o = obj(c.id, f);
+      const val = String(getSlotEfectivo(c.id, f) || o.slot || "").replace("*", "").trim();
+      const p = val ? parseShift(val) : null;
+      const adic = turnoAdicionalInfo(o);
+      const lunes = formatDate(getStartOfWeek(new Date(f + "T00:00:00")));
+      if (p && p.type === "work") horasSem[lunes] = (horasSem[lunes] || 0) + (p.hours || 0) + (adic ? adic.hours : 0);
+      if (!val || val === "-") return adic ? `+ ${adic.slot}` : "";
+      const txt = /^f$/i.test(val) ? "FRANCO" : /^(l|libre)$/i.test(val) ? "LIBRE" : val;
+      return adic ? `${txt} + ${adic.slot}` : txt;
+    });
+    filas.push([c.id, (c.name || "").split("(")[0].trim(), Number(c.hours) || "", ...celdas, ...semanas.map((l) => r1(horasSem[l] || 0))]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(filas);
+  ws["!cols"] = [{ wch: 10 }, { wch: 28 }, { wch: 9 }, ...fechas.map(() => ({ wch: 12 })), ...semanas.map(() => ({ wch: 12 }))];
+  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: Math.min(encabezado.length - 1, 8) } }];
+  XLSX.utils.book_append_sheet(wb, ws, "Horarios");
+
+  // Hoja con las vacaciones que caen en el período
+  const vac = [["Legajo", "Colaborador", "Desde", "Hasta", "Días", "Vuelve"]];
+  (state.vacations || [])
+    .filter((v) => gente.some((c) => c.id === v.colaboradorId) && v.startDate <= hasta && v.endDate >= desde)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    .forEach((v) => {
+      const c = gente.find((x) => x.id === v.colaboradorId);
+      const diasV = Math.round((new Date(v.endDate + "T00:00:00") - new Date(v.startDate + "T00:00:00")) / 86400000) + 1;
+      vac.push([v.colaboradorId, (c.name || "").split("(")[0].trim(), v.startDate.split("-").reverse().join("/"), v.endDate.split("-").reverse().join("/"), diasV, formatDate(addDays(new Date(v.endDate + "T00:00:00"), 1)).split("-").reverse().join("/")]);
+    });
+  const ws2 = XLSX.utils.aoa_to_sheet(vac.length > 1 ? vac : [...vac, ["", "Nadie de vacaciones en este período"]]);
+  ws2["!cols"] = [{ wch: 10 }, { wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 6 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(wb, ws2, "Vacaciones");
+
+  XLSX.writeFile(wb, `Horarios_${area.replace(/\s+/g, "_")}_${desde}_al_${hasta}.xlsx`);
+  showToast("Listo", `Planilla descargada: ${gente.length} personas, ${fechas.length} días.`, "success");
+}
+window.exportarPlanillaHorarios = exportarPlanillaHorarios;
 
 function covExportarExcel({ dias, tot, hMin, hMax }, desde, hasta, nombre) {
   if (typeof XLSX === "undefined") { showToast("No se pudo armar", "El Excel no cargó. Recargá la página.", "error"); return; }
