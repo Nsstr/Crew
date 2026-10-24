@@ -3595,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.17
+            Versión: v1.7.18
           </div>
         </div>
       </div>
@@ -3703,7 +3703,7 @@
               <input type="date" id="covHasta" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; border-radius: 0.25rem;">
             </div>
           </div>
-          <p id="covDescPlanilla" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una fila por persona del sector y una columna por día, como la grilla. Los días de vacaciones dicen VACACIONES en lugar del horario. En Línea de Cajas trae una segunda hoja con lo que pide Recaudaciones contra lo que tenemos, hora por hora.</p>
+          <p id="covDescPlanilla" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una fila por persona del sector y una columna por día, como la grilla. Los días de vacaciones dicen VACACIONES en lugar del horario. En Línea de Cajas trae una segunda hoja con lo que pide Recaudaciones contra los cajeros que tenemos, hora por hora, y debajo los rollers.</p>
           <p id="covDescDias" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una hoja por día con los turnos de 7 a 23 h, la cobertura por hora, los comparativos, francos, vacaciones y observaciones. Se abre para imprimir o guardar como PDF.</p>
           <div id="covFormatoRow" style="display: flex; gap: 1rem;">
             <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="covFormato" value="pdf" checked><span>PDF</span></label>
@@ -4671,7 +4671,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.17";
+  const APP_VERSION = "v1.7.18";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -14340,7 +14340,31 @@ async function exportarPlanillaHorarios(desde, hasta) {
         })]);
       };
       bloque("CAJEROS · lo que pide Recaudaciones y lo que tenemos", (o) => o.caj);
-      bloque("CON ROLLERS · lo mismo sumando a los rollers", (o) => o.caj + (o.rol || 0));
+      // Rollers aparte: solo cuántos hay por hora, no se comparan ni se suman a nada
+      hoja.push([]);
+      hoja.push(["ROLLERS · cuántos hay por hora"]);
+      merges.push({ s: { r: hoja.length - 1, c: 0 }, e: { r: hoja.length - 1, c: 8 } });
+      const filaDiasR = ["Hora"];
+      fechas.forEach((f) => {
+        const col = filaDiasR.length;
+        filaDiasR.push(`${dn[new Date(f + "T00:00:00").getDay()]} ${fc(f)}`, "");
+        merges.push({ s: { r: hoja.length, c: col }, e: { r: hoja.length, c: col + 1 } });
+      });
+      hoja.push(filaDiasR);
+      const totR = fechas.map(() => 0);
+      for (let h = desdeH; h <= hastaH; h++) {
+        hoja.push([`${String(h).padStart(2, "0")}:00`, ...fechas.flatMap((f, i) => {
+          const x = porFecha[f];
+          if (!x || x.cerrada) return ["", ""];
+          const o = x.horas.find((y) => y.h === h) || { rol: 0 };
+          totR[i] += o.rol || 0;
+          return [o.rol || 0, ""];
+        })]);
+        const r = hoja.length - 1;
+        fechas.forEach((f, i) => merges.push({ s: { r, c: 1 + i * 2 }, e: { r, c: 2 + i * 2 } }));
+      }
+      hoja.push(["Total horas", ...fechas.flatMap((f, i) => { const x = porFecha[f]; return !x || x.cerrada ? ["", ""] : [totR[i], ""]; })]);
+      fechas.forEach((f, i) => merges.push({ s: { r: hoja.length - 1, c: 1 + i * 2 }, e: { r: hoja.length - 1, c: 2 + i * 2 } }));
       const ws2 = XLSX.utils.aoa_to_sheet(hoja);
       ws2["!cols"] = [{ wch: 11 }, ...fechas.flatMap(() => [{ wch: 8 }, { wch: 9 }])];
       ws2["!merges"] = merges;
