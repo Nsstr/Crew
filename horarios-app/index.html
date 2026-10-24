@@ -3610,7 +3610,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.8
+            Versión: v1.7.9
           </div>
         </div>
       </div>
@@ -4254,6 +4254,11 @@
                   <input type="number" id="eventoPresuRollers" min="0" step="0.5" placeholder="Ej: 96" oninput="presuMostrarTotal()" style="width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.85rem;">
                 </div>
                 <div id="eventoPresuTotalTxt" style="grid-column: 1 / -1; font-size: 0.8rem; color: var(--text); text-align: left;"></div>
+                <details id="eventoPresuExclBox" style="grid-column: 1 / -1; text-align: left; border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;">
+                  <summary style="cursor: pointer; font-size: 0.75rem; color: var(--text); font-weight: 600;">Sin horas adicionales <span id="eventoPresuExclCount" style="color: var(--text-muted); font-weight: 400;"></span></summary>
+                  <div style="font-size: 0.7rem; color: var(--text-muted); margin: 6px 0 4px; line-height: 1.35;">Las personas que tildes no pueden pasar de su contrato en las semanas del evento.</div>
+                  <div id="eventoPresuExcl" style="display: flex; flex-direction: column; gap: 2px; max-height: 170px; overflow-y: auto;"></div>
+                </details>
                 <div style="grid-column: 1 / -1;">
                   <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; text-align: left;">Máximo de adicionales por semana</div>
                   <div style="display: grid; grid-template-columns: 1fr auto 1fr 22px; gap: 6px; font-size: 0.66rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px;"><span style="text-align: center;">Contrato (h)</span><span style="visibility: hidden;">→</span><span style="text-align: center;">Adicionales</span><span></span></div>
@@ -4663,7 +4668,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.8";
+  const APP_VERSION = "v1.7.9";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6021,7 +6026,9 @@ function validateTurn(collabId, dateStr, parsedNewSlot) {
       return {
         valid: false,
         type: "exceso_horas",
-        msg: `Con este turno llega a ${totalWeekHoursWithNewTurn} h. Los de ${collab.hours} h pueden hacer hasta ${topeSem.adic} h adicionales${topeSem.evento ? ` en ${topeSem.evento}` : ""} (${topeSem.total} h en total).`,
+        msg: topeSem.excluido
+          ? `Con este turno llega a ${totalWeekHoursWithNewTurn} h. ${(collab.name || "").split("(")[0].trim()} está en "sin horas adicionales" de ${topeSem.evento}: hasta ${topeSem.total} h.`
+          : `Con este turno llega a ${totalWeekHoursWithNewTurn} h. Los de ${collab.hours} h pueden hacer hasta ${topeSem.adic} h adicionales${topeSem.evento ? ` en ${topeSem.evento}` : ""} (${topeSem.total} h en total).`,
       };
     }
   }
@@ -8420,8 +8427,8 @@ function renderDesktopView() {
                 
                 <!-- Nombre Compacto e Indicador (Izquierda) -->
                 <div style="display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; overflow: hidden;" onclick="window.toggleCollabDetails('${collab.id}', event)">
-                  <span style="font-weight: 600; font-size: 0.78rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">
-                    ${shortName}
+                  <span style="font-weight: 600; font-size: 0.78rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;${presuEsExcluidoVisible(collab) ? " opacity: 0.5;" : ""}" ${presuEsExcluidoVisible(collab) ? `title="Sin horas adicionales en ${presuEsExcluidoVisible(collab)}"` : ""}>
+                    ${presuEsExcluidoVisible(collab) ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="3" stroke-linecap="round" style="margin-right: 4px; vertical-align: -1px;"><circle cx="12" cy="12" r="9"/><line x1="6" y1="18" x2="18" y2="6"/></svg>` : ""}${shortName}
                   </span>
                   <span id="collab-arrow-${collab.id}" style="font-size: 0.55rem; color: var(--text-muted); padding-left: 2px; flex-shrink: 0;">▼</span>
                 </div>
@@ -9683,6 +9690,7 @@ function presuEventos() {
         total: tienePresu ? Number(ev.presupuesto.total) || 0 : 0,
         rollers: tienePresu ? Number(ev.presupuesto.rollers) || 0 : 0,
         topes: tienePresu ? (Array.isArray(ev.presupuesto.topes) ? ev.presupuesto.topes : PRESU_TOPES_BASE) : [],
+        excluidos: tienePresu && Array.isArray(ev.presupuesto.excluidos) ? ev.presupuesto.excluidos : [],
         reglas: ev.reglas || null,
         color: ev.color,
       };
@@ -9698,6 +9706,9 @@ function presuTopeSemana(collab, lunes) {
   if (!(contrato > 0)) return null;
   const domingo = formatDate(addDays(new Date(lunes + "T00:00:00"), 6));
   const ev = presuEventos().find((p) => p.area === (collab.area || "Disponibilidad") && p.inicio <= domingo && p.fin >= lunes);
+  if (ev && ev.excluidos && ev.excluidos.includes(collab.id) && contrato < 48) {
+    return { total: contrato, adic: 0, evento: ev.nombre, excluido: true };
+  }
   if (ev) {
     const t = ev.topes.find((x) => Number(x.contrato) === contrato);
     if (t) return { total: contrato + Number(t.adic), adic: Number(t.adic), evento: ev.nombre };
@@ -9842,6 +9853,15 @@ function renderPresuBarra() {
 }
 window.renderPresuBarra = renderPresuBarra;
 
+// ¿Está en "sin horas adicionales" del evento que se está viendo? Devuelve el nombre del evento.
+function presuEsExcluidoVisible(c) {
+  try {
+    const p = presuActivo();
+    return p && p.excluidos && p.excluidos.includes(c.id) ? p.nombre : "";
+  } catch (e) { return ""; }
+}
+window.presuEsExcluidoVisible = presuEsExcluidoVisible;
+
 // Detalle por persona
 function abrirPresuDetalle() {
   const p = presuActivo();
@@ -9902,6 +9922,7 @@ function abrirPresuDetalle() {
         <button type="button" onclick="document.getElementById('presuDetalleModal').remove()" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
       </div>
       ${bloqueReglas}
+      ${conHoras && p.excluidos && p.excluidos.length ? `<div style="padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 0.82rem; color: var(--text-muted);"><b style="color: #f87171;">Sin horas adicionales:</b> ${p.excluidos.map((id) => { const c = state.collaborators.find((x) => x.id === id); return c ? (c.name || "").split("(")[0].trim() : null; }).filter(Boolean).join(", ")}</div>` : ""}
       ${conHoras ? `
       <div style="padding: 14px 18px; display: flex; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--border);">
         <div style="flex: 1 1 150px; background: var(--bg); border: 1px solid ${pasa ? "#ef4444" : "var(--border)"}; border-radius: 10px; padding: 10px 12px;"><div style="font-size: 0.75rem; color: var(--text-muted);">Usadas</div><div style="font-size: 1.4rem; font-weight: 800; color: var(--text);">${presuR(r.usado)} <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-muted);">de ${presuR(p.total)}</span></div></div>
@@ -10072,7 +10093,9 @@ function problemaSemana48(collabId, dStr, collab) {
       const nom = nombreCortoCelular(collab) || (collab.name || "").split("(")[0].trim();
       const fc45 = lunes45.split("-").reverse().slice(0, 2).join("/");
       return [{ clave: `sem45|${collabId}|${lunes45}`, nombre: nom, fecha: `la semana del ${fc45}`, titulo: `Se pasa de ${tope45.total} h`,
-        msg: `${nom} llega a ${String(Math.round(total45 * 10) / 10).replace(".", ",")}\u00a0h la semana del ${fc45}. Con ${contrato}\u00a0h puede hacer hasta ${tope45.adic}\u00a0h adicionales${tope45.evento ? ` en ${tope45.evento}` : ""}.`,
+        msg: tope45.excluido
+          ? `${nom} llega a ${String(Math.round(total45 * 10) / 10).replace(".", ",")}\u00a0h la semana del ${fc45}. Está en "sin horas adicionales" de ${tope45.evento}: hasta ${contrato}\u00a0h.`
+          : `${nom} llega a ${String(Math.round(total45 * 10) / 10).replace(".", ",")}\u00a0h la semana del ${fc45}. Con ${contrato}\u00a0h puede hacer hasta ${tope45.adic}\u00a0h adicionales${tope45.evento ? ` en ${tope45.evento}` : ""}.`,
         resuelto: `${nom} ya está dentro de su máximo la semana del ${fc45}.` }];
     }
     return [];
@@ -15832,6 +15855,28 @@ function reglasLeerForm() {
     minHoras: num("eventoReglaMinHoras"),
   };
 }
+// Lista de personas del sector para tildar "sin horas adicionales"
+function presuLlenarExcluidos(marcados) {
+  const box = document.getElementById("eventoPresuExcl");
+  if (!box) return;
+  const prev = marcados || [...box.querySelectorAll("input:checked")].map((i) => i.value);
+  const area = document.getElementById("eventoPresuArea").value || "Linea de Cajas";
+  const gente = (state.collaborators || [])
+    .filter((c) => (c.area || "Disponibilidad") === area && (parseFloat(c.hours) || 0) < 48)
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  box.innerHTML = gente.length ? gente.map((c) => `<label style="display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text); cursor: pointer; padding: 2px 0;">
+      <input type="checkbox" value="${c.id}" ${prev.includes(c.id) ? "checked" : ""} onchange="presuContarExcluidos()" style="margin: 0; accent-color: #ef4444;">
+      <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${(c.name || "").split("(")[0].trim()}</span>
+      <span style="margin-left: auto; color: var(--text-muted); font-size: 0.7rem;">${c.hours} h</span>
+    </label>`).join("") : `<span style="font-size: 0.75rem; color: var(--text-muted);">No hay part time en este sector.</span>`;
+  presuContarExcluidos();
+}
+window.presuContarExcluidos = function () {
+  const n = document.querySelectorAll("#eventoPresuExcl input:checked").length;
+  const el = document.getElementById("eventoPresuExclCount");
+  if (el) el.textContent = n ? `(${n})` : "";
+};
+
 // Total que se va a guardar (cajeros + rollers); fuera de Línea de Cajas, horas del sector sin rollers
 window.presuMostrarTotal = function () {
   const esCajas = (document.getElementById("eventoPresuArea").value || "Linea de Cajas") === "Linea de Cajas";
@@ -15858,8 +15903,10 @@ function presuLlenarForm(p, reglas) {
   document.getElementById("eventoPresuCampos").style.display = p ? "grid" : "none";
   document.getElementById("eventoPresuCajeros").value = p ? (Number(p.total) || 0) - (Number(p.rollers) || 0) : "";
   document.getElementById("eventoPresuRollers").value = p && p.rollers ? p.rollers : "";
-  sel.onchange = presuMostrarTotal;
+  sel.onchange = () => { presuMostrarTotal(); presuLlenarExcluidos(); };
   presuMostrarTotal();
+  presuLlenarExcluidos(p && Array.isArray(p.excluidos) ? p.excluidos : []);
+  document.getElementById("eventoPresuExclBox").open = !!(p && p.excluidos && p.excluidos.length);
   const topes = p && Array.isArray(p.topes) ? p.topes : PRESU_TOPES_BASE;
   document.getElementById("eventoPresuTopes").innerHTML = topes.map(presuFilaTope).join("");
   reglasLlenarForm(reglas || null);
@@ -15930,7 +15977,8 @@ window.saveEvento = async function () {
     if (!(total > 0)) { showToast("Faltan las horas", "Poné cuántas horas adicionales tiene el evento.", "warning"); return; }
     const topes = presuLeerTopes();
     if (new Set(topes.map((t) => t.contrato)).size !== topes.length) { showToast("Revisá los contratos", "Hay un contrato repetido en los máximos.", "warning"); return; }
-    presupuesto = { area: document.getElementById("eventoPresuArea").value || "Linea de Cajas", total, rollers, topes };
+    const excluidos = [...document.querySelectorAll("#eventoPresuExcl input:checked")].map((i) => i.value);
+    presupuesto = { area: document.getElementById("eventoPresuArea").value || "Linea de Cajas", total, rollers, topes, excluidos };
   }
   let reglas = null;
   if (document.getElementById("eventoReglasCheck")?.checked) {
