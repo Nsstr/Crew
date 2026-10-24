@@ -2110,11 +2110,16 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     table#planningTable td.day-cell.dia-cerrado { background-image: repeating-linear-gradient(135deg, rgba(148,163,184,0.10) 0 6px, transparent 6px 12px) !important; }
-    .weekly-totals-container { gap: 3px !important; }
-    .weekly-totals-container .dom-badge { display: flex !important; align-items: center; justify-content: center; min-width: 26px; height: 18px !important; line-height: 18px !important; padding: 0 3px !important; font-size: 0.7rem !important; font-weight: 800 !important; border-radius: 4px !important; box-sizing: border-box; white-space: nowrap; font-variant-numeric: tabular-nums; opacity: 1 !important; }
-    .weekly-totals-container .dom-badge.ok { border: 1px solid #64748b !important; color: #e2e8f0 !important; background: transparent !important; }
-    .weekly-totals-container .dom-badge.falta { border: 1px dashed #f59e0b !important; color: #fbbf24 !important; background: transparent !important; }
-    .weekly-totals-container .dom-badge.pasa { border: 1px solid #ef4444 !important; color: #fecaca !important; background: rgba(239,68,68,0.25) !important; }
+    /* Columna de nombres: domingos y horas de la semana como números grandes, sin cajita */
+    .weekly-totals-container { gap: 8px !important; }
+    .weekly-totals-container .dom-badge,
+    .weekly-totals-container .hour-box { display: flex !important; align-items: center; justify-content: center; width: auto !important; min-width: 22px; height: 22px !important; line-height: 22px !important; padding: 0 3px !important; margin: 0 !important; font-size: 0.95rem !important; font-weight: 800 !important; border: none !important; border-radius: 5px !important; background: transparent !important; box-sizing: border-box; white-space: nowrap; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; opacity: 1 !important; }
+    .weekly-totals-container .dom-badge.ok, .weekly-totals-container .hour-box.hb-ok { color: #e2e8f0 !important; }
+    .weekly-totals-container .dom-badge.falta, .weekly-totals-container .hour-box.hb-falta { color: #fbbf24 !important; }
+    .weekly-totals-container .hour-box.hb-adic { color: #22d3ee !important; }
+    .weekly-totals-container .dom-badge.pasa, .weekly-totals-container .hour-box.hb-pasa { color: #fff !important; background: #dc2626 !important; }
+    .weekly-totals-container .hour-box.hb-cero { color: #475569 !important; }
+    .weekly-totals-container .hour-box.hb-vac { color: #94a3b8 !important; }
     td.day-cell.dia-cerrado .cell-input { cursor: not-allowed; }
     .armado-badge {
       display: inline-flex;
@@ -3605,7 +3610,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.6
+            Versión: v1.7.7
           </div>
         </div>
       </div>
@@ -4658,7 +4663,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.6";
+  const APP_VERSION = "v1.7.7";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6205,18 +6210,17 @@ function updateDynamicHours() {
       const meta = parseFloat(metaStr) || 48;
       const topeInfo = lunes && typeof presuTopeSemana === "function" ? presuTopeSemana(collab, lunes) : null;
       const tope = meta >= 48 ? meta : topeInfo ? topeInfo.total : 42;
-      const base = "min-width: 26px; height: 18px; padding: 0 3px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.7rem; font-weight: 800; box-sizing: border-box; font-variant-numeric: tabular-nums;";
       if (isVac) {
-        return `<div class="hour-box" title="Vacaciones esta semana" style="${base} border: 1px solid #64748b; color: #94a3b8;">V</div>`;
+        return `<div class="hour-box hb-vac" title="Vacaciones esta semana">V</div>`;
       }
       const txt = hours === 0 ? "–" : r1h(hours);
-      let est, titulo;
-      if (hours === 0) { est = "border: 1px dashed #475569; color: #64748b;"; titulo = "Sin horas cargadas esta semana"; }
-      else if (hours < meta) { est = "border: 1px solid #f59e0b; color: #fbbf24;"; titulo = `${r1h(hours)} de ${r1h(meta)} h · le faltan ${r1h(meta - hours)} h`; }
-      else if (hours === meta) { est = "border: 1px solid #64748b; color: #e2e8f0;"; titulo = `${r1h(hours)} de ${r1h(meta)} h · justo su contrato`; }
-      else if (hours <= tope) { est = "border: 1px solid #06b6d4; color: #22d3ee; background: rgba(6,182,212,0.12);"; titulo = `${r1h(hours)} h · +${r1h(hours - meta)} h adicionales (máximo ${r1h(tope)} h)`; }
-      else { est = "border: 1px solid #ef4444; color: #fecaca; background: rgba(239,68,68,0.25);"; titulo = `${r1h(hours)} h · pasa el máximo de ${r1h(tope)} h por ${r1h(hours - tope)} h`; }
-      return `<div class="hour-box" title="${titulo}" style="${base} ${est}">${txt}</div>`;
+      let cls, titulo;
+      if (hours === 0) { cls = "hb-cero"; titulo = "Sin horas cargadas esta semana"; }
+      else if (hours < meta) { cls = "hb-falta"; titulo = `${r1h(hours)} de ${r1h(meta)} h · le faltan ${r1h(meta - hours)} h`; }
+      else if (hours === meta) { cls = "hb-ok"; titulo = `${r1h(hours)} de ${r1h(meta)} h · justo su contrato`; }
+      else if (hours <= tope) { cls = "hb-adic"; titulo = `${r1h(hours)} h · +${r1h(hours - meta)} h adicionales (máximo ${r1h(tope)} h)`; }
+      else { cls = "hb-pasa"; titulo = `${r1h(hours)} h · pasa el máximo de ${r1h(tope)} h por ${r1h(hours - tope)} h`; }
+      return `<div class="hour-box ${cls}" title="${titulo}">${txt}</div>`;
     };
 
     const metaCollab = parseFloat(collab.hours) || 48;
@@ -8353,7 +8357,7 @@ function renderDesktopView() {
 
   if (trHead.firstElementChild) {
     // Título de la columna: sector a la izquierda; arriba de los indicadores, qué es cada uno
-    trHead.firstElementChild.innerHTML = `<div class="collab-head"><span>${targetArea.toUpperCase()}</span><span class="collab-head-tags"><span id="dom-header-label" title="Domingos libres en el mes / acordados. Gris: justo · Ámbar punteado: le falta · Rojo: tiene de más">Dom.</span><span title="Horas de la semana. Gris: justo su contrato · Ámbar: le faltan · Celeste: con adicionales · Rojo: pasa el máximo">hs</span></span></div>`;
+    trHead.firstElementChild.innerHTML = `<div class="collab-head"><span>${targetArea.toUpperCase()}</span><span class="collab-head-tags"><span id="dom-header-label" title="Domingos libres en el mes / acordados. Blanco: justo · Ámbar: le falta · Rojo: tiene de más">Dom.</span><span title="Horas de la semana. Blanco: justo su contrato · Ámbar: le faltan · Celeste: con adicionales · Rojo: pasa el máximo">hs</span></span></div>`;
   }
   const conContexto = cajasContextoActivo();
   const domingoPrevio = addDays(days[0], -1);
