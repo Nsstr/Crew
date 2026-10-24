@@ -3595,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.15
+            Versión: v1.7.16
           </div>
         </div>
       </div>
@@ -4671,7 +4671,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.15";
+  const APP_VERSION = "v1.7.16";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -14187,7 +14187,7 @@ async function covCalcularPeriodo(desde, hasta) {
         for (let h = 0; h < 24; h++) {
           const r = curva ? Number(curva[h]) || 0 : 0;
           const c = { caj: counts[h], conVend: counts[h] + vendH[h], contrato: contratoH[h] };
-          dia.horas.push({ h, r, ...c, vend: vendH[h], adic: adicH[h] });
+          dia.horas.push({ h, r, ...c, vend: vendH[h], adic: adicH[h], rol: rollersH[h] });
           dia.req += r; dia.adic += adicH[h]; dia.vend += vendH[h]; dia.rolCaj += rolCajH[h]; dia.rollers += rollersH[h];
           COV_ESCENARIOS.forEach(({ key }) => {
             const e = dia.esc[key];
@@ -14293,17 +14293,28 @@ async function exportarPlanillaHorarios(desde, hasta) {
     filas.push([c.id, (c.name || "").split("(")[0].trim(), ...celdas]);
   });
 
-  // Línea de Cajas: debajo, lo que pide Recaudaciones, lo que tenemos de cajeros y aparte los rollers (horas por día)
+  // Línea de Cajas: debajo, hora por hora y por día, los cajeros que pide Recaudaciones,
+  // los cajeros que tenemos y aparte los rollers
   if (area === "Linea de Cajas") {
     try {
       const cov = await covCalcularPeriodo(desde, hasta);
       const porFecha = Object.fromEntries(cov.dias.map((x) => [x.fecha, x]));
-      const val = (f, fn) => { const x = porFecha[f]; return !x || x.cerrada ? "" : fn(x); };
-      filas.push([]);
-      filas.push(["", "Pedido Recaudaciones (h)", ...fechas.map((f) => val(f, (x) => (x.conDemanda ? x.req : "")))]);
-      filas.push(["", "Tenemos cajeros (h)", ...fechas.map((f) => val(f, (x) => x.esc.caj.tengo))]);
-      filas.push([]);
-      filas.push(["", "Rollers (h)", ...fechas.map((f) => val(f, (x) => x.rollers))]);
+      const desdeH = Math.min(7, cov.hMin ?? 7), hastaH = Math.max(23, cov.hMax ?? 23);
+      const bloque = (titulo, campo, soloConDemanda) => {
+        filas.push([]);
+        filas.push(["", titulo]);
+        for (let h = desdeH; h <= hastaH; h++) {
+          filas.push(["", `${String(h).padStart(2, "0")}:00`, ...fechas.map((f) => {
+            const x = porFecha[f];
+            if (!x || x.cerrada || (soloConDemanda && !x.conDemanda)) return "";
+            const o = x.horas.find((y) => y.h === h);
+            return o ? o[campo] : 0;
+          })]);
+        }
+      };
+      bloque("Pedido Recaudaciones (cajeros por hora)", "r", true);
+      bloque("Tenemos (cajeros por hora)", "caj", false);
+      bloque("Rollers (por hora)", "rol", false);
     } catch (e) {
       console.warn("Planilla: no se pudo sumar la cobertura", e);
     }
