@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.0
+            Versión: v1.7.1
           </div>
         </div>
       </div>
@@ -4650,7 +4650,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.0";
+  const APP_VERSION = "v1.7.1";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15392,93 +15392,86 @@ btnConfirmar?.addEventListener("click", async () => {
   }
 });
 
+// Lee la curva de Recaudaciones (cajas por hora, 0 a 23) de un Excel.
+// Busca la fila con "Fecha" y las horas 0..23; las fechas pueden venir como fecha de Excel o como texto
+// (dd/mm/aaaa). Si hay una columna de día ("Jueves"), se usa para confirmar día y mes.
+// Devuelve { "aaaa-mm-dd": [24 valores] } solo con los días que trae el archivo.
+function parsearCurvaRecaudaciones(workbook, X) {
+  const ws = workbook.Sheets[workbook.SheetNames[0]];
+  const filas = X.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+  const norm = (v) => String(v).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+
+  let filaEnc = -1, colFecha = -1, colDia = -1;
+  const colHora = [];
+  for (let r = 0; r < Math.min(filas.length, 20) && filaEnc < 0; r++) {
+    const fila = filas[r] || [];
+    const iF = fila.findIndex((c) => norm(c).startsWith("fecha"));
+    if (iF < 0) continue;
+    filaEnc = r; colFecha = iF;
+    colDia = fila.findIndex((c, i) => i !== iF && /^dia\b/.test(norm(c)));
+    for (let h = 0; h < 24; h++) {
+      const i = fila.findIndex((c, idx) => idx > iF && c !== "" && (Number(c) === h && /^\d{1,2}(\.0)?(:00)?$/.test(String(c).trim())));
+      colHora.push(i);
+    }
+  }
+  if (colHora.length < 24 || colHora.some((i) => i < 0)) {
+    // Sin encabezados de hora: se asumen seguidas después de Fecha y Día
+    const ini = colFecha + (colDia === colFecha + 1 ? 2 : 1);
+    colHora.length = 0;
+    for (let h = 0; h < 24; h++) colHora.push(ini + h);
+  }
+
+  const iso = (y, m, d) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const diaSemana = (y, m, d) => new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  const valida = (y, m, d) => m >= 1 && m <= 12 && d >= 1 && d <= 31 && new Date(Date.UTC(y, m - 1, d)).getUTCDate() === d;
+
+  const leerFecha = (v, diaTxt) => {
+    if (v instanceof Date) return iso(v.getFullYear(), v.getMonth() + 1, v.getDate());
+    if (typeof v === "number" && v > 20000 && v < 90000) {
+      const p = X.SSF.parse_date_code(v);
+      return p ? iso(p.y, p.m, p.d) : null;
+    }
+    const t = String(v).trim();
+    let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return iso(+m[1], +m[2], +m[3]);
+    m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+    if (!m) return null;
+    const y = m[3].length === 2 ? 2000 + +m[3] : +m[3];
+    const a = +m[1], b = +m[2];
+    const dm = valida(y, b, a) ? [y, b, a] : null;   // dd/mm (lo normal acá)
+    const md = valida(y, a, b) ? [y, a, b] : null;   // mm/dd (formato de Excel en inglés)
+    const esperado = DIAS.indexOf(norm(diaTxt));
+    if (esperado >= 0) {
+      if (dm && diaSemana(...dm) === esperado) return iso(...dm);
+      if (md && diaSemana(...md) === esperado) return iso(...md);
+    }
+    return dm ? iso(...dm) : md ? iso(...md) : null;
+  };
+
+  const out = {};
+  for (let r = filaEnc + 1; r < filas.length; r++) {
+    const fila = filas[r];
+    if (!fila || !fila.length) continue;
+    const fecha = leerFecha(colFecha >= 0 ? fila[colFecha] : "", colDia >= 0 ? fila[colDia] : "");
+    if (!fecha) continue;
+    out[fecha] = colHora.map((i) => {
+      const n = parseFloat(String(fila[i]).replace(",", "."));
+      return isNaN(n) ? 0 : Math.round(n);
+    });
+  }
+  return out;
+}
+window.parsearCurvaRecaudaciones = parsearCurvaRecaudaciones;
+
 window.handleRecaudacionesFile = function(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: "array", cellDates: true });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
-
-      console.log("Procesando Excel Cajas. Filas leídas:", json.length);
-
-      // 1. Buscar la fila de encabezado que contiene 'Fecha' y las horas 0..23
-      let headerRowIndex = -1;
-      let dateColIndex = -1;
-      let hourColIndices = []; // Índices de las 24 horas
-
-      for (let r = 0; r < Math.min(json.length, 15); r++) {
-        const row = json[r];
-        if (!row || !Array.isArray(row)) continue;
-
-        const fIdx = row.findIndex(c => String(c).toLowerCase().includes("fecha"));
-        if (fIdx !== -1) {
-          headerRowIndex = r;
-          dateColIndex = fIdx;
-
-          // Detectar columnas de las horas 0 a 23 en esa fila o siguientes
-          for (let h = 0; h < 24; h++) {
-            const hIdx = row.findIndex((c, idx) => idx > fIdx && (c === h || c === String(h) || c === `${h}.0` || c === `${h}:00`));
-            if (hIdx !== -1) hourColIndices.push(hIdx);
-          }
-          break;
-        }
-      }
-
-      // Si no detectó los índices de horas por nombre, asumir contiguos a partir de la columna siguiente a Día
-      if (hourColIndices.length < 24 && dateColIndex !== -1) {
-        hourColIndices = [];
-        const startHCol = dateColIndex + 2; // Saltea 'Fecha' y 'Día'
-        for (let h = 0; h < 24; h++) {
-          hourColIndices.push(startHCol + h);
-        }
-      }
-
-      console.log(`Columna Fecha: ${dateColIndex} | Columnas Horas detectadas: ${hourColIndices.length}`);
-
-      const parsedDays = {};
-
-      // 2. Iterar filas de datos a partir del encabezado
-      for (let r = (headerRowIndex !== -1 ? headerRowIndex + 1 : 0); r < json.length; r++) {
-        const row = json[r];
-        if (!row || row.length === 0) continue;
-
-        // Extraer celda de fecha
-        let cellVal = dateColIndex !== -1 ? row[dateColIndex] : null;
-        if (!cellVal) {
-          // Si no la encuentra en dateColIndex, escanear toda la fila por un patrón de fecha
-          cellVal = row.find(c => {
-            const str = String(c).trim();
-            return /^\d{4}-\d{2}-\d{2}/.test(str) || /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(str);
-          });
-        }
-
-        if (!cellVal) continue;
-
-        let dateStr = null;
-        const trimmed = String(cellVal).trim();
-
-        if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
-          dateStr = trimmed.slice(0, 10);
-        } else if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(trimmed)) {
-          const parts = trimmed.split(/[\/\-]/);
-          const yr = parts[2].length === 2 ? "20" + parts[2] : parts[2].slice(0, 4);
-          dateStr = `${yr}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-        }
-
-        if (dateStr) {
-          const curva = [];
-          for (let h = 0; h < 24; h++) {
-            const colIdx = hourColIndices[h];
-            const valH = colIdx !== undefined ? parseFloat(row[colIdx]) : 0;
-            curva.push(isNaN(valH) ? 0 : Math.round(valH));
-          }
-          parsedDays[dateStr] = curva;
-        }
-      }
+      const workbook = XLSX.read(data, { type: "array" });
+      const parsedDays = parsearCurvaRecaudaciones(workbook, XLSX);
 
       const dayKeys = Object.keys(parsedDays).sort();
       console.log("Días procesados con éxito:", dayKeys);
