@@ -2109,6 +2109,8 @@
       text-transform: uppercase;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
+    td.day-cell.dia-cerrado { background-image: repeating-linear-gradient(135deg, rgba(148,163,184,0.07) 0 6px, transparent 6px 12px); }
+    td.day-cell.dia-cerrado .cell-input { cursor: not-allowed; }
     .armado-badge {
       display: inline-flex;
       align-items: center;
@@ -3598,7 +3600,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.2
+            Versión: v1.7.3
           </div>
         </div>
       </div>
@@ -4650,7 +4652,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.2";
+  const APP_VERSION = "v1.7.3";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -4955,6 +4957,7 @@ const state = {
   eventos: {}, // key: 'YYYY-MM-DD', value: { tipo, descripcion, color } de Firebase eventos_diarios
   tawDates: [],
   armadoDates: [],
+  cerradoDates: [], // días cerrados: no se pueden cambiar hasta destildarlos
   metricsLoadedYears: {}, // Registro de años ya descargados en la sesión
 };
 window.state = state;
@@ -5450,9 +5453,11 @@ async function loadInitialData() {
             const data = docSnap.data();
             state.tawDates = Array.isArray(data.tawDates) ? data.tawDates : [];
             state.armadoDates = Array.isArray(data.armadoDates) ? data.armadoDates : [];
+            state.cerradoDates = Array.isArray(data.cerradoDates) ? data.cerradoDates : [];
           } else {
             state.tawDates = [];
             state.armadoDates = [];
+            state.cerradoDates = [];
           }
           if (document.getElementById("tableBody")) window.renderUI();
         });
@@ -6437,6 +6442,7 @@ window.openMobileProfile = function (collabId) {
 };
 
 window.openMobileContextMenu = function (inputElement) {
+  if (inputElement && typeof diaCerrado === "function" && diaCerrado(inputElement.getAttribute("data-date"))) { avisarDiaCerrado(inputElement.getAttribute("data-date")); return; }
   if (!requireAuth()) return;
   const rect = inputElement.getBoundingClientRect();
   const simulatedEvent = {
@@ -8125,6 +8131,12 @@ function attachScheduleEventListeners() {
 
     // 3. Listener de flechas de teclado
     table.addEventListener("keydown", (e) => {
+      const enCerrada = e.target.closest && e.target.closest('.cell-input[data-cerrado="1"]');
+      if (enCerrada && (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete")) {
+        e.preventDefault();
+        avisarDiaCerrado(enCerrada.getAttribute("data-date"));
+        return;
+      }
       const navKeys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab", "Enter"];
       if (!navKeys.includes(e.key)) return;
 
@@ -8316,9 +8328,11 @@ function renderDesktopView() {
       ? `<span class="header-micro-badge badge-taw" title="TAW">T</span>` 
       : "";
 
-    const armadoBadge = state.armadoDates.includes(dStr) 
+    const armadoBadge = (state.armadoDates.includes(dStr) 
       ? `<span class="header-micro-badge badge-armado" title="ARMADO">A</span>` 
-      : "";
+      : "") + ((state.cerradoDates || []).includes(dStr)
+      ? `<span title="Día cerrado: no se puede cambiar" style="font-size: 9px; line-height: 1;">🔒</span>`
+      : "");
 
     const eventBadge = evento
       ? `<span class="event-icon-btn" onclick="window.showEventInfo('${dStr}')" title="${evento.tipo}: ${evento.descripcion}" style="display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: ${evento.color}; margin-top: 2px;">
@@ -8846,14 +8860,14 @@ function renderDesktopView() {
         }
 
         html += `
-            <td class="${isHoliday ? "holiday-col" : ""} ${finalWrapperClass} ${additionalCellClass} day-cell" ${titleAttr} data-collab="${collab.id}" data-date="${dStr}" style="position: relative; ${eventoCellStyle}">
+            <td class="${isHoliday ? "holiday-col" : ""} ${finalWrapperClass} ${additionalCellClass} day-cell${(state.cerradoDates || []).includes(dStr) ? " dia-cerrado" : ""}" ${titleAttr} data-collab="${collab.id}" data-date="${dStr}" style="position: relative; ${eventoCellStyle}">
               <div class="ot-indicator"></div>
               
               <!-- Presentación visual (Apilada) -->
               ${displayHtml}
               
               <!-- Sistema transaccional intacto (Invisible hasta hacer focus) -->
-              <input type="text" class="cell-input ${finalInputClass} cell-input-hidden" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" data-row="${currentRowIndex}" data-col="${dayIndex}" value="${displayVal}" ${isDisabled ? 'disabled data-disabled="true"' : ""} placeholder="-">
+              <input type="text" class="cell-input ${finalInputClass} cell-input-hidden" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" data-row="${currentRowIndex}" data-col="${dayIndex}" value="${displayVal}" ${isDisabled ? 'disabled data-disabled="true"' : ""}${!isDisabled && (state.cerradoDates || []).includes(dStr) ? ' readonly data-cerrado="1"' : ""} placeholder="-">
             </td>
           `;
       });
@@ -9342,6 +9356,7 @@ function renderHeatmap() {
 async function handleInputChange(e) {
   const input = e.target;
   if (input.readOnly || input.disabled) return;
+  if (diaCerrado(input.getAttribute("data-date"))) { input.value = getPlanningSlot(input.getAttribute("data-collab"), input.getAttribute("data-date")) || ""; avisarDiaCerrado(input.getAttribute("data-date")); return; }
 
   // MIDDLEWARE: Verificar permiso antes de procesar cualquier cambio
   if (!checkAccessWithToast("modificarHorario")) {
@@ -12651,6 +12666,7 @@ function checkLogin() {
     
 let currentContextCell = null;
 window.openMobileContextMenu = function (inputElement, event) {
+  if (inputElement && typeof diaCerrado === "function" && diaCerrado(inputElement.getAttribute("data-date"))) { avisarDiaCerrado(inputElement.getAttribute("data-date")); return; }
   if (event) {
     event.preventDefault();
     event.stopPropagation();
@@ -12682,6 +12698,7 @@ function handleContextMenu(e) {
   let dateStr = (inputNode && inputNode.getAttribute("data-date")) || (tdNode && tdNode.getAttribute("data-date"));
 
   if (!collabId || !dateStr) return;
+  if (diaCerrado(dateStr)) { avisarDiaCerrado(dateStr); return; }
 
   currentContextCell = inputNode || tdNode;
 
@@ -13294,6 +13311,7 @@ async function autoSaveContextMenu() {
   if (!currentContextCell) return;
   const collabId = currentContextCell.getAttribute("data-collab");
   const dateStr = currentContextCell.getAttribute("data-date");
+  if (diaCerrado(dateStr)) { avisarDiaCerrado(dateStr); return false; }
 
   const tardanzaStr = document.getElementById("cellTardanzaInput").value.trim();
   let tardanzaMins = 0;
@@ -16559,12 +16577,14 @@ headerContextMenu.id = "headerContextMenu";
 headerContextMenu.innerHTML = `
       <label><input type="checkbox" id="chkTAW"> TAW</label>
       <label><input type="checkbox" id="chkARMADO"> ARMADO</label>
+      <label title="El día queda bloqueado: no se puede cambiar ningún horario hasta destildarlo"><input type="checkbox" id="chkCERRADO"> 🔒 Día cerrado</label>
     `;
 document.body.appendChild(headerContextMenu);
 
 let activeHeaderDate = null;
 const chkTAW = document.getElementById("chkTAW");
 const chkARMADO = document.getElementById("chkARMADO");
+const chkCERRADO = document.getElementById("chkCERRADO");
 
 document.getElementById("tableHeader").addEventListener("contextmenu", (e) => {
   const th = e.target.closest("th[data-header-date]");
@@ -16575,6 +16595,7 @@ document.getElementById("tableHeader").addEventListener("contextmenu", (e) => {
 
   chkTAW.checked = state.tawDates.includes(activeHeaderDate);
   chkARMADO.checked = state.armadoDates.includes(activeHeaderDate);
+  chkCERRADO.checked = (state.cerradoDates || []).includes(activeHeaderDate);
 
   headerContextMenu.style.display = "block";
   
@@ -16629,6 +16650,36 @@ chkARMADO.addEventListener("change", (e) => {
   renderDesktopView();
   headerContextMenu.style.display = "none";
 });
+
+// Día cerrado: se pueden cerrar varios días; cada uno se destilda por separado
+chkCERRADO.addEventListener("change", (e) => {
+  if (!checkAccessWithToast("modificarHorario")) { e.target.checked = !e.target.checked; return; }
+  const lista = new Set(state.cerradoDates || []);
+  if (e.target.checked) lista.add(activeHeaderDate); else lista.delete(activeHeaderDate);
+  state.cerradoDates = [...lista].sort();
+  const currentArea = state.currentArea || "Disponibilidad";
+  const docId = `tags_${currentArea.replace(/\s+/g, "_")}`;
+  if (!isMockMode) {
+    setDoc(doc(db, "notas_globales", docId), { cerradoDates: state.cerradoDates }, { merge: true });
+  }
+  const f = activeHeaderDate.split("-").reverse().slice(0, 2).join("/");
+  showToast(e.target.checked ? "Día cerrado" : "Día abierto", e.target.checked ? `El ${f} quedó bloqueado. Para cambiarlo, destildalo desde el encabezado.` : `El ${f} se puede cambiar de nuevo.`, "info");
+  renderUI();
+  headerContextMenu.style.display = "none";
+});
+
+function diaCerrado(dStr) {
+  return !!dStr && (state.cerradoDates || []).includes(dStr);
+}
+window.diaCerrado = diaCerrado;
+var avisoCerradoUltimo = 0;
+function avisarDiaCerrado(dStr) {
+  if (Date.now() - avisoCerradoUltimo < 2500) return;
+  avisoCerradoUltimo = Date.now();
+  const f = dStr.split("-").reverse().slice(0, 2).join("/");
+  showToast("Día cerrado 🔒", `El ${f} está cerrado. Para cambiarlo, clic derecho en el encabezado del día y destildá "Día cerrado".`, "info");
+}
+window.avisarDiaCerrado = avisarDiaCerrado;
 
 window.showEventInfo = function(dateStr) {
   const evento = state.eventos[dateStr];
