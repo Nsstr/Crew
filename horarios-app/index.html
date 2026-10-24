@@ -1593,6 +1593,7 @@
     #planningTable td.ctx-prev { border-right: 2px dashed rgba(148, 163, 184, 0.35) !important; text-align: center; vertical-align: middle; }
     #planningTable .ctx-next { border-left: 2px dashed rgba(148, 163, 184, 0.35) !important; }
     #planningTable .ctx-txt { font-size: 0.72rem; font-weight: 700; color: var(--text); white-space: nowrap; line-height: 1.1; }
+    #planningTable .ctx-txt .ctx-linea.ctx-largo { font-size: 0.6rem; letter-spacing: -0.02em; }
     #planningTable .ctx-adic { color: #22d3ee; font-size: 0.62rem; }
     /* Columna de nombres más angosta (nombres cortos y domingos solo "1/1") */
     #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) th:first-child,
@@ -3595,7 +3596,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.24
+            Versión: v1.7.25
           </div>
         </div>
       </div>
@@ -4671,7 +4672,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.24";
+  const APP_VERSION = "v1.7.25";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -7112,7 +7113,11 @@ function ctxCeldaTexto(collab, dStr) {
   if (p.type === "vacation") return "V";
   if (p.type === "work") {
     const adic = turnoAdicionalInfo(getPlanningObj(collab.id, dStr));
-    return `${p.label.replace(/a/g, "–")}${adic ? `<div class="ctx-adic">${adic.label}</div>` : ""}`;
+    // Un renglón por tramo (el cortado va en dos, como en las otras celdas) y letra más chica
+    // si el horario es largo, así entra en la columna angosta sin cortarse
+    const linea = (t) => `<div class="ctx-linea${t.length > 7 ? " ctx-largo" : ""}">${t}</div>`;
+    const tramos = p.label.replace(/a/g, "–").split("/").map(linea).join("");
+    return `${tramos}${adic ? `<div class="ctx-adic">${adic.label}</div>` : ""}`;
   }
   return cdvEsc(val);
 }
