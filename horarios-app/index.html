@@ -3595,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.13
+            Versión: v1.7.14
           </div>
         </div>
       </div>
@@ -3703,7 +3703,7 @@
               <input type="date" id="covHasta" style="background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; border-radius: 0.25rem;">
             </div>
           </div>
-          <p id="covDescPlanilla" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una fila por persona del sector y una columna por día, como la grilla. Los días de vacaciones dicen VACACIONES en lugar del horario. Trae también las horas por semana y una hoja con las vacaciones del período.</p>
+          <p id="covDescPlanilla" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una fila por persona del sector y una columna por día, como la grilla. Los días de vacaciones dicen VACACIONES en lugar del horario. Trae también una hoja con las vacaciones del período.</p>
           <p id="covDescDias" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una hoja por día con los turnos de 7 a 23 h, la cobertura por hora, los comparativos, francos, vacaciones y observaciones. Se abre para imprimir o guardar como PDF.</p>
           <div id="covFormatoRow" style="display: flex; gap: 1rem;">
             <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="covFormato" value="pdf" checked><span>PDF</span></label>
@@ -4671,7 +4671,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.13";
+  const APP_VERSION = "v1.7.14";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -14273,7 +14273,7 @@ async function exportarPlanillaHorarios(desde, hasta) {
   const semanas = [...new Set(fechas.map((f) => formatDate(getStartOfWeek(new Date(f + "T00:00:00")))))];
   const r1 = (n) => Math.round(n * 10) / 10;
 
-  const encabezado = ["Legajo", "Colaborador", "Contrato (h)", ...fechas.map((f) => `${dn[new Date(f + "T00:00:00").getDay()]} ${fc(f)}`), ...semanas.map((l) => `Horas sem. ${fc(l)}`)];
+  const encabezado = ["Legajo", "Colaborador", ...fechas.map((f) => `${dn[new Date(f + "T00:00:00").getDay()]} ${fc(f)}`)];
   const filas = [[`Horarios · ${area === "Linea de Cajas" ? "Línea de Cajas" : area} · del ${fc(desde)} al ${fc(hasta)}`], [], encabezado];
   gente.forEach((c) => {
     const horasSem = {};
@@ -14289,12 +14289,12 @@ async function exportarPlanillaHorarios(desde, hasta) {
       const txt = /^f$/i.test(val) ? "FRANCO" : /^(l|libre)$/i.test(val) ? "LIBRE" : val;
       return adic ? `${txt} + ${adic.slot}` : txt;
     });
-    filas.push([c.id, (c.name || "").split("(")[0].trim(), Number(c.hours) || "", ...celdas, ...semanas.map((l) => r1(horasSem[l] || 0))]);
+    filas.push([c.id, (c.name || "").split("(")[0].trim(), ...celdas]);
   });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(filas);
-  ws["!cols"] = [{ wch: 10 }, { wch: 28 }, { wch: 9 }, ...fechas.map(() => ({ wch: 12 })), ...semanas.map(() => ({ wch: 12 }))];
+  ws["!cols"] = [{ wch: 10 }, { wch: 28 }, ...fechas.map(() => ({ wch: 12 }))];
   ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: Math.min(encabezado.length - 1, 8) } }];
   XLSX.utils.book_append_sheet(wb, ws, "Horarios");
 
