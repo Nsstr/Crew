@@ -3595,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.18
+            Versión: v1.7.19
           </div>
         </div>
       </div>
@@ -4671,7 +4671,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.18";
+  const APP_VERSION = "v1.7.19";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -14306,68 +14306,27 @@ async function exportarPlanillaHorarios(desde, hasta) {
       const cov = await covCalcularPeriodo(desde, hasta);
       const porFecha = Object.fromEntries(cov.dias.map((x) => [x.fecha, x]));
       const desdeH = Math.min(7, cov.hMin ?? 7), hastaH = Math.max(23, cov.hMax ?? 23);
-      const hoja = [[`Cobertura · Línea de Cajas · del ${fc(desde)} al ${fc(hasta)}`], ["Pedido = cajeros por hora de la curva de Recaudaciones. Tenemos = personas en caja en esa hora."]];
-      const merges = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }];
-      const bloque = (titulo, tenemos) => {
-        hoja.push([]);
-        hoja.push([titulo]);
-        merges.push({ s: { r: hoja.length - 1, c: 0 }, e: { r: hoja.length - 1, c: 8 } });
-        const filaDias = ["Hora"];
-        fechas.forEach((f) => {
-          const col = filaDias.length;
-          filaDias.push(`${dn[new Date(f + "T00:00:00").getDay()]} ${fc(f)}`, "");
-          merges.push({ s: { r: hoja.length, c: col }, e: { r: hoja.length, c: col + 1 } });
-        });
-        hoja.push(filaDias);
-        hoja.push(["", ...fechas.flatMap(() => ["Pedido", "Tenemos"])]);
-        const tot = fechas.map(() => [0, 0]);
-        for (let h = desdeH; h <= hastaH; h++) {
-          hoja.push([`${String(h).padStart(2, "0")}:00`, ...fechas.flatMap((f, i) => {
-            const x = porFecha[f];
-            if (!x || x.cerrada) return ["", ""];
-            const o = x.horas.find((y) => y.h === h) || { r: 0, caj: 0, rol: 0 };
-            const ped = x.conDemanda ? o.r : "";
-            const ten = tenemos(o);
-            if (ped !== "") tot[i][0] += ped;
-            tot[i][1] += ten;
-            return [ped, ten];
-          })]);
-        }
-        hoja.push(["Total horas", ...fechas.flatMap((f, i) => {
-          const x = porFecha[f];
-          if (!x || x.cerrada) return ["", ""];
-          return [x.conDemanda ? tot[i][0] : "", tot[i][1]];
-        })]);
+      // Días uno debajo del otro y las horas a lo ancho
+      const horasCols = [];
+      for (let h = desdeH; h <= hastaH; h++) horasCols.push(h);
+      const etiquetaDia = (f) => `${dn[new Date(f + "T00:00:00").getDay()]} ${fc(f)}`;
+      const valorHora = (f, h, campo, soloConDemanda) => {
+        const x = porFecha[f];
+        if (!x || x.cerrada || (soloConDemanda && !x.conDemanda)) return "";
+        const o = x.horas.find((y) => y.h === h);
+        return o ? o[campo] || 0 : 0;
       };
-      bloque("CAJEROS · lo que pide Recaudaciones y lo que tenemos", (o) => o.caj);
-      // Rollers aparte: solo cuántos hay por hora, no se comparan ni se suman a nada
-      hoja.push([]);
-      hoja.push(["ROLLERS · cuántos hay por hora"]);
-      merges.push({ s: { r: hoja.length - 1, c: 0 }, e: { r: hoja.length - 1, c: 8 } });
-      const filaDiasR = ["Hora"];
+      const hoja = [["CAJEROS"], ["Día", "", ...horasCols.map((h) => `${String(h).padStart(2, "0")}:00`)]];
       fechas.forEach((f) => {
-        const col = filaDiasR.length;
-        filaDiasR.push(`${dn[new Date(f + "T00:00:00").getDay()]} ${fc(f)}`, "");
-        merges.push({ s: { r: hoja.length, c: col }, e: { r: hoja.length, c: col + 1 } });
+        hoja.push([etiquetaDia(f), "Pedido", ...horasCols.map((h) => valorHora(f, h, "r", true))]);
+        hoja.push(["", "Tenemos", ...horasCols.map((h) => valorHora(f, h, "caj", false))]);
       });
-      hoja.push(filaDiasR);
-      const totR = fechas.map(() => 0);
-      for (let h = desdeH; h <= hastaH; h++) {
-        hoja.push([`${String(h).padStart(2, "0")}:00`, ...fechas.flatMap((f, i) => {
-          const x = porFecha[f];
-          if (!x || x.cerrada) return ["", ""];
-          const o = x.horas.find((y) => y.h === h) || { rol: 0 };
-          totR[i] += o.rol || 0;
-          return [o.rol || 0, ""];
-        })]);
-        const r = hoja.length - 1;
-        fechas.forEach((f, i) => merges.push({ s: { r, c: 1 + i * 2 }, e: { r, c: 2 + i * 2 } }));
-      }
-      hoja.push(["Total horas", ...fechas.flatMap((f, i) => { const x = porFecha[f]; return !x || x.cerrada ? ["", ""] : [totR[i], ""]; })]);
-      fechas.forEach((f, i) => merges.push({ s: { r: hoja.length - 1, c: 1 + i * 2 }, e: { r: hoja.length - 1, c: 2 + i * 2 } }));
+      hoja.push([]);
+      hoja.push(["ROLLERS"]);
+      hoja.push(["Día", "", ...horasCols.map((h) => `${String(h).padStart(2, "0")}:00`)]);
+      fechas.forEach((f) => hoja.push([etiquetaDia(f), "Rollers", ...horasCols.map((h) => valorHora(f, h, "rol", false))]));
       const ws2 = XLSX.utils.aoa_to_sheet(hoja);
-      ws2["!cols"] = [{ wch: 11 }, ...fechas.flatMap(() => [{ wch: 8 }, { wch: 9 }])];
-      ws2["!merges"] = merges;
+      ws2["!cols"] = [{ wch: 11 }, { wch: 9 }, ...horasCols.map(() => ({ wch: 6 }))];
       XLSX.utils.book_append_sheet(wb, ws2, "Cobertura");
     } catch (e) {
       console.warn("Planilla: no se pudo armar la cobertura", e);
