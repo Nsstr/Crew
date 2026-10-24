@@ -3595,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.14
+            Versión: v1.7.15
           </div>
         </div>
       </div>
@@ -4671,7 +4671,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.14";
+  const APP_VERSION = "v1.7.15";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -14163,7 +14163,7 @@ async function covCalcularPeriodo(desde, hasta) {
         cerrada: !!(evento && evento.tiendaCerrada),
         conDemanda: !!curva,
         horas: [],
-        req: 0, adic: 0, rolCaj: 0, vend: 0,
+        req: 0, adic: 0, rolCaj: 0, vend: 0, rollers: 0,
         esc: Object.fromEntries(COV_ESCENARIOS.map((e) => [e.key, vacio()])),
       };
       if (!dia.cerrada) {
@@ -14180,6 +14180,7 @@ async function covCalcularPeriodo(desde, hasta) {
         const adicH = porHora(cajeros, (t) => t.adicional);
         const vendH = porHora(respaldo);
         const rolCajH = porHora(cajeros.filter((p) => p.rollerComoCajero));
+        const rollersH = porHora(bloques.roller || []);
         const contratoH = Array(24).fill(0);
         cajeros.forEach((p) => ((contrato[dStr] || {})[p.id] || []).forEach((h) => { contratoH[h]++; }));
         const faltaH = Object.fromEntries(COV_ESCENARIOS.map((e) => [e.key, []]));
@@ -14187,7 +14188,7 @@ async function covCalcularPeriodo(desde, hasta) {
           const r = curva ? Number(curva[h]) || 0 : 0;
           const c = { caj: counts[h], conVend: counts[h] + vendH[h], contrato: contratoH[h] };
           dia.horas.push({ h, r, ...c, vend: vendH[h], adic: adicH[h] });
-          dia.req += r; dia.adic += adicH[h]; dia.vend += vendH[h]; dia.rolCaj += rolCajH[h];
+          dia.req += r; dia.adic += adicH[h]; dia.vend += vendH[h]; dia.rolCaj += rolCajH[h]; dia.rollers += rollersH[h];
           COV_ESCENARIOS.forEach(({ key }) => {
             const e = dia.esc[key];
             e.tengo += c[key];
@@ -14291,6 +14292,22 @@ async function exportarPlanillaHorarios(desde, hasta) {
     });
     filas.push([c.id, (c.name || "").split("(")[0].trim(), ...celdas]);
   });
+
+  // Línea de Cajas: debajo, lo que pide Recaudaciones, lo que tenemos de cajeros y aparte los rollers (horas por día)
+  if (area === "Linea de Cajas") {
+    try {
+      const cov = await covCalcularPeriodo(desde, hasta);
+      const porFecha = Object.fromEntries(cov.dias.map((x) => [x.fecha, x]));
+      const val = (f, fn) => { const x = porFecha[f]; return !x || x.cerrada ? "" : fn(x); };
+      filas.push([]);
+      filas.push(["", "Pedido Recaudaciones (h)", ...fechas.map((f) => val(f, (x) => (x.conDemanda ? x.req : "")))]);
+      filas.push(["", "Tenemos cajeros (h)", ...fechas.map((f) => val(f, (x) => x.esc.caj.tengo))]);
+      filas.push([]);
+      filas.push(["", "Rollers (h)", ...fechas.map((f) => val(f, (x) => x.rollers))]);
+    } catch (e) {
+      console.warn("Planilla: no se pudo sumar la cobertura", e);
+    }
+  }
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(filas);
