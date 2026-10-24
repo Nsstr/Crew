@@ -3595,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.23
+            Versión: v1.7.24
           </div>
         </div>
       </div>
@@ -4671,7 +4671,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.23";
+  const APP_VERSION = "v1.7.24";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6200,11 +6200,12 @@ function updateDynamicHours() {
 
   state.collaborators.forEach((collab) => {
     // Estructura limpia para almacenar las hasta 4 semanas procesadas
+    // vac = semana entera de vacaciones y sin horas cargadas (se muestra "V")
     let weeklyData = {
-      1: { hours: 0, vac: false },
-      2: { hours: 0, vac: false },
-      3: { hours: 0, vac: false },
-      4: { hours: 0, vac: false }
+      1: { hours: 0, vac: false, dias: 0, diasVac: 0 },
+      2: { hours: 0, vac: false, dias: 0, diasVac: 0 },
+      3: { hours: 0, vac: false, dias: 0, diasVac: 0 },
+      4: { hours: 0, vac: false, dias: 0, diasVac: 0 }
     };
 
     // Detectar margen histórico: si el array inicia en Domingo y el 2do día es Lunes,
@@ -6236,17 +6237,20 @@ function updateDynamicHours() {
         (vac) => vac.colaboradorId === collab.id && dStr >= vac.startDate && dStr <= vac.endDate
       );
 
-      if (isVac) {
-        weeklyData[currentWeekNum].vac = true;
-      }
+      weeklyData[currentWeekNum].dias++;
+      if (isVac) weeklyData[currentWeekNum].diasVac++;
       if (!weeklyData[currentWeekNum].lunes) weeklyData[currentWeekNum].lunes = formatDate(getStartOfWeek(new Date(dStr + "T00:00:00")));
       
-      if (parsed && parsed.type === "work" && !isVac) {
+      // Los días de vacaciones con horario cargado también suman: es la referencia para
+      // cargarlo en el sistema de la empresa
+      if (parsed && parsed.type === "work") {
         weeklyData[currentWeekNum].hours += parsed.hours;
         const adicSemana = turnoAdicionalInfo(obj);
         if (adicSemana) weeklyData[currentWeekNum].adic = (weeklyData[currentWeekNum].adic || 0) + adicSemana.hours;
       }
     }
+
+    Object.values(weeklyData).forEach((w) => { w.vac = w.dias > 0 && w.diasVac === w.dias && w.hours === 0; });
 
     // Cuadro de horas de la semana, fácil de leer:
     //  igual al contrato → neutro · menos → ámbar (le faltan) · más → celeste (adicionales) · pasa el máximo → rojo
@@ -9850,8 +9854,11 @@ function presuCalcular(p) {
     const contrato = presuContrato(c);
     const porSemana = semanas.map((lunes) => {
       let total = 0, enEvento = 0;
-      for (let i = 0; i < 7; i++) {
-        const d = formatDate(addDays(new Date(lunes + "T00:00:00"), i));
+      // Semana entera de vacaciones: no cuenta para el presupuesto aunque tenga horario cargado
+      const diasSemana = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), i)));
+      const semanaVac = diasSemana.every((d) => (state.vacations || []).some((v) => v.colaboradorId === c.id && d >= v.startDate && d <= v.endDate));
+      for (let i = 0; i < 7 && !semanaVac; i++) {
+        const d = diasSemana[i];
         const h = presuHorasDia(c.id, d);
         total += h;
         if (d >= p.inicio && d <= p.fin) enEvento += h;
