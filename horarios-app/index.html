@@ -3598,7 +3598,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.0-prueba
+            Versión: v1.7.1-prueba
           </div>
         </div>
       </div>
@@ -4241,7 +4241,13 @@
                   <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 3px;" title="Si los rollers tienen su parte, poné cuántas de las horas totales son para ellos. El resto queda para cajeros.">De esas, para rollers</label>
                   <input type="number" id="eventoPresuRollers" min="0" step="0.5" placeholder="Opcional" style="width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.85rem;">
                 </div>
-                <div style="grid-column: 1 / -1; font-size: 0.7rem; color: var(--text-muted); line-height: 1.35;">Cuentan las horas que pasan del contrato en la semana, solo de los días del evento y de los contratos part time.</div>
+                <div style="grid-column: 1 / -1;">
+                  <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; text-align: left;">Máximo de adicionales por semana</div>
+                  <div style="display: grid; grid-template-columns: 1fr auto 1fr 22px; gap: 6px; font-size: 0.66rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px;"><span style="text-align: center;">Contrato (h)</span><span style="visibility: hidden;">→</span><span style="text-align: center;">Adicionales</span><span></span></div>
+                  <div id="eventoPresuTopes" style="display: flex; flex-direction: column; gap: 4px;"></div>
+                  <button type="button" onclick="presuAgregarTope()" style="margin-top: 6px; background: transparent; color: var(--text); border: 1px dashed var(--border); border-radius: 6px; padding: 4px 10px; font-family: inherit; font-size: 0.75rem; cursor: pointer;">+ Agregar contrato</button>
+                </div>
+                <div style="grid-column: 1 / -1; font-size: 0.7rem; color: var(--text-muted); line-height: 1.35;">Cuentan las horas que pasan del contrato en la semana, solo de los días del evento y de los contratos part time. Los topes valen solo para las semanas del evento.</div>
               </div>
             </div>
 
@@ -4621,7 +4627,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.0-prueba";
+  const APP_VERSION = "v1.7.1-prueba";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5942,9 +5948,10 @@ function validateTurn(collabId, dateStr, parsedNewSlot) {
   // 7.3 Lógica de Feriados: Las validaciones de francos adyacentes a feriados ahora son puramente visuales.
   // (Eliminadas las restricciones bloqueantes por pedido del usuario)
 
-  // 7.4 Tope semanal de los part time (<= 30 h): 45 h en total contando el turno adicional
-  // (18 h → hasta 27 adicionales, 24 h → 21, 30 h → 15)
-  if (collab && collab.hours <= 30) {
+  // 7.4 Tope semanal: en semanas de un evento con horas adicionales, el máximo cargado en el evento
+  // para ese contrato; fuera de eventos, part time (<= 30 h) hasta 42 h. Cuenta el turno adicional.
+  const topeSem = collab ? presuTopeSemana(collab, formatDate(getStartOfWeek(new Date(dateStr + "T00:00:00")))) : null;
+  if (collab && topeSem) {
     const targetDateObj = new Date(dateStr + "T00:00:00");
     const weekStart = getStartOfWeek(targetDateObj);
     let totalWeekHoursWithNewTurn = 0;
@@ -5970,12 +5977,12 @@ function validateTurn(collabId, dateStr, parsedNewSlot) {
       if (adicDia) totalWeekHoursWithNewTurn += adicDia.hours;
     }
 
-    // Si la simulación supera las 45 horas, se rechaza el cambio
-    if (totalWeekHoursWithNewTurn > 45) {
+    // Si la simulación supera el tope, se rechaza el cambio
+    if (totalWeekHoursWithNewTurn > topeSem.total) {
       return {
         valid: false,
         type: "exceso_horas",
-        msg: `Con este turno llega a ${totalWeekHoursWithNewTurn} h. Los de ${collab.hours} h pueden hacer hasta ${45 - collab.hours} h adicionales (45 h en total).`,
+        msg: `Con este turno llega a ${totalWeekHoursWithNewTurn} h. Los de ${collab.hours} h pueden hacer hasta ${topeSem.adic} h adicionales${topeSem.evento ? ` en ${topeSem.evento}` : ""} (${topeSem.total} h en total).`,
       };
     }
   }
@@ -9643,12 +9650,29 @@ function presuEventos() {
         area: ev.presupuesto.area || "Linea de Cajas",
         total: Number(ev.presupuesto.total) || 0,
         rollers: Number(ev.presupuesto.rollers) || 0,
+        topes: Array.isArray(ev.presupuesto.topes) ? ev.presupuesto.topes : PRESU_TOPES_BASE,
         color: ev.color,
       };
     });
   });
   return Object.values(vistos);
 }
+
+// Tope semanal de una persona: dentro de las semanas de un evento con horas adicionales usa los
+// máximos cargados en ese evento; fuera de eventos, el de siempre (part time hasta 42 h).
+function presuTopeSemana(collab, lunes) {
+  const contrato = presuContrato(collab);
+  if (!(contrato > 0)) return null;
+  const domingo = formatDate(addDays(new Date(lunes + "T00:00:00"), 6));
+  const ev = presuEventos().find((p) => p.area === (collab.area || "Disponibilidad") && p.inicio <= domingo && p.fin >= lunes);
+  if (ev) {
+    const t = ev.topes.find((x) => Number(x.contrato) === contrato);
+    if (t) return { total: contrato + Number(t.adic), adic: Number(t.adic), evento: ev.nombre };
+  }
+  if (contrato <= 30) return { total: 42, adic: 42 - contrato, evento: null };
+  return null;
+}
+window.presuTopeSemana = presuTopeSemana;
 
 // Días que muestra la grilla ahora
 function presuRangoVisible() {
@@ -9724,7 +9748,8 @@ function presuCalcular(p) {
       }
       const extra = Math.max(0, total - contrato);
       const delEvento = Math.min(extra, enEvento);
-      return { lunes, total, extra, delEvento, fuera: extra - delEvento, tope: 45 - contrato, pasaTope: total > 45 };
+      const tope = presuTopeSemana(c, lunes);
+      return { lunes, total, extra, delEvento, fuera: extra - delEvento, tope: tope ? tope.adic : null, pasaTope: !!tope && total > tope.total + 1e-9 };
     });
     return {
       c, contrato, roller: presuEsRoller(c), porSemana,
@@ -9799,11 +9824,11 @@ function abrirPresuDetalle() {
     .sort((a, b) => b.usado - a.usado || nombre(a.c).localeCompare(nombre(b.c)))
     .map((x) => {
       const celdas = x.porSemana.map((s) => {
-        const marca = s.pasaTope ? ` <span style="color: #fca5a5; font-weight: 700;" title="Pasa de 45 h: puede hacer hasta ${presuR(s.tope)} h adicionales">· pasa de 45 h</span>` : "";
+        const marca = s.pasaTope ? ` <span style="color: #fca5a5; font-weight: 700;" title="Puede hacer hasta ${presuR(s.tope)} h adicionales por semana">· pasa su máximo</span>` : "";
         return `<td style="padding: 7px 10px; border-top: 1px solid var(--border); white-space: nowrap;">${presuR(s.total)} h${s.delEvento ? ` · <b style="color: #06b6d4;">+${presuR(s.delEvento)}</b>` : ""}${s.fuera ? ` <span style="color: var(--text-muted);">(+${presuR(s.fuera)} fuera)</span>` : ""}${marca}</td>`;
       }).join("");
       return `<tr>
-        <td style="padding: 7px 10px; border-top: 1px solid var(--border);"><b>${nombre(x.c)}</b> <span style="color: var(--text-muted); font-size: 0.78rem;">${x.roller ? "roller · " : ""}${x.contrato} h · hasta ${presuR(45 - x.contrato)} adic./sem</span></td>
+        <td style="padding: 7px 10px; border-top: 1px solid var(--border);"><b>${nombre(x.c)}</b> <span style="color: var(--text-muted); font-size: 0.78rem;">${x.roller ? "roller · " : ""}${x.contrato} h${x.porSemana[0] && x.porSemana[0].tope != null ? ` · hasta ${presuR(x.porSemana[0].tope)} adic./sem` : ""}</span></td>
         ${celdas}
         <td style="padding: 7px 10px; border-top: 1px solid var(--border); text-align: right; font-weight: 800;">${x.usado ? presuR(x.usado) : "—"}</td>
       </tr>`;
@@ -9836,7 +9861,7 @@ function abrirPresuDetalle() {
         </table>
       </div>
       <div style="padding: 10px 18px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
-        Por semana: horas cargadas (incluye vacaciones con horario y turno adicional) · <b style="color: #06b6d4;">+ lo que descuenta del evento</b>. Cuenta lo que pasa del contrato en la semana, solo en días del evento. Los part time pueden llegar hasta 45 h por semana.
+        Por semana: horas cargadas (incluye vacaciones con horario y turno adicional) · <b style="color: #06b6d4;">+ lo que descuenta del evento</b>. Cuenta lo que pasa del contrato en la semana, solo en días del evento. El máximo de adicionales por contrato es el que cargaste en el evento.
       </div>
     </div>`;
 }
@@ -9870,8 +9895,9 @@ function problemasPresupuesto(collabId, dStr, collab) {
 // Part time (<= 30 h): la semana no puede pasar de 45 h contando el turno adicional.
 function problemaSemana48(collabId, dStr, collab) {
   const contrato = parseFloat(collab.hours) || parseFloat(collab.cargaHoraria) || parseFloat(collab.contractHours) || 0;
-  if (contrato > 0 && contrato <= 30) {
-    const lunes45 = formatDate(getStartOfWeek(new Date(dStr + "T00:00:00")));
+  const lunes45 = formatDate(getStartOfWeek(new Date(dStr + "T00:00:00")));
+  const tope45 = contrato > 0 && contrato < 48 ? presuTopeSemana(collab, lunes45) : null;
+  if (tope45) {
     let total45 = 0;
     for (let i = 0; i < 7; i++) {
       const d = formatDate(addDays(new Date(lunes45 + "T00:00:00"), i));
@@ -9880,12 +9906,12 @@ function problemaSemana48(collabId, dStr, collab) {
       const ad = turnoAdicionalInfo(getPlanningObj(collabId, d));
       if (ad) total45 += ad.hours;
     }
-    if (total45 > 45) {
+    if (total45 > tope45.total + 1e-9) {
       const nom = nombreCortoCelular(collab) || (collab.name || "").split("(")[0].trim();
       const fc45 = lunes45.split("-").reverse().slice(0, 2).join("/");
-      return [{ clave: `sem45|${collabId}|${lunes45}`, nombre: nom, fecha: `la semana del ${fc45}`, titulo: "Se pasa de 45 h",
-        msg: `${nom} llega a ${String(Math.round(total45 * 10) / 10).replace(".", ",")}\u00a0h la semana del ${fc45}. Con ${contrato}\u00a0h puede hacer hasta ${45 - contrato}\u00a0h adicionales.`,
-        resuelto: `${nom} ya no pasa de 45\u00a0h la semana del ${fc45}.` }];
+      return [{ clave: `sem45|${collabId}|${lunes45}`, nombre: nom, fecha: `la semana del ${fc45}`, titulo: `Se pasa de ${tope45.total} h`,
+        msg: `${nom} llega a ${String(Math.round(total45 * 10) / 10).replace(".", ",")}\u00a0h la semana del ${fc45}. Con ${contrato}\u00a0h puede hacer hasta ${tope45.adic}\u00a0h adicionales${tope45.evento ? ` en ${tope45.evento}` : ""}.`,
+        resuelto: `${nom} ya está dentro de su máximo la semana del ${fc45}.` }];
     }
     return [];
   }
@@ -15599,6 +15625,27 @@ async function evGuardarListas(listas) {
 
 const evFechaCorta = (s) => s.split("-").reverse().slice(0, 2).join("/");
 
+// Topes de adicionales por contrato (filas editables del formulario)
+var PRESU_TOPES_BASE = [{ contrato: 18, adic: 27 }, { contrato: 24, adic: 21 }, { contrato: 30, adic: 15 }];
+function presuFilaTope(t) {
+  const est = "width: 100%; min-width: 0; box-sizing: border-box; padding: 5px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.82rem; text-align: center;";
+  return `<div class="presu-tope" style="display: grid; grid-template-columns: 1fr auto 1fr 22px; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-muted);">
+    <input type="number" class="presu-tope-c" min="1" step="1" value="${t ? t.contrato : ""}" placeholder="h" title="Horas del contrato" style="${est}">
+    <span>→</span>
+    <input type="number" class="presu-tope-a" min="0" step="0.5" value="${t ? t.adic : ""}" placeholder="h" title="Máximo de adicionales por semana" style="${est}">
+    <button type="button" title="Sacar" onclick="this.parentElement.remove()" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 0;">&times;</button>
+  </div>`;
+}
+window.presuAgregarTope = function () {
+  document.getElementById("eventoPresuTopes").insertAdjacentHTML("beforeend", presuFilaTope(null));
+};
+function presuLeerTopes() {
+  return [...document.querySelectorAll("#eventoPresuTopes .presu-tope")].map((f) => ({
+    contrato: parseFloat(String(f.querySelector(".presu-tope-c").value).replace(",", ".")),
+    adic: parseFloat(String(f.querySelector(".presu-tope-a").value).replace(",", ".")),
+  })).filter((t) => t.contrato > 0 && t.adic >= 0).sort((a, b) => a.contrato - b.contrato);
+}
+
 // Campos de horas adicionales del formulario de eventos
 function presuLlenarForm(p) {
   const sel = document.getElementById("eventoPresuArea");
@@ -15610,6 +15657,8 @@ function presuLlenarForm(p) {
   document.getElementById("eventoPresuCampos").style.display = p ? "grid" : "none";
   document.getElementById("eventoPresuTotal").value = p ? p.total : "";
   document.getElementById("eventoPresuRollers").value = p && p.rollers ? p.rollers : "";
+  const topes = p && Array.isArray(p.topes) ? p.topes : PRESU_TOPES_BASE;
+  document.getElementById("eventoPresuTopes").innerHTML = topes.map(presuFilaTope).join("");
 }
 window.presuLlenarForm = presuLlenarForm;
 
@@ -15673,7 +15722,9 @@ window.saveEvento = async function () {
     const rollers = parseFloat(String(document.getElementById("eventoPresuRollers").value || "0").replace(",", ".")) || 0;
     if (!(total > 0)) { showToast("Faltan las horas", "Poné cuántas horas adicionales tiene el evento.", "warning"); return; }
     if (rollers > total) { showToast("Revisá las horas", "Las de rollers no pueden ser más que el total.", "warning"); return; }
-    presupuesto = { area: document.getElementById("eventoPresuArea").value || "Linea de Cajas", total, rollers };
+    const topes = presuLeerTopes();
+    if (new Set(topes.map((t) => t.contrato)).size !== topes.length) { showToast("Revisá los contratos", "Hay un contrato repetido en los máximos.", "warning"); return; }
+    presupuesto = { area: document.getElementById("eventoPresuArea").value || "Linea de Cajas", total, rollers, topes };
   }
 
   if (!fechaInicioStr) {
