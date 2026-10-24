@@ -3595,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.11
+            Versión: v1.7.12
           </div>
         </div>
       </div>
@@ -4666,7 +4666,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.11";
+  const APP_VERSION = "v1.7.12";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -8124,7 +8124,30 @@ function attachScheduleEventListeners() {
     });
 
     // 3. Listener de flechas de teclado
+    // Como en Excel: un clic selecciona la celda (escribir reemplaza, las flechas cambian de celda).
+    // Doble clic o F2 entra a editar: las flechas izquierda/derecha mueven el cursor dentro del texto.
+    const entrarEdicion = (inp) => {
+      if (!inp || inp.readOnly || inp.disabled) return;
+      inp.dataset.editando = "1";
+      const n = inp.value.length;
+      try { inp.setSelectionRange(n, n); } catch (err) {}
+    };
+    table.addEventListener("dblclick", (e) => {
+      const inp = e.target.closest(".cell-input") || e.target.closest("td")?.querySelector(".cell-input");
+      if (!inp) return;
+      if (document.activeElement !== inp) inp.focus();
+      // El doble clic deja el cursor donde se hizo clic (no todo seleccionado)
+      inp.dataset.editando = "1";
+      setTimeout(() => { if (inp.selectionStart === 0 && inp.selectionEnd === inp.value.length) entrarEdicion(inp); }, 0);
+    });
+    table.addEventListener("focusout", (e) => {
+      if (e.target.classList && e.target.classList.contains("cell-input")) delete e.target.dataset.editando;
+    });
+
     table.addEventListener("keydown", (e) => {
+      const enCelda = e.target.closest && e.target.closest(".cell-input");
+      if (enCelda && e.key === "F2") { e.preventDefault(); entrarEdicion(enCelda); return; }
+      if (enCelda && enCelda.dataset.editando === "1" && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; // mover el cursor dentro del texto
       const enCerrada = e.target.closest && e.target.closest('.cell-input[data-cerrado="1"]');
       if (enCerrada && (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete")) {
         e.preventDefault();
