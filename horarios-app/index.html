@@ -3596,7 +3596,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.26
+            Versión: v1.7.27
           </div>
         </div>
       </div>
@@ -4672,7 +4672,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.26";
+  const APP_VERSION = "v1.7.27";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -10011,7 +10011,7 @@ function abrirPresuDetalle() {
         })()}
       </div>` : "";
   m.innerHTML = `
-    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: min(980px, 100%); max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;">
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: min(980px, 100%); max-height: 88vh; display: flex; flex-direction: column; overflow-y: auto;">
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--bg);">
         <div>
           <div style="font-weight: 800; font-size: 1.05rem; color: var(--text);">${p.nombre}${conHoras ? " · horas adicionales" : " · reglas"}</div>
@@ -10019,8 +10019,6 @@ function abrirPresuDetalle() {
         </div>
         <button type="button" onclick="document.getElementById('presuDetalleModal').remove()" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
       </div>
-      ${bloqueReglas}
-      ${conHoras && p.excluidos && p.excluidos.length ? `<div style="padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 0.82rem; color: var(--text-muted);"><b style="color: #f87171;">Sin horas adicionales:</b> ${p.excluidos.map((id) => { const c = state.collaborators.find((x) => x.id === id); return c ? (c.name || "").split("(")[0].trim() : null; }).filter(Boolean).join(", ")}</div>` : ""}
       ${conHoras ? `
       <div style="padding: 14px 18px; display: flex; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--border);">
         <div style="flex: 1 1 150px; background: var(--bg); border: 1px solid ${pasa ? "#ef4444" : "var(--border)"}; border-radius: 10px; padding: 10px 12px;"><div style="font-size: 0.75rem; color: var(--text-muted);">Usadas</div><div style="font-size: 1.4rem; font-weight: 800; color: var(--text);">${presuR(r.usado)} <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-muted);">de ${presuR(p.total)}</span></div></div>
@@ -10029,7 +10027,18 @@ function abrirPresuDetalle() {
         <div style="flex: 1 1 150px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;"><div style="font-size: 0.75rem; color: var(--text-muted);">Cajeros</div><div style="font-size: 1.1rem; font-weight: 800; color: ${r.cajeros.usado > r.cajeros.tope ? "#fca5a5" : "var(--text)"};">${presuR(r.cajeros.usado)} <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">de ${presuR(r.cajeros.tope)}</span></div></div>
         <div style="flex: 1 1 150px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;"><div style="font-size: 0.75rem; color: var(--text-muted);">Rollers</div><div style="font-size: 1.1rem; font-weight: 800; color: ${r.rollers.usado > r.rollers.tope ? "#fca5a5" : "var(--text)"};">${presuR(r.rollers.usado)} <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">de ${presuR(r.rollers.tope)}</span></div></div>` : ""}
       </div>
-      <div style="overflow: auto; padding: 0 8px 8px;">
+      ${(() => {
+        const sacarCaj = r.conSeparacion ? Math.max(0, r.cajeros.usado - r.cajeros.tope) : 0;
+        const sacarRol = r.conSeparacion ? Math.max(0, r.rollers.usado - r.rollers.tope) : 0;
+        const sacarTot = Math.max(0, r.usado - p.total);
+        if (!sacarCaj && !sacarRol && !sacarTot) return "";
+        const partes = [];
+        if (sacarCaj) partes.push(`<b style="color: #fca5a5;">${presuR(sacarCaj)} h de cajeros</b>`);
+        if (sacarRol) partes.push(`<b style="color: #fca5a5;">${presuR(sacarRol)} h de rollers</b>`);
+        const sobraRol = r.conSeparacion ? Math.max(0, r.rollers.tope - r.rollers.usado) : 0;
+        return `<div style="padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--text);">Para quedar dentro: sacá ${partes.length ? partes.join(" y ") : `<b style="color: #fca5a5;">${presuR(sacarTot)} h</b>`}.${sacarCaj && sobraRol ? ` <span style="color: var(--text-muted);">(Si te dejan usar las ${presuR(sobraRol)} h que sobran de rollers, ${sacarTot ? `alcanza con sacar ${presuR(sacarTot)} h` : "no hace falta sacar nada"}.)</span>` : ""} <span style="color: var(--text-muted);">La lista está ordenada: arriba los que más horas adicionales usan.</span></div>`;
+      })()}
+      <div style="overflow-x: auto; flex: 0 0 auto; padding: 0 8px 8px;">
         <table style="width: 100%; border-collapse: collapse; font-size: 0.84rem; color: var(--text);">
           <thead><tr>
             <th style="text-align: left; padding: 10px; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; position: sticky; top: 0; background: var(--surface);">Persona</th>
@@ -10042,6 +10051,9 @@ function abrirPresuDetalle() {
       <div style="padding: 10px 18px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
         Por semana: horas cargadas (incluye vacaciones con horario y turno adicional) · <b style="color: #06b6d4;">+ lo que descuenta del evento</b>. Cuenta lo que pasa del contrato en la semana, solo en días del evento. El máximo de adicionales por contrato es el que cargaste en el evento.
       </div>` : ""}
+      ${bloqueReglas}
+      ${conHoras && p.excluidos && p.excluidos.length ? `<div style="padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 0.82rem; color: var(--text-muted);"><b style="color: #f87171;">Sin horas adicionales:</b> ${p.excluidos.map((id) => { const c = state.collaborators.find((x) => x.id === id); return c ? (c.name || "").split("(")[0].trim() : null; }).filter(Boolean).join(", ")}</div>` : ""}
+
     </div>`;
 }
 window.abrirPresuDetalle = abrirPresuDetalle;
