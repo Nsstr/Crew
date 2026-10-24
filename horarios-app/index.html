@@ -3595,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.21
+            Versión: v1.7.22
           </div>
         </div>
       </div>
@@ -4671,7 +4671,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.21";
+  const APP_VERSION = "v1.7.22";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5646,6 +5646,17 @@ async function loadWeekPlanning(append = false) {
                 !change.doc.metadata.hasPendingWrites && !mismoContenido(previo, data);
 
               if (change.type === "added" || change.type === "modified") {
+                // Adicional guardado aparte (forma vieja): se pasa al turno como cortado y se guarda así
+                if (data.turnoAdicional) {
+                  const unido = unirAdicionalAlTurno(data.slot, data.turnoAdicional);
+                  if (unido) {
+                    data.slot = unido;
+                    data.turnoAdicional = "";
+                    if (!isMockMode) {
+                      try { setDoc(doc(db, "planificacion", change.doc.id), { slot: unido, turnoAdicional: "" }, { merge: true }); } catch (e) { console.warn("No se pudo unir el adicional", e); }
+                    }
+                  }
+                }
                 state.planning[clave] = data;
               }
               if (change.type === "removed") {
@@ -5793,6 +5804,21 @@ function calculateWeeklyHours(collabId, weekMondayStr, excludeDateStr) {
 // Turno adicional del día (ej: viene 8a13 y además 17a21). Se guarda aparte del turno
 // (obj.turnoAdicional): cuenta para la cobertura y suma a las horas de la semana, así que
 // dispara el aviso de horas extras igual que cualquier hora por encima del contrato.
+// Turno adicional y cortado son lo mismo (horas del día en dos tramos). Si el día tiene un
+// adicional guardado aparte (forma vieja), lo pasa al turno con "/" en orden: "8a12" + "16a20" → "8a12/16a20".
+// Devuelve el slot nuevo, o null si no se puede (ya es cortado, ausencia o se pisan).
+function unirAdicionalAlTurno(slot, adicional) {
+  if (!slot || !adicional) return null;
+  const s = String(slot).replace("*", "").trim();
+  const a = String(adicional).trim();
+  const p = parseShift(s), q = parseShift(a);
+  if (!p || p.type !== "work" || p.isCortado || p.ausencia || p.isNV) return null;
+  if (!q || q.type !== "work" || q.isCortado || q.ausencia) return null;
+  const fin = (x) => (x.end <= x.start ? 24 : x.end);
+  if (q.start < fin(p) && fin(q) > p.start) return null;
+  return p.start <= q.start ? `${s}/${a}` : `${a}/${s}`;
+}
+
 function turnoAdicionalInfo(obj) {
   if (!obj || typeof obj !== "object" || !obj.turnoAdicional) return null;
   const p = parseShift(obj.turnoAdicional);
@@ -12806,14 +12832,14 @@ function handleContextMenu(e) {
         </div>
 
         <div id="ctxAdicionalBlock" class="ctx-row-card" style="flex-direction: column !important; align-items: stretch !important; gap: 6px !important;">
-          <label for="ctxAdicIn">Turno adicional<br><small style="font-weight: 400; color: #94a3b8;">Otro horario el mismo día. Sus horas van aparte como adicionales.</small></label>
+          <label for="ctxAdicIn">Segundo horario (cortado)<br><small style="font-weight: 400; color: #94a3b8;">Otro horario el mismo día. Se guarda con "/" como un turno cortado.</small></label>
           <div style="display: flex; align-items: center; gap: 6px;">
             <div class="ctx-time-capsule" style="flex: 1; margin: 0;">
               <input type="time" id="ctxAdicIn">
               <span style="color: #64748b; font-size: 0.75rem;">a</span>
               <input type="time" id="ctxAdicOut">
             </div>
-            <button type="button" id="ctxAdicClear" title="Quitar turno adicional" style="background: transparent; border: 1px solid #334155; color: #94a3b8; border-radius: 6px; padding: 6px 8px; font-size: 0.72rem; cursor: pointer;">Quitar</button>
+            <button type="button" id="ctxAdicClear" title="Quitar segundo horario" style="background: transparent; border: 1px solid #334155; color: #94a3b8; border-radius: 6px; padding: 6px 8px; font-size: 0.72rem; cursor: pointer;">Quitar</button>
           </div>
           <span id="ctxAdicHoras" style="font-size: 0.7rem; color: #fbbf24;"></span>
         </div>
@@ -12990,6 +13016,14 @@ function handleContextMenu(e) {
       const adic = turnoAdicionalInfo(obj);
       adicIn.value = adic ? aHHMM(adic.start) : "";
       adicOut.value = adic ? aHHMM(adic.end) : "";
+      adicIn.dataset.desdeCortado = "";
+      const pCort = currentSlot ? parseShift(currentSlot) : null;
+      if (!adic && pCort && pCort.isCortado && !pCort.isNV && pCort.tramos && pCort.tramos[1]) {
+        const t2 = pCort.tramos[1];
+        adicIn.value = aHHMM(t2.start);
+        adicOut.value = aHHMM(t2.end);
+        adicIn.dataset.desdeCortado = "1";
+      }
       const mostrarHorasAdic = () => {
         const el = document.getElementById("ctxAdicHoras");
         if (!el) return;
@@ -13381,7 +13415,9 @@ async function autoSaveContextMenu() {
 
   const tInEl = document.getElementById("ctxTimeIn"), tOutEl = document.getElementById("ctxTimeOut");
   const capsulaSinTocar = tInEl && tOutEl && tInEl.value === (tInEl.dataset.orig || "") && tOutEl.value === (tOutEl.dataset.orig || "");
-  if (timeInVal && timeOutVal && !capsulaSinTocar) {
+  const adicInEl0 = document.getElementById("ctxAdicIn");
+  const desdeCortado = !!(adicInEl0 && adicInEl0.dataset.desdeCortado === "1" && adicInEl0.offsetParent !== null);
+  if (timeInVal && timeOutVal && (!capsulaSinTocar || desdeCortado)) {
     const formattedTimeIn = timeInVal.replace(/^0/, "").replace(/:00$/, "");
     const formattedTimeOut = timeOutVal.replace(/^0/, "").replace(/:00$/, "");
     slotValue = `${formattedTimeIn}a${formattedTimeOut}`;
@@ -13420,6 +13456,15 @@ async function autoSaveContextMenu() {
         showToast("Turno adicional", "Se pisa con el turno del día.", "warning");
         return false;
       }
+    }
+  }
+
+  // El segundo horario no queda aparte: se une al turno como cortado ("8a12/16a20")
+  if (turnoAdicionalNuevo) {
+    const unido = unirAdicionalAlTurno(slotValue, turnoAdicionalNuevo);
+    if (unido) {
+      slotValue = unido;
+      turnoAdicionalNuevo = "";
     }
   }
 
@@ -14299,9 +14344,10 @@ async function exportarPlanillaHorarios(desde, hasta) {
       const adic = turnoAdicionalInfo(o);
       const lunes = formatDate(getStartOfWeek(new Date(f + "T00:00:00")));
       if (p && p.type === "work") horasSem[lunes] = (horasSem[lunes] || 0) + (p.hours || 0) + (adic ? adic.hours : 0);
-      if (!val || val === "-") return adic ? `+ ${adic.slot}` : "";
+      if (!val || val === "-") return adic ? adic.slot : "";
       const txt = /^f$/i.test(val) ? "FRANCO" : /^(l|libre)$/i.test(val) ? "LIBRE" : val;
-      return adic ? `${txt} + ${adic.slot}` : txt;
+      if (!adic) return txt;
+      return unirAdicionalAlTurno(val, adic.slot) || `${txt}/${adic.slot}`;
     });
     filas.push([c.id, (c.name || "").split("(")[0].trim(), ...celdas]);
   });
