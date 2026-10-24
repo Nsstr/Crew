@@ -3600,7 +3600,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.3
+            Versión: v1.7.4
           </div>
         </div>
       </div>
@@ -4236,13 +4236,14 @@
               </label>
               <div id="eventoPresuCampos" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
                 <div>
-                  <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 3px;">Horas en total</label>
-                  <input type="number" id="eventoPresuTotal" min="0" step="0.5" placeholder="Ej: 406" style="width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.85rem;">
+                  <label id="eventoPresuLblCajeros" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 3px;">Horas para cajeros</label>
+                  <input type="number" id="eventoPresuCajeros" min="0" step="0.5" placeholder="Ej: 358" oninput="presuMostrarTotal()" style="width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.85rem;">
                 </div>
-                <div>
-                  <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 3px;" title="Si los rollers tienen su parte, poné cuántas de las horas totales son para ellos. El resto queda para cajeros.">De esas, para rollers</label>
-                  <input type="number" id="eventoPresuRollers" min="0" step="0.5" placeholder="Opcional" style="width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.85rem;">
+                <div id="eventoPresuBoxRollers">
+                  <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 3px;">Horas para rollers</label>
+                  <input type="number" id="eventoPresuRollers" min="0" step="0.5" placeholder="Ej: 96" oninput="presuMostrarTotal()" style="width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.85rem;">
                 </div>
+                <div id="eventoPresuTotalTxt" style="grid-column: 1 / -1; font-size: 0.8rem; color: var(--text); text-align: left;"></div>
                 <div style="grid-column: 1 / -1;">
                   <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; text-align: left;">Máximo de adicionales por semana</div>
                   <div style="display: grid; grid-template-columns: 1fr auto 1fr 22px; gap: 6px; font-size: 0.66rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px;"><span style="text-align: center;">Contrato (h)</span><span style="visibility: hidden;">→</span><span style="text-align: center;">Adicionales</span><span></span></div>
@@ -4652,7 +4653,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.3";
+  const APP_VERSION = "v1.7.4";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15843,6 +15844,16 @@ function reglasLeerForm() {
     minHoras: num("eventoReglaMinHoras"),
   };
 }
+// Total que se va a guardar (cajeros + rollers); fuera de Línea de Cajas, horas del sector sin rollers
+window.presuMostrarTotal = function () {
+  const esCajas = (document.getElementById("eventoPresuArea").value || "Linea de Cajas") === "Linea de Cajas";
+  document.getElementById("eventoPresuLblCajeros").textContent = esCajas ? "Horas para cajeros" : "Horas para el sector";
+  document.getElementById("eventoPresuBoxRollers").style.display = esCajas ? "" : "none";
+  const n = (id) => parseFloat(String(document.getElementById(id).value || "0").replace(",", ".")) || 0;
+  const tot = n("eventoPresuCajeros") + (esCajas ? n("eventoPresuRollers") : 0);
+  document.getElementById("eventoPresuTotalTxt").innerHTML = tot > 0 ? `Total del evento: <b>${String(Math.round(tot * 10) / 10).replace(".", ",")} h</b>` : "";
+};
+
 window.presuMostrarSector = function () {
   const algo = document.getElementById("eventoPresuCheck").checked || document.getElementById("eventoReglasCheck").checked;
   document.getElementById("eventoSectorBox").style.display = algo ? "block" : "none";
@@ -15857,8 +15868,10 @@ function presuLlenarForm(p, reglas) {
   sel.value = (p && p.area) || (reglas && reglas.area) || (state.currentArea && areas.includes(state.currentArea) ? state.currentArea : "Linea de Cajas");
   document.getElementById("eventoPresuCheck").checked = !!p;
   document.getElementById("eventoPresuCampos").style.display = p ? "grid" : "none";
-  document.getElementById("eventoPresuTotal").value = p ? p.total : "";
+  document.getElementById("eventoPresuCajeros").value = p ? (Number(p.total) || 0) - (Number(p.rollers) || 0) : "";
   document.getElementById("eventoPresuRollers").value = p && p.rollers ? p.rollers : "";
+  sel.onchange = presuMostrarTotal;
+  presuMostrarTotal();
   const topes = p && Array.isArray(p.topes) ? p.topes : PRESU_TOPES_BASE;
   document.getElementById("eventoPresuTopes").innerHTML = topes.map(presuFilaTope).join("");
   reglasLlenarForm(reglas || null);
@@ -15922,10 +15935,11 @@ window.saveEvento = async function () {
   const tiendaCerrada = document.getElementById("eventoTiendaCerradaInput").checked;
   let presupuesto = null;
   if (document.getElementById("eventoPresuCheck")?.checked) {
-    const total = parseFloat(String(document.getElementById("eventoPresuTotal").value).replace(",", "."));
-    const rollers = parseFloat(String(document.getElementById("eventoPresuRollers").value || "0").replace(",", ".")) || 0;
+    const esCajas = (document.getElementById("eventoPresuArea").value || "Linea de Cajas") === "Linea de Cajas";
+    const cajeros = parseFloat(String(document.getElementById("eventoPresuCajeros").value || "0").replace(",", ".")) || 0;
+    const rollers = esCajas ? parseFloat(String(document.getElementById("eventoPresuRollers").value || "0").replace(",", ".")) || 0 : 0;
+    const total = cajeros + rollers;
     if (!(total > 0)) { showToast("Faltan las horas", "Poné cuántas horas adicionales tiene el evento.", "warning"); return; }
-    if (rollers > total) { showToast("Revisá las horas", "Las de rollers no pueden ser más que el total.", "warning"); return; }
     const topes = presuLeerTopes();
     if (new Set(topes.map((t) => t.contrato)).size !== topes.length) { showToast("Revisá los contratos", "Hay un contrato repetido en los máximos.", "warning"); return; }
     presupuesto = { area: document.getElementById("eventoPresuArea").value || "Linea de Cajas", total, rollers, topes };
