@@ -3595,7 +3595,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.20
+            Versión: v1.7.21
           </div>
         </div>
       </div>
@@ -4671,7 +4671,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.20";
+  const APP_VERSION = "v1.7.21";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -12772,8 +12772,8 @@ function handleContextMenu(e) {
             <button type="button" id="qs-ASA" class="ctx-chip" title="Ausente sin aviso">ASA</button>
           </div>
 
-          <span class="ctx-section-label">Horario del Día</span>
-          <div class="ctx-time-capsule">
+          <span class="ctx-section-label" id="ctxHorarioLabel">Horario del Día</span>
+          <div class="ctx-time-capsule" id="ctxHorarioCapsule">
             <input type="time" id="ctxTimeIn">
             <span style="color: #64748b; font-size: 0.75rem;">a</span>
             <input type="time" id="ctxTimeOut">
@@ -12905,6 +12905,22 @@ function handleContextMenu(e) {
         document.getElementById("ctxTimeOut").value =
           `${tOutH.padStart(2, "0")}:${tOutM}`;
       }
+    }
+    // Lo precargado queda anotado: si no se toca, al guardar se respeta el turno tal cual
+    // (así un cortado "10a14/18a20" no se pierde quedando solo en "10a14").
+    document.getElementById("ctxTimeIn").dataset.orig = document.getElementById("ctxTimeIn").value;
+    document.getElementById("ctxTimeOut").dataset.orig = document.getElementById("ctxTimeOut").value;
+
+    // En escritorio el horario se escribe en la celda (con "/" para el cortado o las extras),
+    // así que el menú no muestra "Horario del día" ni "Turno adicional". El adicional aparece
+    // solo si ese día ya tiene uno cargado, para poder cambiarlo o quitarlo.
+    {
+      const esEscritorio = window.innerWidth > 768;
+      const lbl = document.getElementById("ctxHorarioLabel"), cap = document.getElementById("ctxHorarioCapsule");
+      if (lbl) lbl.style.display = esEscritorio ? "none" : "";
+      if (cap) cap.style.setProperty("display", esEscritorio ? "none" : "flex", "important");
+      const bAdic = document.getElementById("ctxAdicionalBlock");
+      if (bAdic) bAdic.style.setProperty("display", esEscritorio && !obj.turnoAdicional ? "none" : "flex", "important");
     }
 
     // Overtime calculation helper from inputs or slot
@@ -13363,7 +13379,9 @@ async function autoSaveContextMenu() {
   const timeOutVal = document.getElementById("ctxTimeOut") ? document.getElementById("ctxTimeOut").value : "";
   let slotValue = getPlanningSlot(collabId, dateStr) || currentContextCell.value;
 
-  if (timeInVal && timeOutVal) {
+  const tInEl = document.getElementById("ctxTimeIn"), tOutEl = document.getElementById("ctxTimeOut");
+  const capsulaSinTocar = tInEl && tOutEl && tInEl.value === (tInEl.dataset.orig || "") && tOutEl.value === (tOutEl.dataset.orig || "");
+  if (timeInVal && timeOutVal && !capsulaSinTocar) {
     const formattedTimeIn = timeInVal.replace(/^0/, "").replace(/:00$/, "");
     const formattedTimeOut = timeOutVal.replace(/^0/, "").replace(/:00$/, "");
     slotValue = `${formattedTimeIn}a${formattedTimeOut}`;
