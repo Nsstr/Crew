@@ -3596,7 +3596,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.25
+            Versión: v1.7.26
           </div>
         </div>
       </div>
@@ -4672,7 +4672,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.25";
+  const APP_VERSION = "v1.7.26";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -9740,8 +9740,9 @@ function chequeosSuaves(collabId, dStr) {
 // del presupuesto lo que cae en días del evento; lo que sobra fuera del evento se muestra aparte.
 // Solo contratos part time (menos de 48 h).
 // ─────────────────────────────────────────────────────────────────────────────
-var presuCache = {};          // turnos traídos aparte para semanas del evento que no están en pantalla
-var presuCacheCargado = {};   // rangos ya pedidos
+var presuCache = {};          // turnos de todas las semanas del evento, en vivo (fuente de verdad del presupuesto)
+var presuCacheCargado = {};   // rangos que ya están escuchando cambios
+var presuCacheVivo = {};      // clave del rango → true cuando ya llegó la primera carga
 const presuEsRoller = (c) => !!c && ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller");
 const presuContrato = (c) => parseFloat(c.hours) || parseFloat(c.cargaHoraria) || parseFloat(c.contractHours) || 0;
 const presuR = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
@@ -9816,7 +9817,10 @@ function presuSemanas(p) {
 
 function presuObj(collabId, dStr) {
   const k = `${collabId}_${dStr}`;
-  const o = state.planning[k] !== undefined ? state.planning[k] : presuCache[k];
+  // Si las semanas del evento ya llegaron en vivo, manda eso (incluye lo que cambian otros y lo
+  // que se borró). Si todavía no llegaron, se usa lo que hay en pantalla.
+  const enRangoVivo = Object.keys(presuCacheVivo).some((r) => { const [a, b] = r.split("|"); return dStr >= a && dStr <= b; });
+  const o = enRangoVivo ? presuCache[k] : state.planning[k];
   if (!o) return null;
   return typeof o === "string" ? { slot: o } : o;
 }
@@ -9829,11 +9833,27 @@ async function presuAsegurarDatos(p) {
   const clave = `${desde}|${hasta}`;
   if (presuCacheCargado[clave]) return;
   presuCacheCargado[clave] = true;
+  // Escucha en vivo todas las semanas del evento: los cambios propios, los de otros y los borrados
+  // se reflejan al instante (antes se traían una sola vez y la cuenta podía quedar vieja).
   try {
-    const snap = await getDocs(query(collection(db, "planificacion"), where("fecha", ">=", desde), where("fecha", "<=", hasta)));
-    snap.docs.forEach((d) => { const x = d.data(); presuCache[`${x.colaboradorId}_${x.fecha}`] = x; });
-    renderPresuBarra();
-    if (celdasVigiladas.size) revisarAlertasVivas();
+    onSnapshot(
+      query(collection(db, "planificacion"), where("fecha", ">=", desde), where("fecha", "<=", hasta)),
+      (snap) => {
+        snap.docChanges().forEach((ch) => {
+          const x = ch.doc.data();
+          const k = `${x.colaboradorId}_${x.fecha}`;
+          if (ch.type === "removed") delete presuCache[k];
+          else presuCache[k] = x;
+        });
+        presuCacheVivo[clave] = true;
+        renderPresuBarra();
+        if (celdasVigiladas.size) revisarAlertasVivas();
+      },
+      (e) => {
+        presuCacheCargado[clave] = false;
+        console.warn("No se pudieron traer las semanas del evento:", e);
+      },
+    );
   } catch (e) {
     presuCacheCargado[clave] = false;
     console.warn("No se pudieron traer las semanas del evento:", e);
