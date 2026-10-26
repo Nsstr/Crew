@@ -3729,7 +3729,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.35
+            Versión: v1.7.36
           </div>
         </div>
       </div>
@@ -4946,7 +4946,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.35";
+  const APP_VERSION = "v1.7.36";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -10227,41 +10227,121 @@ function presuCalcular(p) {
 }
 
 // Barra arriba de la grilla
-// Segunda línea de la barra: la semana del evento que se está mirando (29/10 al 01/11, 02 al 08…):
-// horas adicionales usadas esa semana, horas de cajeros planificadas y lo que pide Recaudaciones.
+// Segunda línea de la barra: un período del evento a elegir (esta semana, todo el evento o
+// días sueltos) con las horas adicionales usadas, las horas de cajeros planificadas y lo que
+// pide Recaudaciones. "Esta semana" se calcula al momento; los otros traen horarios y demanda
+// de esas fechas (aunque no estén en pantalla) y se guardan un rato para no recalcular a cada clic.
+let presuRangoCalc = { clave: "", t: 0, datos: null, calculando: false };
+function presuRangoModo() {
+  try { return JSON.parse(localStorage.getItem("presuRango") || "null") || { modo: "semana" }; } catch (e) { return { modo: "semana" }; }
+}
+window.presuRangoElegir = function (modo, desde, hasta) {
+  const prev = presuRangoModo();
+  const nuevo = { modo, desde: desde || prev.desde || "", hasta: hasta || prev.hasta || "" };
+  try { localStorage.setItem("presuRango", JSON.stringify(nuevo)); } catch (e) {}
+  presuRangoCalc.t = 0;
+  renderPresuBarra();
+};
+// Adicionales de un período: por persona y semana, la parte de lo que descuenta del evento
+// que corresponde a las horas trabajadas en esos días (proporcional)
+function presuAdicEnRango(p, r, desde, hasta) {
+  if (!(p.total > 0) || !r || !r.personas) return null;
+  let total = 0;
+  r.personas.forEach((x) => x.porSemana.forEach((sm) => {
+    if (!sm.delEvento) return;
+    let enEvento = 0, enRango = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = formatDate(addDays(new Date(sm.lunes + "T00:00:00"), i));
+      if (d < p.inicio || d > p.fin) continue;
+      const h = presuHorasDia(x.c.id, d);
+      enEvento += h;
+      if (d >= desde && d <= hasta) enRango += h;
+    }
+    if (enEvento > 0) total += sm.delEvento * (enRango / enEvento);
+  }));
+  return total;
+}
+function presuSumarCobertura(desde, hasta) {
+  let tenemos = 0, pide = 0, conDem = 0, dias = 0;
+  for (let d = new Date(desde + "T00:00:00"); formatDate(d) <= hasta; d = addDays(d, 1)) {
+    const dStr = formatDate(d);
+    dias++;
+    const curva = state.demandaCajas && state.demandaCajas[dStr];
+    if (!curva) continue;
+    conDem++;
+    const counts = cdvCoberturaPorHora(dStr, cdvArmarDia(dStr).bloques);
+    for (let h = 0; h < 24; h++) { tenemos += counts[h] || 0; pide += Number(curva[h]) || 0; }
+  }
+  return { tenemos, pide, conDem, dias };
+}
+async function presuCalcularRango(desde, hasta, clave) {
+  presuRangoCalc.calculando = true;
+  try {
+    const cov = await covCalcularPeriodo(desde, hasta);
+    let tenemos = 0, pide = 0, conDem = 0;
+    cov.dias.forEach((x) => {
+      if (!x.conDemanda || x.cerrada) return;
+      conDem++;
+      pide += x.req;
+      tenemos += x.horas.reduce((t, o) => t + o.caj, 0);
+    });
+    presuRangoCalc = { clave, t: Date.now(), datos: { tenemos, pide, conDem, dias: cov.dias.length }, calculando: false };
+  } catch (e) {
+    console.warn("No se pudo calcular el período:", e);
+    presuRangoCalc = { clave, t: Date.now(), datos: null, calculando: false };
+  }
+  renderPresuBarra();
+}
 function presuLineaSemana(p, r) {
   try {
-    const lunesD = getStartOfWeek(new Date(state.currentWeekStart));
-    const lunes = formatDate(lunesD), domingo = formatDate(addDays(lunesD, 6));
-    const desde = lunes > p.inicio ? lunes : p.inicio, hasta = domingo < p.fin ? domingo : p.fin;
-    if (desde > hasta) return "";
     const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
-    const rango = desde === hasta ? fc(desde) : `${fc(desde)} al ${fc(hasta)}`;
-    const adic = p.total > 0 && r && r.personas ? r.personas.reduce((t, x) => t + ((x.porSemana.find((sm) => sm.lunes === lunes) || {}).delEvento || 0), 0) : null;
-    let tenemos = 0, pide = 0, conDem = 0, dias = 0;
-    for (let d = new Date(desde + "T00:00:00"); formatDate(d) <= hasta; d = addDays(d, 1)) {
-      const dStr = formatDate(d);
-      dias++;
-      const curva = state.demandaCajas && state.demandaCajas[dStr];
-      if (!curva) continue;
-      conDem++;
-      const counts = cdvCoberturaPorHora(dStr, cdvArmarDia(dStr).bloques);
-      for (let h = 0; h < 24; h++) { tenemos += counts[h] || 0; pide += Number(curva[h]) || 0; }
-    }
-    const dif = tenemos - pide;
-    const partes = [];
-    if (adic != null) partes.push(`Adicionales usadas <b>${presuR(adic)} h</b>`);
-    if (conDem) {
-      partes.push(`Tenemos <b>${presuR(tenemos)} h</b>`);
-      partes.push(`Pide Recaudaciones <b>${presuR(pide)} h</b>`);
-      partes.push(`Diferencia <b style="color: ${dif < 0 ? "#fca5a5" : "#34d399"};">${dif > 0 ? "+" : ""}${presuR(dif)} h</b>`);
+    const sel = presuRangoModo();
+    let desde, hasta, cob;
+    if (sel.modo === "evento") { desde = p.inicio; hasta = p.fin; }
+    else if (sel.modo === "dias" && sel.desde && sel.hasta) {
+      desde = sel.desde < p.inicio ? p.inicio : sel.desde;
+      hasta = sel.hasta > p.fin ? p.fin : sel.hasta;
+      if (sel.desde > sel.hasta) { desde = p.inicio; hasta = p.inicio; }
     } else {
-      partes.push(`<span style="color: var(--text-muted);">sin demanda de Recaudaciones cargada</span>`);
+      const lunesD = getStartOfWeek(new Date(state.currentWeekStart));
+      const lunes = formatDate(lunesD), domingo = formatDate(addDays(lunesD, 6));
+      desde = lunes > p.inicio ? lunes : p.inicio;
+      hasta = domingo < p.fin ? domingo : p.fin;
     }
-    const nota = conDem && conDem < dias ? ` <span style="color: var(--text-muted);">(${dias - conDem} ${dias - conDem === 1 ? "día" : "días"} sin demanda)</span>` : "";
-    return `<span class="presu-semana" style="flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 16px; padding-top: 6px; border-top: 1px solid var(--border); white-space: nowrap;"><span style="color: var(--text-muted);">Semana del evento <b style="color: var(--text);">${rango}</b></span>${partes.map((x) => `<span>${x}</span>`).join("")}${nota}</span>`;
+    const modo = sel.modo === "dias" && !(sel.desde && sel.hasta) ? "dias-vacio" : sel.modo;
+    const boton = (m, txt) => `<button type="button" onclick="window.presuRangoElegir('${m}')" style="background: ${sel.modo === m ? "var(--primary)" : "transparent"}; color: ${sel.modo === m ? "#fff" : "var(--text-muted)"}; border: 1px solid ${sel.modo === m ? "var(--primary)" : "var(--border)"}; border-radius: 999px; padding: 1px 9px; font-family: inherit; font-size: 0.72rem; font-weight: 600; cursor: pointer;">${txt}</button>`;
+    const fechas = sel.modo === "dias" ? `<input type="date" value="${sel.desde || ""}" min="${p.inicio}" max="${p.fin}" onchange="window.presuRangoElegir('dias', this.value, null)" style="background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 1px 4px; font-family: inherit; font-size: 0.72rem; color-scheme: inherit;"><span style="color: var(--text-muted);">al</span><input type="date" value="${sel.hasta || ""}" min="${p.inicio}" max="${p.fin}" onchange="window.presuRangoElegir('dias', null, this.value)" style="background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 1px 4px; font-family: inherit; font-size: 0.72rem; color-scheme: inherit;">` : "";
+    const selector = `<span style="display: inline-flex; align-items: center; gap: 5px;">${boton("semana", "Esta semana")}${boton("evento", "Todo el evento")}${boton("dias", "Elegir días")}${fechas}</span>`;
+    let cuerpo = "";
+    if (modo === "dias-vacio") {
+      cuerpo = `<span style="color: var(--text-muted);">Elegí desde y hasta qué día.</span>`;
+    } else if (desde > hasta) {
+      cuerpo = `<span style="color: var(--text-muted);">Esta semana no tiene días del evento.</span>`;
+    } else {
+      const rango = desde === hasta ? fc(desde) : `${fc(desde)} al ${fc(hasta)}`;
+      if (modo === "semana") cob = presuSumarCobertura(desde, hasta);
+      else {
+        const clave = `${desde}|${hasta}`;
+        const vieja = presuRangoCalc.clave !== clave || Date.now() - presuRangoCalc.t > 15000;
+        if (vieja && !presuRangoCalc.calculando) setTimeout(() => presuCalcularRango(desde, hasta, clave), 0);
+        cob = presuRangoCalc.clave === clave ? presuRangoCalc.datos : null;
+      }
+      const adic = presuAdicEnRango(p, r, desde, hasta);
+      const partes = [`<span style="color: var(--text-muted);"><b style="color: var(--text);">${rango}</b></span>`];
+      if (adic != null) partes.push(`Adicionales usadas <b>${presuR(adic)} h</b>`);
+      if (!cob) partes.push(`<span style="color: var(--text-muted);">calculando…</span>`);
+      else if (cob.conDem) {
+        const dif = cob.tenemos - cob.pide;
+        partes.push(`Tenemos <b>${presuR(cob.tenemos)} h</b>`);
+        partes.push(`Pide Recaudaciones <b>${presuR(cob.pide)} h</b>`);
+        partes.push(`Diferencia <b style="color: ${dif < 0 ? "#fca5a5" : "#34d399"};">${dif > 0 ? "+" : ""}${presuR(dif)} h</b>`);
+        if (cob.conDem < cob.dias) partes.push(`<span style="color: var(--text-muted);">(${cob.dias - cob.conDem} ${cob.dias - cob.conDem === 1 ? "día" : "días"} sin demanda)</span>`);
+      } else partes.push(`<span style="color: var(--text-muted);">sin demanda de Recaudaciones cargada</span>`);
+      cuerpo = partes.map((x) => `<span>${x}</span>`).join("");
+    }
+    return `<span class="presu-semana" onclick="event.stopPropagation()" style="flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding-top: 6px; border-top: 1px solid var(--border); white-space: nowrap; cursor: default;">${selector}${cuerpo}</span>`;
   } catch (e) {
-    console.warn("Línea de la semana del evento:", e);
+    console.warn("Línea del período del evento:", e);
     return "";
   }
 }
