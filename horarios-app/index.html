@@ -3644,7 +3644,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.29
+            Versión: v1.7.30
           </div>
         </div>
       </div>
@@ -4720,7 +4720,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.29";
+  const APP_VERSION = "v1.7.30";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -14665,17 +14665,25 @@ async function exportarPlanillaHorarios(desde, hasta) {
         const o = x.horas.find((y) => y.h === h);
         return o ? o[campo] || 0 : 0;
       };
-      const hoja = [["CAJEROS"], ["Día", "", ...horasCols.map((h) => `${String(h).padStart(2, "0")}:00`)]];
+      // Al final de cada día: horas del día (pedidas y planificadas) y la diferencia, sin tocar las columnas por hora
+      const sumar = (vals) => (vals.every((v) => v === "") ? "" : vals.reduce((a, v) => a + (Number(v) || 0), 0));
+      const hoja = [["CAJEROS"], ["Día", "", ...horasCols.map((h) => `${String(h).padStart(2, "0")}:00`), "", "Horas del día", "Diferencia"]];
       fechas.forEach((f) => {
-        hoja.push([etiquetaDia(f), "Pedido", ...horasCols.map((h) => valorHora(f, h, "r", true))]);
-        hoja.push(["", "Tenemos", ...horasCols.map((h) => valorHora(f, h, "caj", false))]);
+        const ped = horasCols.map((h) => valorHora(f, h, "r", true));
+        const ten = horasCols.map((h) => valorHora(f, h, "caj", false));
+        const tPed = sumar(ped), tTen = sumar(ten);
+        hoja.push([etiquetaDia(f), "Pedido", ...ped, "", tPed, ""]);
+        hoja.push(["", "Tenemos", ...ten, "", tTen, tPed === "" || tTen === "" ? "" : tTen - tPed]);
       });
       hoja.push([]);
       hoja.push(["ROLLERS"]);
-      hoja.push(["Día", "", ...horasCols.map((h) => `${String(h).padStart(2, "0")}:00`)]);
-      fechas.forEach((f) => hoja.push([etiquetaDia(f), "Rollers", ...horasCols.map((h) => valorHora(f, h, "rol", false))]));
+      hoja.push(["Día", "", ...horasCols.map((h) => `${String(h).padStart(2, "0")}:00`), "", "Horas del día"]);
+      fechas.forEach((f) => {
+        const rol = horasCols.map((h) => valorHora(f, h, "rol", false));
+        hoja.push([etiquetaDia(f), "Rollers", ...rol, "", sumar(rol)]);
+      });
       const ws2 = XLSX.utils.aoa_to_sheet(hoja);
-      ws2["!cols"] = [{ wch: 11 }, { wch: 9 }, ...horasCols.map(() => ({ wch: 6 }))];
+      ws2["!cols"] = [{ wch: 11 }, { wch: 9 }, ...horasCols.map(() => ({ wch: 6 })), { wch: 2 }, { wch: 12 }, { wch: 11 }];
       XLSX.utils.book_append_sheet(wb, ws2, "Cobertura");
     } catch (e) {
       console.warn("Planilla: no se pudo armar la cobertura", e);
