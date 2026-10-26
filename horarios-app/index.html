@@ -3729,7 +3729,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.33
+            Versión: v1.7.34
           </div>
         </div>
       </div>
@@ -4946,7 +4946,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.33";
+  const APP_VERSION = "v1.7.34";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15220,8 +15220,9 @@ const COV_ESTILOS_IMPRESION = `
 `;
 
 
-// Reporte simple: por día, el gráfico de cobertura por hora (como en el celular) y debajo
-// horas pedidas, las que tenemos y la diferencia; al final, los totales del período.
+// Reporte simple: por día, la tarjeta de cobertura por hora como en el celular (fondo oscuro)
+// y debajo horas pedidas, las que tenemos y la diferencia; al final, los totales del período.
+// Todo con divs y estilos en línea: el PDF se dibuja dentro de la app y así no le afecta su CSS.
 function covReporteDiaHTML(x, hMin, hMax) {
   const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
   const dn = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -15231,39 +15232,44 @@ function covReporteDiaHTML(x, hMin, hMax) {
   const lista = ev ? ((ev.lista && ev.lista.length ? ev.lista : [ev]).map((e) => `${e.tipo || "Evento"}${e.descripcion ? `: ${e.descripcion}` : ""}`)) : [];
   const sub = lista.length ? (lista.length === 1 ? lista[0] : `${lista.length} eventos: ${lista.join(" · ")}`) : "";
   const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-  if (x.cerrada) return `<div class="rd"><div class="rt">${titulo}</div><div class="rs">${esc(sub)}</div><div class="rcerr">Tienda cerrada</div></div>`;
+  const caja = "background:#0f172a;color:#f8fafc;border-radius:10px;padding:14px 16px 12px;margin:0 0 10px;";
+  const cab = `<div style="font-size:21px;font-weight:800;line-height:1.2;">${titulo}</div>${sub ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px;">${esc(sub)}</div>` : ""}`;
+  if (x.cerrada) return `<div class="rd" style="${caja}">${cab}<div style="margin-top:8px;font-size:13px;color:#94a3b8;">Tienda cerrada</div></div>`;
   const horas = x.horas.filter((o) => o.h >= hMin && o.h <= hMax);
-  const n = horas.length;
   const max = Math.max(1, ...horas.map((o) => Math.max(o.caj + o.rol, o.r)));
-  const W = 700, H = 110, bw = W / n;
-  let barras = "", faltan = 0, rangos = [];
-  horas.forEach((o, i) => {
-    const xx = i * bw + 2, w = bw - 4;
-    const hc = (o.caj / max) * H, hr = (o.rol / max) * H, hq = (o.r / max) * H;
+  const ALTO = 92;
+  let faltan = 0;
+  const col = (contenido, extra = "") => `<div style="flex:1 1 0;min-width:0;text-align:center;${extra}">${contenido}</div>`;
+  const etiqueta = (t, color = "#94a3b8") => `<div style="flex:0 0 46px;font-size:11px;color:${color};">${t}</div>`;
+  const barras = horas.map((o) => {
     const falta = x.conDemanda && o.caj < o.r;
-    if (falta) { faltan += o.r - o.caj; const u = rangos[rangos.length - 1]; if (u && u[1] === o.h - 1) u[1] = o.h; else rangos.push([o.h, o.h]); }
-    barras += `<rect x="${xx}" y="${H - hc}" width="${w}" height="${hc}" fill="${falta ? "#dc2626" : "#10b981"}" opacity="0.85"/>`;
-    if (o.rol) barras += `<rect x="${xx}" y="${H - hc - hr}" width="${w}" height="${hr}" fill="#7c3aed" opacity="0.6"/>`;
-    if (x.conDemanda && o.r) barras += `<rect x="${xx}" y="${H - hq}" width="${w}" height="${hq}" fill="none" stroke="#334155" stroke-dasharray="3 2" stroke-width="1"/>`;
-  });
-  const fila = (nombre, f, cls = "") => `<tr class="${cls}"><th>${nombre}</th>${horas.map((o) => `<td class="${f(o).c || ""}">${f(o).v}</td>`).join("")}</tr>`;
-  const pedidas = x.conDemanda ? x.req : null;
+    if (falta) faltan += o.r - o.caj;
+    const hc = Math.round((o.caj / max) * ALTO), hr = Math.round((o.rol / max) * ALTO), hq = Math.round((o.r / max) * ALTO);
+    return col(`<div style="position:relative;height:${ALTO}px;margin:0 2px;">
+      ${hc ? `<div style="position:absolute;left:0;right:0;bottom:0;height:${hc}px;background:${falta ? "#dc2626" : "#10b981"};border-radius:2px 2px 0 0;"></div>` : ""}
+      ${hr ? `<div style="position:absolute;left:0;right:0;bottom:${hc}px;height:${hr}px;background:#6d5bd0;border-radius:2px 2px 0 0;"></div>` : ""}
+      ${x.conDemanda && hq ? `<div style="position:absolute;left:0;right:0;bottom:0;height:${hq}px;border:1.5px dashed rgba(255,255,255,0.85);border-bottom:none;"></div>` : ""}
+    </div>`);
+  }).join("");
+  const filaNums = (nombre, color, f) => `<div style="display:flex;align-items:center;margin-top:3px;">${etiqueta(nombre, color)}${horas.map((o) => col(f(o))).join("")}</div>`;
+  const estado = !x.conDemanda ? `<span style="color:#94a3b8;">sin demanda cargada</span>` : faltan ? `<b style="color:#f87171;">faltan ${faltan} h</b>` : `<b style="color:#e2e8f0;">completa</b>`;
   const tenemos = horas.reduce((a, o) => a + o.caj, 0);
-  const rollers = horas.reduce((a, o) => a + o.rol, 0);
+  const pedidas = x.conDemanda ? x.req : null;
   const dif = pedidas == null ? null : tenemos - pedidas;
-  const estado = !x.conDemanda ? "sin demanda cargada" : faltan ? `faltan ${faltan} h (${rangos.map(([a, b]) => (a === b ? `${a}` : `${a}–${b + 1}`)).join(", ")} h)` : "completa";
-  return `<div class="rd">
-    <div class="rt">${titulo}</div>${sub ? `<div class="rs">${esc(sub)}</div>` : ""}
-    <div class="rc"><div class="rch">Cobertura por hora · <b class="${!x.conDemanda ? "gris" : faltan ? "rojo" : "verde"}">${estado}</b></div>
-      <div style="padding-left:44px;"><svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="display:block;margin:6px 0 2px;">${barras}</svg></div>
-      <table class="rh">${fila("Hora", (o) => ({ v: o.h }), "eje")}${fila("Plan.", (o) => ({ v: o.caj, c: x.conDemanda && o.caj < o.r ? "rojo" : "" }), "plan")}${x.conDemanda ? fila("Req.", (o) => ({ v: o.r })) : ""}${fila("Roller", (o) => ({ v: o.rol || "·" }), "rol")}</table>
+  return `<div class="rd" style="${caja}">${cab}
+    <div style="border:1px solid #334155;background:#1e293b;border-radius:8px;padding:10px 12px 8px;margin-top:10px;">
+      <div style="font-size:13px;color:#cbd5e1;">Cobertura por hora · ${estado}</div>
+      <div style="display:flex;align-items:flex-end;margin-top:10px;">${etiqueta("")}${barras}</div>
+      ${filaNums("Hora", "#94a3b8", (o) => `<span style="font-size:11px;color:#94a3b8;">${o.h}</span>`)}
+      ${filaNums("Plan.", "#94a3b8", (o) => `<span style="font-size:13px;font-weight:800;color:${x.conDemanda && o.caj < o.r ? "#f87171" : "#f8fafc"};">${o.caj}</span>`)}
+      ${x.conDemanda ? filaNums("Req.", "#94a3b8", (o) => `<span style="font-size:12px;color:#e2e8f0;">${o.r}</span>`) : ""}
+      ${filaNums("Roller", "#a78bfa", (o) => `<span style="font-size:12px;color:#a78bfa;">${o.rol || "·"}</span>`)}
     </div>
-    <table class="rr"><tr>
-      <td><span>Horas pedidas</span><b>${pedidas == null ? "—" : pedidas}</b></td>
-      <td><span>Horas que tenemos</span><b>${tenemos}</b></td>
-      <td><span>Diferencia</span><b class="${dif == null ? "" : dif < 0 ? "rojo" : "verde"}">${dif == null ? "—" : (dif > 0 ? "+" : "") + dif}</b></td>
-      <td class="rrol"><span>Rollers (aparte)</span><b>${rollers}</b></td>
-    </tr></table>
+    <div style="display:flex;gap:22px;margin-top:10px;font-size:13px;color:#cbd5e1;">
+      <div>Horas pedidas <b style="font-size:16px;color:#f8fafc;">${pedidas == null ? "—" : pedidas}</b></div>
+      <div>Horas que tenemos <b style="font-size:16px;color:#f8fafc;">${tenemos}</b></div>
+      <div>Diferencia <b style="font-size:16px;color:${dif == null ? "#f8fafc" : dif < 0 ? "#f87171" : "#34d399"};">${dif == null ? "—" : (dif > 0 ? "+" : "") + dif}</b></div>
+    </div>
   </div>`;
 }
 
@@ -15272,46 +15278,30 @@ async function covReporteSimplePDF(desde, hasta) {
   const hMin = Math.min(7, cov.hMin ?? 7), hMax = Math.max(22, cov.hMax ?? 22);
   const conDem = cov.dias.filter((x) => x.conDemanda && !x.cerrada);
   const tPed = conDem.reduce((a, x) => a + x.req, 0);
-  const tTen = conDem.reduce((a, x) => a + x.horas.reduce((b, o) => b + o.caj, 0), 0);
-  const tRol = cov.dias.filter((x) => !x.cerrada).reduce((a, x) => a + x.horas.reduce((b, o) => b + o.rol, 0), 0);
+  const tTen = conDem.reduce((a, x) => a + x.horas.filter((o) => o.h >= hMin && o.h <= hMax).reduce((b, o) => b + o.caj, 0), 0);
   const tDif = tTen - tPed;
   const fc = (f) => f.split("-").reverse().join("/");
   const sinDem = cov.dias.filter((x) => !x.conDemanda && !x.cerrada).length;
-  const html = `<div style="font-family:'Plus Jakarta Sans',Arial,sans-serif;color:#0f172a;width:760px;padding:4px 6px;">
-    <style>
-      .rd{border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;margin:0 0 10px;page-break-inside:avoid;break-inside:avoid;}
-      .rt{font-size:17px;font-weight:800;} .rs{font-size:11px;color:#64748b;margin-top:1px;}
-      .rc{border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin-top:6px;}
-      .rch{font-size:11px;color:#475569;} .rojo{color:#b91c1c;} .verde{color:#047857;} .gris{color:#64748b;}
-      .rh{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px;}
-      .rh th{width:44px;text-align:left;font-weight:600;color:#64748b;padding:1px 0;}
-      .rh td{text-align:center;padding:1px 0;}
-      .rh tr.eje td{color:#64748b;} .rh tr.plan td{font-weight:700;} .rh tr.rol td,.rh tr.rol th{color:#7c3aed;}
-      .rr{width:calc(100% + 12px);table-layout:fixed;border-collapse:separate;border-spacing:6px 0;margin:6px -6px 0;}
-      .rr td{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;}
-      .rr td span{display:block;font-size:10px;color:#64748b;} .rr td b{font-size:16px;}
-      .rr td.rrol b{color:#7c3aed;} .rcerr{margin-top:6px;font-size:12px;color:#64748b;}
-      .tot{border:2px solid #0f172a;border-radius:8px;padding:10px 12px;page-break-inside:avoid;break-inside:avoid;}
-    </style>
-    <div style="margin-bottom:10px;"><div style="font-size:20px;font-weight:800;">Cobertura de cajas por día</div>
+  const html = `<div style="font-family:'Plus Jakarta Sans',Arial,sans-serif;width:715px;background:#ffffff;padding:4px;">
+    <div style="color:#0f172a;margin:0 0 10px 2px;"><div style="font-size:19px;font-weight:800;">Cobertura de cajas por día</div>
       <div style="font-size:11px;color:#475569;">Del ${fc(desde)} al ${fc(hasta)} · Pedido según Recaudaciones · Tenemos = cajeros planificados (rollers aparte)</div></div>
     ${cov.dias.map((x) => covReporteDiaHTML(x, hMin, hMax)).join("")}
-    <div class="tot"><div style="font-size:15px;font-weight:800;margin-bottom:6px;">Total del período (${fc(desde)} al ${fc(hasta)})</div>
-      <table class="rr"><tr>
-        <td><span>Horas pedidas</span><b>${tPed}</b></td>
-        <td><span>Horas que tenemos</span><b>${tTen}</b></td>
-        <td><span>Diferencia</span><b class="${tDif < 0 ? "rojo" : "verde"}">${(tDif > 0 ? "+" : "") + tDif}</b></td>
-        <td class="rrol"><span>Rollers (aparte)</span><b>${tRol}</b></td>
-      </tr></table>
-      ${sinDem ? `<div style="font-size:10px;color:#64748b;margin-top:6px;">Los totales de pedidas, tenemos y diferencia suman solo los días con demanda cargada (${sinDem} ${sinDem === 1 ? "día no tiene" : "días no tienen"}).</div>` : ""}
+    <div class="rd" style="background:#0f172a;color:#f8fafc;border-radius:10px;padding:14px 16px;border:2px solid #64748b;">
+      <div style="font-size:17px;font-weight:800;">Total del período · ${fc(desde)} al ${fc(hasta)}</div>
+      <div style="display:flex;gap:28px;margin-top:10px;font-size:14px;color:#cbd5e1;">
+        <div>Horas pedidas <b style="font-size:20px;color:#f8fafc;">${tPed}</b></div>
+        <div>Horas que tenemos <b style="font-size:20px;color:#f8fafc;">${tTen}</b></div>
+        <div>Diferencia <b style="font-size:20px;color:${tDif < 0 ? "#f87171" : "#34d399"};">${(tDif > 0 ? "+" : "") + tDif}</b></div>
+      </div>
+      ${sinDem ? `<div style="font-size:11px;color:#94a3b8;margin-top:8px;">Los totales suman solo los días con demanda cargada (${sinDem} ${sinDem === 1 ? "día no tiene" : "días no tienen"}).</div>` : ""}
     </div></div>`;
   await html2pdf().set({
     margin: [8, 8, 8, 8],
     filename: `Cobertura_por_dia_${desde}_al_${hasta}.pdf`,
     image: { type: "jpeg", quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
     jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-    pagebreak: { mode: ["css", "legacy"], avoid: [".rd", ".tot"] },
+    pagebreak: { mode: ["css", "legacy"], avoid: [".rd"] },
   }).from(html).save();
   showToast("Listo", "Reporte descargado.", "success");
 }
