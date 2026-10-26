@@ -621,6 +621,29 @@
     }
     #planningTable .shift-cell .shift-adic { color: #22d3ee !important; opacity: 1 !important; }
 
+    /* Modo borrador */
+    #borradorMarco { position: fixed; inset: 0; border: 3px solid #f59e0b; pointer-events: none; z-index: 99990; }
+    #borradorFranja { position: fixed; left: 12px; bottom: 12px; z-index: 99991; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; max-width: calc(100vw - 24px); background: #1c1405; border: 1px solid #f59e0b; border-radius: 12px; padding: 8px 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-size: 0.8rem; color: #fde68a; }
+    #borradorFranja .bf-tag { background: #f59e0b; color: #1c1405; font-weight: 800; border-radius: 6px; padding: 2px 7px; letter-spacing: 0.04em; font-size: 0.7rem; }
+    #borradorFranja input { background: transparent; border: 1px dashed rgba(253, 230, 138, 0.4); border-radius: 6px; color: #fde68a; font-family: inherit; font-weight: 700; font-size: 0.8rem; padding: 3px 6px; width: 160px; }
+    #borradorFranja .bf-n { color: #fbbf24; opacity: 0.85; white-space: nowrap; }
+    #borradorFranja button { background: transparent; border: 1px solid rgba(245, 158, 11, 0.5); color: #fde68a; border-radius: 7px; padding: 4px 9px; font-family: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    #borradorFranja button:hover { background: rgba(245, 158, 11, 0.15); }
+    #borradorFranja button.bf-real { background: #f59e0b; color: #1c1405; border-color: #f59e0b; }
+    #borradorModal { position: fixed; inset: 0; z-index: 100002; background: rgba(2, 6, 23, 0.7); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    #borradorModal .bm-caja { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: min(560px, 100%); max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; color: var(--text); }
+    #borradorModal .bm-head { padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 800; font-size: 1rem; }
+    #borradorModal .bm-cuerpo { padding: 14px 18px; overflow-y: auto; font-size: 0.86rem; line-height: 1.5; }
+    #borradorModal .bm-pie { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+    #borradorModal .bm-pie button { border-radius: 8px; padding: 8px 14px; font-family: inherit; font-weight: 700; font-size: 0.82rem; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text); }
+    #borradorModal .bm-pie button.bm-prin { background: #f59e0b; border-color: #f59e0b; color: #1c1405; }
+    #borradorModal .bm-pie button.bm-peligro { background: #dc2626; border-color: #dc2626; color: #fff; }
+    #borradorModal .bm-lista { margin: 8px 0 0; border: 1px solid var(--border); border-radius: 8px; max-height: 300px; overflow-y: auto; }
+    #borradorModal .bm-lista div { padding: 6px 10px; border-top: 1px solid var(--border); font-size: 0.8rem; }
+    #borradorModal .bm-lista div:first-child { border-top: none; }
+    #borradorModal .bm-ojo { color: #fbbf24; }
+    @media (max-width: 768px) { #borradorNavBtn { display: none !important; } }
+
     /* Avisos: un botón con número y un panel con la lista */
     #avisosBtn { position: relative; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); padding: 0 0.55rem; height: 100%; display: none; align-items: center; justify-content: center; gap: 5px; cursor: pointer; font-family: inherit; font-weight: 700; font-size: 0.75rem; margin-right: 6px; transition: background 0.2s, border-color 0.2s, color 0.2s; }
     #avisosBtn.hay { display: flex; color: #fbbf24; border-color: rgba(251, 191, 36, 0.45); background: rgba(251, 191, 36, 0.08); }
@@ -3619,6 +3642,7 @@
         </button>
         <div id="navDropdownMenu" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.6); padding: 8px; flex-direction: column; gap: 4px; z-index: 10000; min-width: 240px;">
           <!-- Botón Eventos -->
+          <button id="borradorNavBtn" class="nav-dropdown-item" type="button" onclick="window.borradorMenu()" title="Probar otra alternativa de horarios sin tocar los reales"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> <span id="borradorNavTxt">Modo borrador</span></button>
           <button id="eventosNavBtn" class="nav-dropdown-item" style="display: none;" title="Gestionar Eventos del Día"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Eventos</button>
           
           <!-- Auditoría de cambios: se sacó (ya no hay sesiones por usuario) -->
@@ -3644,7 +3668,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.30
+            Versión: v1.7.31
           </div>
         </div>
       </div>
@@ -4701,7 +4725,7 @@ console.log("MEJOR SALI! ->", window.location.href);
 
 // 1. FIREBASE INITIALIZATION
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, query, where, writeBatch, enableMultiTabIndexedDbPersistence, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs as fsGetDocs, getDoc, doc, setDoc as fsSetDoc, updateDoc as fsUpdateDoc, deleteDoc as fsDeleteDoc, query as fsQuery, where as fsWhere, writeBatch, enableMultiTabIndexedDbPersistence, onSnapshot as fsOnSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
@@ -4714,13 +4738,142 @@ const firebaseConfig = {
   appId: "1:613900683663:web:f825e871a9cbb32f3ba3fa",
 };
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODO BORRADOR (solo escritorio)
+// Una copia de los horarios (colección "planificacion") que vive solo en esta compu.
+// Mientras está activo, todo lo que lee o escribe horarios pasa por la copia y no por la
+// base real: la app funciona igual (reglas, avisos, presupuesto, cobertura, planilla),
+// pero nada llega a Firestore. Vacaciones, eventos y colaboradores siguen siendo los reales.
+// ─────────────────────────────────────────────────────────────────────────────
+const BORRADOR_KEY = "crewBorrador";
+const BORRADOR_ACTIVO_KEY = "crewBorradorActivo";
+let borrador = null; // { nombre, creado, rangos: [[desde, hasta]], docs: {id: data}, original: {id: data|null}, tocados: [ids] }
+try {
+  if (localStorage.getItem(BORRADOR_ACTIVO_KEY) === "1" && window.innerWidth > 768) {
+    borrador = JSON.parse(localStorage.getItem(BORRADOR_KEY) || "null");
+  }
+} catch (e) { borrador = null; }
+const borradorActivo = () => !!borrador;
+window.borradorActivo = borradorActivo;
+const borradorOyentes = new Set();
+let borradorGuardarTimer = null;
+function borradorPersistir() {
+  clearTimeout(borradorGuardarTimer);
+  borradorGuardarTimer = setTimeout(() => {
+    try { localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador)); }
+    catch (e) { console.warn("No se pudo guardar el borrador en esta compu", e); }
+    if (typeof window.borradorPintarFranja === "function") window.borradorPintarFranja();
+  }, 300);
+}
+const esPlan = (ref) => !!ref && typeof ref.path === "string" && ref.path.indexOf("planificacion/") === 0;
+function where(campo, op, valor) {
+  const c = fsWhere(campo, op, valor);
+  try { c.__b = { campo, op, valor }; } catch (e) {}
+  return c;
+}
+function query(col, ...cons) {
+  const q = fsQuery(col, ...cons);
+  try { if (col && col.path === "planificacion") q.__plan = cons.map((c) => c.__b).filter(Boolean); } catch (e) {}
+  return q;
+}
+function borradorFiltrar(filtros) {
+  let desde = "0000", hasta = "9999";
+  (filtros || []).forEach((w) => {
+    if (w.campo !== "fecha") return;
+    if (w.op === ">=" || w.op === ">") desde = w.valor > desde ? w.valor : desde;
+    if (w.op === "<=" || w.op === "<") hasta = w.valor < hasta ? w.valor : hasta;
+  });
+  return { desde, hasta };
+}
+function borradorFalsoSnap(ids, tipo = "added", pendiente = false) {
+  const docs = ids.filter((id) => borrador.docs[id]).map((id) => ({ id, data: () => ({ ...borrador.docs[id] }), exists: () => true, metadata: { hasPendingWrites: pendiente } }));
+  const cambios = ids.map((id) => {
+    const existe = !!borrador.docs[id];
+    const d = { id, data: () => ({ ...(borrador.docs[id] || borrador.borrados?.[id] || {}) }), metadata: { hasPendingWrites: pendiente } };
+    return { type: existe ? tipo : "removed", doc: d };
+  });
+  return { docs, size: docs.length, empty: !docs.length, forEach: (fn) => docs.forEach(fn), docChanges: () => cambios, metadata: { hasPendingWrites: pendiente, fromCache: true } };
+}
+// Trae de la base real (una sola vez) los días que todavía no están en la copia
+async function borradorAsegurarRango(desde, hasta) {
+  const falta = !(borrador.rangos || []).some(([a, b]) => a <= desde && b >= hasta);
+  if (!falta || desde === "0000" || hasta === "9999") return;
+  const snap = await fsGetDocs(fsQuery(collection(db, "planificacion"), fsWhere("fecha", ">=", desde), fsWhere("fecha", "<=", hasta)));
+  snap.docs.forEach((d) => {
+    if (borrador.docs[d.id] === undefined && !(borrador.tocados || []).includes(d.id)) {
+      borrador.docs[d.id] = d.data();
+      borrador.original[d.id] = d.data();
+    }
+  });
+  borrador.rangos.push([desde, hasta]);
+  borradorPersistir();
+}
+const idsEnRango = ({ desde, hasta }) => Object.keys(borrador.docs).filter((id) => { const f = borrador.docs[id].fecha || id.slice(-10); return f >= desde && f <= hasta; });
+async function getDocs(q) {
+  if (borradorActivo() && q && q.__plan) {
+    const r = borradorFiltrar(q.__plan);
+    try { await borradorAsegurarRango(r.desde, r.hasta); } catch (e) { console.warn("Borrador: no se pudo traer el rango", e); }
+    return borradorFalsoSnap(idsEnRango(r));
+  }
+  return fsGetDocs(q);
+}
+function onSnapshot(q, siguiente, error) {
+  if (borradorActivo() && q && q.__plan) {
+    const r = borradorFiltrar(q.__plan);
+    let vivo = true;
+    const oyente = (ids) => {
+      if (!vivo) return;
+      const propios = ids.filter((id) => { const f = (borrador.docs[id] || {}).fecha || id.slice(-10); return f >= r.desde && f <= r.hasta; });
+      if (propios.length) siguiente(borradorFalsoSnap(propios, "modified", true));
+    };
+    borradorAsegurarRango(r.desde, r.hasta)
+      .catch((e) => console.warn("Borrador: no se pudo traer el rango", e))
+      .then(() => { if (vivo) { siguiente(borradorFalsoSnap(idsEnRango(r))); borradorOyentes.add(oyente); } });
+    return () => { vivo = false; borradorOyentes.delete(oyente); };
+  }
+  return fsOnSnapshot(q, siguiente, error);
+}
+function borradorCambio(id) {
+  if (!borrador.tocados.includes(id)) borrador.tocados.push(id);
+  borradorPersistir();
+  setTimeout(() => borradorOyentes.forEach((fn) => { try { fn([id]); } catch (e) { console.warn(e); } }), 0);
+}
+function setDoc(ref, datos, opciones) {
+  if (borradorActivo() && esPlan(ref)) {
+    const previo = borrador.docs[ref.id];
+    borrador.docs[ref.id] = opciones && opciones.merge && previo ? { ...previo, ...datos } : { ...datos };
+    borradorCambio(ref.id);
+    return Promise.resolve();
+  }
+  return fsSetDoc(ref, datos, opciones);
+}
+function updateDoc(ref, datos) {
+  if (borradorActivo() && esPlan(ref)) {
+    borrador.docs[ref.id] = { ...(borrador.docs[ref.id] || {}), ...datos };
+    borradorCambio(ref.id);
+    return Promise.resolve();
+  }
+  return fsUpdateDoc(ref, datos);
+}
+function deleteDoc(ref) {
+  if (borradorActivo() && esPlan(ref)) {
+    if (!borrador.borrados) borrador.borrados = {};
+    borrador.borrados[ref.id] = borrador.docs[ref.id] || null;
+    delete borrador.docs[ref.id];
+    borradorCambio(ref.id);
+    return Promise.resolve();
+  }
+  return fsDeleteDoc(ref);
+}
+
 let db, auth, storage;
 let isMockMode = false;
 window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.30";
+  const APP_VERSION = "v1.7.31";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -16794,6 +16947,187 @@ if (btnUploadYearFile && yearModalFileInput) {
 }
 
 // Acción del botón Actualizar
+
+// ── Modo borrador: pantalla ─────────────────────────────────────────────────
+function borradorEsc(t) { return String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
+function borradorModal(titulo, cuerpo, botones) {
+  document.getElementById("borradorModal")?.remove();
+  const m = document.createElement("div");
+  m.id = "borradorModal";
+  m.innerHTML = `<div class="bm-caja"><div class="bm-head">${titulo}</div><div class="bm-cuerpo">${cuerpo}</div><div class="bm-pie"></div></div>`;
+  const pie = m.querySelector(".bm-pie");
+  botones.forEach((b) => {
+    const el = document.createElement("button");
+    el.type = "button"; el.textContent = b.txt; if (b.clase) el.className = b.clase;
+    el.onclick = async () => { if (b.fn) { const r = await b.fn(); if (r === false) return; } m.remove(); };
+    pie.appendChild(el);
+  });
+  m.addEventListener("click", (e) => { if (e.target === m) m.remove(); });
+  document.body.appendChild(m);
+  return m;
+}
+function borradorGuardado() { try { return JSON.parse(localStorage.getItem(BORRADOR_KEY) || "null"); } catch (e) { return null; } }
+function borradorActivar(b) {
+  try {
+    localStorage.setItem(BORRADOR_KEY, JSON.stringify(b));
+    localStorage.setItem(BORRADOR_ACTIVO_KEY, "1");
+  } catch (e) {
+    showToast("No entra en esta compu", "El borrador es muy grande para guardarlo acá.", "error");
+    return;
+  }
+  location.reload();
+}
+async function borradorNuevo() {
+  if (isMockMode) { showToast("Sin conexión", "Para armar un borrador hace falta conectarse a la base.", "warning"); return; }
+  showToast("Preparando", "Copiando los horarios reales…", "info");
+  const hoy = new Date();
+  const desde = formatDate(addDays(getStartOfWeek(hoy), -35));
+  const hasta = formatDate(addDays(hoy, 150));
+  const snap = await fsGetDocs(fsQuery(collection(db, "planificacion"), fsWhere("fecha", ">=", desde), fsWhere("fecha", "<=", hasta)));
+  const docs = {};
+  snap.docs.forEach((d) => { docs[d.id] = d.data(); });
+  const fecha = new Date().toLocaleDateString("es-AR");
+  borradorActivar({ nombre: `Borrador ${fecha}`, creado: new Date().toISOString(), rangos: [[desde, hasta]], docs, original: JSON.parse(JSON.stringify(docs)), tocados: [], borrados: {} });
+}
+window.borradorMenu = function () {
+  document.getElementById("navDropdownMenu") && (document.getElementById("navDropdownMenu").style.display = "none");
+  if (window.innerWidth <= 768) { showToast("Solo en la compu", "El modo borrador es para la versión de escritorio.", "info"); return; }
+  if (borradorActivo()) { window.borradorSalir(); return; }
+  const g = borradorGuardado();
+  const intro = `<p>Es una copia de los horarios para probar otra alternativa. Funciona todo igual (reglas, avisos, presupuesto, cobertura, planilla), pero <b>no toca los horarios reales</b>: queda guardado solo en esta compu.</p><p style="color: var(--text-muted);">Vacaciones, eventos y colaboradores siguen siendo los reales.</p>`;
+  if (g && g.docs) {
+    const n = borradorCambios(g).length;
+    borradorModal("Modo borrador", `${intro}<p>Tenés un borrador guardado: <b>${borradorEsc(g.nombre)}</b> · ${n} ${n === 1 ? "cambio" : "cambios"}.</p>`, [
+      { txt: "Cancelar" },
+      { txt: "Empezar uno nuevo", fn: () => borradorNuevo() },
+      { txt: "Seguir con el guardado", clase: "bm-prin", fn: () => borradorActivar(g) },
+    ]);
+  } else {
+    borradorModal("Modo borrador", intro, [{ txt: "Cancelar" }, { txt: "Empezar borrador", clase: "bm-prin", fn: () => borradorNuevo() }]);
+  }
+};
+window.borradorSalir = function () {
+  try { localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador)); localStorage.setItem(BORRADOR_ACTIVO_KEY, "0"); } catch (e) {}
+  location.reload();
+};
+// Cambios del borrador respecto de la copia original: [{ id, antes, despues }]
+function borradorCambios(b = borrador) {
+  if (!b) return [];
+  const slotDe = (o) => (o ? String(o.slot || "") + (o.turnoAdicional ? ` + ${o.turnoAdicional}` : "") : "");
+  return (b.tocados || [])
+    .map((id) => ({ id, antes: (b.original || {})[id] || null, despues: b.docs[id] || null }))
+    .filter((x) => JSON.stringify(x.antes) !== JSON.stringify(x.despues))
+    .map((x) => ({ ...x, slotAntes: slotDe(x.antes), slotDespues: slotDe(x.despues) }));
+}
+function borradorEtiqueta(id) {
+  const fecha = id.slice(-10), cid = id.slice(0, -11);
+  const c = (state.collaborators || []).find((x) => String(x.id) === cid);
+  const nom = c ? (typeof nombreCortoCelular === "function" && nombreCortoCelular(c)) || c.name : cid;
+  const [a, m, d] = fecha.split("-");
+  return { nom, fecha: `${d}/${m}`, orden: `${fecha}|${nom}` };
+}
+window.borradorGuardarArchivo = function () {
+  if (!borrador) return;
+  const blob = new Blob([JSON.stringify({ tipo: "crew-borrador", version: 1, ...borrador })], { type: "application/json" });
+  const a = document.createElement("a");
+  const nombre = (borrador.nombre || "borrador").replace(/\//g, "-").replace(/[^\wáéíóúñÁÉÍÓÚÑ -]+/g, "").trim().replace(/\s+/g, "_") || "borrador";
+  a.href = URL.createObjectURL(blob);
+  a.download = `${nombre}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  showToast("Listo", "Borrador guardado como archivo.", "success");
+};
+window.borradorAbrirArchivo = function () {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".json,application/json";
+  inp.onchange = async () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    let b;
+    try { b = JSON.parse(await f.text()); } catch (e) { b = null; }
+    if (!b || b.tipo !== "crew-borrador" || !b.docs || !b.original) { showToast("No se pudo abrir", "Ese archivo no es un borrador de Crew.", "error"); return; }
+    delete b.tipo; delete b.version;
+    if (!b.borrados) b.borrados = {};
+    if (!Array.isArray(b.tocados)) b.tocados = [];
+    if (!Array.isArray(b.rangos)) b.rangos = [];
+    const n = borradorCambios(b).length;
+    const actual = borradorActivo() ? borradorCambios().length : 0;
+    borradorModal("Abrir borrador", `<p>Vas a abrir <b>${borradorEsc(b.nombre)}</b> (${n} ${n === 1 ? "cambio" : "cambios"}).</p>${actual ? `<p class="bm-ojo">El borrador que tenés abierto tiene ${actual} ${actual === 1 ? "cambio" : "cambios"}. Si no lo guardaste como archivo, se pierde.</p>` : ""}`, [
+      { txt: "Cancelar" },
+      { txt: "Abrir", clase: "bm-prin", fn: () => borradorActivar(b) },
+    ]);
+  };
+  inp.click();
+};
+window.borradorPasarAReal = async function () {
+  const cambios = borradorCambios();
+  if (!cambios.length) { showToast("Nada para pasar", "El borrador no tiene cambios respecto de lo real.", "info"); return; }
+  // ¿Alguien cambió en lo real esos mismos días desde que se armó el borrador?
+  let pisados = new Set();
+  try {
+    const fechas = cambios.map((x) => x.id.slice(-10)).sort();
+    const snap = await fsGetDocs(fsQuery(collection(db, "planificacion"), fsWhere("fecha", ">=", fechas[0]), fsWhere("fecha", "<=", fechas[fechas.length - 1])));
+    const real = {};
+    snap.docs.forEach((d) => { real[d.id] = d.data(); });
+    cambios.forEach((x) => { if (JSON.stringify(real[x.id] || null) !== JSON.stringify(x.antes)) pisados.add(x.id); });
+  } catch (e) { console.warn("No se pudo comparar con lo real", e); }
+  const filas = cambios
+    .map((x) => ({ ...x, ...borradorEtiqueta(x.id) }))
+    .sort((a, b) => a.orden.localeCompare(b.orden))
+    .map((x) => `<div>${pisados.has(x.id) ? `<span class="bm-ojo" title="Alguien lo cambió en lo real después de armar el borrador">⚠ </span>` : ""}<b>${borradorEsc(x.nom)}</b> · ${x.fecha}: ${borradorEsc(x.slotAntes || "vacío")} → <b>${borradorEsc(x.slotDespues || "vacío")}</b></div>`)
+    .join("");
+  borradorModal("Pasar a real", `<p>Se van a cambiar <b>${cambios.length} ${cambios.length === 1 ? "horario" : "horarios"}</b> en los horarios reales. Solo los que tocaste en el borrador; el resto queda como está.</p>${pisados.size ? `<p class="bm-ojo">⚠ ${pisados.size} de esos días los cambió alguien en lo real después de que armaste el borrador. Si seguís, quedan como en el borrador.</p>` : ""}<div class="bm-lista">${filas}</div>`, [
+    { txt: "Cancelar" },
+    { txt: `Pasar ${cambios.length} a real`, clase: "bm-peligro", fn: async () => {
+      let ok = 0, mal = 0;
+      for (const x of cambios) {
+        try {
+          if (x.despues) await fsSetDoc(doc(db, "planificacion", x.id), x.despues);
+          else await fsDeleteDoc(doc(db, "planificacion", x.id));
+          borrador.original[x.id] = x.despues ? JSON.parse(JSON.stringify(x.despues)) : null;
+          ok++;
+        } catch (e) { console.error("No se pasó", x.id, e); mal++; }
+      }
+      borrador.tocados = borrador.tocados.filter((id) => JSON.stringify(borrador.original[id] || null) !== JSON.stringify(borrador.docs[id] || null));
+      borradorPersistir();
+      if (mal) showToast("Pasó a medias", `${ok} pasaron a real y ${mal} no. Revisá la conexión y volvé a intentar.`, "error");
+      else borradorModal("¡Listo!", `<p>${ok} ${ok === 1 ? "horario pasó" : "horarios pasaron"} a los horarios reales.</p><p>¿Querés salir del borrador y ver lo real?</p>`, [
+        { txt: "Seguir en el borrador" },
+        { txt: "Ver lo real", clase: "bm-prin", fn: () => window.borradorSalir() },
+      ]);
+    } },
+  ]);
+};
+window.borradorPintarFranja = function () {
+  if (!borradorActivo()) return;
+  if (!document.getElementById("borradorMarco")) {
+    const m = document.createElement("div"); m.id = "borradorMarco"; document.body.appendChild(m);
+  }
+  let fr = document.getElementById("borradorFranja");
+  if (!fr) {
+    fr = document.createElement("div"); fr.id = "borradorFranja";
+    fr.innerHTML = `<span class="bf-tag">BORRADOR</span>
+      <input id="borradorNombre" title="Nombre del borrador" maxlength="40">
+      <span class="bf-n" id="borradorN"></span>
+      <button type="button" onclick="window.borradorGuardarArchivo()" title="Bajar el borrador como archivo">Guardar</button>
+      <button type="button" onclick="window.borradorAbrirArchivo()" title="Abrir un borrador guardado">Abrir</button>
+      <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales">Pasar a real</button>
+      <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>`;
+    document.body.appendChild(fr);
+    const inp = fr.querySelector("#borradorNombre");
+    inp.value = borrador.nombre || "";
+    inp.oninput = () => { borrador.nombre = inp.value; borradorPersistir(); };
+  }
+  const n = borradorCambios().length;
+  fr.querySelector("#borradorN").textContent = n ? `${n} ${n === 1 ? "cambio" : "cambios"}` : "sin cambios";
+  const t = document.getElementById("borradorNavTxt");
+  if (t) t.textContent = "Salir del borrador";
+};
+if (borradorActivo()) {
+  const pintar = () => { window.borradorPintarFranja(); document.title = "BORRADOR · " + document.title.replace(/^BORRADOR · /, ""); };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", pintar); else pintar();
+}
+
 window.forceHardRefresh = async function() {
   const btn = document.getElementById("btnExecuteHardRefresh");
   if (btn) {
