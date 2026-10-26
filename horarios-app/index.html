@@ -621,6 +621,67 @@
     }
     #planningTable .shift-cell .shift-adic { color: #22d3ee !important; opacity: 1 !important; }
 
+    /* Modo borrador: paleta crema y terracota, títulos con serifa */
+    html.modo-borrador {
+      color-scheme: light;
+      --bg: #f4efe6;
+      --surface: #fbf8f2;
+      --surface-hover: #efe7da;
+      --primary: #c2603f;
+      --primary-hover: #a94f31;
+      --text: #3b3328;
+      --text-muted: #857a68;
+      --border: #e3d9c8;
+      --terracota: #c2603f;
+      --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    }
+    html.modo-borrador body { background: var(--bg) !important; color: var(--text) !important; }
+    html.modo-borrador #borradorMarco { border-color: var(--terracota); }
+    /* Grilla en crema */
+    html.modo-borrador .grid-container { background: var(--bg) !important; }
+    html.modo-borrador table#planningTable th.week-main-bg, html.modo-borrador table#planningTable td.week-main-bg { background-color: #fbf8f2 !important; }
+    html.modo-borrador table#planningTable th.week-alt-bg { background-color: #efe6d6 !important; }
+    html.modo-borrador table#planningTable td.week-alt-bg { background-color: #f5eee2 !important; }
+    html.modo-borrador table#planningTable td.subtotal-day-cell { background-color: #f1e9dc !important; }
+    html.modo-borrador table#planningTable th, html.modo-borrador table#planningTable td { border-color: #e3d9c8 !important; }
+    html.modo-borrador table#planningTable td.collab-cell { background-color: #f4efe6 !important; }
+    html.modo-borrador table#planningTable td.collab-cell, html.modo-borrador table#planningTable td.collab-cell span:not(.hour-box), html.modo-borrador .collab-name { color: var(--text) !important; }
+    html.modo-borrador table#planningTable td.collab-cell.roller-collab-cell { background-color: #efe3f2 !important; border-left-color: #9b6bb3 !important; }
+    html.modo-borrador table#planningTable td.day-cell.roller-day-cell { background-color: #f6eef7 !important; }
+    html.modo-borrador table#planningTable td.collab-cell.cruzado-collab-cell { background-color: #e3eeef !important; border-left-color: #4f8f95 !important; }
+    html.modo-borrador table#planningTable td.day-cell.cruzado-day-cell { background-color: #eef5f5 !important; }
+    html.modo-borrador #planningTable .shift-cell, html.modo-borrador #planningTable .shift-cell .shift-start, html.modo-borrador #planningTable .shift-cell .shift-end, html.modo-borrador #planningTable .shift-cell .shift-label, html.modo-borrador #planningTable .cell-input { color: var(--text) !important; }
+    html.modo-borrador #planningTable .shift-cell.input-franco:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) { background-color: rgba(194, 96, 63, 0.10) !important; }
+    html.modo-borrador #planningTable .shift-cell.input-franco:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) .shift-label { color: #a94f31 !important; }
+    html.modo-borrador #planningTable .shift-cell.input-libre:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) { background-color: rgba(120, 140, 110, 0.14) !important; }
+    html.modo-borrador #planningTable .shift-cell.input-libre:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) .shift-label { color: #5f6f52 !important; }
+    html.modo-borrador #planningTable .shift-cell .shift-adic { color: #0e7490 !important; }
+    html.modo-borrador #planningTable .ctx-dia { background-color: #ece3d4 !important; }
+    html.modo-borrador #planningTable .ctx-txt { color: var(--text) !important; }
+    html.modo-borrador .weekly-totals-container .hour-box.hb-ok, html.modo-borrador .dom-badge.ok { color: var(--text) !important; }
+    html.modo-borrador .weekly-totals-container .hour-box.hb-falta, html.modo-borrador .dom-badge.falta { color: #b45309 !important; }
+    html.modo-borrador .weekly-totals-container .hour-box.hb-adic { color: #0e7490 !important; }
+    html.modo-borrador .weekly-totals-container .hour-box.hb-pasa, html.modo-borrador .dom-badge.pasa { color: #b91c1c !important; }
+    html.modo-borrador .weekly-totals-container .hour-box.hb-cero, html.modo-borrador .weekly-totals-container .hour-box.hb-vac { color: var(--text-muted) !important; }
+    /* Barra de arriba */
+    html.modo-borrador .date-nav { background: #fbf8f2 !important; border-color: var(--border) !important; }
+    html.modo-borrador .date-nav button, html.modo-borrador #weekLabel, html.modo-borrador .date-nav .dn-btn { color: var(--text) !important; }
+    html.modo-borrador .date-nav .dn-hoy { color: var(--terracota) !important; border-color: rgba(194, 96, 63, 0.4) !important; background: transparent !important; }
+    html.modo-borrador #undoBtn, html.modo-borrador #pdfBtn, html.modo-borrador #avisosBtn:not(.hay):not(.ok) { background: #fbf8f2 !important; border-color: var(--border) !important; color: var(--text-muted) !important; }
+    html.modo-borrador h1, html.modo-borrador h2, html.modo-borrador h3, html.modo-borrador .cdv-title, html.modo-borrador .cdv-block-head b, html.modo-borrador .cmv-cov-head, html.modo-borrador #avisosPanel .av-head b, html.modo-borrador #presuBarra b { font-family: var(--serif) !important; letter-spacing: 0 !important; }
+    html.modo-borrador .cdv-title { font-size: 1.25rem !important; }
+    html.modo-borrador .main-app-nav .nav-tab.active, html.modo-borrador .tab-btn.active { color: var(--terracota) !important; }
+    html.modo-borrador #borradorFranja { background: #fbf8f2; border-color: var(--terracota); color: var(--text); box-shadow: 0 10px 30px rgba(59, 51, 40, 0.18); font-family: var(--serif); }
+    html.modo-borrador #borradorFranja .bf-tag { background: var(--terracota); color: #fbf8f2; font-family: var(--font-family); }
+    html.modo-borrador #borradorFranja input { color: var(--text); border-color: rgba(194, 96, 63, 0.4); font-family: var(--serif); font-size: 0.9rem; }
+    html.modo-borrador #borradorFranja .bf-n { color: var(--terracota); }
+    html.modo-borrador #borradorFranja button { color: var(--text); border-color: rgba(194, 96, 63, 0.45); }
+    html.modo-borrador #borradorFranja button:hover { background: rgba(194, 96, 63, 0.1); }
+    html.modo-borrador #borradorFranja button.bf-real { background: var(--terracota); color: #fbf8f2; border-color: var(--terracota); }
+    html.modo-borrador #borradorModal { background: rgba(59, 51, 40, 0.35); }
+    html.modo-borrador #borradorModal .bm-head { font-family: var(--serif); font-size: 1.15rem; font-weight: 700; }
+    html.modo-borrador #borradorModal .bm-pie button.bm-prin { background: var(--terracota); border-color: var(--terracota); color: #fbf8f2; }
+
     /* Modo borrador */
     #borradorMarco { position: fixed; inset: 0; border: 3px solid #f59e0b; pointer-events: none; z-index: 99990; }
     #borradorFranja { position: fixed; left: 12px; bottom: 12px; z-index: 99991; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; max-width: calc(100vw - 24px); background: #1c1405; border: 1px solid #f59e0b; border-radius: 12px; padding: 8px 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-size: 0.8rem; color: #fde68a; }
@@ -3668,7 +3729,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.31
+            Versión: v1.7.32
           </div>
         </div>
       </div>
@@ -4755,6 +4816,13 @@ try {
   }
 } catch (e) { borrador = null; }
 const borradorActivo = () => !!borrador;
+if (borrador) {
+  document.documentElement.classList.add("modo-borrador");
+  const fuente = document.createElement("link");
+  fuente.rel = "stylesheet";
+  fuente.href = "https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap";
+  document.head.appendChild(fuente);
+}
 window.borradorActivo = borradorActivo;
 const borradorOyentes = new Set();
 let borradorGuardarTimer = null;
@@ -4873,7 +4941,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.31";
+  const APP_VERSION = "v1.7.32";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
