@@ -3729,7 +3729,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.38
+            Versión: v1.7.39
           </div>
         </div>
       </div>
@@ -4946,7 +4946,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.38";
+  const APP_VERSION = "v1.7.39";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -10341,9 +10341,9 @@ function presuLineaSemana(p, r) {
       else if (cob.conDem) {
         const dif = cob.tenemos - cob.pide;
         partes.push(`Tenemos <b>${presuR(cob.tenemos)} h</b>`);
-        // Horas de cajeros sin contar las adicionales de los cajeros (los rollers van aparte)
-        const adicCaj = presuAdicEnRango(p, r, desde, hasta, (x) => !x.roller, (d) => (cob.diasDem || []).includes(d));
-        if (adicCaj != null) partes.push(`<span title="Lo que tenemos menos las adicionales de los cajeros (los rollers no están en Tenemos)">Sin adicionales <b>${presuR(Math.max(0, cob.tenemos - adicCaj))} h</b>${cob.conDem < cob.dias ? ` <span style="color: var(--text-muted);">(resta ${presuR(adicCaj)} h de cajeros de los días con demanda)</span>` : ""}</span>`);
+        // Lo que tenemos menos TODAS las adicionales (cajeros y rollers): es el mismo gasto
+        const adicDem = presuAdicEnRango(p, r, desde, hasta, () => true, (d) => (cob.diasDem || []).includes(d));
+        if (adicDem != null) partes.push(`<span title="Tenemos menos todas las adicionales (cajeros y rollers)">Sin adicionales <b>${presuR(cob.tenemos - adicDem)} h</b>${cob.conDem < cob.dias ? ` <span style="color: var(--text-muted);">(resta ${presuR(adicDem)} h de los días con demanda)</span>` : ""}</span>`);
         partes.push(`Pide Recaudaciones <b>${presuR(cob.pide)} h</b>`);
         partes.push(`Diferencia <b style="color: ${dif < 0 ? "#fca5a5" : "#34d399"};">${dif > 0 ? "+" : ""}${presuR(dif)} h</b>`);
         if (cob.conDem < cob.dias) partes.push(`<span style="color: var(--text-muted);">(${cob.dias - cob.conDem} ${cob.dias - cob.conDem === 1 ? "día" : "días"} sin demanda)</span>`);
