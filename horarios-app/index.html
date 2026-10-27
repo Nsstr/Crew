@@ -621,6 +621,20 @@
     }
     #planningTable .shift-cell .shift-adic { color: #22d3ee !important; opacity: 1 !important; }
 
+    /* Horas adicionales por día (debajo de la grilla) */
+    #planningTable tr.adic-dia-row td { background: var(--bg) !important; border-top: 1px solid var(--border) !important; text-align: center; font-size: 0.8rem; color: var(--text); padding: 4px 2px !important; height: 26px; }
+    #planningTable tr.adic-dia-total { cursor: pointer; }
+    #planningTable tr.adic-dia-total td { border-top: 2px solid #0891b2 !important; background: rgba(8, 145, 178, 0.08) !important; }
+    #planningTable tr.adic-dia-row td.adic-dia-nombre { text-align: left !important; padding: 4px 10px !important; font-weight: 700; white-space: nowrap; display: flex !important; flex-direction: row !important; align-items: center !important; gap: 6px; min-height: 28px; height: auto !important; overflow: hidden; }
+    #planningTable tr.adic-dia-row td.adic-dia-persona { font-weight: 600; padding-left: 26px !important; }
+    #planningTable tr.adic-dia-row td.adic-dia-celda { color: #22d3ee; font-weight: 600; }
+    #planningTable tr.adic-dia-row td.adic-dia-celda.fuerte { font-weight: 800; font-size: 0.85rem; }
+    #planningTable .adic-dia-sem { font-weight: 500; color: var(--text-muted); font-size: 0.75rem; }
+    #planningTable .adic-dia-chev { display: inline-block; width: 12px; color: #22d3ee; }
+    #planningTable .adic-dia-falta { color: #fbbf24; font-weight: 700; font-size: 0.72rem; }
+    html.modo-borrador #planningTable tr.adic-dia-row td.adic-dia-celda, html.modo-borrador #planningTable .adic-dia-chev { color: #0e7490; }
+    html.modo-borrador #planningTable .adic-dia-falta { color: #b45309; }
+
     /* Modo borrador: paleta crema y terracota, títulos con serifa */
     html.modo-borrador {
       color-scheme: light;
@@ -3729,7 +3743,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.39
+            Versión: v1.7.40
           </div>
         </div>
       </div>
@@ -4946,7 +4960,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.39";
+  const APP_VERSION = "v1.7.40";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6114,6 +6128,72 @@ function turnoAdicionalInfo(obj) {
     hours: p.hours,
     label: p.label.replace(/a/g, "–"),
   };
+}
+
+
+// ── Horas adicionales por día ───────────────────────────────────────────────
+// Contratos de 24 h o más: base por día = contrato / 6 (24→4, 30→5, 36→6, 48→8); lo que pase de
+// la base ese día es adicional. Contratos menores (18 h): se marcan a mano con el clic derecho.
+// Si se escribe un número a mano, manda ese (también sirve para corregir un día calculado).
+function adicDiaInfo(collab, dStr, sinFiltro = false) {
+  const contrato = presuContrato(collab);
+  if (!(contrato > 0)) return null;
+  const manualSiempre = contrato < 24;
+  const base = contrato / 6;
+  const obj = getPlanningObj(collab.id, dStr) || {};
+  const enVac = (state.vacations || []).some((v) => v.colaboradorId === collab.id && dStr >= v.startDate && dStr <= v.endDate);
+  const p = parseShift(String(getSlotEfectivo(collab.id, dStr) || "").replace("*", "").trim());
+  let horas = 0;
+  if (!enVac && p && p.type === "work" && !p.isNV) {
+    horas = p.hours || 0;
+    const ad = turnoAdicionalInfo(obj);
+    if (ad) horas += ad.hours;
+  }
+  const auto = manualSiempre ? null : Math.max(0, horas - base);
+  const manual = obj.adicManual != null && obj.adicManual !== "" ? Number(obj.adicManual) : null;
+  const valor = horas <= 0 && !sinFiltro ? 0 : manual != null ? Math.min(manual, horas || manual) : auto || 0;
+  return { contrato, base, horas, auto, manual, valor, manualSiempre };
+}
+window.adicDiaInfo = adicDiaInfo;
+// Contratos de 18 h: lo que pasa del contrato en la semana contra lo marcado a mano
+function adicFaltaMarcar(collab, lunesStr) {
+  const contrato = presuContrato(collab);
+  if (!(contrato > 0) || contrato >= 24) return 0;
+  let horas = 0, marcado = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = formatDate(addDays(new Date(lunesStr + "T00:00:00"), i));
+    const inf = adicDiaInfo(collab, d);
+    if (!inf) continue;
+    horas += inf.horas;
+    marcado += inf.valor;
+  }
+  return Math.max(0, Math.round((horas - contrato - marcado) * 10) / 10);
+}
+function adicDiaFilas(collabs, days, conContexto, clases = []) {
+  let abierto = false;
+  try { abierto = localStorage.getItem("adicDiaAbierto") === "1"; } catch (e) {}
+  const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+  const fechasTodas = days.map((d) => formatDate(d));
+  // Solo cuentan los días que se ven (los de "más allá" están ocultos o son de contexto)
+  const cuenta = fechasTodas.map((_, i) => !/day-beyond|ctx-/.test(clases[i] || ""));
+  const fechas = fechasTodas;
+  const semanasVis = [...new Set(fechasTodas.filter((_, i) => cuenta[i]).map((f) => formatDate(getStartOfWeek(new Date(f + "T00:00:00")))))];
+  const porPersona = collabs.map((c) => ({ c, vals: fechas.map((f, i) => (cuenta[i] ? (adicDiaInfo(c, f) || { valor: 0 }).valor : 0)) }))
+    .filter((x) => x.vals.some((v) => v > 0) || semanasVis.some((l) => adicFaltaMarcar(x.c, l)));
+  const totales = fechas.map((_, i) => porPersona.reduce((t, x) => t + x.vals[i], 0));
+  const totalSem = totales.reduce((a, b) => a + b, 0);
+  const ctx = conContexto ? `<td class="subtotal-day-cell ctx-dia ctx-prev"></td>` : "";
+  const celda = (v, fuerte, i) => `<td class="adic-dia-celda${fuerte ? " fuerte" : ""} ${clases[i] || ""}">${v > 0 ? r1(v) : ""}</td>`;
+  const cab = `<tr class="adic-dia-row adic-dia-total" onclick="try{localStorage.setItem('adicDiaAbierto', localStorage.getItem('adicDiaAbierto')==='1'?'0':'1')}catch(e){}; renderUI();" title="Ver quién hace horas adicionales cada día">
+    <td class="collab-cell adic-dia-nombre"><span class="adic-dia-chev">${abierto ? "▾" : "▸"}</span> Horas adicionales <span class="adic-dia-sem">${r1(totalSem)} h</span></td>${ctx}${totales.map((v, i) => celda(v, true, i)).join("")}</tr>`;
+  if (!abierto) return cab;
+  const filas = porPersona.map((x) => {
+    const falta = semanasVis.reduce((t, l) => t + adicFaltaMarcar(x.c, l), 0);
+    const nom = (typeof nombreCortoCelular === "function" && nombreCortoCelular(x.c)) || x.c.name;
+    const contrato = presuContrato(x.c);
+    return `<tr class="adic-dia-row"><td class="collab-cell adic-dia-nombre adic-dia-persona">${cdvEsc(nom)} <span class="adic-dia-sem">${contrato} h</span>${falta ? ` <span class="adic-dia-falta" title="Pasa del contrato en la semana y todavía no está marcado qué días son adicionales. Clic derecho en el día → Horas adicionales del día.">⚠ marcar ${r1(falta)} h</span>` : ""}</td>${ctx}${x.vals.map((v, i) => celda(v, false, i)).join("")}</tr>`;
+  }).join("");
+  return cab + (filas || `<tr class="adic-dia-row"><td class="collab-cell adic-dia-nombre adic-dia-persona" style="color: var(--text-muted);">Nadie hace horas adicionales en estos días</td>${ctx}${fechas.map((_, i) => `<td class="adic-dia-celda ${clases[i] || ""}"></td>`).join("")}</tr>`);
 }
 
 // 6. CALCULO HORAS EXTRAS PARA MENÚ CONTEXTUAL
@@ -9265,6 +9345,18 @@ function renderDesktopView() {
       trTotals.firstElementChild.insertAdjacentHTML("afterend", `<td class="subtotal-day-cell ctx-dia ctx-prev"></td>`);
     }
     tbody.appendChild(trTotals);
+
+    // Horas adicionales por día, desplegable debajo de los horarios
+    try {
+      const tmp = document.createElement("tbody");
+      // Mismas clases por columna que una fila de horarios (así se ocultan los mismos días)
+      const filasRef = [...tbody.querySelectorAll("tr")].filter((tr) => tr.querySelector("td.collab-cell") && tr.querySelector("td.day-cell:not(.ctx-prev)"));
+      const ref = filasRef[filasRef.length - 1];
+      const clases = ref ? [...ref.children].filter((td) => !td.classList.contains("collab-cell") && !td.classList.contains("ctx-prev"))
+        .map((td) => [...td.classList].filter((k) => /^(day-beyond|ctx-|week-|sunday|today-col|holiday-col|tienda-cerrada)/.test(k)).join(" ")) : [];
+      tmp.innerHTML = adicDiaFilas(activeAreaCollabs, days, conContexto, clases);
+      [...tmp.children].forEach((tr) => tbody.appendChild(tr));
+    } catch (e) { console.warn("Horas adicionales por día:", e); }
 
   // ── INYECCIÓN DE REPOSITORES EXTERNOS (FORMATO SINTÉTICO) ──
   if ((state.currentArea || "Disponibilidad") === "Disponibilidad" && state.repositoresData && state.repositoresData.length > 0) { // los repositores externos son solo de Disponibilidad
@@ -13477,6 +13569,11 @@ function handleContextMenu(e) {
           </div>
         </div>
 
+        <div class="ctx-row-card" id="ctxAdicDiaBlock">
+          <label for="ctxAdicDia">Horas adicionales del día<br><small id="ctxAdicDiaAyuda" style="font-weight: 400; color: #94a3b8;"></small></label>
+          <input type="number" id="ctxAdicDia" min="0" max="24" step="0.5" inputmode="decimal" style="width: 70px; text-align: center;">
+        </div>
+
         <div id="ctxAdicionalBlock" class="ctx-row-card" style="flex-direction: column !important; align-items: stretch !important; gap: 6px !important;">
           <label for="ctxAdicIn">Segundo horario (cortado)<br><small style="font-weight: 400; color: #94a3b8;">Otro horario el mismo día. Se guarda con "/" como un turno cortado.</small></label>
           <div style="display: flex; align-items: center; gap: 6px;">
@@ -13548,6 +13645,20 @@ function handleContextMenu(e) {
           : "*(Solicitado con tiempo)";
     }
 
+    // Horas adicionales del día: las 18 h se marcan a mano; el resto se calcula solo (se puede corregir)
+    {
+      const inpA = document.getElementById("ctxAdicDia"), ayuda = document.getElementById("ctxAdicDiaAyuda");
+      if (inpA) {
+        const cA = (state.collaborators || []).find((x) => x.id === collabId);
+        const info = cA ? adicDiaInfo(cA, dateStr, true) : null;
+        inpA.value = obj.adicManual != null && obj.adicManual !== "" ? obj.adicManual : "";
+        inpA.onchange = () => autoSaveContextMenu();
+        inpA.placeholder = info && info.auto != null ? String(info.auto).replace(".", ",") : "0";
+        if (ayuda) ayuda.textContent = !info ? "" : info.manualSiempre
+          ? `Contrato de ${info.contrato} h: marcá cuántas son adicionales`
+          : `Se calcula solo (base ${String(info.base).replace(".", ",")} h por día). Escribí un número para corregirlo.`;
+      }
+    }
     document.getElementById("cellTardanzaInput").value =
       obj.tardanzaTexto || "";
     document.getElementById("cellTardanzaCheck").checked =
@@ -14153,6 +14264,13 @@ async function autoSaveContextMenu() {
     }
   }
 
+  {
+    const inpA = document.getElementById("ctxAdicDia");
+    if (inpA) {
+      const v = String(inpA.value || "").replace(",", ".").trim();
+      obj.adicManual = v === "" || isNaN(Number(v)) ? null : Math.max(0, Number(v));
+    }
+  }
   obj.tardanzaTexto = tardanzaStr;
   obj.tardanzaMinutosTotales = tardanzaMins;
   obj.tardanzaConfirmada = document.getElementById("cellTardanzaCheck").checked;
@@ -14203,6 +14321,7 @@ async function autoSaveContextMenu() {
           tardanzaConfirmada: obj.tardanzaConfirmada || false,
           horaExtraValidada: obj.horaExtraValidada || false,
           esInventario: obj.esInventario || false,
+          adicManual: obj.adicManual == null ? null : obj.adicManual,
           comoCajero: !!obj.comoCajero,
           turnoAdicional: obj.turnoAdicional || "",
         },
