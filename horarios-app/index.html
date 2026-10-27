@@ -729,6 +729,8 @@
     #borradorModal .bm-lista div { padding: 6px 10px; border-top: 1px solid var(--border); font-size: 0.8rem; }
     #borradorModal .bm-lista div:first-child { border-top: none; }
     #borradorModal .bm-ojo { color: #fbbf24; }
+    #borradorModal .bm-mini { border-radius: 7px; padding: 4px 10px; font-family: inherit; font-weight: 700; font-size: 0.75rem; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text); }
+    #borradorModal .bm-mini:hover { border-color: #f59e0b; }
     @media (max-width: 768px) { #borradorNavBtn { display: none !important; } }
 
     /* Avisos: un botón con número y un panel con la lista */
@@ -3755,7 +3757,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.48
+            Versión: v1.7.49
           </div>
         </div>
       </div>
@@ -4857,7 +4859,30 @@ if (borrador) {
 window.borradorActivo = borradorActivo;
 const borradorOyentes = new Set();
 let borradorGuardarTimer = null;
-function borradorPersistir() {
+let borradorNubeTimer = null, borradorNubeAvisado = false;
+// Guarda en la nube (colección "borradores", aparte de los horarios reales) solo los días cambiados
+function borradorGuardarNube() {
+  if (!borrador || !borrador.nubeId || isMockMode || typeof db === "undefined" || !db) return;
+  clearTimeout(borradorNubeTimer);
+  borradorNubeTimer = setTimeout(async () => {
+    try {
+      const cambios = {};
+      (borrador.tocados || []).forEach((id) => {
+        cambios[id] = { d: borrador.docs[id] === undefined ? null : borrador.docs[id], o: borrador.original[id] === undefined ? null : borrador.original[id] };
+      });
+      await fsSetDoc(doc(db, "borradores", borrador.nubeId), JSON.parse(JSON.stringify({
+        nombre: borrador.nombre || "Borrador", creado: borrador.creado || new Date().toISOString(),
+        actualizado: borrador.actualizado || new Date().toISOString(), cambios,
+      })));
+    } catch (e) {
+      console.warn("No se pudo guardar el borrador en la nube", e);
+      if (!borradorNubeAvisado) { borradorNubeAvisado = true; showToast("Borrador solo en esta compu", "No se pudo guardar en la nube. Sigue guardado acá.", "warning"); }
+    }
+  }, 1200);
+}
+function borradorPersistir(cambio = true) {
+  if (borrador && cambio) borrador.actualizado = new Date().toISOString();
+  borradorGuardarNube();
   clearTimeout(borradorGuardarTimer);
   borradorGuardarTimer = setTimeout(() => {
     try { localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador)); }
@@ -4985,7 +5010,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.48";
+  const APP_VERSION = "v1.7.49";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17598,14 +17623,76 @@ async function borradorNuevo() {
   const docs = {};
   snap.docs.forEach((d) => { docs[d.id] = d.data(); });
   const fecha = new Date().toLocaleDateString("es-AR");
-  borradorActivar({ nombre: `Borrador ${fecha}`, creado: new Date().toISOString(), rangos: [[desde, hasta]], docs, original: JSON.parse(JSON.stringify(docs)), tocados: [], borrados: {} });
+  const nuevo = { nubeId: borradorNuevoId(), nombre: `Borrador ${fecha}`, creado: new Date().toISOString(), actualizado: new Date().toISOString(), rangos: [[desde, hasta]], docs, original: JSON.parse(JSON.stringify(docs)), tocados: [], borrados: {} };
+  try { await fsSetDoc(doc(db, "borradores", nuevo.nubeId), { nombre: nuevo.nombre, creado: nuevo.creado, actualizado: nuevo.actualizado, cambios: {} }); } catch (e) { console.warn("Borrador sin nube", e); }
+  borradorActivar(nuevo);
 }
+function borradorNuevoId() { return `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`; }
+// Arma el borrador a partir de lo guardado en la nube: horarios reales de ahora + los días cambiados
+async function borradorDesdeNube(id, datos) {
+  showToast("Preparando", "Abriendo el borrador…", "info");
+  const cambios = (datos && datos.cambios) || {};
+  const hoy = new Date();
+  let desde = formatDate(addDays(getStartOfWeek(hoy), -35));
+  let hasta = formatDate(addDays(hoy, 150));
+  Object.keys(cambios).forEach((k) => { const f = k.slice(-10); if (f < desde) desde = f; if (f > hasta) hasta = f; });
+  const snap = await fsGetDocs(fsQuery(collection(db, "planificacion"), fsWhere("fecha", ">=", desde), fsWhere("fecha", "<=", hasta)));
+  const docs = {};
+  snap.docs.forEach((d) => { docs[d.id] = d.data(); });
+  const original = JSON.parse(JSON.stringify(docs));
+  const borrados = {};
+  Object.entries(cambios).forEach(([k, c]) => {
+    if (c.o === null) delete original[k]; else original[k] = c.o;
+    if (c.d === null) { borrados[k] = docs[k] || null; delete docs[k]; } else docs[k] = c.d;
+  });
+  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados };
+}
+async function borradorListaNube() {
+  if (isMockMode) return [];
+  try {
+    const snap = await fsGetDocs(collection(db, "borradores"));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.actualizado || "").localeCompare(String(a.actualizado || "")));
+  } catch (e) { console.warn("No se pudieron traer los borradores", e); return []; }
+}
+window.borradorSeguirNube = async function (id) {
+  try {
+    const snap = await getDoc(doc(db, "borradores", id));
+    if (!snap.exists()) { showToast("No está", "Ese borrador ya no existe.", "warning"); return; }
+    borradorActivar(await borradorDesdeNube(id, snap.data()));
+  } catch (e) { console.error(e); showToast("No se pudo abrir", "Revisá la conexión y volvé a intentar.", "error"); }
+};
+window.borradorBorrarNube = function (id, nombre) {
+  borradorModal("Borrar borrador", `<p>¿Borrar <b>${borradorEsc(nombre)}</b>? Se borra en todas las compus. Los horarios reales no se tocan.</p>`, [
+    { txt: "Cancelar" },
+    { txt: "Borrar", clase: "bm-peligro", fn: async () => {
+      try { await fsDeleteDoc(doc(db, "borradores", id)); showToast("Listo", "Borrador borrado.", "success"); }
+      catch (e) { showToast("No se borró", "Volvé a intentar.", "error"); }
+      setTimeout(() => window.borradorMenu(), 300);
+    } },
+  ]);
+};
 window.borradorMenu = function () {
   document.getElementById("navDropdownMenu") && (document.getElementById("navDropdownMenu").style.display = "none");
   if (window.innerWidth <= 768) { showToast("Solo en la compu", "El modo borrador es para la versión de escritorio.", "info"); return; }
   if (borradorActivo()) { window.borradorSalir(); return; }
   const g = borradorGuardado();
-  const intro = `<p>Es una copia de los horarios para probar otra alternativa. Funciona todo igual (reglas, avisos, presupuesto, cobertura, planilla), pero <b>no toca los horarios reales</b>: queda guardado solo en esta compu.</p><p style="color: var(--text-muted);">Vacaciones, eventos y colaboradores siguen siendo los reales.</p>`;
+  const intro = `<p>Es una copia de los horarios para probar otra alternativa. Funciona todo igual (reglas, avisos, presupuesto, cobertura, planilla), pero <b>no toca los horarios reales</b>. Se guarda aparte, en la nube, y lo podés seguir desde cualquier compu.</p><p style="color: var(--text-muted);">Vacaciones, eventos y colaboradores siguen siendo los reales.</p>`;
+  if (!isMockMode) {
+    borradorListaNube().then((lista) => {
+      const fh = (iso) => { try { const d = new Date(iso); return `${d.toLocaleDateString("es-AR")} ${d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}`; } catch (e) { return ""; } };
+      const filas = lista.map((b) => {
+        const n = Object.keys(b.cambios || {}).length;
+        return `<div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px;"><div style="flex: 1; min-width: 0;"><b>${borradorEsc(b.nombre || "Borrador")}</b><div style="font-size: 0.75rem; color: var(--text-muted);">${n} ${n === 1 ? "cambio" : "cambios"} · ${fh(b.actualizado)}</div></div>
+          <button type="button" class="bm-mini" onclick="document.getElementById('borradorModal').remove(); window.borradorSeguirNube('${b.id}')">Seguir</button>
+          <button type="button" class="bm-mini" title="Borrar este borrador" onclick="window.borradorBorrarNube('${b.id}', ${JSON.stringify(b.nombre || "Borrador").replace(/"/g, "&quot;")})">Borrar</button></div>`;
+      }).join("");
+      borradorModal("Modo borrador", `${intro}${lista.length ? `<p style="margin-top: 10px;"><b>Borradores guardados</b></p><div class="bm-lista">${filas}</div>` : ""}`, [
+        { txt: "Cancelar" },
+        { txt: "Empezar uno nuevo", clase: lista.length ? "" : "bm-prin", fn: () => borradorNuevo() },
+      ]);
+    });
+    return;
+  }
   if (g && g.docs) {
     const n = borradorCambios(g).length;
     borradorModal("Modo borrador", `${intro}<p>Tenés un borrador guardado: <b>${borradorEsc(g.nombre)}</b> · ${n} ${n === 1 ? "cambio" : "cambios"}.</p>`, [
@@ -17661,6 +17748,8 @@ window.borradorAbrirArchivo = function () {
     if (!b.borrados) b.borrados = {};
     if (!Array.isArray(b.tocados)) b.tocados = [];
     if (!Array.isArray(b.rangos)) b.rangos = [];
+    b.nubeId = borradorNuevoId();
+    b.actualizado = new Date().toISOString();
     const n = borradorCambios(b).length;
     const actual = borradorActivo() ? borradorCambios().length : 0;
     borradorModal("Abrir borrador", `<p>Vas a abrir <b>${borradorEsc(b.nombre)}</b> (${n} ${n === 1 ? "cambio" : "cambios"}).</p>${actual ? `<p class="bm-ojo">El borrador que tenés abierto tiene ${actual} ${actual === 1 ? "cambio" : "cambios"}. Si no lo guardaste como archivo, se pierde.</p>` : ""}`, [
@@ -17735,6 +17824,22 @@ window.borradorPintarFranja = function () {
   if (t) t.textContent = "Salir del borrador";
 };
 if (borradorActivo()) {
+  setTimeout(async () => {
+    if (isMockMode || !db) return;
+    if (!borrador.nubeId) { borrador.nubeId = borradorNuevoId(); borradorPersistir(false); return; }
+    try {
+      const snap = await getDoc(doc(db, "borradores", borrador.nubeId));
+      if (!snap.exists()) { borradorPersistir(false); return; }
+      const nube = snap.data();
+      if (String(nube.actualizado || "") > String(borrador.actualizado || "")) {
+        const t = showToast("Borrador cambiado en otra compu", "Hay cambios más nuevos de este borrador.", "warning", true);
+        const b = document.createElement("button");
+        b.className = "toast-ver"; b.type = "button"; b.textContent = "Traer los cambios";
+        b.onclick = async () => { t.remove(); borradorActivar(await borradorDesdeNube(borrador.nubeId, nube)); };
+        t.querySelector(".toast-desc").after(b);
+      }
+    } catch (e) { console.warn("No se pudo revisar el borrador en la nube", e); }
+  }, 2500);
   const pintar = () => { window.borradorPintarFranja(); document.title = "BORRADOR · " + document.title.replace(/^BORRADOR · /, ""); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", pintar); else pintar();
 }
