@@ -3762,7 +3762,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.51
+            Versión: v1.7.52
           </div>
         </div>
       </div>
@@ -5015,7 +5015,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.51";
+  const APP_VERSION = "v1.7.52";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -9333,24 +9333,36 @@ function renderDesktopView() {
           }
 
         }
-        // Al pasar el mouse: horas del día, lo que lleva la semana hasta ese día y, si hay, adicionales.
-        // El borde marca los días con horas adicionales (mismo cálculo que la fila "Horas adicionales").
+        // Al pasar el mouse: el día separado en contrato y adicionales, y lo acumulado en la semana
+        // hasta ese día (contrato por un lado, adicionales por el otro). Avisa si ya pasó el contrato
+        // con horas que no están marcadas como adicionales.
+        // El borde marca los días con horas adicionales marcadas.
         if (parsed && parsed.type === "work" && !isOnVacation) {
           try {
             const r1t = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
             const lunesT = formatDate(getStartOfWeek(new Date(dStr + "T00:00:00")));
-            let lleva = 0;
+            const smT = adicSemana(collab, lunesT);
+            let accCon = 0, accAd = 0;
             for (let i = 0; i < 7; i++) {
               const di = formatDate(addDays(new Date(lunesT + "T00:00:00"), i));
               if (di > dStr) break;
-              lleva += presuHorasDia(collab.id, di);
+              const h = smT.horas[di] != null ? smT.horas[di] : presuHorasDia(collab.id, di);
+              const ad = smT.valores[di] || 0;
+              accAd += ad;
+              accCon += Math.max(0, h - ad);
             }
-            const hDia = presuHorasDia(collab.id, dStr);
+            const hDia = smT.horas[dStr] != null ? smT.horas[dStr] : presuHorasDia(collab.id, dStr);
+            const adT = smT.valores[dStr] || 0;
+            const conDia = Math.max(0, hDia - adT);
             const contratoT = presuContrato(collab);
-            const adT = adicDiaValor(collab, dStr);
             if (adT > 0) wrapperClass += obj && obj.horaExtraValidada ? " has-overtime-validated" : " has-overtime-pending";
-            const resumen = `${r1t(hDia)} h este día · lleva ${r1t(lleva)} h en la semana${contratoT ? ` (contrato ${r1t(contratoT)} h)` : ""}${adT > 0 ? ` · ${r1t(adT)} h adicionales` : ""}`;
-            titleAttr = titleAttr ? titleAttr.replace('title="', `title="${resumen} | `) : `title="${resumen}"`;
+            const lineas = [
+              `Este día ${r1t(hDia)} h: ${r1t(conDia)} de contrato${adT > 0 ? ` + ${r1t(adT)} adicionales` : " · sin adicionales"}`,
+              `Hasta este día: contrato ${r1t(accCon)}${contratoT ? ` de ${r1t(contratoT)} h` : " h"} · adicionales ${r1t(accAd)} h · total ${r1t(accCon + accAd)} h`,
+            ];
+            if (contratoT > 0 && contratoT < 48 && accCon > contratoT + 0.05) lineas.push(`⚠ Pasó su contrato ${r1t(accCon - contratoT)} h sin marcar como adicionales`);
+            const resumen = lineas.join("&#10;");
+            titleAttr = titleAttr ? titleAttr.replace('title="', `title="${resumen}&#10;`) : `title="${resumen}"`;
           } catch (e) { /* solo informativo */ }
         }
 
