@@ -3743,7 +3743,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.42
+            Versión: v1.7.43
           </div>
         </div>
       </div>
@@ -4960,7 +4960,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.42";
+  const APP_VERSION = "v1.7.43";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6146,7 +6146,9 @@ function adicSemana(collab, lunesStr) {
   const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunesStr + "T00:00:00"), i)));
   const out = Object.fromEntries(dias.map((d) => [d, 0]));
   const res = { valores: out, horas: {}, auto: {}, contrato, exceso: 0 };
-  if (contrato > 0 && contrato < 48) {
+  // Semana entera de vacaciones: no cuenta (igual que en el presupuesto)
+  const semanaVac = dias.every((d) => (state.vacations || []).some((v) => v.colaboradorId === collab.id && d >= v.startDate && d <= v.endDate));
+  if (contrato > 0 && contrato < 48 && !semanaVac) {
     const domingo = dias[6];
     const ev = presuEventos().find((e) => e.area === (collab.area || "Disponibilidad") && e.inicio <= domingo && e.fin >= lunesStr);
     const esEv = (d) => !!ev && d >= ev.inicio && d <= ev.fin;
@@ -6206,7 +6208,13 @@ function adicDiaFilas(collabs, days, conContexto, clases = []) {
     const falta = 0;
     const nom = (typeof nombreCortoCelular === "function" && nombreCortoCelular(x.c)) || x.c.name;
     const contrato = presuContrato(x.c);
-    return `<tr class="adic-dia-row"><td class="collab-cell adic-dia-nombre adic-dia-persona">${cdvEsc(nom)} <span class="adic-dia-sem">${contrato} h</span>${falta ? ` <span class="adic-dia-falta" title="Pasa del contrato en la semana y todavía no está marcado qué días son adicionales. Clic derecho en el día → Horas adicionales del día.">⚠ marcar ${r1(falta)} h</span>` : ""}</td>${ctx}${x.vals.map((v, i) => celda(v, false, i)).join("")}</tr>`;
+    // Contrato + adicionales de la(s) semana(s) que se ven = horas totales de esas semanas
+    let tot = 0, adi = 0;
+    semanasVis.forEach((l) => { const sm = adicSemana(x.c, l); tot += Object.values(sm.horas).reduce((a, b) => a + b, 0); adi += Object.values(sm.valores).reduce((a, b) => a + b, 0); });
+    const con = contrato * semanasVis.length;
+    const cierra = Math.abs(con + adi - tot) < 0.05;
+    const cuenta = `<span class="adic-dia-sem" title="Contrato + adicionales = horas de la semana">${r1(con)} + <b style="color: #22d3ee;">${r1(adi)}</b> = ${r1(tot)} h${cierra ? "" : ` <span class="adic-dia-falta" title="No cierra: revisá los números escritos a mano en esa semana">⚠</span>`}</span>`;
+    return `<tr class="adic-dia-row"><td class="collab-cell adic-dia-nombre adic-dia-persona">${cdvEsc(nom)} ${cuenta}${falta ? ` <span class="adic-dia-falta" title="Pasa del contrato en la semana y todavía no está marcado qué días son adicionales. Clic derecho en el día → Horas adicionales del día.">⚠ marcar ${r1(falta)} h</span>` : ""}</td>${ctx}${x.vals.map((v, i) => celda(v, false, i)).join("")}</tr>`;
   }).join("");
   return cab + (filas || `<tr class="adic-dia-row"><td class="collab-cell adic-dia-nombre adic-dia-persona" style="color: var(--text-muted);">Nadie hace horas adicionales en estos días</td>${ctx}${fechas.map((_, i) => `<td class="adic-dia-celda ${clases[i] || ""}"></td>`).join("")}</tr>`);
 }
@@ -10284,6 +10292,14 @@ async function presuAsegurarDatos(p) {
 function presuHorasDia(collabId, dStr) {
   const o = presuObj(collabId, dStr);
   if (!o) return 0;
+  // Domingo antes de las vacaciones: la grilla lo muestra como franco automático, entonces no suma
+  try {
+    const dObj = new Date(dStr + "T00:00:00");
+    if (dObj.getDay() === 0 && checkIsPreVacationSunday(collabId, dObj)) {
+      const c = (state.collaborators || []).find((x) => x.id === collabId);
+      if (!isContractUnder119(c) || !o.slot) return 0;
+    }
+  } catch (e) {}
   const p = parseShift(o.slot || "");
   let h = p && p.type === "work" ? p.hours || 0 : 0;
   const adic = turnoAdicionalInfo(o);
