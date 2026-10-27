@@ -3743,7 +3743,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.41
+            Versión: v1.7.42
           </div>
         </div>
       </div>
@@ -4960,7 +4960,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.41";
+  const APP_VERSION = "v1.7.42";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6132,43 +6132,57 @@ function turnoAdicionalInfo(obj) {
 
 
 // ── Horas adicionales por día ───────────────────────────────────────────────
-// Contratos de 24 h o más: base por día = contrato / 6 (24→4, 30→5, 36→6, 48→8); lo que pase de
-// la base ese día es adicional. Contratos menores (18 h): se marcan a mano con el clic derecho.
-// Si se escribe un número a mano, manda ese (también sirve para corregir un día calculado).
-function adicDiaInfo(collab, dStr, sinFiltro = false) {
+// Misma regla que el presupuesto del evento: por persona y por semana, el contrato se completa
+// primero con los días que NO son del evento y después con los del evento, en orden; lo que sobra
+// son adicionales (por eso caen al final del evento, el fin de semana). Así el total de la semana
+// coincide con el presupuesto. Un número escrito a mano en un día manda en ese día, y el resto de
+// las adicionales de la semana se reparte entre los otros días con la misma regla.
+// Contratos de 48 h o más no hacen adicionales (igual que en el presupuesto).
+let adicSemanaMemo = new Map();
+function adicSemana(collab, lunesStr) {
+  const k = `${collab.id}|${lunesStr}`;
+  if (adicSemanaMemo.has(k)) return adicSemanaMemo.get(k);
   const contrato = presuContrato(collab);
-  if (!(contrato > 0)) return null;
-  const manualSiempre = contrato < 24;
-  const base = contrato / 6;
-  const obj = getPlanningObj(collab.id, dStr) || {};
-  const enVac = (state.vacations || []).some((v) => v.colaboradorId === collab.id && dStr >= v.startDate && dStr <= v.endDate);
-  const p = parseShift(String(getSlotEfectivo(collab.id, dStr) || "").replace("*", "").trim());
-  let horas = 0;
-  if (!enVac && p && p.type === "work" && !p.isNV) {
-    horas = p.hours || 0;
-    const ad = turnoAdicionalInfo(obj);
-    if (ad) horas += ad.hours;
+  const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunesStr + "T00:00:00"), i)));
+  const out = Object.fromEntries(dias.map((d) => [d, 0]));
+  const res = { valores: out, horas: {}, auto: {}, contrato, exceso: 0 };
+  if (contrato > 0 && contrato < 48) {
+    const domingo = dias[6];
+    const ev = presuEventos().find((e) => e.area === (collab.area || "Disponibilidad") && e.inicio <= domingo && e.fin >= lunesStr);
+    const esEv = (d) => !!ev && d >= ev.inicio && d <= ev.fin;
+    const horas = Object.fromEntries(dias.map((d) => [d, presuHorasDia(collab.id, d)]));
+    res.horas = horas;
+    const manual = {};
+    dias.forEach((d) => {
+      const o = presuObj(collab.id, d);
+      if (o && o.adicManual != null && o.adicManual !== "" && horas[d] > 0) manual[d] = Math.min(Number(o.adicManual) || 0, horas[d]);
+    });
+    const total = dias.reduce((t, d) => t + horas[d], 0);
+    const exceso = Math.max(0, total - contrato);
+    res.exceso = exceso;
+    const orden = [...dias.filter((d) => !esEv(d)), ...dias.filter((d) => esEv(d))];
+    // Reparto automático (sin los números a mano), para mostrar de referencia
+    let resto = contrato;
+    orden.forEach((d) => { const usa = Math.min(horas[d], resto); resto -= usa; res.auto[d] = horas[d] - usa; });
+    // Reparto final: lo escrito a mano manda; el resto del exceso se reparte en los otros días
+    const libres = orden.filter((d) => manual[d] == null);
+    const sumManual = Object.values(manual).reduce((a, b) => a + b, 0);
+    const excesoLibre = Math.max(0, exceso - sumManual);
+    let contratoLibre = Math.max(0, libres.reduce((t, d) => t + horas[d], 0) - excesoLibre);
+    libres.forEach((d) => { const usa = Math.min(horas[d], contratoLibre); contratoLibre -= usa; out[d] = horas[d] - usa; });
+    Object.entries(manual).forEach(([d, v]) => { out[d] = v; });
   }
-  const auto = manualSiempre ? null : Math.max(0, horas - base);
-  const manual = obj.adicManual != null && obj.adicManual !== "" ? Number(obj.adicManual) : null;
-  const valor = horas <= 0 && !sinFiltro ? 0 : manual != null ? Math.min(manual, horas || manual) : auto || 0;
-  return { contrato, base, horas, auto, manual, valor, manualSiempre };
+  adicSemanaMemo.set(k, res);
+  return res;
+}
+function adicDiaValor(collab, dStr) {
+  return adicSemana(collab, formatDate(getStartOfWeek(new Date(dStr + "T00:00:00")))).valores[dStr] || 0;
+}
+function adicDiaInfo(collab, dStr) {
+  const sem = adicSemana(collab, formatDate(getStartOfWeek(new Date(dStr + "T00:00:00"))));
+  return { contrato: sem.contrato, horas: sem.horas[dStr] || 0, auto: sem.auto[dStr] || 0, valor: sem.valores[dStr] || 0, sinAdicionales: !(sem.contrato > 0 && sem.contrato < 48) };
 }
 window.adicDiaInfo = adicDiaInfo;
-// Contratos de 18 h: lo que pasa del contrato en la semana contra lo marcado a mano
-function adicFaltaMarcar(collab, lunesStr) {
-  const contrato = presuContrato(collab);
-  if (!(contrato > 0) || contrato >= 24) return 0;
-  let horas = 0, marcado = 0;
-  for (let i = 0; i < 7; i++) {
-    const d = formatDate(addDays(new Date(lunesStr + "T00:00:00"), i));
-    const inf = adicDiaInfo(collab, d);
-    if (!inf) continue;
-    horas += inf.horas;
-    marcado += inf.valor;
-  }
-  return Math.max(0, Math.round((horas - contrato - marcado) * 10) / 10);
-}
 function adicDiaFilas(collabs, days, conContexto, clases = []) {
   let abierto = false;
   try { abierto = localStorage.getItem("adicDiaAbierto") === "1"; } catch (e) {}
@@ -6178,8 +6192,9 @@ function adicDiaFilas(collabs, days, conContexto, clases = []) {
   const cuenta = fechasTodas.map((_, i) => !/day-beyond|ctx-/.test(clases[i] || ""));
   const fechas = fechasTodas;
   const semanasVis = [...new Set(fechasTodas.filter((_, i) => cuenta[i]).map((f) => formatDate(getStartOfWeek(new Date(f + "T00:00:00")))))];
-  const porPersona = collabs.map((c) => ({ c, vals: fechas.map((f, i) => (cuenta[i] ? (adicDiaInfo(c, f) || { valor: 0 }).valor : 0)) }))
-    .filter((x) => x.vals.some((v) => v > 0) || semanasVis.some((l) => adicFaltaMarcar(x.c, l)));
+  adicSemanaMemo = new Map();
+  const porPersona = collabs.map((c) => ({ c, vals: fechas.map((f, i) => (cuenta[i] ? adicDiaValor(c, f) : 0)) }))
+    .filter((x) => x.vals.some((v) => v > 0));
   const totales = fechas.map((_, i) => porPersona.reduce((t, x) => t + x.vals[i], 0));
   const totalSem = totales.reduce((a, b) => a + b, 0);
   const ctx = conContexto ? `<td class="subtotal-day-cell ctx-dia ctx-prev"></td>` : "";
@@ -6188,7 +6203,7 @@ function adicDiaFilas(collabs, days, conContexto, clases = []) {
     <td class="collab-cell adic-dia-nombre"><span class="adic-dia-chev">${abierto ? "▾" : "▸"}</span> Horas adicionales <span class="adic-dia-sem">${r1(totalSem)} h</span></td>${ctx}${totales.map((v, i) => celda(v, true, i)).join("")}</tr>`;
   if (!abierto) return cab;
   const filas = porPersona.map((x) => {
-    const falta = semanasVis.reduce((t, l) => t + adicFaltaMarcar(x.c, l), 0);
+    const falta = 0;
     const nom = (typeof nombreCortoCelular === "function" && nombreCortoCelular(x.c)) || x.c.name;
     const contrato = presuContrato(x.c);
     return `<tr class="adic-dia-row"><td class="collab-cell adic-dia-nombre adic-dia-persona">${cdvEsc(nom)} <span class="adic-dia-sem">${contrato} h</span>${falta ? ` <span class="adic-dia-falta" title="Pasa del contrato en la semana y todavía no está marcado qué días son adicionales. Clic derecho en el día → Horas adicionales del día.">⚠ marcar ${r1(falta)} h</span>` : ""}</td>${ctx}${x.vals.map((v, i) => celda(v, false, i)).join("")}</tr>`;
@@ -10278,12 +10293,13 @@ function presuHorasDia(collabId, dStr) {
 
 // Uso del presupuesto: total, por grupo, por persona y por semana
 function presuCalcular(p) {
+  adicSemanaMemo = new Map();
   const semanas = presuSemanas(p);
   const gente = (state.collaborators || []).filter((c) => (c.area || "Disponibilidad") === p.area && presuContrato(c) > 0 && presuContrato(c) < 48);
   const personas = gente.map((c) => {
     const contrato = presuContrato(c);
     const porSemana = semanas.map((lunes) => {
-      let total = 0, enEvento = 0;
+      let total = 0, enEvento = 0, adicEvento = 0, adicFuera = 0;
       // Semana entera de vacaciones: no cuenta para el presupuesto aunque tenga horario cargado
       const diasSemana = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), i)));
       const semanaVac = diasSemana.every((d) => (state.vacations || []).some((v) => v.colaboradorId === c.id && d >= v.startDate && d <= v.endDate));
@@ -10293,8 +10309,13 @@ function presuCalcular(p) {
         total += h;
         if (d >= p.inicio && d <= p.fin) enEvento += h;
       }
-      const extra = Math.max(0, total - contrato);
-      const delEvento = Math.min(extra, enEvento);
+      // Reparto por día (mismo que la fila "Horas adicionales"): respeta lo escrito a mano
+      if (!semanaVac) {
+        const sem = adicSemana(c, lunes);
+        Object.entries(sem.valores).forEach(([d, v]) => { if (d >= p.inicio && d <= p.fin) adicEvento += v; else adicFuera += v; });
+      }
+      const extra = adicEvento + adicFuera;
+      const delEvento = adicEvento;
       const tope = presuTopeSemana(c, lunes);
       return { lunes, total, extra, delEvento, fuera: extra - delEvento, tope: tope ? tope.adic : null, pasaTope: !!tope && total > tope.total + 1e-9 };
     });
@@ -10336,21 +10357,17 @@ window.presuRangoElegir = function (modo, desde, hasta) {
 };
 // Adicionales de un período: por persona y semana, la parte de lo que descuenta del evento
 // que corresponde a las horas trabajadas en esos días (proporcional)
+// Adicionales de un período: suma, día por día, lo que reparte adicSemana (mismo número que la fila de abajo)
 function presuAdicEnRango(p, r, desde, hasta, filtro = () => true, diaOk = () => true) {
   if (!(p.total > 0) || !r || !r.personas) return null;
   let total = 0;
-  r.personas.filter(filtro).forEach((x) => x.porSemana.forEach((sm) => {
-    if (!sm.delEvento) return;
-    let enEvento = 0, enRango = 0;
-    for (let i = 0; i < 7; i++) {
-      const d = formatDate(addDays(new Date(sm.lunes + "T00:00:00"), i));
-      if (d < p.inicio || d > p.fin) continue;
-      const h = presuHorasDia(x.c.id, d);
-      enEvento += h;
-      if (d >= desde && d <= hasta && diaOk(d)) enRango += h;
+  r.personas.filter(filtro).forEach((x) => {
+    for (let d = new Date(desde + "T00:00:00"); formatDate(d) <= hasta; d = addDays(d, 1)) {
+      const dStr = formatDate(d);
+      if (dStr < p.inicio || dStr > p.fin || !diaOk(dStr)) continue;
+      total += adicDiaValor(x.c, dStr);
     }
-    if (enEvento > 0) total += sm.delEvento * (enRango / enEvento);
-  }));
+  });
   return total;
 }
 function presuSumarCobertura(desde, hasta) {
@@ -10424,11 +10441,7 @@ function presuLineaSemana(p, r) {
       }
       const adic = presuAdicEnRango(p, r, desde, hasta);
       const partes = [`<span style="color: var(--text-muted);"><b style="color: var(--text);">${rango}</b></span>`];
-      if (adic != null) {
-        const adicCajTodo = presuAdicEnRango(p, r, desde, hasta, (x) => !x.roller);
-        const adicRol = Math.max(0, adic - adicCajTodo);
-        partes.push(`Adicionales usadas <b>${presuR(adic)} h</b> <span style="color: var(--text-muted);">(cajeros ${presuR(adicCajTodo)} · rollers ${presuR(adicRol)})</span>`);
-      }
+      if (adic != null) partes.push(`Adicionales usadas <b>${presuR(adic)} h</b>`);
       if (!cob) partes.push(`<span style="color: var(--text-muted);">calculando…</span>`);
       else if (cob.conDem) {
         const dif = cob.tenemos - cob.pide;
@@ -13650,13 +13663,14 @@ function handleContextMenu(e) {
       const inpA = document.getElementById("ctxAdicDia"), ayuda = document.getElementById("ctxAdicDiaAyuda");
       if (inpA) {
         const cA = (state.collaborators || []).find((x) => x.id === collabId);
-        const info = cA ? adicDiaInfo(cA, dateStr, true) : null;
+        adicSemanaMemo = new Map();
+        const info = cA ? adicDiaInfo(cA, dateStr) : null;
         inpA.value = obj.adicManual != null && obj.adicManual !== "" ? obj.adicManual : "";
         inpA.onchange = () => autoSaveContextMenu();
-        inpA.placeholder = info && info.auto != null ? String(info.auto).replace(".", ",") : "0";
-        if (ayuda) ayuda.textContent = !info ? "" : info.manualSiempre
-          ? `Contrato de ${info.contrato} h: marcá cuántas son adicionales`
-          : `Se calcula solo (base ${String(info.base).replace(".", ",")} h por día). Escribí un número para corregirlo.`;
+        inpA.placeholder = info ? String(Math.round(info.auto * 10) / 10).replace(".", ",") : "0";
+        if (ayuda) ayuda.textContent = !info ? "" : info.sinAdicionales
+          ? `Contrato de ${info.contrato} h: no cuenta adicionales`
+          : `Se calcula solo con la semana (${String(Math.round(info.auto * 10) / 10).replace(".", ",")} h). Escribí un número para corregirlo.`;
       }
     }
     document.getElementById("cellTardanzaInput").value =
