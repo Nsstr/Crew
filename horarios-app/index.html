@@ -632,6 +632,11 @@
     #planningTable .adic-dia-sem { font-weight: 500; color: var(--text-muted); font-size: 0.75rem; }
     #planningTable .adic-dia-chev { display: inline-block; width: 12px; color: #22d3ee; }
     #planningTable .adic-dia-falta { color: #fbbf24; font-weight: 700; font-size: 0.72rem; }
+    #planningTable .adic-inp { width: 100%; max-width: 54px; background: transparent; border: 1px dashed rgba(34, 211, 238, 0.35); border-radius: 4px; color: #22d3ee; font-family: inherit; font-weight: 700; font-size: 0.8rem; text-align: center; padding: 2px 0; }
+    #planningTable .adic-inp:focus { outline: none; border-style: solid; border-color: #22d3ee; background: rgba(34, 211, 238, 0.08); }
+    #planningTable .adic-inp::placeholder { color: var(--text-muted); opacity: 0.6; }
+    #planningTable .adic-sug-btn { margin-left: 8px; background: transparent; border: 1px solid rgba(34, 211, 238, 0.45); color: #22d3ee; border-radius: 999px; padding: 1px 8px; font-family: inherit; font-size: 0.68rem; font-weight: 600; cursor: pointer; }
+    html.modo-borrador #planningTable .adic-inp { color: #0e7490; border-color: rgba(14, 116, 144, 0.4); }
     html.modo-borrador #planningTable tr.adic-dia-row td.adic-dia-celda, html.modo-borrador #planningTable .adic-dia-chev { color: #0e7490; }
     html.modo-borrador #planningTable .adic-dia-falta { color: #b45309; }
 
@@ -3743,7 +3748,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.44
+            Versión: v1.7.45
           </div>
         </div>
       </div>
@@ -4960,7 +4965,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.44";
+  const APP_VERSION = "v1.7.45";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6145,7 +6150,7 @@ function adicSemana(collab, lunesStr) {
   const contrato = presuContrato(collab);
   const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunesStr + "T00:00:00"), i)));
   const out = Object.fromEntries(dias.map((d) => [d, 0]));
-  const res = { valores: out, horas: {}, auto: {}, contrato, exceso: 0 };
+  const res = { valores: out, horas: {}, auto: {}, sugerido: {}, marcado: {}, contrato, exceso: 0, diferencia: 0 };
   // Semana entera de vacaciones: no cuenta (igual que en el presupuesto)
   const semanaVac = dias.every((d) => (state.vacations || []).some((v) => v.colaboradorId === collab.id && d >= v.startDate && d <= v.endDate));
   if (contrato > 0 && contrato < 48 && !semanaVac) {
@@ -6171,8 +6176,12 @@ function adicSemana(collab, lunesStr) {
     const sumManual = Object.values(manual).reduce((a, b) => a + b, 0);
     const excesoLibre = Math.max(0, exceso - sumManual);
     let contratoLibre = Math.max(0, libres.reduce((t, d) => t + horas[d], 0) - excesoLibre);
-    libres.forEach((d) => { const usa = Math.min(horas[d], contratoLibre); contratoLibre -= usa; out[d] = horas[d] - usa; });
-    Object.entries(manual).forEach(([d, v]) => { out[d] = v; });
+    // Sugerido: lo marcado manda y el resto del exceso se reparte con la regla (para completar o de referencia)
+    libres.forEach((d) => { const usa = Math.min(horas[d], contratoLibre); contratoLibre -= usa; res.sugerido[d] = horas[d] - usa; });
+    Object.entries(manual).forEach(([d, v]) => { res.sugerido[d] = v; });
+    // Lo que cuenta: SOLO lo marcado a mano (no se mueve solo cuando cambia otro día)
+    Object.entries(manual).forEach(([d, v]) => { out[d] = v; res.marcado[d] = true; });
+    res.diferencia = Math.round((exceso - sumManual) * 10) / 10; // > 0: faltan marcar · < 0: marcado de más
   }
   adicSemanaMemo.set(k, res);
   return res;
@@ -6182,9 +6191,105 @@ function adicDiaValor(collab, dStr) {
 }
 function adicDiaInfo(collab, dStr) {
   const sem = adicSemana(collab, formatDate(getStartOfWeek(new Date(dStr + "T00:00:00"))));
-  return { contrato: sem.contrato, horas: sem.horas[dStr] || 0, auto: sem.auto[dStr] || 0, valor: sem.valores[dStr] || 0, sinAdicionales: !(sem.contrato > 0 && sem.contrato < 48) };
+  return { contrato: sem.contrato, horas: sem.horas[dStr] || 0, auto: sem.auto[dStr] || 0, sugerido: sem.sugerido[dStr] || 0, valor: sem.valores[dStr] || 0, diferencia: sem.diferencia, sinAdicionales: !(sem.contrato > 0 && sem.contrato < 48) };
 }
 window.adicDiaInfo = adicDiaInfo;
+// Semanas del evento donde lo marcado no coincide con lo que la persona pasa de su contrato
+function adicPendientes() {
+  const p = presuActivo();
+  if (!p || !(p.total > 0) || (state.currentArea || "Disponibilidad") !== p.area) return [];
+  const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+  const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const out = [];
+  (state.collaborators || []).filter((c) => (c.area || "Disponibilidad") === p.area && presuContrato(c) > 0 && presuContrato(c) < 48).forEach((c) => {
+    presuSemanas(p).forEach((l) => {
+      const sm = adicSemana(c, l);
+      if (Math.abs(sm.diferencia) <= 0.05) return;
+      const nombre = (typeof nombreCortoCelular === "function" && nombreCortoCelular(c)) || c.name;
+      const dia = Object.keys(sm.horas).find((d) => sm.horas[d] > 0) || l;
+      out.push({
+        clave: `adicdif|${c.id}|${l}`, collabId: c.id, dStr: dia, tipo: "warning",
+        titulo: sm.diferencia > 0 ? "Faltan marcar adicionales" : "Adicionales de más",
+        msg: sm.diferencia > 0
+          ? `${nombre}, semana del ${fc(l)}: pasa ${r1(sm.exceso)} h de su contrato y hay marcadas ${r1(sm.exceso - sm.diferencia)} h. Faltan ${r1(sm.diferencia)} h.`
+          : `${nombre}, semana del ${fc(l)}: pasa ${r1(sm.exceso)} h de su contrato y hay marcadas ${r1(sm.exceso - sm.diferencia)} h. Sobran ${r1(-sm.diferencia)} h.`,
+      });
+    });
+  });
+  return out;
+}
+
+// Guarda las horas adicionales marcadas de un día (null/"" = sin marcar)
+async function adicGuardar(collabId, dStr, valor) {
+  const v = valor === "" || valor == null || isNaN(Number(String(valor).replace(",", "."))) ? null : Math.max(0, Number(String(valor).replace(",", ".")));
+  const k = `${collabId}_${dStr}`;
+  const prev = state.planning[k];
+  const obj = typeof prev === "string" ? { slot: prev } : { ...(prev || presuObj(collabId, dStr) || {}) };
+  obj.adicManual = v;
+  state.planning[k] = obj;
+  if (presuCache[k]) presuCache[k] = { ...presuCache[k], adicManual: v };
+  if (!isMockMode) {
+    try { await setDoc(doc(db, "planificacion", k), { colaboradorId: collabId, fecha: dStr, adicManual: v }, { merge: true }); }
+    catch (e) { console.error(e); showToast("No se guardó", "Revisá la conexión y volvé a intentar.", "error"); }
+  }
+}
+window.adicGuardarCelda = async function (inp) {
+  await adicGuardar(inp.dataset.c, inp.dataset.d, inp.value);
+  window.pendingAdicFoco = { c: inp.dataset.c, d: inp.dataset.d };
+  renderUI();
+};
+// Completa los días sin marcar de las semanas que se ven con el sugerido
+window.adicCompletarSugerido = async function (lunesLista) {
+  adicSemanaMemo = new Map();
+  const lunes = String(lunesLista || "").split(",").filter(Boolean);
+  let n = 0;
+  for (const c of (state.collaborators || []).filter((x) => (x.area || "Disponibilidad") === (state.currentArea || "Disponibilidad"))) {
+    for (const l of lunes) {
+      const sm = adicSemana(c, l);
+      for (const [d, v] of Object.entries(sm.sugerido)) {
+        if (!sm.marcado[d] && v > 0) { await adicGuardar(c.id, d, Math.round(v * 10) / 10); n++; }
+      }
+    }
+  }
+  showToast("Listo", n ? `Se marcaron ${n} ${n === 1 ? "día" : "días"} con el sugerido.` : "No había días para completar.", "success");
+  renderUI();
+};
+// Una sola vez por evento: guarda como marcado lo que hasta ahora calculaba la app, así nada cambia
+var adicCongelando = false;
+async function adicCongelarSiHace(p) {
+  if (adicCongelando || isMockMode || (typeof borradorActivo === "function" && borradorActivo())) return;
+  const semanas = presuSemanas(p);
+  const desde = semanas[0], hasta = formatDate(addDays(new Date(semanas[semanas.length - 1] + "T00:00:00"), 6));
+  if (!presuCacheVivo[`${desde}|${hasta}`]) return; // todavía no llegaron las semanas del evento
+  adicCongelando = true;
+  try {
+    const ref = doc(db, "notas_globales", `adicionales_${(p.area || "").replace(/\s+/g, "_")}`);
+    const snap = await getDoc(ref);
+    const hechos = (snap.exists() && snap.data().congelados) || {};
+    if (hechos[p.clave]) return;
+    adicSemanaMemo = new Map();
+    const gente = (state.collaborators || []).filter((c) => (c.area || "Disponibilidad") === p.area && presuContrato(c) > 0 && presuContrato(c) < 48);
+    const escrituras = [];
+    gente.forEach((c) => semanas.forEach((l) => {
+      const sm = adicSemana(c, l);
+      Object.entries(sm.sugerido).forEach(([d, v]) => { if (!sm.marcado[d] && v > 0) escrituras.push([c.id, d, Math.round(v * 10) / 10]); });
+    }));
+    for (let i = 0; i < escrituras.length; i += 400) {
+      const lote = writeBatch(db);
+      escrituras.slice(i, i + 400).forEach(([cid, d, v]) => lote.set(doc(db, "planificacion", `${cid}_${d}`), { colaboradorId: cid, fecha: d, adicManual: v }, { merge: true }));
+      await lote.commit();
+    }
+    await setDoc(ref, { congelados: { ...hechos, [p.clave]: new Date().toISOString() } }, { merge: true });
+    escrituras.forEach(([cid, d, v]) => { const k = `${cid}_${d}`; if (presuCache[k]) presuCache[k].adicManual = v; if (state.planning[k] && typeof state.planning[k] === "object") state.planning[k].adicManual = v; });
+    if (escrituras.length) showToast("Adicionales guardadas", `Quedaron marcadas las adicionales de ${p.nombre} (${escrituras.length} días). Desde ahora no se mueven solas.`, "success");
+    renderUI();
+  } catch (e) {
+    console.warn("No se pudieron guardar las adicionales:", e);
+  } finally {
+    adicCongelando = false;
+  }
+}
+
 function adicDiaFilas(collabs, days, conContexto, clases = []) {
   let abierto = false;
   try { abierto = localStorage.getItem("adicDiaAbierto") === "1"; } catch (e) {}
@@ -6195,14 +6300,15 @@ function adicDiaFilas(collabs, days, conContexto, clases = []) {
   const fechas = fechasTodas;
   const semanasVis = [...new Set(fechasTodas.filter((_, i) => cuenta[i]).map((f) => formatDate(getStartOfWeek(new Date(f + "T00:00:00")))))];
   adicSemanaMemo = new Map();
+  const difPersona = (c) => semanasVis.reduce((t, l) => t + adicSemana(c, l).diferencia, 0);
   const porPersona = collabs.map((c) => ({ c, vals: fechas.map((f, i) => (cuenta[i] ? adicDiaValor(c, f) : 0)) }))
-    .filter((x) => x.vals.some((v) => v > 0));
+    .filter((x) => x.vals.some((v) => v > 0) || Math.abs(difPersona(x.c)) > 0.05);
   const totales = fechas.map((_, i) => porPersona.reduce((t, x) => t + x.vals[i], 0));
   const totalSem = totales.reduce((a, b) => a + b, 0);
   const ctx = conContexto ? `<td class="subtotal-day-cell ctx-dia ctx-prev"></td>` : "";
   const celda = (v, fuerte, i) => `<td class="adic-dia-celda${fuerte ? " fuerte" : ""} ${clases[i] || ""}">${v > 0 ? r1(v) : ""}</td>`;
   const cab = `<tr class="adic-dia-row adic-dia-total" onclick="try{localStorage.setItem('adicDiaAbierto', localStorage.getItem('adicDiaAbierto')==='1'?'0':'1')}catch(e){}; renderUI();" title="Ver quién hace horas adicionales cada día">
-    <td class="collab-cell adic-dia-nombre"><span class="adic-dia-chev">${abierto ? "▾" : "▸"}</span> Horas adicionales <span class="adic-dia-sem">${r1(totalSem)} h</span></td>${ctx}${totales.map((v, i) => celda(v, true, i)).join("")}</tr>`;
+    <td class="collab-cell adic-dia-nombre"><span class="adic-dia-chev">${abierto ? "▾" : "▸"}</span> Horas adicionales <span class="adic-dia-sem">${r1(totalSem)} h</span>${abierto && window.innerWidth > 768 ? `<button type="button" class="adic-sug-btn" title="Llena los días sin marcar con lo que sugiere la app (después lo podés corregir)" onclick="event.stopPropagation(); window.adicCompletarSugerido('${semanasVis.join(",")}')">Sugerir</button>` : ""}</td>${ctx}${totales.map((v, i) => celda(v, true, i)).join("")}</tr>`;
   if (!abierto) return cab;
   const filas = porPersona.map((x) => {
     const falta = 0;
@@ -6212,9 +6318,16 @@ function adicDiaFilas(collabs, days, conContexto, clases = []) {
     let tot = 0, adi = 0;
     semanasVis.forEach((l) => { const sm = adicSemana(x.c, l); tot += Object.values(sm.horas).reduce((a, b) => a + b, 0); adi += Object.values(sm.valores).reduce((a, b) => a + b, 0); });
     const con = contrato * semanasVis.length;
-    const cierra = Math.abs(con + adi - tot) < 0.05;
-    const cuenta = `<span class="adic-dia-sem" title="Contrato + adicionales = horas de la semana">${r1(con)} + <b style="color: #22d3ee;">${r1(adi)}</b> = ${r1(tot)} h${cierra ? "" : ` <span class="adic-dia-falta" title="No cierra: revisá los números escritos a mano en esa semana">⚠</span>`}</span>`;
-    return `<tr class="adic-dia-row"><td class="collab-cell adic-dia-nombre adic-dia-persona">${cdvEsc(nom)} ${cuenta}${falta ? ` <span class="adic-dia-falta" title="Pasa del contrato en la semana y todavía no está marcado qué días son adicionales. Clic derecho en el día → Horas adicionales del día.">⚠ marcar ${r1(falta)} h</span>` : ""}</td>${ctx}${x.vals.map((v, i) => celda(v, false, i)).join("")}</tr>`;
+    const dif = difPersona(x.c);
+    const cuentaTxt = `<span class="adic-dia-sem" title="Contrato + adicionales marcadas = horas de la semana">${r1(con)} + <b style="color: #22d3ee;">${r1(adi)}</b> = ${r1(con + adi)} h</span>${Math.abs(dif) <= 0.05 ? "" : dif > 0
+      ? ` <span class="adic-dia-falta" title="Trabaja ${r1(tot)} h: pasa del contrato ${r1(dif)} h más de lo marcado">⚠ faltan marcar ${r1(dif)} h</span>`
+      : ` <span class="adic-dia-falta" title="Trabaja ${r1(tot)} h: marcaste ${r1(-dif)} h más de lo que pasa del contrato">⚠ ${r1(-dif)} h de más</span>`}`;
+    return `<tr class="adic-dia-row"><td class="collab-cell adic-dia-nombre adic-dia-persona">${cdvEsc(nom)} ${cuentaTxt}${falta ? ` <span class="adic-dia-falta" title="Pasa del contrato en la semana y todavía no está marcado qué días son adicionales. Clic derecho en el día → Horas adicionales del día.">⚠ marcar ${r1(falta)} h</span>` : ""}</td>${ctx}${x.vals.map((v, i) => {
+      if (window.innerWidth <= 768 || !cuenta[i]) return celda(v, false, i);
+      const inf = adicDiaInfo(x.c, fechas[i]);
+      if (!inf || inf.horas <= 0) return `<td class="adic-dia-celda ${clases[i] || ""}"></td>`;
+      return `<td class="adic-dia-celda ${clases[i] || ""}"><input class="adic-inp" type="text" inputmode="decimal" data-c="${x.c.id}" data-d="${fechas[i]}" value="${v > 0 ? r1(v) : ""}" placeholder="·" title="${r1(inf.horas)} h ese día · sugerido ${r1(inf.sugerido)} h" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter'){this.blur();}" onchange="window.adicGuardarCelda(this)"></td>`;
+    }).join("")}</tr>`;
   }).join("");
   return cab + (filas || `<tr class="adic-dia-row"><td class="collab-cell adic-dia-nombre adic-dia-persona" style="color: var(--text-muted);">Nadie hace horas adicionales en estos días</td>${ctx}${fechas.map((_, i) => `<td class="adic-dia-celda ${clases[i] || ""}"></td>`).join("")}</tr>`);
 }
@@ -10280,6 +10393,15 @@ async function presuAsegurarDatos(p) {
         });
         presuCacheVivo[clave] = true;
         renderPresuBarra();
+        // La fila "Horas adicionales" de la grilla usa estos datos: se redibuja cuando llegan cambios
+        clearTimeout(window.__presuRenderT);
+        const redibujar = () => {
+          // No interrumpir si se está escribiendo en la grilla: se reintenta en un rato
+          const a = document.activeElement;
+          if (a && a.closest && a.closest("#planningTable") && a.tagName === "INPUT") { window.__presuRenderT = setTimeout(redibujar, 1500); return; }
+          try { renderUI(); } catch (e) {}
+        };
+        window.__presuRenderT = setTimeout(redibujar, 200);
         if (celdasVigiladas.size) revisarAlertasVivas();
       },
       (e) => {
@@ -10488,6 +10610,7 @@ function renderPresuBarra() {
   const p = presuActivo();
   if (!p) { if (barra) barra.style.display = "none"; return; }
   presuAsegurarDatos(p);
+  setTimeout(() => adicCongelarSiHace(p), 0);
   if (!barra) {
     const host = document.getElementById("seccionHorarios");
     if (!host) return;
@@ -10514,6 +10637,7 @@ function renderPresuBarra() {
     <span style="white-space: nowrap;">Usadas <b>${presuR(r.usado)}</b> de ${presuR(p.total)} · ${pasa ? `<b style="color: #fca5a5;">te pasaste ${presuR(-r.queda)} h</b>` : `quedan <b style="color: ${acento};">${presuR(r.queda)}</b>`}</span>` : ""}
     ${r.fuera > 0 ? `<span style="color: var(--text-muted); white-space: nowrap;" title="Horas que pasan del contrato en días que no son del evento">+${presuR(r.fuera)} h extra fuera del evento</span>` : ""}
     ${p.reglas ? (nReglas ? `<span style="white-space: nowrap; color: #fca5a5; font-weight: 700; text-decoration: underline; text-underline-offset: 3px;" title="Ver la lista" onclick="event.stopPropagation(); window.abrirAvisos()">${nReglas} ${nReglas === 1 ? "cosa" : "cosas"} para revisar en los horarios</span>` : `<span style="white-space: nowrap; color: var(--text-muted);">Reglas del evento: todo en orden</span>`) : ""}
+    ${(() => { const n = conHoras ? adicPendientes().length : 0; return n ? `<span style="white-space: nowrap; color: #fbbf24; font-weight: 700; text-decoration: underline; text-underline-offset: 3px;" title="Semanas donde las adicionales marcadas no coinciden con lo que pasa del contrato" onclick="event.stopPropagation(); window.abrirAvisos()">⚠ ${n} ${n === 1 ? "semana" : "semanas"} con adicionales sin cerrar</span>` : ""; })()}
     <span style="margin-left: auto; color: var(--text-muted); white-space: nowrap;">Ver detalle ›</span>
     ${presuLineaSemana(p, r)}`;
 
@@ -10922,6 +11046,9 @@ function avisosLista() {
     items.push({ ...x, grupo });
   };
   alertasVivas.forEach((x) => agregar(x, "Horarios que tocaste"));
+  try {
+    adicPendientes().forEach((x) => agregar(x, "Horas adicionales sin cerrar"));
+  } catch (e) { /* sin evento */ }
   try {
     const p = presuActivo();
     if (p && p.reglas && (state.currentArea || "Disponibilidad") === p.area) {
@@ -13688,10 +13815,10 @@ function handleContextMenu(e) {
         const info = cA ? adicDiaInfo(cA, dateStr) : null;
         inpA.value = obj.adicManual != null && obj.adicManual !== "" ? obj.adicManual : "";
         inpA.onchange = () => autoSaveContextMenu();
-        inpA.placeholder = info ? String(Math.round(info.auto * 10) / 10).replace(".", ",") : "0";
+        inpA.placeholder = info ? String(Math.round(info.sugerido * 10) / 10).replace(".", ",") : "0";
         if (ayuda) ayuda.textContent = !info ? "" : info.sinAdicionales
           ? `Contrato de ${info.contrato} h: no cuenta adicionales`
-          : `Se calcula solo con la semana (${String(Math.round(info.auto * 10) / 10).replace(".", ",")} h). Escribí un número para corregirlo.`;
+          : `Marcá cuántas son adicionales (sugerido ${String(Math.round(info.sugerido * 10) / 10).replace(".", ",")} h)${Math.abs(info.diferencia) > 0.05 ? (info.diferencia > 0 ? ` · en la semana faltan marcar ${String(info.diferencia).replace(".", ",")} h` : ` · en la semana hay ${String(-info.diferencia).replace(".", ",")} h de más`) : ""}`;
       }
     }
     document.getElementById("cellTardanzaInput").value =
