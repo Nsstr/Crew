@@ -3743,7 +3743,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.43
+            Versión: v1.7.44
           </div>
         </div>
       </div>
@@ -4960,7 +4960,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.43";
+  const APP_VERSION = "v1.7.44";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6138,7 +6138,7 @@ function turnoAdicionalInfo(obj) {
 // coincide con el presupuesto. Un número escrito a mano en un día manda en ese día, y el resto de
 // las adicionales de la semana se reparte entre los otros días con la misma regla.
 // Contratos de 48 h o más no hacen adicionales (igual que en el presupuesto).
-let adicSemanaMemo = new Map();
+var adicSemanaMemo = new Map(); // var: la grilla puede dibujarse antes de llegar a esta línea
 function adicSemana(collab, lunesStr) {
   const k = `${collab.id}|${lunesStr}`;
   if (adicSemanaMemo.has(k)) return adicSemanaMemo.get(k);
@@ -8421,6 +8421,7 @@ function actualizarOpcionesArea() {
 }
 
 window.renderUI = function renderUI() {
+  if (typeof adicSemanaMemo !== "undefined") adicSemanaMemo = new Map(); // los horarios pudieron cambiar
   actualizarOpcionesArea();
   try { renderPresuBarra(); } catch (e) { console.warn("Barra de horas adicionales:", e); }
   if (window.innerWidth <= 768) {
@@ -9165,22 +9166,26 @@ function renderDesktopView() {
             }
           }
 
-          // NEW: Overtime indicator
-          const otInfo = calculateOvertimeInfo(collab.id, dStr, parsed);
-          if (otInfo) {
-            if (obj.horaExtraValidada) {
-              wrapperClass += " has-overtime-validated";
-            } else {
-              wrapperClass += " has-overtime-pending";
+        }
+        // Al pasar el mouse: horas del día, lo que lleva la semana hasta ese día y, si hay, adicionales.
+        // El borde marca los días con horas adicionales (mismo cálculo que la fila "Horas adicionales").
+        if (parsed && parsed.type === "work" && !isOnVacation) {
+          try {
+            const r1t = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+            const lunesT = formatDate(getStartOfWeek(new Date(dStr + "T00:00:00")));
+            let lleva = 0;
+            for (let i = 0; i < 7; i++) {
+              const di = formatDate(addDays(new Date(lunesT + "T00:00:00"), i));
+              if (di > dStr) break;
+              lleva += presuHorasDia(collab.id, di);
             }
-
-            let otTitle = `Horas Extras: ${otInfo.excess}hs (${obj.horaExtraValidada ? "Validado" : "Pendiente"})`;
-            if (titleAttr) {
-              titleAttr = titleAttr.replace('title="', `title="${otTitle} | `);
-            } else {
-              titleAttr = `title="${otTitle}"`;
-            }
-          }
+            const hDia = presuHorasDia(collab.id, dStr);
+            const contratoT = presuContrato(collab);
+            const adT = adicDiaValor(collab, dStr);
+            if (adT > 0) wrapperClass += obj && obj.horaExtraValidada ? " has-overtime-validated" : " has-overtime-pending";
+            const resumen = `${r1t(hDia)} h este día · lleva ${r1t(lleva)} h en la semana${contratoT ? ` (contrato ${r1t(contratoT)} h)` : ""}${adT > 0 ? ` · ${r1t(adT)} h adicionales` : ""}`;
+            titleAttr = titleAttr ? titleAttr.replace('title="', `title="${resumen} | `) : `title="${resumen}"`;
+          } catch (e) { /* solo informativo */ }
         }
 
         let isSkeleton =
