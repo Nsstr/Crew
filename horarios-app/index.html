@@ -683,6 +683,9 @@
     html.modo-borrador #planningTable .shift-cell.input-libre:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) .shift-label { color: #5f6f52 !important; }
     html.modo-borrador #planningTable .shift-cell .shift-adic { color: #0e7490 !important; }
     html.modo-borrador #planningTable .ctx-dia { background-color: #ece3d4 !important; }
+    /* Celda que se está editando: fondo claro, letra oscura y borde terracota */
+    html.modo-borrador #planningTable .cell-input-hidden:focus { background-color: #fffdf8 !important; color: #3b3328 !important; outline: 2px solid var(--terracota) !important; caret-color: var(--terracota); }
+    html.modo-borrador #planningTable .cell-input-hidden:focus::selection { background: rgba(194, 96, 63, 0.25); color: #3b3328; }
     html.modo-borrador #planningTable .ctx-txt { color: var(--text) !important; }
     html.modo-borrador .weekly-totals-container .hour-box.hb-ok, html.modo-borrador .dom-badge.ok { color: var(--text) !important; }
     html.modo-borrador .weekly-totals-container .hour-box.hb-falta, html.modo-borrador .dom-badge.falta { color: #b45309 !important; }
@@ -3757,7 +3760,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.49
+            Versión: v1.7.50
           </div>
         </div>
       </div>
@@ -5010,7 +5013,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.49";
+  const APP_VERSION = "v1.7.50";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
