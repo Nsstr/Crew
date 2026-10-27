@@ -632,6 +632,7 @@
     #planningTable .adic-dia-sem { font-weight: 500; color: var(--text-muted); font-size: 0.75rem; }
     #planningTable .adic-dia-chev { display: inline-block; width: 12px; color: #22d3ee; }
     #planningTable .adic-dia-falta { color: #fbbf24; font-weight: 700; font-size: 0.72rem; }
+    #planningTable .adic-dia-nocierra, #planningTable .adic-dia-nocierra b { color: #fbbf24 !important; }
     #planningTable .adic-inp { width: 100%; max-width: 54px; background: transparent; border: 1px dashed rgba(34, 211, 238, 0.35); border-radius: 4px; color: #22d3ee; font-family: inherit; font-weight: 700; font-size: 0.8rem; text-align: center; padding: 2px 0; }
     #planningTable .adic-inp:focus { outline: none; border-style: solid; border-color: #22d3ee; background: rgba(34, 211, 238, 0.08); }
     #planningTable .adic-inp::placeholder { color: var(--text-muted); opacity: 0.6; }
@@ -3754,7 +3755,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.47
+            Versión: v1.7.48
           </div>
         </div>
       </div>
@@ -4941,10 +4942,21 @@ function setDoc(ref, datos, opciones) {
   if (borradorActivo() && esPlan(ref)) {
     const previo = borrador.docs[ref.id];
     borrador.docs[ref.id] = opciones && opciones.merge && previo ? { ...previo, ...datos } : { ...datos };
+    presuCacheLocal(ref, borrador.docs[ref.id], false);
     borradorCambio(ref.id);
     return Promise.resolve();
   }
+  presuCacheLocal(ref, datos, opciones && opciones.merge);
   return fsSetDoc(ref, datos, opciones);
+}
+// Lo que se guarda desde esta pantalla se refleja al instante en la copia que usan el presupuesto
+// y la fila de adicionales (sin esperar que vuelva la confirmación de la base)
+function presuCacheLocal(ref, datos, merge) {
+  try {
+    if (!esPlan(ref) || typeof presuCache === "undefined") return;
+    if (datos === null) { delete presuCache[ref.id]; return; }
+    presuCache[ref.id] = merge && presuCache[ref.id] ? { ...presuCache[ref.id], ...datos } : { ...datos };
+  } catch (e) {}
 }
 function updateDoc(ref, datos) {
   if (borradorActivo() && esPlan(ref)) {
@@ -4952,6 +4964,7 @@ function updateDoc(ref, datos) {
     borradorCambio(ref.id);
     return Promise.resolve();
   }
+  presuCacheLocal(ref, datos, true);
   return fsUpdateDoc(ref, datos);
 }
 function deleteDoc(ref) {
@@ -4962,6 +4975,7 @@ function deleteDoc(ref) {
     borradorCambio(ref.id);
     return Promise.resolve();
   }
+  presuCacheLocal(ref, null);
   return fsDeleteDoc(ref);
 }
 
@@ -4971,7 +4985,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.47";
+  const APP_VERSION = "v1.7.48";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6326,9 +6340,11 @@ function adicDiaFilas(collabs, days, conContexto, clases = []) {
     semanasVis.forEach((l) => { const sm = adicSemana(x.c, l); tot += Object.values(sm.horas).reduce((a, b) => a + b, 0); adi += Object.values(sm.valores).reduce((a, b) => a + b, 0); });
     const con = contrato * semanasVis.length;
     const dif = difPersona(x.c);
-    const cuentaTxt = `<span class="adic-dia-sem" title="Contrato + adicionales marcadas = horas de la semana">${r1(con)} + <b style="color: #22d3ee;">${r1(adi)}</b> = ${r1(con + adi)} h</span>${Math.abs(dif) <= 0.05 ? "" : dif > 0
-      ? ` <span class="adic-dia-falta" title="Trabaja ${r1(tot)} h: pasa del contrato ${r1(dif)} h más de lo marcado">⚠ faltan marcar ${r1(dif)} h</span>`
-      : ` <span class="adic-dia-falta" title="Trabaja ${r1(tot)} h: marcaste ${r1(-dif)} h más de lo que pasa del contrato">⚠ ${r1(-dif)} h de más</span>`}`;
+    // Contrato + marcadas = horas que trabaja. Si no da, se ve "≠" con las horas reales y la diferencia
+    const okSem = Math.abs(dif) <= 0.05;
+    const cuentaTxt = okSem
+      ? `<span class="adic-dia-sem" title="Contrato + adicionales marcadas = horas que trabaja en la semana">${r1(con)} + <b style="color: #22d3ee;">${r1(adi)}</b> = ${r1(tot)} h</span>`
+      : `<span class="adic-dia-sem adic-dia-nocierra" title="${dif > 0 ? `Trabaja ${r1(tot)} h: pasa ${r1(tot - con)} h de su contrato y hay marcadas ${r1(adi)} h. Faltan marcar ${r1(dif)} h.` : `Trabaja ${r1(tot)} h: pasa ${r1(Math.max(0, tot - con))} h de su contrato y hay marcadas ${r1(adi)} h. Sobran ${r1(-dif)} h: borralas de algún día.`}">${r1(con)} + <b>${r1(adi)}</b> ≠ ${r1(tot)} h <b class="adic-dia-falta">${dif > 0 ? `faltan ${r1(dif)}` : `sobran ${r1(-dif)}`}</b></span>`;
     return `<tr class="adic-dia-row"><td class="collab-cell adic-dia-nombre adic-dia-persona">${cdvEsc(nom)} ${cuentaTxt}${falta ? ` <span class="adic-dia-falta" title="Pasa del contrato en la semana y todavía no está marcado qué días son adicionales. Clic derecho en el día → Horas adicionales del día.">⚠ marcar ${r1(falta)} h</span>` : ""}</td>${ctx}${x.vals.map((v, i) => {
       if (window.innerWidth <= 768 || !cuenta[i]) return celda(v, false, i);
       const inf = adicDiaInfo(x.c, fechas[i]);
