@@ -714,6 +714,8 @@
     /* Modo borrador */
     #borradorMarco { position: fixed; inset: 0; border: 3px solid #f59e0b; pointer-events: none; z-index: 99990; }
     #borradorFranja { position: fixed; left: 12px; bottom: 12px; z-index: 99991; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; max-width: calc(100vw - 24px); background: #1c1405; border: 1px solid #f59e0b; border-radius: 12px; padding: 8px 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-size: 0.8rem; color: #fde68a; }
+    #borradorFranja.bf-arriba { position: static; flex: 0 0 auto; max-width: none; border-radius: 0; border: none; border-bottom: 1px solid #f59e0b; box-shadow: none; padding: 6px 14px; }
+    html.modo-borrador #borradorFranja.bf-arriba { border-bottom-color: var(--terracota); background: #f6ece0; box-shadow: none; }
     #borradorFranja .bf-tag { background: #f59e0b; color: #1c1405; font-weight: 800; border-radius: 6px; padding: 2px 7px; letter-spacing: 0.04em; font-size: 0.7rem; }
     #borradorFranja input { background: transparent; border: 1px dashed rgba(253, 230, 138, 0.4); border-radius: 6px; color: #fde68a; font-family: inherit; font-weight: 700; font-size: 0.8rem; padding: 3px 6px; width: 160px; }
     #borradorFranja .bf-n { color: #fbbf24; opacity: 0.85; white-space: nowrap; }
@@ -3760,7 +3762,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.50
+            Versión: v1.7.51
           </div>
         </div>
       </div>
@@ -5013,7 +5015,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.50";
+  const APP_VERSION = "v1.7.51";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17816,7 +17818,9 @@ window.borradorPintarFranja = function () {
       <button type="button" onclick="window.borradorAbrirArchivo()" title="Abrir un borrador guardado">Abrir</button>
       <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales">Pasar a real</button>
       <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>`;
-    document.body.appendChild(fr);
+    // Va arriba de la grilla, ocupando su lugar (no flota sobre los horarios)
+    const host = document.getElementById("seccionHorarios");
+    if (host) { fr.classList.add("bf-arriba"); host.insertBefore(fr, host.firstChild); } else document.body.appendChild(fr);
     const inp = fr.querySelector("#borradorNombre");
     inp.value = borrador.nombre || "";
     inp.oninput = () => { borrador.nombre = inp.value; borradorPersistir(); };
