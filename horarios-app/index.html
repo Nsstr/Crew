@@ -3762,7 +3762,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.58
+            Versión: v1.7.59
           </div>
         </div>
       </div>
@@ -4396,6 +4396,15 @@
               </label>
             </div>
 
+            <!-- Horario de la tienda (si ese día abre o cierra distinto) -->
+            <div style="padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; margin-bottom: 5px;">Horario de la tienda <span style="opacity: 0.75;">(solo si ese día cambia; vacío = el de siempre)</span></div>
+              <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <label style="font-size: 0.78rem; display: flex; gap: 6px; align-items: center; margin: 0;">Abre <input type="time" id="eventoHoraAbre" step="1800" style="padding: 5px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.82rem;"></label>
+                <label style="font-size: 0.78rem; display: flex; gap: 6px; align-items: center; margin: 0;">Cierra <input type="time" id="eventoHoraCierra" step="1800" style="padding: 5px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.82rem;"></label>
+              </div>
+            </div>
+
             <!-- Horas adicionales y reglas del evento (para un sector) -->
             <div id="eventoSectorBox" style="display: none;">
               <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 3px; text-align: left;">Sector del evento</label>
@@ -5015,7 +5024,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.58";
+  const APP_VERSION = "v1.7.59";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6083,12 +6092,25 @@ function evResumen(lista) {
     descripcion: lista.map((e) => `${e.tipo}${e.descripcion ? ": " + e.descripcion : ""}`).join(" · "),
     color: lista[0].color,
     tiendaCerrada: lista.some((e) => e.tiendaCerrada),
+    ...evHorarioTienda(lista),
     lista,
   };
 }
+// Horario especial de la tienda ese día (de los eventos que lo tengan): abre lo más temprano, cierra lo más tarde
+function evHorarioTienda(lista) {
+  const ab = lista.map((e) => e.horaAbre).filter((v) => typeof v === "number");
+  const ci = lista.map((e) => e.horaCierra).filter((v) => typeof v === "number");
+  const r = {};
+  if (ab.length) r.horaAbre = Math.min(...ab);
+  if (ci.length) r.horaCierra = Math.max(...ci);
+  return r;
+}
+function evHoraTxt(h) { const hh = Math.floor(h), mm = Math.round((h - hh) * 60); return mm ? `${hh}:${String(mm).padStart(2, "0")}` : `${hh}`; }
+function evHoraInput(v) { if (!v) return null; const [h, m] = String(v).split(":").map(Number); if (!(h >= 0)) return null; const x = h + (m || 0) / 60; return x === 0 ? 24 : x; }
+function evHoraAInput(h) { if (typeof h !== "number") return ""; const x = h >= 24 ? 0 : h; const hh = Math.floor(x), mm = Math.round((x - hh) * 60); return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`; }
 function evDocDia(lista) {
   const r = evResumen(lista);
-  return { tipo: r.tipo, descripcion: r.descripcion, color: r.color, tiendaCerrada: !!r.tiendaCerrada, lista };
+  return { tipo: r.tipo, descripcion: r.descripcion, color: r.color, tiendaCerrada: !!r.tiendaCerrada, ...evHorarioTienda(lista), lista };
 }
 
 // Carga eventos del rango visible desde Firebase
@@ -17012,7 +17034,7 @@ window.renderEventosList = async function () {
     const ordenados = [...eventos].sort((a, b) => a.fecha.localeCompare(b.fecha));
     // Un renglón por evento: los que abarcan varios días (mismo grupo, o días seguidos iguales
     // en los cargados antes) se juntan con su rango
-    const clave = (ev) => ev.grupo ? `g:${ev.grupo}` : `t:${ev.tipo}|${ev.descripcion || ""}|${ev.color}|${!!ev.tiendaCerrada}`;
+    const clave = (ev) => ev.grupo ? `g:${ev.grupo}` : `t:${ev.tipo}|${ev.descripcion || ""}|${ev.color}|${!!ev.tiendaCerrada}|${ev.horaAbre}|${ev.horaCierra}`;
     const diaSig = (f) => formatDate(addDays(new Date(f + "T00:00:00"), 1));
     const filas = [];
     ordenados.forEach((ev) => {
@@ -17032,7 +17054,7 @@ window.renderEventosList = async function () {
           : fechaCorta(inicio);
         return `<div onclick="window.editEvento('${evJsonStr}')" style="display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px 10px; margin-bottom: 4px; border: 1px solid var(--border); border-left: 4px solid ${ev.color}; border-radius: 6px; background: ${ev.color}14; cursor: pointer;">
           <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); line-height: 1.3; white-space: nowrap;">${cuando}</div>
-          <div style="font-size: 0.85rem; line-height: 1.35;"><b>${escL(ev.tipo)}</b>${ev.tiendaCerrada ? ' <span style="color:#fca5a5; font-weight: 700;">· Tienda cerrada</span>' : ""}${ev.descripcion ? `<div style="color: var(--text); opacity: 0.9; overflow-wrap: break-word;">${escL(ev.descripcion)}</div>` : ""}</div>
+          <div style="font-size: 0.85rem; line-height: 1.35;"><b>${escL(ev.tipo)}</b>${ev.tiendaCerrada ? ' <span style="color:#fca5a5; font-weight: 700;">· Tienda cerrada</span>' : ""}${typeof ev.horaAbre === "number" || typeof ev.horaCierra === "number" ? ` <span style="color: var(--text-muted); font-weight: 600;">· Tienda ${typeof ev.horaAbre === "number" ? evHoraTxt(ev.horaAbre) : "…"} a ${typeof ev.horaCierra === "number" ? evHoraTxt(ev.horaCierra) : "…"}</span>` : ""}${ev.descripcion ? `<div style="color: var(--text); opacity: 0.9; overflow-wrap: break-word;">${escL(ev.descripcion)}</div>` : ""}</div>
           <button onclick="event.stopPropagation(); window.deleteEvento('${ev.fecha}', '${ev.id}')" title="Borrar" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 2px;">&times;</button>
         </div>`;
       }).join("") : '<div style="color: var(--text-muted); font-size: 0.85rem; padding: 4px 2px;">No hay eventos cargados este mes.</div>';
@@ -17075,7 +17097,7 @@ async function evBuscarRango(fecha, itemId, cache) {
     }
   } else {
     const igual = (e) => !e.grupo && e.tipo === item.tipo && (e.descripcion || "") === (item.descripcion || "") &&
-      e.color === item.color && !!e.tiendaCerrada === !!item.tiendaCerrada;
+      e.color === item.color && !!e.tiendaCerrada === !!item.tiendaCerrada && e.horaAbre === item.horaAbre && e.horaCierra === item.horaCierra;
     for (const paso of [-1, 1]) {
       let d = addDays(new Date(fecha + "T00:00:00"), paso);
       for (let n = 0; n < 62; n++, d = addDays(d, paso)) {
@@ -17224,6 +17246,8 @@ window.editEvento = async function (evDataStr) {
     document.getElementById("eventoColorInput").value = ev.color || "#10b981";
     document.getElementById("eventoDescInput").value = ev.descripcion || "";
     document.getElementById("eventoTiendaCerradaInput").checked = !!ev.tiendaCerrada;
+    document.getElementById("eventoHoraAbre").value = evHoraAInput(ev.horaAbre);
+    document.getElementById("eventoHoraCierra").value = evHoraAInput(ev.horaCierra);
     presuLlenarForm(ev.presupuesto || null, ev.reglas || null);
 
     document.getElementById("eventoFormTitle").textContent = "Editar Evento";
@@ -17250,6 +17274,8 @@ window.cancelEditEvento = function () {
   document.getElementById("eventoColorInput").value = "#10b981";
   document.getElementById("eventoDescInput").value = "";
   document.getElementById("eventoTiendaCerradaInput").checked = false;
+  document.getElementById("eventoHoraAbre").value = "";
+  document.getElementById("eventoHoraCierra").value = "";
   presuLlenarForm(null);
 
   document.getElementById("eventoFormTitle").textContent = "Crear Evento";
@@ -17268,6 +17294,9 @@ window.saveEvento = async function () {
   const descripcion = document.getElementById("eventoDescInput").value.trim();
   const color = document.getElementById("eventoColorInput").value;
   const tiendaCerrada = document.getElementById("eventoTiendaCerradaInput").checked;
+  const horaAbre = tiendaCerrada ? null : evHoraInput(document.getElementById("eventoHoraAbre").value);
+  const horaCierra = tiendaCerrada ? null : evHoraInput(document.getElementById("eventoHoraCierra").value);
+  if (horaAbre !== null && horaCierra !== null && horaCierra <= horaAbre) { showToast("Revisá el horario", "La tienda tiene que cerrar después de abrir.", "warning"); return; }
   let presupuesto = null;
   if (document.getElementById("eventoPresuCheck")?.checked) {
     const esCajas = (document.getElementById("eventoPresuArea").value || "Linea de Cajas") === "Linea de Cajas";
@@ -17314,6 +17343,8 @@ window.saveEvento = async function () {
     for (let curr = new Date(fechaInicioStr + "T00:00:00"); formatDate(curr) <= fechaFinStr; curr = addDays(curr, 1)) {
       const dStr = formatDate(curr);
       const item = { id: nuevoId("ev"), tipo, descripcion, color, tiendaCerrada };
+      if (horaAbre !== null) item.horaAbre = horaAbre;
+      if (horaCierra !== null) item.horaCierra = horaCierra;
       if (varios) Object.assign(item, { grupo, rangoInicio: fechaInicioStr, rangoFin: fechaFinStr });
       if (presupuesto) item.presupuesto = presupuesto;
       if (reglas) item.reglas = reglas;
@@ -17831,6 +17862,19 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     }
     return Array.from({ length: 24 }, (_, h) => (h >= 8 && h < 22 ? 1 : 0));
   });
+  // Horario especial de la tienda cargado en el evento: fuera de ese horario no hace falta nadie;
+  // adentro, al menos 1 cajero y 1 roller
+  const horarioEsp = dias.map((d, i) => {
+    const e = state.eventos && state.eventos[d];
+    if (cerrado[i] || !e || (typeof e.horaAbre !== "number" && typeof e.horaCierra !== "number")) return null;
+    const tiene = dem[i].some((v) => v > 0);
+    const a0 = tiene ? dem[i].findIndex((v) => v > 0) : 8;
+    let c0 = 22; if (tiene) dem[i].forEach((v, h) => { if (v > 0) c0 = h + 1; });
+    const a = typeof e.horaAbre === "number" ? Math.floor(e.horaAbre) : a0;
+    const c = typeof e.horaCierra === "number" ? Math.min(24, Math.ceil(e.horaCierra)) : c0;
+    for (let h = 0; h < 24; h++) dem[i][h] = h >= a && h < c ? Math.max(1, dem[i][h]) : 0;
+    return { a, c };
+  });
   const conCurva = dias.map((d, i) => !cerrado[i] && (!!((state.demandaCajas && state.demandaCajas[d]) || hist[d]) || estimada[i]));
   const abre = dem.map((arr) => { const i = arr.findIndex((v) => v > 0); return i < 0 ? 8 : i; });
   const cierra = dem.map((arr) => { let i = -1; arr.forEach((v, h) => { if (v > 0) i = h; }); return i < 0 ? 22 : i + 1; });
@@ -17851,7 +17895,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const ef = c + Math.max(0, ro - 1); // con 2 o más rollers, uno puede cubrir caja
     let k = Math.max(0, r - ef) + Math.max(0, ef - r) * 0.04;
     if (ef === 0) k += 8;          // mínimo 1 cajero por hora
-    if (ro === 0) k += 0.3;        // que haya algún roller
+    if (ro < 1 - 1e-9) k += 8;     // mínimo 1 roller por hora (no negociable)
     return k;
   };
   const costoTes = (i) => (cerrado[i] ? 0 : tes[i].tit > 0 ? 0 : tes[i].sup > 0 ? 3 : 12);
@@ -17978,7 +18022,8 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const plan = pl.plan.slice();
     flex.forEach((i) => { plan[i] = null; });
     // Cuánto le falta a cada día con la gente que ya está (sin esta persona): ahí conviene que trabaje
-    const faltaDia = (i) => { let t = 0; for (let h = 0; h < 24; h++) { const r = dem[i][h]; if (r > 0) { const ef = covC[i][h] + Math.max(0, covR[i][h] - 1); t += Math.max(0, r - ef) + (ef < 1 ? 8 : 0); } } return t; };
+    const esRol = pl.rolDia.some(Boolean);
+    const faltaDia = (i) => { let t = 0; for (let h = 0; h < 24; h++) { const r = dem[i][h]; if (r > 0) { const ef = covC[i][h] + Math.max(0, covR[i][h] - 1); t += Math.max(0, r - ef) + (ef < 1 ? 8 : 0) + (esRol && covR[i][h] < 1 - 1e-9 ? 8 : 0); } } return t; };
     // Para repartir: cuánta gente ya trabaja y cuántos francos hay cada día (sin contar a esta persona)
     const gente = (i) => personas.filter((p) => p !== pl && p.plan[i] && p.plan[i].length).length;
     const francos = (i) => personas.filter((p) => p !== pl && (p.francoDia === i || (p.tipo[i] === "fijo" && /^f$/i.test(String(p.orig[i] || "").trim())))).length;
@@ -18078,8 +18123,11 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   let sinCajero = 0;
   const sinCajeroDia = dias.map(() => 0);
   for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) if (dem[i][h] > 0 && covC[i][h] + Math.max(0, covR[i][h] - 1) < 0.999) { sinCajero++; sinCajeroDia[i]++; }
+  // Horas sin roller, por día (para avisar)
+  const sinRollerDia = dias.map((_, i) => { const hs = []; for (let h = 0; h < 24; h++) if (dem[i][h] > 0 && covR[i][h] < 0.999) hs.push(h); return hs; });
+  const sinRoller = sinRollerDia.reduce((t, x) => t + x.length, 0);
   const nomPl = (pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name;
-  const premio = personas.filter((pl) => pl.premio && pl.francoDia !== null && pl.francoDia !== undefined).map((pl) => ({ id: pl.c.id, nombre: nomPl(pl), dia: dias[pl.francoDia], hueco: sinCajeroDia[pl.francoDia] }));
+  const premio = personas.filter((pl) => pl.premio && pl.francoDia !== null && pl.francoDia !== undefined).map((pl) => ({ id: pl.c.id, nombre: nomPl(pl), dia: dias[pl.francoDia], hueco: sinCajeroDia[pl.francoDia] + sinRollerDia[pl.francoDia].length }));
   const candidatosPremio = personas.filter((pl) => pl.premioPosible).map((pl) => ({ id: pl.c.id, nombre: nomPl(pl), contrato: pl.contrato }));
   const cambios = [];
   optimizables.forEach((pl) => dias.forEach((d, i) => {
@@ -18096,7 +18144,10 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     if (norm(nuevo) !== norm(viejo)) cambios.push({ id: pl.c.id, nombre: (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name, d, de: viejo || "vacío", a: nuevo });
   }));
   const sinSol = optimizables.filter((pl) => pl.sinSolucion).map((pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name);
-  return { premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
+  const rangos = (hs) => { const out = []; hs.forEach((h) => { const u = out[out.length - 1]; if (u && u[1] === h) u[1] = h + 1; else out.push([h, h + 1]); }); return out.map(([a, b]) => `${a} a ${b}`).join(", "); };
+  const sinRollerTxt = dias.map((d, i) => (sinRollerDia[i].length ? { d, txt: rangos(sinRollerDia[i]) } : null)).filter(Boolean);
+  const horarios = dias.map((d, i) => (horarioEsp[i] ? { d, ...horarioEsp[i] } : null)).filter(Boolean);
+  return { sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
     estimadas: dias.filter((_, i) => estimada[i]), sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
 }
 // Armado con premio: si el franco pegado al cierre deja horas sin cajero, a esa persona no se le da
@@ -18110,7 +18161,7 @@ function armadoConPremio(lunes, hist, premiados) {
     probados.add(malo.id);
     set.delete(malo.id);
     const r2 = armadoSemana(lunes, hist, { premiados: set });
-    if (r2.sinCajero < r.sinCajero) { r = r2; sacados.push(malo.nombre); } else set.add(malo.id);
+    if (r2.sinCajero + r2.sinRoller < r.sinCajero + r.sinRoller) { r = r2; sacados.push(malo.nombre); } else set.add(malo.id);
   }
   r.premioSacados = sacados;
   r.premioNoElegidos = r.candidatosPremio.filter((x) => !(premiados || []).includes(x.id)).map((x) => x.nombre);
@@ -18135,7 +18186,7 @@ window.armarSinAdicionales = async function () {
   const filasP = cand.slice().sort((a, b) => a.nombre.localeCompare(b.nombre))
     .map((x) => `<div><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="premio-chk" value="${x.id}" checked> ${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">· ${x.contrato} h</span></label></div>`).join("");
   borradorModal("Franco pegado al cierre", `<p>Esta semana la tienda cierra. A los tildados se les pone el franco de la semana <b>pegado a ese día</b> (antes o después, nunca domingo), donde menos falte gente. Destildá a los que no corresponde.</p>
-    <p style="color: var(--text-muted); font-size: 0.8rem">No aparecen los que ya pidieron el franco otro día o están de vacaciones. Si a alguien no se le puede dar sin dejar horas sin cajero, se le pone en otro día y te aviso.</p>
+    <p style="color: var(--text-muted); font-size: 0.8rem">No aparecen los que ya pidieron el franco otro día o están de vacaciones. Si a alguien no se le puede dar sin dejar horas sin cajero o sin roller, se le pone en otro día y te aviso.</p>
     <div style="margin:6px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
     <div class="bm-lista">${filasP}</div>`,
     [{ txt: "Cancelar" }, { txt: "Armar", clase: "bm-prin", fn: () => {
@@ -18157,8 +18208,10 @@ function armadoMostrar(lunes, hist, premiados) {
     ${r.sinCurva.length ? `<p class="bm-ojo">Sin curva ni historial: ${r.sinCurva.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se armó para tener al menos un cajero de 8 a 22.</p>` : ""}
     ${r.cerrados.length ? `<p>Tienda cerrada: ${r.cerrados.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Ese día no trabaja nadie: es el franco de los de 30 y 48 h; los de 18 y 24 h tienen libre y su franco otro día.${r.premio && r.premio.length ? " A los que tienen el franco pegado, el día del cierre queda LIBRE." : ""}</p>` : ""}
     ${r.premio && r.premio.length ? `<p>Franco pegado al cierre (${r.premio.length}): ${r.premio.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((x) => `${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">${dn[new Date(x.dia + "T00:00:00").getDay()]} ${fc(x.dia)}</span>`).join(", ")}.</p>` : ""}
-    ${r.premioSacados && r.premioSacados.length ? `<p class="bm-ojo">Sin franco pegado para no dejar horas sin cajero: ${r.premioSacados.map(borradorEsc).join(", ")}.</p>` : ""}
+    ${r.premioSacados && r.premioSacados.length ? `<p class="bm-ojo">Sin franco pegado para no dejar horas sin cajero o sin roller: ${r.premioSacados.map(borradorEsc).join(", ")}.</p>` : ""}
     ${r.premioNoElegidos && r.premioNoElegidos.length ? `<p style="color: var(--text-muted)">Sin premio (destildados): ${r.premioNoElegidos.map(borradorEsc).join(", ")}.</p>` : ""}
+    ${r.horarios && r.horarios.length ? `<p>Horario especial de la tienda: ${r.horarios.map((x) => `${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)} de ${x.a} a ${x.c}`).join(", ")}.</p>` : ""}
+    ${r.sinRoller ? `<p class="bm-ojo">⚠ Sin roller: ${r.sinRollerTxt.map((x) => `${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)} de ${x.txt}`).join(" · ")}. No alcanzan los rollers con sus francos y descansos.</p>` : `<p>Todas las horas abiertas tienen al menos un roller.</p>`}
     ${r.sinCajero ? `<p class="bm-ojo">⚠ Quedan ${r.sinCajero} ${r.sinCajero === 1 ? "hora" : "horas"} sin ningún cajero: no alcanza la gente o los descansos no lo permiten.</p>` : `<p>Todas las horas abiertas tienen al menos un cajero.</p>`}
     ${r.tesEncontrados.length ? (r.sinTes.length
       ? `<p class="bm-ojo">⚠ Tesorería 7 h sin cubrir: ${r.sinTes.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}.</p>`
