@@ -3765,7 +3765,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.62
+            Versión: v1.7.63
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.62";
+  const APP_VERSION = "v1.7.63";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18196,7 +18196,8 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
 // (y nunca en Navidad ni Año Nuevo)
 function armadoDiaPremioOk(dias, idxCerrado, i, sabadoOtorgado) {
   const dw = new Date(dias[i] + "T00:00:00").getDay();
-  if (dw === 0) return false;
+  // Domingo: solo si la tienda cierra el sábado (Navidad o Año Nuevo en sábado); cuenta como su domingo del mes
+  if (dw === 0) return new Date(dias[idxCerrado] + "T00:00:00").getDay() === 6;
   if (dw === 6) return !!sabadoOtorgado && !["12-25", "01-01"].includes(dias[idxCerrado].slice(5));
   return true;
 }
@@ -18285,7 +18286,7 @@ window.armarSinAdicionales = async function () {
   const filasP = cand.slice().sort((a, b) => a.nombre.localeCompare(b.nombre))
     .map((x) => `<div style="display:flex;gap:8px;align-items:center"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;flex:1"><input type="checkbox" class="premio-chk" value="${x.id}" ${otra.ids.has(x.id) ? "" : "checked"}> ${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">· ${x.contrato} h${otra.ids.has(x.id) ? ` · ya lo tuvo en ${otra.nombre}` : ""}</span></label><label class="pr-sab" style="display:none;gap:6px;align-items:center;cursor:pointer;font-size:0.78rem"><input type="checkbox" class="sab-chk" value="${x.id}"> Sábado</label></div>`).join("");
   const sabTxt = r0.sabadoDia ? `sábado ${fcP(r0.sabadoDia)}` : "";
-  const m = borradorModal("Franco pegado al cierre", `<p>Esta semana la tienda cierra. A los tildados se les pone el franco de la semana <b>pegado a ese día</b> (antes o después, nunca domingo${r0.sabadoDia ? "; el sábado solo si lo otorgás abajo" : " ni sábado"}), donde menos falte gente. Destildá a los que no corresponde.</p>
+  const m = borradorModal("Franco pegado al cierre", `<p>Esta semana la tienda cierra. A los tildados se les pone el franco de la semana <b>pegado a ese día</b> (antes o después, ${new Date(r0.cerrados[0] + "T00:00:00").getDay() === 6 ? "el domingo solo a quien le quede su domingo libre del mes" : `nunca domingo${r0.sabadoDia ? "; el sábado solo si lo otorgás abajo" : " ni sábado"}`}), donde menos falte gente. Destildá a los que no corresponde.</p>
     ${otra.nombre ? `<p style="font-size: 0.85rem">En Navidad y Año Nuevo se da una fiesta o la otra: los que ya tuvieron el franco pegado en ${otra.nombre} vienen destildados.</p>` : ""}
     <p style="color: var(--text-muted); font-size: 0.8rem">No aparecen los que ya pidieron el franco otro día o están de vacaciones. Si a alguien no se le puede dar sin dejar horas sin cajero o sin roller, se le pone en otro día y te aviso.</p>
     ${r0.sabadoDia ? `<label class="bm-confirma" style="border-color: var(--border)"><input type="checkbox" id="premioSabOn"> Otorgar el ${sabTxt} a algunos (premio a los mejores)</label><div id="premioSabInfo" style="font-size:0.8rem;margin:6px 2px 0;color:var(--text-muted)"></div>` : ""}
