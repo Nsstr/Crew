@@ -3762,7 +3762,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.52
+            Versión: v1.7.53
           </div>
         </div>
       </div>
@@ -5015,7 +5015,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.52";
+  const APP_VERSION = "v1.7.53";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17776,7 +17776,185 @@ window.borradorAbrirArchivo = function () {
   };
   inp.click();
 };
+
+// ── Armar horario sin adicionales (solo en borrador) ─────────────────────────
+// Para cada persona deja exactamente las horas de su contrato en la semana. No cambia qué días
+// trabaja ni los francos, y no pone a nadie fuera del horario que ya tiene cargado ese día
+// (se achica o se corre dentro de ese horario). Decide cuántas horas va cada día y qué parte del
+// turno queda eligiendo lo que más tapa los huecos de la curva de Recaudaciones.
+// Reglas: mínimo 4 h por día y por tramo; tope diario 9 h (part time) o 12 h; vacaciones,
+// ausencias, turnos fijados y turnos que cruzan la medianoche no se tocan.
+function armadoSlot(tramos) {
+  const f = (h) => { const m = Math.round((h % 1) * 60); return m ? `${Math.floor(h)}:${String(m).padStart(2, "0")}` : `${Math.floor(h)}`; };
+  return tramos.map((t) => `${f(t.s)}a${f(t.e)}`).join("/");
+}
+function armadoSemana(lunesStr) {
+  const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunesStr + "T00:00:00"), i)));
+  const cuentan = (c, d) => {
+    if (c._isCruzado) return false;
+    const rol = presuEsRoller(c);
+    const o = getPlanningObj(c.id, d) || {};
+    return !rol || !!o.comoCajero;
+  };
+  const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado);
+  const enVac = (id, d) => (state.vacations || []).some((v) => v.colaboradorId === id && d >= v.startDate && d <= v.endDate);
+  // Cobertura por media hora (48 por día) y demanda
+  const cov = Object.fromEntries(dias.map((d) => [d, Array(48).fill(0)]));
+  const dem = Object.fromEntries(dias.map((d) => {
+    const c = state.demandaCajas && state.demandaCajas[d];
+    return [d, c ? Array.from({ length: 48 }, (_, k) => Number(c[Math.floor(k / 2)]) || 0) : null];
+  }));
+  const sumar = (d, tramos, signo) => tramos.forEach((t) => { for (let k = Math.round(t.s * 2); k < Math.round(t.e * 2); k++) cov[d][k] += signo; });
+  const faltan = () => dias.reduce((t, d) => t + (dem[d] ? dem[d].reduce((a, r, k) => a + Math.max(0, r - cov[d][k]) / 2, 0) : 0), 0);
+  // Plan de cada persona
+  const personas = [];
+  gente.forEach((c) => {
+    const contrato = presuContrato(c);
+    const pl = { c, contrato, dias: {}, fijas: 0, variables: [], cuenta: {} };
+    dias.forEach((d) => {
+      pl.cuenta[d] = cuentan(c, d);
+      if (enVac(c.id, d)) return;
+      const val = String(getSlotEfectivo(c.id, d) || "").replace("*", "").trim();
+      const p = parseShift(val);
+      if (!p || p.type !== "work" || p.isNV) return;
+      const tr = (p.isCortado ? p.tramos : [p]).map((t) => ({ s: t.start, e: t.end }));
+      const cruza = tr.some((t) => t.e <= t.s);
+      const o = getPlanningObj(c.id, d) || {};
+      const original = tr.map((t) => ({ s: t.s, e: t.e <= t.s ? 24 : t.e }));
+      pl.dias[d] = { original, plan: original, val };
+      if (pl.cuenta[d]) sumar(d, original, 1);
+      if (cruza || o.fijado || !(contrato > 0) || contrato >= 48) pl.fijas += p.hours;
+      else pl.variables.push(d);
+    });
+    const horasVar = pl.variables.reduce((t, d) => t + pl.dias[d].original.reduce((a, x) => a + (x.e - x.s), 0), 0);
+    pl.objetivo = Math.max(0, contrato - pl.fijas);
+    if (contrato > 0 && contrato < 48 && pl.variables.length && horasVar > pl.objetivo + 0.01) personas.push(pl);
+  });
+  const antes = faltan();
+  const tope = (c) => (presuContrato(c) <= 30 ? 9 : 12);
+  // Opciones de un día: largo (medias horas) -> mejor plan dentro del horario original
+  const opcionesDia = (pl, d) => {
+    const orig = pl.dias[d].original;
+    const val = (s, e) => { // valor de cubrir [s,e) dado el resto
+      let v = 0;
+      for (let k = Math.round(s * 2); k < Math.round(e * 2); k++) {
+        const r = dem[d] ? dem[d][k] : 0;
+        v += !pl.cuenta[d] ? 0.01 : r > 0 ? (cov[d][k] < r ? 1 : 0.03) : 0.005;
+      }
+      return v;
+    };
+    const mejorEn = (t, L) => { // mejor ventana de largo L dentro del tramo t
+      let best = null;
+      const paso = t.s % 1 || t.e % 1 ? 0.5 : 1; // horas enteras, salvo que el turno ya tenga medias horas
+      for (let s0 = t.s; s0 + L <= t.e + 1e-9; s0 += paso) {
+        const v = val(s0, s0 + L) - Math.abs(s0 - t.s) * 0.0005;
+        if (!best || v > best.v) best = { v, tr: [{ s: s0, e: s0 + L }] };
+      }
+      return best;
+    };
+    const out = { 0: { v: -40, tr: [] } }; // dejar el día libre solo si no hay otra forma (mínimo 4 h)
+    const cap = tope(pl.c);
+    orig.forEach((t) => {
+      const pasoL = t.s % 1 || t.e % 1 ? 0.5 : 1;
+      for (let L = 4; L <= Math.min(cap, t.e - t.s) + 1e-9; L += pasoL) {
+        const m = mejorEn(t, L); const k = Math.round(L * 2);
+        if (m && (!out[k] || m.v > out[k].v)) out[k] = m;
+      }
+    });
+    if (orig.length === 2) {
+      const [a, b] = orig;
+      const pa = a.s % 1 || a.e % 1 ? 0.5 : 1, pb = b.s % 1 || b.e % 1 ? 0.5 : 1;
+      for (let L1 = 4; L1 <= a.e - a.s + 1e-9; L1 += pa) for (let L2 = 4; L2 <= b.e - b.s + 1e-9; L2 += pb) {
+        if (L1 + L2 > cap + 1e-9) continue;
+        const m1 = mejorEn(a, L1), m2 = mejorEn(b, L2);
+        if (!m1 || !m2) continue;
+        if (m2.tr[0].s - m1.tr[0].e < 4 - 1e-9) continue; // corte mínimo de 4 h
+        const k = Math.round((L1 + L2) * 2), v = m1.v + m2.v;
+        if (!out[k] || v > out[k].v) out[k] = { v, tr: [...m1.tr, ...m2.tr] };
+      }
+    }
+    return out;
+  };
+  const optimizar = (pl) => {
+    pl.variables.forEach((d) => { if (pl.cuenta[d]) sumar(d, pl.dias[d].plan, -1); });
+    const meta = Math.round(pl.objetivo * 2);
+    const ops = pl.variables.map((d) => opcionesDia(pl, d));
+    // DP: elegir un largo por día sumando exactamente la meta
+    let dp = new Map([[0, { v: 0, el: [] }]]);
+    ops.forEach((op) => {
+      const nd = new Map();
+      dp.forEach((st, h) => Object.entries(op).forEach(([k, o]) => {
+        const h2 = h + Number(k); if (h2 > meta) return;
+        const v = st.v + o.v; const prev = nd.get(h2);
+        if (!prev || v > prev.v) nd.set(h2, { v, el: [...st.el, o.tr] });
+      }));
+      dp = nd;
+    });
+    let fin = dp.get(meta);
+    if (!fin) { let bk = -1; dp.forEach((st, h) => { if (h <= meta && h > bk) { bk = h; fin = st; } }); }
+    if (fin) pl.variables.forEach((d, i) => { pl.dias[d].plan = fin.el[i]; });
+    pl.variables.forEach((d) => { if (pl.cuenta[d]) sumar(d, pl.dias[d].plan, 1); });
+  };
+  personas.sort((a, b) => b.variables.length - a.variables.length);
+  for (let pasada = 0; pasada < 4; pasada++) personas.forEach(optimizar);
+  const despues = faltan();
+  const cambios = [];
+  personas.forEach((pl) => pl.variables.forEach((d) => {
+    const nuevo = pl.dias[d].plan.length ? armadoSlot(pl.dias[d].plan) : "L";
+    const viejo = armadoSlot(pl.dias[d].original);
+    if (nuevo !== viejo) cambios.push({ id: pl.c.id, nombre: (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name, d, de: pl.dias[d].val, a: nuevo });
+  }));
+  // Los que ya están en su contrato: igual se les borra lo marcado como adicional (ya no corresponde)
+  return { antes, despues, cambios, personas: personas.length, conDemanda: dias.filter((d) => dem[d]).length };
+}
+window.armarSinAdicionales = function () {
+  if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
+  const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
+  let r;
+  try { r = armadoSemana(lunes); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
+  const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+  const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const lista = r.cambios.slice().sort((a, b) => (a.nombre + a.d).localeCompare(b.nombre + b.d))
+    .map((x) => `<div><b>${borradorEsc(x.nombre)}</b> · ${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)}: ${borradorEsc(x.de)} → <b>${x.a === "L" ? "LIBRE" : borradorEsc(x.a)}</b></div>`).join("");
+  borradorModal("Armar horario sin adicionales", `<p>Semana del <b>${fc(lunes)}</b>. Cada persona queda con las horas de su contrato, sin cambiar los días que trabaja ni salir del horario que tiene cargado.</p>
+    ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy (con adicionales) → <b>${r1(r.despues)} h</b> sin adicionales.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se recorta sin poder mirar la curva.</p>`}
+    ${r.cambios.length ? `<p>${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"} en ${r.personas} ${r.personas === 1 ? "persona" : "personas"}:</p><div class="bm-lista">${lista}</div>` : `<p>No hay nada para recortar: todos están en su contrato.</p>`}
+    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Es solo en el borrador. Después lo revisás con la cobertura y lo ajustás a mano. Podés deshacerlo.</p>`,
+    [{ txt: "Cancelar" }, ...(r.cambios.length ? [{ txt: `Aplicar ${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"}`, clase: "bm-prin", fn: async () => {
+      const previos = {};
+      for (const x of r.cambios) {
+        const k = `${x.id}_${x.d}`;
+        previos[k] = borrador.docs[k] ? JSON.parse(JSON.stringify(borrador.docs[k])) : null;
+        await setDoc(doc(db, "planificacion", k), { ...(borrador.docs[k] || {}), colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null }, { merge: true });
+        const o = state.planning[k] && typeof state.planning[k] === "object" ? state.planning[k] : {};
+        state.planning[k] = { ...o, colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null };
+      }
+      borrador.paraReloj = true;
+      borradorPersistir();
+      renderUI();
+      const t = showToast("Listo", `Semana armada sin adicionales (${r.cambios.length} cambios).`, "success");
+      if (t) {
+        const b = document.createElement("button");
+        b.className = "toast-ver"; b.type = "button"; b.textContent = "Deshacer";
+        b.onclick = async () => {
+          t.remove();
+          for (const [k, v] of Object.entries(previos)) {
+            if (v) { await setDoc(doc(db, "planificacion", k), v); state.planning[k] = v; }
+          }
+          renderUI();
+          showToast("Deshecho", "La semana volvió como estaba.", "info");
+        };
+        t.querySelector(".toast-desc").after(b);
+      }
+    } }] : [])]);
+};
+
 window.borradorPasarAReal = async function () {
+  if (borrador && borrador.paraReloj) {
+    borradorModal("Pasar a real", `<p>Este borrador tiene semanas armadas <b>sin adicionales</b> (para cargar en el reloj). Si lo pasás a real, le sacarías las adicionales al horario real.</p><p>Para eso no se usa "Pasar a real": exportá la planilla desde este borrador y cargala en el reloj.</p>`, [{ txt: "Entendido", clase: "bm-prin" }]);
+    return;
+  }
   const cambios = borradorCambios();
   if (!cambios.length) { showToast("Nada para pasar", "El borrador no tiene cambios respecto de lo real.", "info"); return; }
   // ¿Alguien cambió en lo real esos mismos días desde que se armó el borrador?
@@ -17828,6 +18006,7 @@ window.borradorPintarFranja = function () {
       <span class="bf-n" id="borradorN"></span>
       <button type="button" onclick="window.borradorGuardarArchivo()" title="Bajar el borrador como archivo">Guardar</button>
       <button type="button" onclick="window.borradorAbrirArchivo()" title="Abrir un borrador guardado">Abrir</button>
+      <button type="button" onclick="window.armarSinAdicionales()" title="Deja a cada persona con las horas de su contrato en la semana que se ve, cuidando la cobertura de la curva">Armar sin adicionales</button>
       <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales">Pasar a real</button>
       <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>`;
     // Va arriba de la grilla, ocupando su lugar (no flota sobre los horarios)
