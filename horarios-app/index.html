@@ -3767,7 +3767,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.73
+            Versión: v1.7.74
           </div>
         </div>
       </div>
@@ -5029,7 +5029,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.73";
+  const APP_VERSION = "v1.7.74";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17956,6 +17956,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     let k = Math.max(0, r - ef) + Math.max(0, ef - r) * 0.04;
     if (ef === 0) k += 8;          // mínimo 1 cajero por hora
     if (ro < 1 - 1e-9) k += 8;     // mínimo 1 roller por hora (no negociable)
+    else if (ro < 2 - 1e-9 && (h < abre[i] + 3 || h >= cierra[i] - 3)) k += 0.4 * (2 - ro); // en lo posible 2 rollers a la apertura y al cierre
     return k;
   };
   const costoTes = (i) => (cerrado[i] ? 0 : tes[i].tit > 0 ? 0 : tes[i].sup > 0 ? 3 : 12);
@@ -18035,6 +18036,28 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     pl.flex = dias.map((_, i) => pl.tipo[i] === "trabajo" || pl.tipo[i] === "cortado" || pl.tipo[i] === "vacio" || i === pl.tcDia);
     personas.push(pl);
   });
+  // Rotación de rollers: Noelia y Alberto rotan juntos; Eugenia y Santiago juntos, en el turno contrario;
+  // Marisol tapa baches. Cada semana la pareja cambia de turno respecto de la anterior. No es estricto:
+  // se prefiere, pero la cobertura manda.
+  const turnoDe = (tr) => (tr && tr.length ? ((tr[0].s + tr[tr.length - 1].e) / 2 < 15 ? "m" : "t") : null);
+  const slotDe = (id, d) => getSlotEfectivo(id, d) || (borrador && borrador.docs && borrador.docs[`${id}_${d}`] && borrador.docs[`${id}_${d}`].slot) || "";
+  const turnoPrevio = (c) => {
+    let m = 0, t = 0;
+    for (let k = 1; k <= 7; k++) {
+      const p = parseShift(String(slotDe(c.id, formatDate(addDays(new Date(lunesStr + "T00:00:00"), -k)))).replace("*", "").trim());
+      if (p && p.type === "work" && !p.isNV) { if (turnoDe(tramosDe(p)) === "m") m++; else t++; }
+    }
+    return m === t ? null : m > t ? "m" : "t";
+  };
+  const otro = (x) => (x === "m" ? "t" : "m");
+  const ROT_A = [["alcaraz", "noelia"], ["alvarez", "bocca"]], ROT_B = [["perez ros"], ["lucero", "santiago"]];
+  const plA = personas.filter((pl) => ROT_A.some((n) => tieneNombre(pl.c, n))), plB = personas.filter((pl) => ROT_B.some((n) => tieneNombre(pl.c, n)));
+  if (plA.length || plB.length) {
+    const prevA = plA.map((pl) => turnoPrevio(pl.c)).find(Boolean), prevB = plB.map((pl) => turnoPrevio(pl.c)).find(Boolean);
+    const quiereA = prevA ? otro(prevA) : prevB ? prevB : "m";
+    plA.forEach((pl) => { pl.turnoDeseado = quiereA; });
+    plB.forEach((pl) => { pl.turnoDeseado = otro(quiereA); });
+  }
   // Domingos del mes: cuántos dar esta semana para que alcancen los domingos que quedan, y a quiénes
   // (primero a los que no les queda otro domingo)
   const candDom = personas.filter((pl) => pl.necesitaF && pl.domDisp > 0 && pl.flex[6] && !pl.premio && pl.tipo[6] !== "cerrado");
@@ -18105,6 +18128,9 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       [i - 1, i + 1].forEach((j) => { if (j >= 0 && j < 7 && plan[j] && plan[j].length) est += Math.abs(tr[0].s - plan[j][0].s) * 0.06; });
       if (pl.tipo[i] === "trabajo" && pl.plan0 && pl.plan0[i]) est += Math.abs(tr[0].s - pl.plan0[i][0].s) * 0.04;
       if (tr.length > 1 && pl.tipo[i] !== "cortado") est += 1.5; // doble turno solo si de verdad hace falta
+      if (pl.turnoDeseado && turnoDe(tr) !== pl.turnoDeseado) est += 2.5; // rotación de la pareja de rollers
+      // los tres titulares de tesorería no en el mismo turno el mismo día
+      if (pl.tes === "tit" && personas.filter((p) => p !== pl && p.tes === "tit" && p.plan[i] && p.plan[i].length && turnoDe(p.plan[i]) === turnoDe(tr)).length >= 2) est += 6;
       const k = costoDia(i) + est;
       aplicar(pl, i, tr, -1);
       if (!best || k < best.k - 1e-9) best = { k, tr };
