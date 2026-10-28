@@ -3765,7 +3765,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.63
+            Versión: v1.7.64
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.63";
+  const APP_VERSION = "v1.7.64";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18188,7 +18188,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const horarios = dias.map((d, i) => (horarioEsp[i] ? { d, ...horarioEsp[i] } : null)).filter(Boolean);
   const faltanDia = dias.map((_, i) => { let t = 0; if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; });
   const demDia = dem.map((arr) => arr.reduce((t, v) => t + v, 0));
-  return { faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
+  return { idxCierre: kC, faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
     estimadas: dias.filter((_, i) => estimada[i]), sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
 }
 // Armado con premio: si el franco pegado al cierre deja horas sin cajero, a esa persona no se le da
@@ -18241,6 +18241,36 @@ function armadoMaxSabado(lunes, hist, cand) {
   }
   return 0;
 }
+// Cuántos pueden tener el franco pegado al cierre sin dejar huecos (cajero y roller) en los días pegados
+// y sin perder más de un 10% de la demanda de esos días
+function armadoMaxPremio(lunes, hist, cand) {
+  const r0 = armadoSemana(lunes, hist, { premiados: new Set() });
+  const k = r0.idxCierre;
+  if (k === null || k < 0) return cand.length;
+  const adj = [k - 1, k + 1].filter((i) => i >= 0 && i < 7);
+  const H = (r) => adj.reduce((t, i) => t + r.huecoCajDia[i] + r.huecoRolDia[i], 0);
+  const F = (r) => adj.reduce((t, i) => t + r.faltanDia[i], 0);
+  const tope = F(r0) + Math.max(2, 0.1 * adj.reduce((t, i) => t + r0.demDia[i], 0));
+  const ok = (S) => { const r = armadoSemana(lunes, hist, { premiados: new Set(S.map((x) => x.id)) }); return H(r) <= H(r0) && F(r) <= tope + 1e-9; };
+  // Primero los rollers (son pocos): cuántos pueden faltar ese día
+  const rol = cand.filter((x) => x.rol), caj = cand.filter((x) => !x.rol).sort((a, b) => b.contrato - a.contrato);
+  let maxRol = rol.length;
+  while (maxRol > 0 && !ok(rol.slice(0, maxRol))) maxRol--;
+  // Después los cajeros, con esos rollers
+  let nCaj = caj.length;
+  while (nCaj > 0 && !ok(rol.slice(0, maxRol).concat(caj.slice(0, nCaj)))) nCaj--;
+  return { max: maxRol + nCaj, maxRol, total: cand.length, totalRol: rol.length };
+}
+// Corre algo sobre otra semana del borrador (pone sus horarios en la grilla un momento y los devuelve)
+function armadoConSemanaCargada(lunesO, fn) {
+  const desde = formatDate(addDays(new Date(lunesO + "T00:00:00"), -1)), hasta = formatDate(addDays(new Date(lunesO + "T00:00:00"), 7));
+  const backup = {};
+  if (borrador && borrador.docs) Object.keys(borrador.docs).forEach((id) => {
+    const f = (borrador.docs[id] || {}).fecha || id.slice(-10);
+    if (f >= desde && f <= hasta) { backup[id] = state.planning[id]; state.planning[id] = borrador.docs[id]; }
+  });
+  try { return fn(); } finally { Object.entries(backup).forEach(([id, v]) => { if (v === undefined) delete state.planning[id]; else state.planning[id] = v; }); }
+}
 // Navidad y Año Nuevo: el franco pegado se da en una fiesta o en la otra. ¿Quiénes lo tuvieron en la otra?
 async function armadoTuvoOtraFiesta(cierre, cand) {
   const md = cierre.slice(5), y = Number(cierre.slice(0, 4));
@@ -18272,7 +18302,7 @@ window.armarSinAdicionales = async function () {
   const hist = {};
   if (!isMockMode) {
     try {
-      const desdeH = formatDate(addDays(new Date(lunes + "T00:00:00"), -56)), hastaH = formatDate(addDays(new Date(lunes + "T00:00:00"), 6));
+      const desdeH = formatDate(addDays(new Date(lunes + "T00:00:00"), -56)), hastaH = formatDate(addDays(new Date(lunes + "T00:00:00"), 13));
       const snap = await fsGetDocs(fsQuery(collection(db, "demanda_cajas"), fsWhere("fecha", ">=", desdeH), fsWhere("fecha", "<=", hastaH)));
       snap.docs.forEach((d) => { const x = d.data(); if (x && x.curva) hist[d.id] = x.curva; });
     } catch (e) { console.warn("No se pudieron traer las curvas anteriores", e); }
@@ -18289,6 +18319,7 @@ window.armarSinAdicionales = async function () {
   const m = borradorModal("Franco pegado al cierre", `<p>Esta semana la tienda cierra. A los tildados se les pone el franco de la semana <b>pegado a ese día</b> (antes o después, ${new Date(r0.cerrados[0] + "T00:00:00").getDay() === 6 ? "el domingo solo a quien le quede su domingo libre del mes" : `nunca domingo${r0.sabadoDia ? "; el sábado solo si lo otorgás abajo" : " ni sábado"}`}), donde menos falte gente. Destildá a los que no corresponde.</p>
     ${otra.nombre ? `<p style="font-size: 0.85rem">En Navidad y Año Nuevo se da una fiesta o la otra: los que ya tuvieron el franco pegado en ${otra.nombre} vienen destildados.</p>` : ""}
     <p style="color: var(--text-muted); font-size: 0.8rem">No aparecen los que ya pidieron el franco otro día o están de vacaciones. Si a alguien no se le puede dar sin dejar horas sin cajero o sin roller, se le pone en otro día y te aviso.</p>
+    <div id="premioLimInfo" class="bm-confirma" style="display:block;cursor:default;border-color:var(--border);font-weight:500">Calculando cuántos pueden tener el franco pegado…</div>
     ${r0.sabadoDia ? `<label class="bm-confirma" style="border-color: var(--border)"><input type="checkbox" id="premioSabOn"> Otorgar el ${sabTxt} a algunos (premio a los mejores)</label><div id="premioSabInfo" style="font-size:0.8rem;margin:6px 2px 0;color:var(--text-muted)"></div>` : ""}
     <div style="margin:6px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=false);document.querySelectorAll('.sab-chk').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
     <div class="bm-lista">${filasP}</div>`,
@@ -18318,6 +18349,46 @@ window.armarSinAdicionales = async function () {
     contar();
   }; });
   m.querySelectorAll(".premio-chk").forEach((c) => { c.addEventListener("change", () => { if (!c.checked) { const sc = m.querySelector(`.sab-chk[value="${c.value}"]`); if (sc) sc.checked = false; contar(); } }); });
+  // Límite de premiados: máximo para esta fecha y, en Navidad, mínimo para que en Año Nuevo alcance la gente
+  const lim = m.querySelector("#premioLimInfo");
+  let maxP = null, maxR = null, minP = 0, minR = 0;
+  const esRolId = new Set(cand.filter((x) => x.rol).map((x) => x.id));
+  const contarP = () => {
+    if (!lim || maxP === null) return;
+    const chks = [...m.querySelectorAll(".premio-chk")];
+    const n = chks.filter((c) => c.checked).length;
+    const nR = chks.filter((c) => c.checked && esRolId.has(c.value)).length;
+    const rango = (a, b) => (a && a === b ? `<b>${b}</b>` : a ? `entre <b>${a}</b> y <b>${b}</b>` : `hasta <b>${b}</b>`);
+    const avisos = [];
+    if (n > maxP) avisos.push(`sobran ${n - maxP} en total`);
+    if (nR > maxR) avisos.push(`sobran ${nR - maxR} rollers`);
+    if (n < minP) avisos.push(`faltan ${minP - n} en total`);
+    if (nR < minR) avisos.push(`faltan ${minR - nR} rollers`);
+    lim.innerHTML = `Para no afectar la dotación ni la cobertura${minP || minR ? ` (y que en ${otra.nombre} queden suficientes trabajando)` : ""} se le puede dar a ${rango(minP, maxP)} personas, de las cuales rollers ${rango(minR, maxR)}. Elegidos: <b>${n}</b> (${nR} rollers).`
+      + (avisos.length ? ` <span class="bm-ojo">⚠ ${avisos.join(" · ")}.</span>` : ` <span style="color:#15803d">✓ ${minP || minR ? "Alcanza en las dos fiestas" : "Dentro del límite"}.</span>`);
+    chks.forEach((c) => { c.disabled = !c.checked && (n >= maxP || (esRolId.has(c.value) && nR >= maxR)); });
+  };
+  m.querySelectorAll(".premio-chk").forEach((c) => c.addEventListener("change", contarP));
+  m.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => setTimeout(contarP, 0)));
+  setTimeout(() => {
+    try {
+      const cap = armadoMaxPremio(lunes, hist, cand);
+      maxP = cap.max; maxR = cap.maxRol;
+      const md = r0.cerrados[0].slice(5);
+      if (md === "12-25") {
+        const otraF = `${Number(r0.cerrados[0].slice(0, 4)) + 1}-01-01`;
+        const lunesO = formatDate(getStartOfWeek(new Date(otraF + "T00:00:00")));
+        const candO = armadoConSemanaCargada(lunesO, () => armadoSemana(lunesO, hist, { premiados: new Set() }).candidatosPremio);
+        const capO = armadoConSemanaCargada(lunesO, () => armadoMaxPremio(lunesO, hist, candO));
+        const ids = new Set(cand.map((x) => x.id));
+        const comunes = candO.filter((x) => ids.has(x.id));
+        // Los que no tienen franco en Navidad lo tienen en Año Nuevo: no pueden ser más de lo que aguanta esa fecha
+        minP = Math.min(maxP, Math.max(0, comunes.length - capO.max));
+        minR = Math.min(maxR, Math.max(0, comunes.filter((x) => x.rol).length - capO.maxRol));
+      }
+    } catch (e) { console.error(e); maxP = cand.length; maxR = cand.length; minP = 0; minR = 0; }
+    contarP();
+  }, 30);
 };
 function armadoMostrar(lunes, hist, premiados, sabados) {
   let r;
