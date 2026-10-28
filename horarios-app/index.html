@@ -3765,7 +3765,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.64
+            Versión: v1.7.65
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.64";
+  const APP_VERSION = "v1.7.65";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17823,6 +17823,15 @@ function armadoSlot(tramos) {
   return tramos.map((t) => `${f(t.s)}a${f(t.e)}`).join("/");
 }
 // Tienda cerrada: 1/1, 1/5, 25/12 y los días con el evento "Tienda cerrada" (ej. día del empleado de comercio)
+// Vísperas y días pegados a un feriado o a un cierre: para estos, la mejor referencia es el mismo día del año anterior
+function armadoDiaEspecial(d) {
+  const md = d.slice(5);
+  if (["12-24", "12-31", "12-26", "01-02", "04-30", "05-02"].includes(md)) return true;
+  const hol = state.holidays || [];
+  const f = (n) => formatDate(addDays(new Date(d + "T00:00:00"), n));
+  return hol.includes(d) || [f(-1), f(1)].some((x) => hol.includes(x) || armadoTiendaCerrada(x));
+}
+function armadoAnioAnterior(d) { return `${Number(d.slice(0, 4)) - 1}${d.slice(4)}`; }
 function armadoTiendaCerrada(dStr) {
   const md = dStr.slice(5);
   return md === "01-01" || md === "05-01" || md === "12-25" || !!(state.eventos && state.eventos[dStr] && state.eventos[dStr].tiendaCerrada);
@@ -17859,8 +17868,12 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     if (cerrado[i]) return Array(24).fill(0);
     const c = (state.demandaCajas && state.demandaCajas[d]) || hist[d];
     if (c) return Array.from({ length: 24 }, (_, h) => Number(c[h]) || 0);
+    // Días especiales (vísperas y días pegados a feriados o cierres): la curva del mismo día del año anterior
+    const ant = armadoDiaEspecial(d) && hist[armadoAnioAnterior(d)];
+    if (ant) { estimada[i] = "anio"; return Array.from({ length: 24 }, (_, h) => Number(ant[h]) || 0); }
     const dow = new Date(d + "T00:00:00").getDay();
-    const previas = Object.entries(hist).filter(([f, cv]) => cv && f < d && new Date(f + "T00:00:00").getDay() === dow && !armadoTiendaCerrada(f)).map(([, cv]) => cv);
+    const desde56 = formatDate(addDays(new Date(d + "T00:00:00"), -56));
+    const previas = Object.entries(hist).filter(([f, cv]) => cv && f < d && f >= desde56 && new Date(f + "T00:00:00").getDay() === dow && !armadoTiendaCerrada(f) && !armadoDiaEspecial(f)).map(([, cv]) => cv);
     if (previas.length) {
       estimada[i] = true;
       return Array.from({ length: 24 }, (_, h) => Math.round(previas.reduce((t, cv) => t + (Number(cv[h]) || 0), 0) / previas.length));
@@ -18057,7 +18070,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     // Sábado no se da franco (y el viernes, en lo posible tampoco): salvo que esté cargado a mano
     const dow = (i) => new Date(dias[i] + "T00:00:00").getDay();
     const castigoDia = (i) => (dow(i) === 6 ? 40 : dow(i) === 5 ? 6 : 0);
-    const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i) + castigoDia(i);
+    const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i) + castigoDia(i) - (i === 6 && pl.domingo === "libre" ? 4 : 0);
     // Día que más conviene trabajar: donde más falta; a igualdad, donde hay menos gente
     const puntajeTrabajo = (i) => faltaDia(i) - 0.3 * gente(i) + 0.5 * francos(i) + castigoDia(i) * 0.5 + (i === 6 && pl.domingo === "trabaja" ? 100 : 0);
     let trabaja = flex.filter((i) => pl.tipo[i] !== "vacio");
@@ -18070,7 +18083,6 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       if (pl.premio) base = pl.premioOpc; // premio: pegado al día de tienda cerrada
       if (pl.premio && sabadoOk && sabadoOk.has(pl.c.id)) { const s6 = base.filter((i) => dow(i) === 6); if (s6.length) base = s6; }
       if (pl.domingo === "trabaja" && base.some((i) => i !== 6)) base = base.filter((i) => i !== 6);
-      if (pl.domingo === "libre" && !pl.premio && flex.includes(6)) base = [6]; // le toca el domingo libre: es su franco
       const opc = pl.premio ? base : base.filter(permitido);
       const elegido = (opc.length ? opc : base).slice().sort((x, y) => puntajeFranco(x) - puntajeFranco(y))[0];
       if (elegido !== undefined) { pl.francoDia = elegido; trabaja = trabaja.filter((i) => i !== elegido); }
@@ -18079,8 +18091,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const disponibles = trabaja.length + vacios.filter((i) => i !== pl.francoDia).length;
     const nObj = Math.max(Math.ceil(pl.meta / pl.cap), Math.min(disponibles, Math.floor(pl.meta / 4)));
     // Domingo libre que le toca (ya tiene franco): ese día no trabaja
-    if (pl.domingo === "libre" && pl.francoDia !== 6 && flex.includes(6)) trabaja = trabaja.filter((i) => i !== 6);
-    const libres = vacios.filter((i) => i !== pl.francoDia && !(i === 6 && pl.domingo === "libre")).sort((x, y) => puntajeTrabajo(y) - puntajeTrabajo(x));
+    const libres = vacios.filter((i) => i !== pl.francoDia).sort((x, y) => puntajeTrabajo(y) - puntajeTrabajo(x));
     while (trabaja.length < nObj && libres.length) trabaja.push(libres.shift());
     // si sobran días (no llegan a 4 h cada uno), se libera el que menos falta hace
     trabaja.sort((x, y) => puntajeTrabajo(y) - puntajeTrabajo(x));
@@ -18121,7 +18132,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       for (const w of trabaja.slice()) {
         if (pl.tipo[w] !== "vacio" || !plan[w]) continue;
         if (dow(w) === 6 || (w === 6 && pl.domingo === "trabaja")) continue; // el sábado (y el domingo que le toca) se trabaja
-        const offs = flex.filter((i) => pl.tipo[i] === "vacio" && !trabaja.includes(i) && i !== pl.francoDia && !(i === 6 && pl.domingo === "libre"));
+        const offs = flex.filter((i) => pl.tipo[i] === "vacio" && !trabaja.includes(i) && i !== pl.francoDia);
         for (const o of offs) {
           const k0 = costoDia(w) + costoDia(o);
           aplicar(pl, w, plan[w], -1); const oldW = plan[w]; plan[w] = null;
@@ -18189,7 +18200,9 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const faltanDia = dias.map((_, i) => { let t = 0; if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; });
   const demDia = dem.map((arr) => arr.reduce((t, v) => t + v, 0));
   return { idxCierre: kC, faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
-    estimadas: dias.filter((_, i) => estimada[i]), sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
+    domingoPendiente: personas.filter((pl) => pl.domingo === "libre" && pl.plan[6] && pl.plan[6].length).map(nomPl),
+    deAnioAnterior: dias.filter((_, i) => estimada[i] === "anio"),
+    estimadas: dias.filter((_, i) => estimada[i] === true), sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
 }
 // Armado con premio: si el franco pegado al cierre deja horas sin cajero, a esa persona no se le da
 // Día pegado al cierre donde puede ir el franco de premio: nunca domingo; sábado solo si se otorga
@@ -18305,6 +18318,10 @@ window.armarSinAdicionales = async function () {
       const desdeH = formatDate(addDays(new Date(lunes + "T00:00:00"), -56)), hastaH = formatDate(addDays(new Date(lunes + "T00:00:00"), 13));
       const snap = await fsGetDocs(fsQuery(collection(db, "demanda_cajas"), fsWhere("fecha", ">=", desdeH), fsWhere("fecha", "<=", hastaH)));
       snap.docs.forEach((d) => { const x = d.data(); if (x && x.curva) hist[d.id] = x.curva; });
+      // misma semana (y la siguiente) del año anterior, para vísperas y días pegados a feriados
+      const a1 = armadoAnioAnterior(lunes), a2 = armadoAnioAnterior(hastaH);
+      const snapA = await fsGetDocs(fsQuery(collection(db, "demanda_cajas"), fsWhere("fecha", ">=", a1), fsWhere("fecha", "<=", a2)));
+      snapA.docs.forEach((d) => { const x = d.data(); if (x && x.curva) hist[d.id] = x.curva; });
     } catch (e) { console.warn("No se pudieron traer las curvas anteriores", e); }
   }
   // Semana con tienda cerrada: elegir a quién se le da el franco pegado al cierre (todos tildados)
@@ -18400,6 +18417,8 @@ function armadoMostrar(lunes, hist, premiados, sabados) {
     .map((x) => `<div><b>${borradorEsc(x.nombre)}</b> · ${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)}: ${borradorEsc(x.de)} → <b>${x.a === "L" ? "LIBRE" : borradorEsc(x.a)}</b></div>`).join("");
   borradorModal("Armar sugerido de la semana", `<p>Semana del <b>${fc(lunes)}</b>. Cada persona queda con las horas de su contrato (sin adicionales). Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
     ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy → <b>${r1(r.despues)} h</b> con la propuesta.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se arma para tener al menos un cajero de 8 a 22.</p>`}
+    ${r.deAnioAnterior.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.deAnioAnterior.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Por ser día especial se usó la curva del mismo día del año pasado.</p>` : ""}
+    ${r.domingoPendiente.length ? `<p class="bm-ojo">Les falta su domingo libre del mes y este domingo no se pudo sin dejar poca gente: ${r.domingoPendiente.map(borradorEsc).join(", ")}.</p>` : ""}
     ${r.estimadas.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.estimadas.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se usó el promedio del mismo día de las semanas anteriores.</p>` : ""}
     ${r.sinCurva.length ? `<p class="bm-ojo">Sin curva ni historial: ${r.sinCurva.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se armó para tener al menos un cajero de 8 a 22.</p>` : ""}
     ${r.cerrados.length ? `<p>Tienda cerrada: ${r.cerrados.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Ese día no trabaja nadie: es el franco de los de 30 y 48 h; los de 18 y 24 h tienen libre y su franco otro día.${r.premio && r.premio.length ? " A los que tienen el franco pegado, el día del cierre queda LIBRE." : ""}</p>` : ""}
