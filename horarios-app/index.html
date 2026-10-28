@@ -3767,7 +3767,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.71
+            Versión: v1.7.72
           </div>
         </div>
       </div>
@@ -5029,7 +5029,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.71";
+  const APP_VERSION = "v1.7.72";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17893,6 +17893,18 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   // Curva: la de Recaudaciones; si no hay, el promedio del mismo día de la semana en las semanas
   // anteriores (redondeado); si tampoco hay, 1 cajero de 8 a 22
   const estimada = dias.map(() => false);
+  // Sin curva ni historial: la gente repartida pareja. Nivel = horas de contrato de los cajeros de la
+  // semana / horas abiertas (8 a 22 de los días que abre), así los francos y los premios no vacían un día
+  const nivelParejo = (() => {
+    const abiertos = cerrado.filter((x) => !x).length;
+    if (!abiertos) return 1;
+    let horas = 0;
+    cdvColaboradoresCajas().filter((c) => !c._isCruzado && !presuEsRoller(c)).forEach((c) => {
+      const diasVac = dias.filter((d) => enVac(c.id, d)).length;
+      horas += (presuContrato(c) || 0) * (1 - diasVac / 7);
+    });
+    return Math.max(1, Math.floor(horas / (abiertos * 14)));
+  })();
   const dem = dias.map((d, i) => {
     if (cerrado[i]) return Array(24).fill(0);
     const c = (state.demandaCajas && state.demandaCajas[d]) || hist[d];
@@ -17907,7 +17919,8 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       estimada[i] = true;
       return Array.from({ length: 24 }, (_, h) => Math.round(previas.reduce((t, cv) => t + (Number(cv[h]) || 0), 0) / previas.length));
     }
-    return Array.from({ length: 24 }, (_, h) => (h >= 8 && h < 22 ? 1 : 0));
+    estimada[i] = "pareja";
+    return Array.from({ length: 24 }, (_, h) => (h >= 8 && h < 22 ? nivelParejo : 0));
   });
   // Horario especial de la tienda cargado en el evento: fuera de ese horario no hace falta nadie;
   // adentro, al menos 1 cajero y 1 roller
@@ -18012,11 +18025,12 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
         const dt = new Date(f + "T00:00:00");
         if (formatDate(dt) !== f || dt.getDay() !== 0 || f === dom) continue;
         if (libreDom(f)) usados++;
-        else if (f > dom && !enVac(c.id, f)) quedan++;
+        else if (f > dom && !enVac(c.id, f) && !Array.from({ length: 7 }, (_, n) => formatDate(addDays(new Date(f + "T00:00:00"), -n))).some((x) => armadoTiendaCerrada(x))) quedan++; // los domingos de semanas con cierre no se cuentan: esas semanas ya tienen sus francos
       }
       const disp = limite - usados;
       pl.domingo = disp <= 0 ? "trabaja" : disp > quedan ? "libre" : null;
       pl.domDisp = disp;
+      pl.domNecesidad = disp > 0 ? disp / (quedan + 1) : 0; // 1 = este domingo sí o sí; 0,5 = este o el próximo
     }
     pl.flex = dias.map((_, i) => pl.tipo[i] === "trabajo" || pl.tipo[i] === "cortado" || pl.tipo[i] === "vacio" || i === pl.tcDia);
     personas.push(pl);
@@ -18113,7 +18127,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const dow = (i) => new Date(dias[i] + "T00:00:00").getDay();
     const castigoDia = (i) => (dow(i) === 6 ? 40 : dow(i) === 5 ? 6 : 0);
     const sabadoPT = (i) => pl.contrato < 24 && dow(i) === 6; // los de 18 h trabajan el sábado (no franco ni libre)
-    const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i) + castigoDia(i) - (i === 6 ? (pl.domingo === "libre" ? 15 : pl.domDisp > 0 ? 3 : 0) : 0);
+    const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i) + castigoDia(i) - (i === 6 ? (pl.domingo === "libre" ? 15 : pl.domNecesidad >= 0.5 ? 8 : pl.domDisp > 0 ? 3 : 0) : 0);
     // Día que más conviene trabajar: donde más falta; a igualdad, donde hay menos gente
     const puntajeTrabajo = (i) => faltaDia(i) - 0.3 * gente(i) + 0.5 * francos(i) + castigoDia(i) * 0.5 + (i === 6 && pl.domingo === "trabaja" ? 100 : 0) + (sabadoPT(i) ? 100 : 0) + (i === pl.tcDia ? 300 : 0);
     let trabaja = flex.filter((i) => pl.tipo[i] !== "vacio");
@@ -18250,7 +18264,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   return { ids: optimizables.map((pl) => pl.c.id), idxCierre: kC, faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
     domingoPendiente: personas.filter((pl) => pl.domingo === "libre" && pl.plan[6] && pl.plan[6].length).map(nomPl),
     deAnioAnterior: dias.filter((_, i) => estimada[i] === "anio"),
-    estimadas: dias.filter((_, i) => estimada[i] === true), sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
+    estimadas: dias.filter((_, i) => estimada[i] === true), parejas: dias.filter((_, i) => estimada[i] === "pareja"), nivelParejo, sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
 }
 // Armado con premio: si el franco pegado al cierre deja horas sin cajero, a esa persona no se le da
 // Día pegado al cierre donde puede ir el franco de premio: nunca domingo; sábado solo si se otorga
@@ -18492,6 +18506,7 @@ function armadoMostrar(lunes, hist, premiados, sabados) {
     ${r.deAnioAnterior.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.deAnioAnterior.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Por ser día especial se usó la curva del mismo día del año pasado.</p>` : ""}
     ${r.domingoPendiente.length ? `<p class="bm-ojo">Les falta su domingo libre del mes y este domingo no se pudo sin dejar poca gente: ${r.domingoPendiente.map(borradorEsc).join(", ")}.</p>` : ""}
     ${r.estimadas.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.estimadas.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se usó el promedio del mismo día de las semanas anteriores.</p>` : ""}
+    ${r.parejas.length ? `<p class="bm-ojo">Sin curva ni historial: ${r.parejas.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se repartió la gente pareja: unos ${r.nivelParejo} cajeros por hora de 8 a 22 (con la curva de Recaudaciones queda mucho mejor).</p>` : ""}
     ${r.sinCurva.length ? `<p class="bm-ojo">Sin curva ni historial: ${r.sinCurva.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se armó para tener al menos un cajero de 8 a 22.</p>` : ""}
     ${r.cerrados.length ? `<p>Tienda cerrada: ${r.cerrados.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Ese día no trabaja nadie: los de 30 y 48 h llevan su horario cargado (TC, cuenta para el contrato) y su franco va otro día; los de 18 y 24 h tienen LIBRE, completan sus horas en la semana y su franco va otro día.</p>` : ""}
     ${r.premio && r.premio.length ? `<p>Franco pegado al cierre (${r.premio.length}): ${r.premio.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((x) => `${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">${dn[new Date(x.dia + "T00:00:00").getDay()]} ${fc(x.dia)}</span>`).join(", ")}.</p>` : ""}
