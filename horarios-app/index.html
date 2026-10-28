@@ -3762,7 +3762,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.55
+            Versión: v1.7.56
           </div>
         </div>
       </div>
@@ -5015,7 +5015,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.55";
+  const APP_VERSION = "v1.7.56";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17788,7 +17788,12 @@ function armadoSlot(tramos) {
   const f = (h) => { const m = Math.round((h % 1) * 60); return m ? `${Math.floor(h)}:${String(m).padStart(2, "0")}` : `${Math.floor(h)}`; };
   return tramos.map((t) => `${f(t.s)}a${f(t.e)}`).join("/");
 }
-function armadoSemana(lunesStr) {
+// Tienda cerrada: 1/1, 1/5, 25/12 y los días con el evento "Tienda cerrada" (ej. día del empleado de comercio)
+function armadoTiendaCerrada(dStr) {
+  const md = dStr.slice(5);
+  return md === "01-01" || md === "05-01" || md === "12-25" || !!(state.eventos && state.eventos[dStr] && state.eventos[dStr].tiendaCerrada);
+}
+function armadoSemana(lunesStr, hist = {}) {
   // Armado sugerido de la semana (solo en borrador):
   // · Cada persona queda con exactamente las horas de su contrato.
   // · Puede mover horarios dentro del horario con demanda, respetando: 4 h mínimo por día y por tramo,
@@ -17808,11 +17813,23 @@ function armadoSemana(lunesStr) {
   const ev = presuActivo();
   const diasFrancoOk = ev && ev.reglas && Array.isArray(ev.reglas.diasFranco) && ev.reglas.diasFranco.length ? ev.reglas.diasFranco : null;
   // Demanda por hora; sin curva cargada: 1 por hora de 8 a 22 (para el mínimo de un cajero)
-  const dem = dias.map((d) => {
-    const c = state.demandaCajas && state.demandaCajas[d];
-    return Array.from({ length: 24 }, (_, h) => (c ? Number(c[h]) || 0 : h >= 8 && h < 22 ? 1 : 0));
+  const cerrado = dias.map((d) => armadoTiendaCerrada(d));
+  // Curva: la de Recaudaciones; si no hay, el promedio del mismo día de la semana en las semanas
+  // anteriores (redondeado); si tampoco hay, 1 cajero de 8 a 22
+  const estimada = dias.map(() => false);
+  const dem = dias.map((d, i) => {
+    if (cerrado[i]) return Array(24).fill(0);
+    const c = (state.demandaCajas && state.demandaCajas[d]) || hist[d];
+    if (c) return Array.from({ length: 24 }, (_, h) => Number(c[h]) || 0);
+    const dow = new Date(d + "T00:00:00").getDay();
+    const previas = Object.entries(hist).filter(([f, cv]) => cv && f < d && new Date(f + "T00:00:00").getDay() === dow && !armadoTiendaCerrada(f)).map(([, cv]) => cv);
+    if (previas.length) {
+      estimada[i] = true;
+      return Array.from({ length: 24 }, (_, h) => Math.round(previas.reduce((t, cv) => t + (Number(cv[h]) || 0), 0) / previas.length));
+    }
+    return Array.from({ length: 24 }, (_, h) => (h >= 8 && h < 22 ? 1 : 0));
   });
-  const conCurva = dias.map((d) => !!(state.demandaCajas && state.demandaCajas[d]));
+  const conCurva = dias.map((d, i) => !cerrado[i] && (!!((state.demandaCajas && state.demandaCajas[d]) || hist[d]) || estimada[i]));
   const abre = dem.map((arr) => { const i = arr.findIndex((v) => v > 0); return i < 0 ? 8 : i; });
   const cierra = dem.map((arr) => { let i = -1; arr.forEach((v, h) => { if (v > 0) i = h; }); return i < 0 ? 22 : i + 1; });
   const covC = dias.map(() => Array(24).fill(0)), covR = dias.map(() => Array(24).fill(0));
@@ -17835,7 +17852,7 @@ function armadoSemana(lunesStr) {
     if (ro === 0) k += 0.3;        // que haya algún roller
     return k;
   };
-  const costoTes = (i) => (tes[i].tit > 0 ? 0 : tes[i].sup > 0 ? 3 : 12);
+  const costoTes = (i) => (cerrado[i] ? 0 : tes[i].tit > 0 ? 0 : tes[i].sup > 0 ? 3 : 12);
   const costoTotal = () => { let t = 0; for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) t += costoHora(i, h); return t; };
   const faltanH = () => { let t = 0; for (let i = 0; i < 7; i++) if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; };
   const tramosDe = (p) => (p.isCortado ? p.tramos : [p]).map((t) => ({ s: t.start, e: t.end <= t.start ? 24 : t.end }));
@@ -17859,6 +17876,7 @@ function armadoSemana(lunesStr) {
       const p = parseShift(val);
       pl.orig[i] = val;
       if (enVac(c.id, d)) { pl.tipo[i] = "fijo"; pl.plan[i] = null; tieneVac = true; return; }
+      if (cerrado[i]) { pl.tipo[i] = "cerrado"; pl.plan[i] = null; if (p && p.type === "franco") tieneF = true; return; }
       if (!val || !p || p.type === "none") { pl.tipo[i] = "vacio"; pl.plan[i] = null; return; }
       if (p.type === "franco") { tieneF = true; pl.tipo[i] = "fijo"; pl.plan[i] = null; return; }
       if (p.type !== "work" || p.isNV) { pl.tipo[i] = "fijo"; pl.plan[i] = null; return; }
@@ -17869,7 +17887,10 @@ function armadoSemana(lunesStr) {
       pl.plan[i] = tr;
       pl.libre[i] = tr; // cortado: se ajusta dentro de sus tramos
     });
-    pl.necesitaF = !tieneF && !tieneVac;
+    // Día de tienda cerrada: para 30 y 48 h es su franco; para 18 y 24 h queda LIBRE y el franco va otro día
+    const idxCerrado = dias.findIndex((_, i) => pl.tipo[i] === "cerrado");
+    pl.cerradoEsFranco = idxCerrado >= 0 && contrato >= 30 && !tieneF;
+    pl.necesitaF = !tieneF && !tieneVac && !pl.cerradoEsFranco;
     pl.meta = Math.max(0, Math.round(contrato - pl.fijoH));
     pl.flex = dias.map((_, i) => pl.tipo[i] === "trabajo" || pl.tipo[i] === "cortado" || pl.tipo[i] === "vacio");
     personas.push(pl);
@@ -18030,17 +18051,22 @@ function armadoSemana(lunesStr) {
     pl.plan = plan;
     pl.trabaja = trabaja;
   };
-  const optimizables = personas.filter((pl) => pl.flex.some(Boolean) && pl.contrato > 0);
+  const optimizables = personas.filter((pl) => (pl.flex.some(Boolean) || pl.tipo.includes("cerrado")) && pl.contrato > 0);
   optimizables.sort((a, b) => (a.rolDia.some(Boolean) ? 1 : 0) - (b.rolDia.some(Boolean) ? 1 : 0));
   for (let pasada = 0; pasada < 3; pasada++) optimizables.forEach(optimizarPersona);
   const despues = faltanH();
-  const sinTes = dias.filter((_, i) => tes[i].tit === 0 && tes[i].sup === 0);
+  const sinTes = dias.filter((_, i) => !cerrado[i] && tes[i].tit === 0 && tes[i].sup === 0);
   const conSuplente = dias.filter((_, i) => tes[i].tit === 0 && tes[i].sup > 0);
   const tesEncontrados = personas.filter((pl) => pl.tes).map((pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name);
   let sinCajero = 0;
   for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) if (dem[i][h] > 0 && covC[i][h] + Math.max(0, covR[i][h] - 1) < 0.999) sinCajero++;
   const cambios = [];
   optimizables.forEach((pl) => dias.forEach((d, i) => {
+    if (pl.tipo[i] === "cerrado") {
+      const a = pl.cerradoEsFranco ? "F" : "L";
+      if (String(pl.orig[i] || "").toUpperCase() !== a) cambios.push({ id: pl.c.id, nombre: (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name, d, de: pl.orig[i] || "vacío", a });
+      return;
+    }
     if (!pl.flex[i]) return;
     const tr = pl.plan[i];
     const nuevo = tr && tr.length ? armadoSlot(tr) : pl.francoDia === i ? "F" : pl.tipo[i] === "vacio" ? "L" : "L";
@@ -18049,13 +18075,23 @@ function armadoSemana(lunesStr) {
     if (norm(nuevo) !== norm(viejo)) cambios.push({ id: pl.c.id, nombre: (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name, d, de: viejo || "vacío", a: nuevo });
   }));
   const sinSol = optimizables.filter((pl) => pl.sinSolucion).map((pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name);
-  return { antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados };
+  return { antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
+    estimadas: dias.filter((_, i) => estimada[i]), sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
 }
-window.armarSinAdicionales = function () {
+window.armarSinAdicionales = async function () {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
   const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
+  // Curvas de Recaudaciones de las 8 semanas anteriores y de esta semana (para estimar días sin curva)
+  const hist = {};
+  if (!isMockMode) {
+    try {
+      const desdeH = formatDate(addDays(new Date(lunes + "T00:00:00"), -56)), hastaH = formatDate(addDays(new Date(lunes + "T00:00:00"), 6));
+      const snap = await fsGetDocs(fsQuery(collection(db, "demanda_cajas"), fsWhere("fecha", ">=", desdeH), fsWhere("fecha", "<=", hastaH)));
+      snap.docs.forEach((d) => { const x = d.data(); if (x && x.curva) hist[d.id] = x.curva; });
+    } catch (e) { console.warn("No se pudieron traer las curvas anteriores", e); }
+  }
   let r;
-  try { r = armadoSemana(lunes); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
+  try { r = armadoSemana(lunes, hist); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
   const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
   const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
   const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
@@ -18063,6 +18099,9 @@ window.armarSinAdicionales = function () {
     .map((x) => `<div><b>${borradorEsc(x.nombre)}</b> · ${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)}: ${borradorEsc(x.de)} → <b>${x.a === "L" ? "LIBRE" : borradorEsc(x.a)}</b></div>`).join("");
   borradorModal("Armar sugerido de la semana", `<p>Semana del <b>${fc(lunes)}</b>. Cada persona queda con las horas de su contrato (sin adicionales). Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
     ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy → <b>${r1(r.despues)} h</b> con la propuesta.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se arma para tener al menos un cajero de 8 a 22.</p>`}
+    ${r.estimadas.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.estimadas.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se usó el promedio del mismo día de las semanas anteriores.</p>` : ""}
+    ${r.sinCurva.length ? `<p class="bm-ojo">Sin curva ni historial: ${r.sinCurva.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se armó para tener al menos un cajero de 8 a 22.</p>` : ""}
+    ${r.cerrados.length ? `<p>Tienda cerrada: ${r.cerrados.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Ese día no trabaja nadie: es el franco de los de 30 y 48 h; los de 18 y 24 h tienen libre y su franco otro día.</p>` : ""}
     ${r.sinCajero ? `<p class="bm-ojo">⚠ Quedan ${r.sinCajero} ${r.sinCajero === 1 ? "hora" : "horas"} sin ningún cajero: no alcanza la gente o los descansos no lo permiten.</p>` : `<p>Todas las horas abiertas tienen al menos un cajero.</p>`}
     ${r.tesEncontrados.length ? (r.sinTes.length
       ? `<p class="bm-ojo">⚠ Tesorería 7 h sin cubrir: ${r.sinTes.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}.</p>`
