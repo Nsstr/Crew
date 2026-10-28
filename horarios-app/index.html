@@ -706,7 +706,7 @@
     html.modo-borrador #borradorFranja .bf-n { color: var(--terracota); }
     html.modo-borrador #borradorFranja button { color: var(--text); border-color: rgba(194, 96, 63, 0.45); }
     html.modo-borrador #borradorFranja button:hover { background: rgba(194, 96, 63, 0.1); }
-    html.modo-borrador #borradorFranja button.bf-real { background: var(--terracota); color: #fbf8f2; border-color: var(--terracota); }
+    html.modo-borrador #borradorFranja button.bf-real { background: transparent; color: #b91c1c; border: 1px dashed #b91c1c; }
     html.modo-borrador #borradorModal { background: rgba(59, 51, 40, 0.35); }
     html.modo-borrador #borradorModal .bm-head { font-family: var(--serif); font-size: 1.15rem; font-weight: 700; }
     html.modo-borrador #borradorModal .bm-pie button.bm-prin { background: var(--terracota); border-color: var(--terracota); color: #fbf8f2; }
@@ -721,7 +721,10 @@
     #borradorFranja .bf-n { color: #fbbf24; opacity: 0.85; white-space: nowrap; }
     #borradorFranja button { background: transparent; border: 1px solid rgba(245, 158, 11, 0.5); color: #fde68a; border-radius: 7px; padding: 4px 9px; font-family: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
     #borradorFranja button:hover { background: rgba(245, 158, 11, 0.15); }
-    #borradorFranja button.bf-real { background: #f59e0b; color: #1c1405; border-color: #f59e0b; }
+    #borradorFranja button.bf-real { background: transparent; color: #fca5a5; border: 1px dashed #dc2626; }
+    #borradorFranja .bf-sep { flex: 1 1 40px; min-width: 40px; }
+    #borradorModal .bm-pie button:disabled { opacity: 0.4; cursor: not-allowed; }
+    #borradorModal .bm-confirma { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 8px 10px; border: 1px solid rgba(220, 38, 38, 0.45); border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
     #borradorModal { position: fixed; inset: 0; z-index: 100002; background: rgba(2, 6, 23, 0.7); display: flex; align-items: center; justify-content: center; padding: 16px; }
     #borradorModal .bm-caja { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: min(560px, 100%); max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; color: var(--text); }
     #borradorModal .bm-head { padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 800; font-size: 1rem; }
@@ -3762,7 +3765,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.59
+            Versión: v1.7.60
           </div>
         </div>
       </div>
@@ -5024,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.59";
+  const APP_VERSION = "v1.7.60";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17922,6 +17925,9 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       const val = String(getSlotEfectivo(c.id, d) || "").replace("*", "").trim();
       const p = parseShift(val);
       pl.orig[i] = val;
+      // Lo que dejó un armado anterior (y nadie tocó después) se puede volver a armar
+      const deArmado = !!o.armadoSlot && String(o.armadoSlot).replace("*", "").trim().toUpperCase() === val.toUpperCase();
+      if (deArmado && !enVac(c.id, d) && !cerrado[i] && !o.fijado && p && (p.type === "franco" || p.type === "libre")) { pl.tipo[i] = "vacio"; pl.plan[i] = null; return; }
       if (enVac(c.id, d)) { pl.tipo[i] = "fijo"; pl.plan[i] = null; tieneVac = true; return; }
       if (cerrado[i]) { pl.tipo[i] = "cerrado"; pl.plan[i] = null; if (p && p.type === "franco") fCerrado = true; return; }
       if (!val || !p || p.type === "none") { pl.tipo[i] = "vacio"; pl.plan[i] = null; return; }
@@ -18218,16 +18224,16 @@ function armadoMostrar(lunes, hist, premiados) {
       : `<p>Tesorería: todos los días entra alguien a las 7${r.conSuplente.length ? ` (con la suplente: ${r.conSuplente.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")})` : ""}.</p>`)
       : `<p class="bm-ojo">No encontré a las personas de tesorería en esta área.</p>`}
     ${r.sinSol.length ? `<p class="bm-ojo">Sin cambios para ${r.sinSol.map(borradorEsc).join(", ")}: con sus descansos no se pudo armar otra opción.</p>` : ""}
-    ${r.cambios.length ? `<p>${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"} en ${r.personas} ${r.personas === 1 ? "persona" : "personas"}:</p><div class="bm-lista">${lista}</div>` : `<p>No hay nada para recortar: todos están en su contrato.</p>`}
+    ${r.cambios.length ? `<p>${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"} en ${r.personas} ${r.personas === 1 ? "persona" : "personas"}:</p><div class="bm-lista">${lista}</div>` : `<p>Ya está lo mejor que encuentro: no hay cambios para hacer.</p>`}
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Es solo en el borrador. Después lo revisás con la cobertura y lo ajustás a mano. Podés deshacerlo.</p>`,
     [{ txt: "Cancelar" }, ...(r.cambios.length ? [{ txt: `Aplicar ${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"}`, clase: "bm-prin", fn: async () => {
       const previos = {};
       for (const x of r.cambios) {
         const k = `${x.id}_${x.d}`;
         previos[k] = borrador.docs[k] ? JSON.parse(JSON.stringify(borrador.docs[k])) : null;
-        await setDoc(doc(db, "planificacion", k), { ...(borrador.docs[k] || {}), colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null }, { merge: true });
+        await setDoc(doc(db, "planificacion", k), { ...(borrador.docs[k] || {}), colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null, armadoSlot: x.a }, { merge: true });
         const o = state.planning[k] && typeof state.planning[k] === "object" ? state.planning[k] : {};
-        state.planning[k] = { ...o, colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null };
+        state.planning[k] = { ...o, colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null, armadoSlot: x.a };
       }
       borrador.paraReloj = true;
       borradorPersistir();
@@ -18270,9 +18276,11 @@ window.borradorPasarAReal = async function () {
     .sort((a, b) => a.orden.localeCompare(b.orden))
     .map((x) => `<div>${pisados.has(x.id) ? `<span class="bm-ojo" title="Alguien lo cambió en lo real después de armar el borrador">⚠ </span>` : ""}<b>${borradorEsc(x.nom)}</b> · ${x.fecha}: ${borradorEsc(x.slotAntes || "vacío")} → <b>${borradorEsc(x.slotDespues || "vacío")}</b></div>`)
     .join("");
-  borradorModal("Pasar a real", `<p>Se van a cambiar <b>${cambios.length} ${cambios.length === 1 ? "horario" : "horarios"}</b> en los horarios reales. Solo los que tocaste en el borrador; el resto queda como está.</p>${pisados.size ? `<p class="bm-ojo">⚠ ${pisados.size} de esos días los cambió alguien en lo real después de que armaste el borrador. Si seguís, quedan como en el borrador.</p>` : ""}<div class="bm-lista">${filas}</div>`, [
+  const mReal = borradorModal("Pasar a real", `<p>Se van a cambiar <b>${cambios.length} ${cambios.length === 1 ? "horario" : "horarios"}</b> en los horarios reales. Solo los que tocaste en el borrador; el resto queda como está.</p>${pisados.size ? `<p class="bm-ojo">⚠ ${pisados.size} de esos días los cambió alguien en lo real después de que armaste el borrador. Si seguís, quedan como en el borrador.</p>` : ""}<div class="bm-lista">${filas}</div>
+    <label class="bm-confirma"><input type="checkbox" id="bmConfirmaReal"> Revisé los cambios y quiero cambiar los horarios reales</label>`, [
     { txt: "Cancelar" },
     { txt: `Pasar ${cambios.length} a real`, clase: "bm-peligro", fn: async () => {
+      if (!document.getElementById("bmConfirmaReal")?.checked) return false;
       let ok = 0, mal = 0;
       for (const x of cambios) {
         try {
@@ -18291,6 +18299,9 @@ window.borradorPasarAReal = async function () {
       ]);
     } },
   ]);
+  // A prueba de errores: el botón queda apagado hasta tildar la confirmación
+  const bReal = mReal.querySelector(".bm-peligro"), chk = mReal.querySelector("#bmConfirmaReal");
+  if (bReal && chk) { bReal.disabled = true; chk.onchange = () => { bReal.disabled = !chk.checked; }; }
 };
 // Abre Exportar con la planilla de Excel elegida y la semana que se ve (los datos salen del borrador)
 window.borradorPlanilla = function () {
@@ -18318,8 +18329,9 @@ window.borradorPintarFranja = function () {
       <button type="button" onclick="window.borradorGuardarArchivo()" title="Bajar una copia de respaldo del borrador (.json). No hace falta: el borrador ya se guarda solo en la nube">Copia</button>
       <button type="button" onclick="window.borradorAbrirArchivo()" title="Abrir una copia (.json) de un borrador">Abrir</button>
       <button type="button" onclick="window.armarSinAdicionales()" title="Arma la semana que se ve: cada persona con las horas de su contrato, cuidando la curva y los descansos">Armar sugerido</button>
-      <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales">Pasar a real</button>
-      <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>`;
+      <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>
+      <span class="bf-sep"></span>
+      <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales (pide confirmación)">Pasar a real…</button>`;
     // Va arriba de la grilla, ocupando su lugar (no flota sobre los horarios)
     const host = document.getElementById("seccionHorarios");
     if (host) { fr.classList.add("bf-arriba"); host.insertBefore(fr, host.firstChild); } else document.body.appendChild(fr);
