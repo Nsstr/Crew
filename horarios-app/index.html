@@ -3762,7 +3762,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.56
+            Versión: v1.7.57
           </div>
         </div>
       </div>
@@ -5015,7 +5015,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.56";
+  const APP_VERSION = "v1.7.57";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17970,6 +17970,13 @@ function armadoSemana(lunesStr, hist = {}) {
     flex.forEach((i) => { plan[i] = null; });
     // Cuánto le falta a cada día con la gente que ya está (sin esta persona): ahí conviene que trabaje
     const faltaDia = (i) => { let t = 0; for (let h = 0; h < 24; h++) { const r = dem[i][h]; if (r > 0) { const ef = covC[i][h] + Math.max(0, covR[i][h] - 1); t += Math.max(0, r - ef) + (ef < 1 ? 8 : 0); } } return t; };
+    // Para repartir: cuánta gente ya trabaja y cuántos francos hay cada día (sin contar a esta persona)
+    const gente = (i) => personas.filter((p) => p !== pl && p.plan[i] && p.plan[i].length).length;
+    const francos = (i) => personas.filter((p) => p !== pl && (p.francoDia === i || (p.tipo[i] === "fijo" && /^f$/i.test(String(p.orig[i] || "").trim())))).length;
+    // Mejor día de franco: donde menos falta gente; a igualdad, donde hay menos francos y más gente
+    const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i);
+    // Día que más conviene trabajar: donde más falta; a igualdad, donde hay menos gente
+    const puntajeTrabajo = (i) => faltaDia(i) - 0.3 * gente(i) + 0.5 * francos(i);
     let trabaja = flex.filter((i) => pl.tipo[i] !== "vacio");
     const vacios = flex.filter((i) => pl.tipo[i] === "vacio");
     // franco: si no tiene, en el día donde más sobra gente (respetando los días permitidos del evento)
@@ -17978,16 +17985,16 @@ function armadoSemana(lunesStr, hist = {}) {
       const permitido = (i) => !diasFrancoOk || diasFrancoOk.includes(new Date(dias[i] + "T00:00:00").getDay());
       const base = vacios.length ? vacios : trabaja; // primero en un día vacío; si no hay, en uno que trabajaba
       const opc = base.filter(permitido);
-      const elegido = (opc.length ? opc : base).slice().sort((x, y) => faltaDia(x) - faltaDia(y))[0];
+      const elegido = (opc.length ? opc : base).slice().sort((x, y) => puntajeFranco(x) - puntajeFranco(y))[0];
       if (elegido !== undefined) { pl.francoDia = elegido; trabaja = trabaja.filter((i) => i !== elegido); }
     }
     // cuántos días: los más posibles con al menos 4 h (más días cortos antes que pocos largos)
     const disponibles = trabaja.length + vacios.filter((i) => i !== pl.francoDia).length;
     const nObj = Math.max(Math.ceil(pl.meta / pl.cap), Math.min(disponibles, Math.floor(pl.meta / 4)));
-    const libres = vacios.filter((i) => i !== pl.francoDia).sort((x, y) => faltaDia(y) - faltaDia(x));
+    const libres = vacios.filter((i) => i !== pl.francoDia).sort((x, y) => puntajeTrabajo(y) - puntajeTrabajo(x));
     while (trabaja.length < nObj && libres.length) trabaja.push(libres.shift());
     // si sobran días (no llegan a 4 h cada uno), se libera el que menos falta hace
-    trabaja.sort((x, y) => faltaDia(y) - faltaDia(x));
+    trabaja.sort((x, y) => puntajeTrabajo(y) - puntajeTrabajo(x));
     while (trabaja.length && trabaja.length * 4 > pl.meta) trabaja.pop();
     // largos iniciales parejos
     const n = trabaja.length;
