@@ -3767,7 +3767,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.72
+            Versión: v1.7.73
           </div>
         </div>
       </div>
@@ -5029,7 +5029,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.72";
+  const APP_VERSION = "v1.7.73";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6889,7 +6889,7 @@ function updateDynamicHours() {
         // Turno efectivo: incluye el franco automático del domingo antes de vacaciones
         const valToday = String(getSlotEfectivo(collab.id, dStr) || "").trim().toLowerCase();
 
-        if (valToday === "f" || valToday === "libre") {
+        if (valToday === "f" || valToday === "libre" || valToday === "l") {
           restCount++;
         }
       }
@@ -18035,6 +18035,11 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     pl.flex = dias.map((_, i) => pl.tipo[i] === "trabajo" || pl.tipo[i] === "cortado" || pl.tipo[i] === "vacio" || i === pl.tcDia);
     personas.push(pl);
   });
+  // Domingos del mes: cuántos dar esta semana para que alcancen los domingos que quedan, y a quiénes
+  // (primero a los que no les queda otro domingo)
+  const candDom = personas.filter((pl) => pl.necesitaF && pl.domDisp > 0 && pl.flex[6] && !pl.premio && pl.tipo[6] !== "cerrado");
+  const cuotaDom = Math.max(candDom.filter((pl) => pl.domNecesidad >= 1).length, Math.round(candDom.reduce((t, pl) => t + Math.min(1, pl.domNecesidad), 0)));
+  candDom.sort((a, b) => b.domNecesidad - a.domNecesidad || b.contrato - a.contrato).slice(0, cuotaDom).forEach((pl) => { pl.domForzar = true; });
   personas.forEach((pl) => pl.plan.forEach((tr, i) => { if (tr) aplicar(pl, i, tr, 1); }));
   const antes = faltanH(), costoAntes = costoTotal();
   // Descansos (como las alertas): 12 h entre días seguidos; 35 h si hay un día de descanso en el medio
@@ -18144,6 +18149,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       // franco nunca sábado; los de 18 y 24 h tampoco domingo (salvo que les toque su domingo del mes)
       if (!pl.premio && base.some((i) => dow(i) !== 6)) base = base.filter((i) => dow(i) !== 6);
       if (!pl.premio && pl.contrato < 30 && !(pl.domDisp > 0) && base.some((i) => dow(i) !== 0 && dow(i) !== 6)) base = base.filter((i) => dow(i) !== 0);
+      if (pl.domForzar && flex.includes(6)) base = [6]; // le toca su domingo del mes esta semana
       const opc = pl.premio ? base : base.filter(permitido);
       const elegido = (opc.length ? opc : base).slice().sort((x, y) => puntajeFranco(x) - puntajeFranco(y))[0];
       if (elegido !== undefined) { pl.francoDia = elegido; trabaja = trabaja.filter((i) => i !== elegido); }
@@ -18262,7 +18268,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const faltanDia = dias.map((_, i) => { let t = 0; if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; });
   const demDia = dem.map((arr) => arr.reduce((t, v) => t + v, 0));
   return { ids: optimizables.map((pl) => pl.c.id), idxCierre: kC, faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
-    domingoPendiente: personas.filter((pl) => pl.domingo === "libre" && pl.plan[6] && pl.plan[6].length).map(nomPl),
+    domingoPendiente: personas.filter((pl) => (pl.domingo === "libre" || pl.domForzar) && pl.plan[6] && pl.plan[6].length).map(nomPl),
     deAnioAnterior: dias.filter((_, i) => estimada[i] === "anio"),
     estimadas: dias.filter((_, i) => estimada[i] === true), parejas: dias.filter((_, i) => estimada[i] === "pareja"), nivelParejo, sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
 }
