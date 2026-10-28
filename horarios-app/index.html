@@ -3762,7 +3762,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.54
+            Versión: v1.7.55
           </div>
         </div>
       </div>
@@ -5015,7 +5015,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.54";
+  const APP_VERSION = "v1.7.55";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17816,6 +17816,15 @@ function armadoSemana(lunesStr) {
   const abre = dem.map((arr) => { const i = arr.findIndex((v) => v > 0); return i < 0 ? 8 : i; });
   const cierra = dem.map((arr) => { let i = -1; arr.forEach((v, h) => { if (v > 0) i = h; }); return i < 0 ? 22 : i + 1; });
   const covC = dias.map(() => Array(24).fill(0)), covR = dias.map(() => Array(24).fill(0));
+  // Tesorería: todos los días uno de los titulares entra a las 7 (antes de la apertura);
+  // la suplente solo si no queda otra
+  const norm = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const TES_HORA = 7;
+  const tieneNombre = (c, partes) => { const n = norm(c.name); return partes.every((p) => n.includes(p)); };
+  const TES_TIT = [["lucero", "santiago"], ["perez ros"], ["alcaraz", "noelia"]];
+  const TES_SUP = [["castro", "marisol"]];
+  const rolTes = (c) => (TES_TIT.some((p) => tieneNombre(c, p)) ? "tit" : TES_SUP.some((p) => tieneNombre(c, p)) ? "sup" : null);
+  const tes = dias.map(() => ({ tit: 0, sup: 0 }));
   const costoHora = (i, h) => {
     const r = dem[i][h];
     if (r <= 0) return 0;
@@ -17826,10 +17835,12 @@ function armadoSemana(lunesStr) {
     if (ro === 0) k += 0.3;        // que haya algún roller
     return k;
   };
+  const costoTes = (i) => (tes[i].tit > 0 ? 0 : tes[i].sup > 0 ? 3 : 12);
   const costoTotal = () => { let t = 0; for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) t += costoHora(i, h); return t; };
   const faltanH = () => { let t = 0; for (let i = 0; i < 7; i++) if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; };
   const tramosDe = (p) => (p.isCortado ? p.tramos : [p]).map((t) => ({ s: t.start, e: t.end <= t.start ? 24 : t.end }));
   const aplicar = (pl, i, tr, signo) => {
+    if (pl.tes && tr && tr.length && Math.abs(tr[0].s - TES_HORA) < 1e-9) tes[i][pl.tes] += signo;
     const cov = pl.rolDia[i] ? covR : covC;
     tr.forEach((t) => { for (let h = Math.floor(t.s); h < Math.ceil(t.e); h++) if (h >= 0 && h < 24) cov[i][h] += signo * (Math.min(t.e, h + 1) - Math.max(t.s, h)); });
   };
@@ -17839,7 +17850,7 @@ function armadoSemana(lunesStr) {
   todos.forEach((c) => {
     const contrato = presuContrato(c);
     const esRol = presuEsRoller(c);
-    const pl = { c, contrato, cap: contrato <= 30 ? 9 : 12, rolDia: [], tipo: [], plan: [], orig: [], fijoH: 0, libre: [] };
+    const pl = { c, contrato, cap: contrato <= 30 ? 9 : 12, rolDia: [], tipo: [], plan: [], orig: [], fijoH: 0, libre: [], tes: rolTes(c) };
     let tieneF = false, tieneVac = false;
     dias.forEach((d, i) => {
       const o = getPlanningObj(c.id, d) || {};
@@ -17902,12 +17913,13 @@ function armadoSemana(lunesStr) {
       [a, b].filter(Boolean).forEach((t) => dentro(t, L).forEach((x) => out.push([x])));
       return out;
     }
-    const lo = Math.max(6, Math.min(abre[i], pl.tipo[i] === "trabajo" ? Math.floor(pl.plan[i] ? pl.plan[i][0].s : abre[i]) : abre[i]));
+    let lo = Math.max(6, Math.min(abre[i], pl.tipo[i] === "trabajo" ? Math.floor(pl.plan[i] ? pl.plan[i][0].s : abre[i]) : abre[i]));
+    if (pl.tes) lo = Math.min(lo, TES_HORA); // pueden entrar a las 7 para tesorería
     const hi = Math.min(24, Math.max(cierra[i], 0));
     for (let s0 = lo; s0 + L <= hi + 1e-9; s0 += 1) out.push([{ s: s0, e: s0 + L }]);
     return out;
   };
-  const costoDia = (i) => { let t = 0; for (let h = 0; h < 24; h++) t += costoHora(i, h); return t; };
+  const costoDia = (i) => { let t = costoTes(i); for (let h = 0; h < 24; h++) t += costoHora(i, h); return t; };
   const mejorUbicar = (pl, plan, i, L, lim) => {
     if (plan[i]) aplicar(pl, i, plan[i], -1);
     let best = null;
@@ -18022,6 +18034,9 @@ function armadoSemana(lunesStr) {
   optimizables.sort((a, b) => (a.rolDia.some(Boolean) ? 1 : 0) - (b.rolDia.some(Boolean) ? 1 : 0));
   for (let pasada = 0; pasada < 3; pasada++) optimizables.forEach(optimizarPersona);
   const despues = faltanH();
+  const sinTes = dias.filter((_, i) => tes[i].tit === 0 && tes[i].sup === 0);
+  const conSuplente = dias.filter((_, i) => tes[i].tit === 0 && tes[i].sup > 0);
+  const tesEncontrados = personas.filter((pl) => pl.tes).map((pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name);
   let sinCajero = 0;
   for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) if (dem[i][h] > 0 && covC[i][h] + Math.max(0, covR[i][h] - 1) < 0.999) sinCajero++;
   const cambios = [];
@@ -18034,7 +18049,7 @@ function armadoSemana(lunesStr) {
     if (norm(nuevo) !== norm(viejo)) cambios.push({ id: pl.c.id, nombre: (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name, d, de: viejo || "vacío", a: nuevo });
   }));
   const sinSol = optimizables.filter((pl) => pl.sinSolucion).map((pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name);
-  return { antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol };
+  return { antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados };
 }
 window.armarSinAdicionales = function () {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
@@ -18049,6 +18064,10 @@ window.armarSinAdicionales = function () {
   borradorModal("Armar sugerido de la semana", `<p>Semana del <b>${fc(lunes)}</b>. Cada persona queda con las horas de su contrato (sin adicionales). Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
     ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy → <b>${r1(r.despues)} h</b> con la propuesta.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se arma para tener al menos un cajero de 8 a 22.</p>`}
     ${r.sinCajero ? `<p class="bm-ojo">⚠ Quedan ${r.sinCajero} ${r.sinCajero === 1 ? "hora" : "horas"} sin ningún cajero: no alcanza la gente o los descansos no lo permiten.</p>` : `<p>Todas las horas abiertas tienen al menos un cajero.</p>`}
+    ${r.tesEncontrados.length ? (r.sinTes.length
+      ? `<p class="bm-ojo">⚠ Tesorería 7 h sin cubrir: ${r.sinTes.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}.</p>`
+      : `<p>Tesorería: todos los días entra alguien a las 7${r.conSuplente.length ? ` (con la suplente: ${r.conSuplente.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")})` : ""}.</p>`)
+      : `<p class="bm-ojo">No encontré a las personas de tesorería en esta área.</p>`}
     ${r.sinSol.length ? `<p class="bm-ojo">Sin cambios para ${r.sinSol.map(borradorEsc).join(", ")}: con sus descansos no se pudo armar otra opción.</p>` : ""}
     ${r.cambios.length ? `<p>${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"} en ${r.personas} ${r.personas === 1 ? "persona" : "personas"}:</p><div class="bm-lista">${lista}</div>` : `<p>No hay nada para recortar: todos están en su contrato.</p>`}
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Es solo en el borrador. Después lo revisás con la cobertura y lo ajustás a mano. Podés deshacerlo.</p>`,
@@ -18124,6 +18143,17 @@ window.borradorPasarAReal = async function () {
     } },
   ]);
 };
+// Abre Exportar con la planilla de Excel elegida y la semana que se ve (los datos salen del borrador)
+window.borradorPlanilla = function () {
+  const btn = document.getElementById("pdfBtn");
+  if (!btn) return;
+  const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
+  document.getElementById("covDesde").value = lunes;
+  document.getElementById("covHasta").value = formatDate(addDays(new Date(lunes + "T00:00:00"), 6));
+  btn.click();
+  const r = document.querySelector('input[name="pdfTipo"][value="planilla"]');
+  if (r) { r.checked = true; r.dispatchEvent(new Event("change")); }
+};
 window.borradorPintarFranja = function () {
   if (!borradorActivo()) return;
   if (!document.getElementById("borradorMarco")) {
@@ -18135,8 +18165,9 @@ window.borradorPintarFranja = function () {
     fr.innerHTML = `<span class="bf-tag">BORRADOR</span>
       <input id="borradorNombre" title="Nombre del borrador" maxlength="40">
       <span class="bf-n" id="borradorN"></span>
-      <button type="button" onclick="window.borradorGuardarArchivo()" title="Bajar el borrador como archivo">Guardar</button>
-      <button type="button" onclick="window.borradorAbrirArchivo()" title="Abrir un borrador guardado">Abrir</button>
+      <button type="button" onclick="window.borradorPlanilla()" title="Bajar la planilla de Excel con los horarios de este borrador (para cargar en el reloj)">Planilla Excel</button>
+      <button type="button" onclick="window.borradorGuardarArchivo()" title="Bajar una copia de respaldo del borrador (.json). No hace falta: el borrador ya se guarda solo en la nube">Copia</button>
+      <button type="button" onclick="window.borradorAbrirArchivo()" title="Abrir una copia (.json) de un borrador">Abrir</button>
       <button type="button" onclick="window.armarSinAdicionales()" title="Arma la semana que se ve: cada persona con las horas de su contrato, cuidando la curva y los descansos">Armar sugerido</button>
       <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales">Pasar a real</button>
       <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>`;
