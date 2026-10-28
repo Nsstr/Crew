@@ -3765,7 +3765,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.61
+            Versión: v1.7.62
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.61";
+  const APP_VERSION = "v1.7.62";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17830,6 +17830,8 @@ function armadoTiendaCerrada(dStr) {
 function armadoSemana(lunesStr, hist = {}, opts = {}) {
   // opts.premiados: ids que reciben el franco pegado al día de tienda cerrada (palmada en la espalda)
   const premiados = opts.premiados || null;
+  // opts.sabado: ids a los que se les da el sábado como franco pegado (nunca en Navidad ni Año Nuevo)
+  const sabadoOk = opts.sabado || null;
   // Armado sugerido de la semana (solo en borrador):
   // · Cada persona queda con exactamente las horas de su contrato.
   // · Puede mover horarios dentro del horario con demanda, respetando: 4 h mínimo por día y por tramo,
@@ -17945,7 +17947,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     // Premio: el franco de la semana pegado al cierre (antes o después, nunca domingo). No aplica si ya
     // pidió el franco otro día, si está de vacaciones esa semana o si no hay día pegado para mover.
     pl.cerradoIdx = idxCerrado;
-    pl.premioOpc = idxCerrado < 0 ? [] : [idxCerrado - 1, idxCerrado + 1].filter((i) => i >= 0 && i < 7 && pl.flex0(i) && ![0, 6].includes(new Date(dias[i] + "T00:00:00").getDay()));
+    pl.premioOpc = idxCerrado < 0 ? [] : [idxCerrado - 1, idxCerrado + 1].filter((i) => i >= 0 && i < 7 && pl.flex0(i) && armadoDiaPremioOk(dias, idxCerrado, i, sabadoOk && sabadoOk.has(c.id)));
     pl.premioPosible = idxCerrado >= 0 && !tieneF && !tieneVac && contrato > 0 && pl.premioOpc.length > 0;
     pl.premio = pl.premioPosible && !!premiados && premiados.has(c.id);
     pl.cerradoEsFranco = idxCerrado >= 0 && !tieneF && !pl.premio && (contrato >= 30 || fCerrado);
@@ -18066,6 +18068,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       const permitido = (i) => !diasFrancoOk || diasFrancoOk.includes(new Date(dias[i] + "T00:00:00").getDay());
       let base = vacios.length ? vacios : trabaja; // primero en un día vacío; si no hay, en uno que trabajaba
       if (pl.premio) base = pl.premioOpc; // premio: pegado al día de tienda cerrada
+      if (pl.premio && sabadoOk && sabadoOk.has(pl.c.id)) { const s6 = base.filter((i) => dow(i) === 6); if (s6.length) base = s6; }
       if (pl.domingo === "trabaja" && base.some((i) => i !== 6)) base = base.filter((i) => i !== 6);
       if (pl.domingo === "libre" && !pl.premio && flex.includes(6)) base = [6]; // le toca el domingo libre: es su franco
       const opc = pl.premio ? base : base.filter(permitido);
@@ -18160,7 +18163,11 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const sinRoller = sinRollerDia.reduce((t, x) => t + x.length, 0);
   const nomPl = (pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name;
   const premio = personas.filter((pl) => pl.premio && pl.francoDia !== null && pl.francoDia !== undefined).map((pl) => ({ id: pl.c.id, nombre: nomPl(pl), dia: dias[pl.francoDia], hueco: sinCajeroDia[pl.francoDia] + sinRollerDia[pl.francoDia].length }));
-  const candidatosPremio = personas.filter((pl) => pl.premioPosible).map((pl) => ({ id: pl.c.id, nombre: nomPl(pl), contrato: pl.contrato }));
+  const candidatosPremio = personas.filter((pl) => pl.premioPosible).map((pl) => ({ id: pl.c.id, nombre: nomPl(pl), contrato: pl.contrato, rol: pl.rolDia.some(Boolean) }));
+  // Sábado pegado al cierre que se puede otorgar (no en Navidad ni Año Nuevo)
+  const kC = cerrado.findIndex(Boolean);
+  const idxSab = kC < 0 || ["12-25", "01-01"].includes(dias[kC].slice(5)) ? null
+    : [kC - 1, kC + 1].find((i) => i >= 0 && i < 7 && new Date(dias[i] + "T00:00:00").getDay() === 6) ?? null;
   const cambios = [];
   optimizables.forEach((pl) => dias.forEach((d, i) => {
     if (pl.tipo[i] === "cerrado") {
@@ -18179,25 +18186,83 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const rangos = (hs) => { const out = []; hs.forEach((h) => { const u = out[out.length - 1]; if (u && u[1] === h) u[1] = h + 1; else out.push([h, h + 1]); }); return out.map(([a, b]) => `${a} a ${b}`).join(", "); };
   const sinRollerTxt = dias.map((d, i) => (sinRollerDia[i].length ? { d, txt: rangos(sinRollerDia[i]) } : null)).filter(Boolean);
   const horarios = dias.map((d, i) => (horarioEsp[i] ? { d, ...horarioEsp[i] } : null)).filter(Boolean);
-  return { sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
+  const faltanDia = dias.map((_, i) => { let t = 0; if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; });
+  const demDia = dem.map((arr) => arr.reduce((t, v) => t + v, 0));
+  return { faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
     estimadas: dias.filter((_, i) => estimada[i]), sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
 }
 // Armado con premio: si el franco pegado al cierre deja horas sin cajero, a esa persona no se le da
-function armadoConPremio(lunes, hist, premiados) {
-  const set = new Set(premiados || []);
-  let r = armadoSemana(lunes, hist, { premiados: set });
-  const sacados = [], probados = new Set();
-  for (let k = 0; k < 30; k++) {
-    const malo = r.premio.filter((x) => x.hueco > 0 && !probados.has(x.id)).sort((a, b) => b.hueco - a.hueco)[0];
+// Día pegado al cierre donde puede ir el franco de premio: nunca domingo; sábado solo si se otorga
+// (y nunca en Navidad ni Año Nuevo)
+function armadoDiaPremioOk(dias, idxCerrado, i, sabadoOtorgado) {
+  const dw = new Date(dias[i] + "T00:00:00").getDay();
+  if (dw === 0) return false;
+  if (dw === 6) return !!sabadoOtorgado && !["12-25", "01-01"].includes(dias[idxCerrado].slice(5));
+  return true;
+}
+function armadoConPremio(lunes, hist, premiados, sabados) {
+  const set = new Set(premiados || []), sab = new Set(sabados || []);
+  const correr = () => armadoSemana(lunes, hist, { premiados: set, sabado: sab });
+  let r = correr();
+  const sacados = [], sabSacados = [], probados = new Set();
+  for (let k = 0; k < 40; k++) {
+    const malo = r.premio.filter((x) => x.hueco > 0 && !probados.has(x.id + (sab.has(x.id) ? "s" : ""))).sort((a, b) => b.hueco - a.hueco)[0];
     if (!malo) break;
-    probados.add(malo.id);
-    set.delete(malo.id);
-    const r2 = armadoSemana(lunes, hist, { premiados: set });
-    if (r2.sinCajero + r2.sinRoller < r.sinCajero + r.sinRoller) { r = r2; sacados.push(malo.nombre); } else set.add(malo.id);
+    const enSab = sab.has(malo.id);
+    probados.add(malo.id + (enSab ? "s" : ""));
+    if (enSab) sab.delete(malo.id); else set.delete(malo.id); // primero se le saca el sábado; si sigue el hueco, el premio
+    const r2 = correr();
+    if (r2.sinCajero + r2.sinRoller < r.sinCajero + r.sinRoller) { r = r2; (enSab ? sabSacados : sacados).push(malo.nombre); }
+    else if (enSab) sab.add(malo.id); else set.add(malo.id);
   }
   r.premioSacados = sacados;
+  r.sabadoSacados = sabSacados;
   r.premioNoElegidos = r.candidatosPremio.filter((x) => !(premiados || []).includes(x.id)).map((x) => x.nombre);
   return r;
+}
+// Cuántos pueden tener el sábado libre como premio sin dejar huecos (cajero y roller) ese sábado
+function armadoMaxSabado(lunes, hist, cand) {
+  const pre = new Set(cand.map((x) => x.id));
+  const r0 = armadoSemana(lunes, hist, { premiados: pre, sabado: new Set() });
+  const j = r0.idxSab;
+  if (j === null) return 0;
+  const base = r0.huecoCajDia[j] + r0.huecoRolDia[j];
+  // tolerancia: el sábado puede perder hasta un 10% de la demanda (mínimo 2 h) contra la curva
+  const tope = r0.faltanDia[j] + Math.max(2, 0.1 * r0.demDia[j]);
+  const S = cand.slice().sort((a, b) => b.contrato - a.contrato); // se sacan primero los de menos horas
+  while (S.length) {
+    const r = armadoSemana(lunes, hist, { premiados: pre, sabado: new Set(S.map((x) => x.id)) });
+    if (r.huecoCajDia[j] + r.huecoRolDia[j] <= base && r.faltanDia[j] <= tope + 1e-9) return S.length;
+    let q = -1;
+    if (r.huecoRolDia[j] > r0.huecoRolDia[j]) q = S.map((x) => x.rol).lastIndexOf(true);
+    if (q < 0) q = S.map((x) => x.rol).lastIndexOf(false);
+    S.splice(q < 0 ? S.length - 1 : q, 1);
+  }
+  return 0;
+}
+// Navidad y Año Nuevo: el franco pegado se da en una fiesta o en la otra. ¿Quiénes lo tuvieron en la otra?
+async function armadoTuvoOtraFiesta(cierre, cand) {
+  const md = cierre.slice(5), y = Number(cierre.slice(0, 4));
+  const otra = md === "12-25" ? `${y + 1}-01-01` : md === "01-01" ? `${y - 1}-12-25` : null;
+  if (!otra) return { nombre: null, ids: new Set() };
+  const f = (n) => formatDate(addDays(new Date(otra + "T00:00:00"), n));
+  const fechas = [f(-1), otra, f(1)];
+  const docs = {};
+  if (!isMockMode) {
+    try {
+      const snap = await getDocs(query(collection(db, "planificacion"), where("fecha", ">=", fechas[0]), where("fecha", "<=", fechas[2])));
+      snap.docs.forEach((d) => { docs[d.id] = d.data(); });
+    } catch (e) { console.warn("No se pudo mirar la otra fiesta", e); }
+  }
+  const obj = (id, d) => { const o = docs[`${id}_${d}`] || getPlanningObj(id, d) || {}; return typeof o === "string" ? { slot: o } : o; };
+  const ids = new Set();
+  cand.forEach((x) => {
+    const pegados = [fechas[0], fechas[2]].map((d) => obj(x.id, d));
+    if (pegados.some((o) => o.premioFiesta)) { ids.add(x.id); return; }
+    const fiesta = String(obj(x.id, otra).slot || "").replace("*", "").trim();
+    if (x.contrato >= 30 && /^(l|libre)$/i.test(fiesta) && pegados.some((o) => /^f$/i.test(String(o.slot || "").replace("*", "").trim()))) ids.add(x.id);
+  });
+  return { nombre: md === "12-25" ? "Año Nuevo" : "Navidad", ids };
 }
 window.armarSinAdicionales = async function () {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
@@ -18212,23 +18277,50 @@ window.armarSinAdicionales = async function () {
     } catch (e) { console.warn("No se pudieron traer las curvas anteriores", e); }
   }
   // Semana con tienda cerrada: elegir a quién se le da el franco pegado al cierre (todos tildados)
-  let cand = [];
-  try { cand = armadoSemana(lunes, hist, { premiados: new Set() }).candidatosPremio; } catch (e) { console.error(e); }
+  let cand = [], r0 = null;
+  try { r0 = armadoSemana(lunes, hist, { premiados: new Set() }); cand = r0.candidatosPremio; } catch (e) { console.error(e); }
   if (!cand.length) { armadoMostrar(lunes, hist, null); return; }
+  const fcP = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const otra = await armadoTuvoOtraFiesta(r0.cerrados[0], cand);
   const filasP = cand.slice().sort((a, b) => a.nombre.localeCompare(b.nombre))
-    .map((x) => `<div><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="premio-chk" value="${x.id}" checked> ${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">· ${x.contrato} h</span></label></div>`).join("");
-  borradorModal("Franco pegado al cierre", `<p>Esta semana la tienda cierra. A los tildados se les pone el franco de la semana <b>pegado a ese día</b> (antes o después, nunca sábado ni domingo), donde menos falte gente. Destildá a los que no corresponde.</p>
+    .map((x) => `<div style="display:flex;gap:8px;align-items:center"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;flex:1"><input type="checkbox" class="premio-chk" value="${x.id}" ${otra.ids.has(x.id) ? "" : "checked"}> ${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">· ${x.contrato} h${otra.ids.has(x.id) ? ` · ya lo tuvo en ${otra.nombre}` : ""}</span></label><label class="pr-sab" style="display:none;gap:6px;align-items:center;cursor:pointer;font-size:0.78rem"><input type="checkbox" class="sab-chk" value="${x.id}"> Sábado</label></div>`).join("");
+  const sabTxt = r0.sabadoDia ? `sábado ${fcP(r0.sabadoDia)}` : "";
+  const m = borradorModal("Franco pegado al cierre", `<p>Esta semana la tienda cierra. A los tildados se les pone el franco de la semana <b>pegado a ese día</b> (antes o después, nunca domingo${r0.sabadoDia ? "; el sábado solo si lo otorgás abajo" : " ni sábado"}), donde menos falte gente. Destildá a los que no corresponde.</p>
+    ${otra.nombre ? `<p style="font-size: 0.85rem">En Navidad y Año Nuevo se da una fiesta o la otra: los que ya tuvieron el franco pegado en ${otra.nombre} vienen destildados.</p>` : ""}
     <p style="color: var(--text-muted); font-size: 0.8rem">No aparecen los que ya pidieron el franco otro día o están de vacaciones. Si a alguien no se le puede dar sin dejar horas sin cajero o sin roller, se le pone en otro día y te aviso.</p>
-    <div style="margin:6px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
+    ${r0.sabadoDia ? `<label class="bm-confirma" style="border-color: var(--border)"><input type="checkbox" id="premioSabOn"> Otorgar el ${sabTxt} a algunos (premio a los mejores)</label><div id="premioSabInfo" style="font-size:0.8rem;margin:6px 2px 0;color:var(--text-muted)"></div>` : ""}
+    <div style="margin:6px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=false);document.querySelectorAll('.sab-chk').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
     <div class="bm-lista">${filasP}</div>`,
     [{ txt: "Cancelar" }, { txt: "Armar", clase: "bm-prin", fn: () => {
       const ids = [...document.querySelectorAll(".premio-chk")].filter((c) => c.checked).map((c) => c.value);
-      setTimeout(() => armadoMostrar(lunes, hist, ids), 0);
+      const on = document.getElementById("premioSabOn")?.checked;
+      const sab = on ? [...document.querySelectorAll(".sab-chk")].filter((c) => c.checked && ids.includes(c.value)).map((c) => c.value) : [];
+      setTimeout(() => armadoMostrar(lunes, hist, ids, sab), 0);
     } }]);
+  // Otorgar sábado: se calcula cuántos se lo pueden tomar sin afectar la cobertura y no deja tildar más
+  const on = m.querySelector("#premioSabOn"), info = m.querySelector("#premioSabInfo");
+  let maxSab = null;
+  const contar = () => {
+    const n = [...m.querySelectorAll(".sab-chk")].filter((c) => c.checked).length;
+    if (info && maxSab !== null) info.innerHTML = maxSab ? `Se le puede dar a hasta <b>${maxSab}</b> sin afectar la dotación ni la cobertura del sábado. Elegidos: <b>${n}</b> de ${maxSab}.` : "Ese sábado no se le puede dar a nadie sin dejar horas sin cajero o sin roller.";
+    m.querySelectorAll(".sab-chk").forEach((c) => { c.disabled = maxSab === null || (!c.checked && n >= maxSab); });
+  };
+  if (on) on.onchange = () => {
+    m.querySelectorAll(".pr-sab").forEach((x) => { x.style.display = on.checked ? "flex" : "none"; });
+    if (on.checked && maxSab === null) {
+      info.textContent = "Calculando cuántos pueden tener el sábado…";
+      setTimeout(() => { try { maxSab = armadoMaxSabado(lunes, hist, cand); } catch (e) { console.error(e); maxSab = 0; } contar(); }, 30);
+    } else contar();
+  };
+  m.querySelectorAll(".sab-chk").forEach((c) => { c.onchange = () => {
+    if (c.checked) { const p = m.querySelector(`.premio-chk[value="${c.value}"]`); if (p) p.checked = true; }
+    contar();
+  }; });
+  m.querySelectorAll(".premio-chk").forEach((c) => { c.addEventListener("change", () => { if (!c.checked) { const sc = m.querySelector(`.sab-chk[value="${c.value}"]`); if (sc) sc.checked = false; contar(); } }); });
 };
-function armadoMostrar(lunes, hist, premiados) {
+function armadoMostrar(lunes, hist, premiados, sabados) {
   let r;
-  try { r = premiados ? armadoConPremio(lunes, hist, premiados) : armadoSemana(lunes, hist); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
+  try { r = premiados ? armadoConPremio(lunes, hist, premiados, sabados) : armadoSemana(lunes, hist); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
   const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
   const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
   const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
@@ -18240,6 +18332,7 @@ function armadoMostrar(lunes, hist, premiados) {
     ${r.sinCurva.length ? `<p class="bm-ojo">Sin curva ni historial: ${r.sinCurva.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se armó para tener al menos un cajero de 8 a 22.</p>` : ""}
     ${r.cerrados.length ? `<p>Tienda cerrada: ${r.cerrados.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Ese día no trabaja nadie: es el franco de los de 30 y 48 h; los de 18 y 24 h tienen libre y su franco otro día.${r.premio && r.premio.length ? " A los que tienen el franco pegado, el día del cierre queda LIBRE." : ""}</p>` : ""}
     ${r.premio && r.premio.length ? `<p>Franco pegado al cierre (${r.premio.length}): ${r.premio.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((x) => `${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">${dn[new Date(x.dia + "T00:00:00").getDay()]} ${fc(x.dia)}</span>`).join(", ")}.</p>` : ""}
+    ${r.sabadoSacados && r.sabadoSacados.length ? `<p class="bm-ojo">Sin el sábado (para no dejar huecos ese día; el franco va el otro día pegado): ${r.sabadoSacados.map(borradorEsc).join(", ")}.</p>` : ""}
     ${r.premioSacados && r.premioSacados.length ? `<p class="bm-ojo">Sin franco pegado para no dejar horas sin cajero o sin roller: ${r.premioSacados.map(borradorEsc).join(", ")}.</p>` : ""}
     ${r.premioNoElegidos && r.premioNoElegidos.length ? `<p style="color: var(--text-muted)">Sin premio (destildados): ${r.premioNoElegidos.map(borradorEsc).join(", ")}.</p>` : ""}
     ${r.horarios && r.horarios.length ? `<p>Horario especial de la tienda: ${r.horarios.map((x) => `${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)} de ${x.a} a ${x.c}`).join(", ")}.</p>` : ""}
@@ -18257,9 +18350,10 @@ function armadoMostrar(lunes, hist, premiados) {
       for (const x of r.cambios) {
         const k = `${x.id}_${x.d}`;
         previos[k] = borrador.docs[k] ? JSON.parse(JSON.stringify(borrador.docs[k])) : null;
-        await setDoc(doc(db, "planificacion", k), { ...(borrador.docs[k] || {}), colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null, armadoSlot: x.a }, { merge: true });
+        const premioFiesta = (r.premio || []).some((pr) => pr.id === x.id && pr.dia === x.d) ? true : null;
+        await setDoc(doc(db, "planificacion", k), { ...(borrador.docs[k] || {}), colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null, armadoSlot: x.a, premioFiesta }, { merge: true });
         const o = state.planning[k] && typeof state.planning[k] === "object" ? state.planning[k] : {};
-        state.planning[k] = { ...o, colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null, armadoSlot: x.a };
+        state.planning[k] = { ...o, colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null, armadoSlot: x.a, premioFiesta };
       }
       borrador.paraReloj = true;
       borradorPersistir();
