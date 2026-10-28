@@ -3765,7 +3765,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.60
+            Versión: v1.7.61
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.60";
+  const APP_VERSION = "v1.7.61";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17945,12 +17945,30 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     // Premio: el franco de la semana pegado al cierre (antes o después, nunca domingo). No aplica si ya
     // pidió el franco otro día, si está de vacaciones esa semana o si no hay día pegado para mover.
     pl.cerradoIdx = idxCerrado;
-    pl.premioOpc = idxCerrado < 0 ? [] : [idxCerrado - 1, idxCerrado + 1].filter((i) => i >= 0 && i < 7 && pl.flex0(i) && new Date(dias[i] + "T00:00:00").getDay() !== 0);
+    pl.premioOpc = idxCerrado < 0 ? [] : [idxCerrado - 1, idxCerrado + 1].filter((i) => i >= 0 && i < 7 && pl.flex0(i) && ![0, 6].includes(new Date(dias[i] + "T00:00:00").getDay()));
     pl.premioPosible = idxCerrado >= 0 && !tieneF && !tieneVac && contrato > 0 && pl.premioOpc.length > 0;
     pl.premio = pl.premioPosible && !!premiados && premiados.has(c.id);
     pl.cerradoEsFranco = idxCerrado >= 0 && !tieneF && !pl.premio && (contrato >= 30 || fCerrado);
     pl.necesitaF = !tieneF && !tieneVac && !pl.cerradoEsFranco;
     pl.meta = Math.max(0, Math.round(contrato - pl.fijoH));
+    // Domingos libres del mes (como el contador "Dom." de la grilla): si ya tiene los acordados, este domingo
+    // trabaja; si los domingos que quedan en el mes no alcanzan para dárselos, este domingo es libre
+    pl.domingo = null;
+    if (pl.tipo[6] === "trabajo" || pl.tipo[6] === "vacio") {
+      const dom = dias[6], mes = dom.slice(0, 7);
+      const limite = parseInt(c.domingosAcordados) || 0;
+      const libreDom = (f) => /^(f|l|libre)$/i.test(String(getSlotEfectivo(c.id, f) || "").replace("*", "").trim());
+      let usados = 0, quedan = 0;
+      for (let k = 1; k <= 31; k++) {
+        const f = `${mes}-${String(k).padStart(2, "0")}`;
+        const dt = new Date(f + "T00:00:00");
+        if (formatDate(dt) !== f || dt.getDay() !== 0 || f === dom) continue;
+        if (libreDom(f)) usados++;
+        else if (f > dom && !enVac(c.id, f)) quedan++;
+      }
+      const disp = limite - usados;
+      pl.domingo = disp <= 0 ? "trabaja" : disp > quedan ? "libre" : null;
+    }
     pl.flex = dias.map((_, i) => pl.tipo[i] === "trabajo" || pl.tipo[i] === "cortado" || pl.tipo[i] === "vacio");
     personas.push(pl);
   });
@@ -18034,9 +18052,12 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const gente = (i) => personas.filter((p) => p !== pl && p.plan[i] && p.plan[i].length).length;
     const francos = (i) => personas.filter((p) => p !== pl && (p.francoDia === i || (p.tipo[i] === "fijo" && /^f$/i.test(String(p.orig[i] || "").trim())))).length;
     // Mejor día de franco: donde menos falta gente; a igualdad, donde hay menos francos y más gente
-    const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i);
+    // Sábado no se da franco (y el viernes, en lo posible tampoco): salvo que esté cargado a mano
+    const dow = (i) => new Date(dias[i] + "T00:00:00").getDay();
+    const castigoDia = (i) => (dow(i) === 6 ? 40 : dow(i) === 5 ? 6 : 0);
+    const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i) + castigoDia(i);
     // Día que más conviene trabajar: donde más falta; a igualdad, donde hay menos gente
-    const puntajeTrabajo = (i) => faltaDia(i) - 0.3 * gente(i) + 0.5 * francos(i);
+    const puntajeTrabajo = (i) => faltaDia(i) - 0.3 * gente(i) + 0.5 * francos(i) + castigoDia(i) * 0.5 + (i === 6 && pl.domingo === "trabaja" ? 100 : 0);
     let trabaja = flex.filter((i) => pl.tipo[i] !== "vacio");
     const vacios = flex.filter((i) => pl.tipo[i] === "vacio");
     // franco: si no tiene, en el día donde más sobra gente (respetando los días permitidos del evento)
@@ -18045,6 +18066,8 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       const permitido = (i) => !diasFrancoOk || diasFrancoOk.includes(new Date(dias[i] + "T00:00:00").getDay());
       let base = vacios.length ? vacios : trabaja; // primero en un día vacío; si no hay, en uno que trabajaba
       if (pl.premio) base = pl.premioOpc; // premio: pegado al día de tienda cerrada
+      if (pl.domingo === "trabaja" && base.some((i) => i !== 6)) base = base.filter((i) => i !== 6);
+      if (pl.domingo === "libre" && !pl.premio && flex.includes(6)) base = [6]; // le toca el domingo libre: es su franco
       const opc = pl.premio ? base : base.filter(permitido);
       const elegido = (opc.length ? opc : base).slice().sort((x, y) => puntajeFranco(x) - puntajeFranco(y))[0];
       if (elegido !== undefined) { pl.francoDia = elegido; trabaja = trabaja.filter((i) => i !== elegido); }
@@ -18052,7 +18075,9 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     // cuántos días: los más posibles con al menos 4 h (más días cortos antes que pocos largos)
     const disponibles = trabaja.length + vacios.filter((i) => i !== pl.francoDia).length;
     const nObj = Math.max(Math.ceil(pl.meta / pl.cap), Math.min(disponibles, Math.floor(pl.meta / 4)));
-    const libres = vacios.filter((i) => i !== pl.francoDia).sort((x, y) => puntajeTrabajo(y) - puntajeTrabajo(x));
+    // Domingo libre que le toca (ya tiene franco): ese día no trabaja
+    if (pl.domingo === "libre" && pl.francoDia !== 6 && flex.includes(6)) trabaja = trabaja.filter((i) => i !== 6);
+    const libres = vacios.filter((i) => i !== pl.francoDia && !(i === 6 && pl.domingo === "libre")).sort((x, y) => puntajeTrabajo(y) - puntajeTrabajo(x));
     while (trabaja.length < nObj && libres.length) trabaja.push(libres.shift());
     // si sobran días (no llegan a 4 h cada uno), se libera el que menos falta hace
     trabaja.sort((x, y) => puntajeTrabajo(y) - puntajeTrabajo(x));
@@ -18092,7 +18117,8 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     for (let vuelta = 0; vuelta < 2; vuelta++) {
       for (const w of trabaja.slice()) {
         if (pl.tipo[w] !== "vacio" || !plan[w]) continue;
-        const offs = flex.filter((i) => pl.tipo[i] === "vacio" && !trabaja.includes(i) && i !== pl.francoDia);
+        if (dow(w) === 6 || (w === 6 && pl.domingo === "trabaja")) continue; // el sábado (y el domingo que le toca) se trabaja
+        const offs = flex.filter((i) => pl.tipo[i] === "vacio" && !trabaja.includes(i) && i !== pl.francoDia && !(i === 6 && pl.domingo === "libre"));
         for (const o of offs) {
           const k0 = costoDia(w) + costoDia(o);
           aplicar(pl, w, plan[w], -1); const oldW = plan[w]; plan[w] = null;
@@ -18191,7 +18217,7 @@ window.armarSinAdicionales = async function () {
   if (!cand.length) { armadoMostrar(lunes, hist, null); return; }
   const filasP = cand.slice().sort((a, b) => a.nombre.localeCompare(b.nombre))
     .map((x) => `<div><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="premio-chk" value="${x.id}" checked> ${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">· ${x.contrato} h</span></label></div>`).join("");
-  borradorModal("Franco pegado al cierre", `<p>Esta semana la tienda cierra. A los tildados se les pone el franco de la semana <b>pegado a ese día</b> (antes o después, nunca domingo), donde menos falte gente. Destildá a los que no corresponde.</p>
+  borradorModal("Franco pegado al cierre", `<p>Esta semana la tienda cierra. A los tildados se les pone el franco de la semana <b>pegado a ese día</b> (antes o después, nunca sábado ni domingo), donde menos falte gente. Destildá a los que no corresponde.</p>
     <p style="color: var(--text-muted); font-size: 0.8rem">No aparecen los que ya pidieron el franco otro día o están de vacaciones. Si a alguien no se le puede dar sin dejar horas sin cajero o sin roller, se le pone en otro día y te aviso.</p>
     <div style="margin:6px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
     <div class="bm-lista">${filasP}</div>`,
