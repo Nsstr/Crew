@@ -3762,7 +3762,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.57
+            Versión: v1.7.58
           </div>
         </div>
       </div>
@@ -5015,7 +5015,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.57";
+  const APP_VERSION = "v1.7.58";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17793,7 +17793,9 @@ function armadoTiendaCerrada(dStr) {
   const md = dStr.slice(5);
   return md === "01-01" || md === "05-01" || md === "12-25" || !!(state.eventos && state.eventos[dStr] && state.eventos[dStr].tiendaCerrada);
 }
-function armadoSemana(lunesStr, hist = {}) {
+function armadoSemana(lunesStr, hist = {}, opts = {}) {
+  // opts.premiados: ids que reciben el franco pegado al día de tienda cerrada (palmada en la espalda)
+  const premiados = opts.premiados || null;
   // Armado sugerido de la semana (solo en borrador):
   // · Cada persona queda con exactamente las horas de su contrato.
   // · Puede mover horarios dentro del horario con demanda, respetando: 4 h mínimo por día y por tramo,
@@ -17868,7 +17870,8 @@ function armadoSemana(lunesStr, hist = {}) {
     const contrato = presuContrato(c);
     const esRol = presuEsRoller(c);
     const pl = { c, contrato, cap: contrato <= 30 ? 9 : 12, rolDia: [], tipo: [], plan: [], orig: [], fijoH: 0, libre: [], tes: rolTes(c) };
-    let tieneF = false, tieneVac = false;
+    pl.flex0 = (i) => pl.tipo[i] === "trabajo" || pl.tipo[i] === "cortado" || pl.tipo[i] === "vacio";
+    let tieneF = false, tieneVac = false, fCerrado = false;
     dias.forEach((d, i) => {
       const o = getPlanningObj(c.id, d) || {};
       pl.rolDia[i] = esRol && !o.comoCajero;
@@ -17876,7 +17879,7 @@ function armadoSemana(lunesStr, hist = {}) {
       const p = parseShift(val);
       pl.orig[i] = val;
       if (enVac(c.id, d)) { pl.tipo[i] = "fijo"; pl.plan[i] = null; tieneVac = true; return; }
-      if (cerrado[i]) { pl.tipo[i] = "cerrado"; pl.plan[i] = null; if (p && p.type === "franco") tieneF = true; return; }
+      if (cerrado[i]) { pl.tipo[i] = "cerrado"; pl.plan[i] = null; if (p && p.type === "franco") fCerrado = true; return; }
       if (!val || !p || p.type === "none") { pl.tipo[i] = "vacio"; pl.plan[i] = null; return; }
       if (p.type === "franco") { tieneF = true; pl.tipo[i] = "fijo"; pl.plan[i] = null; return; }
       if (p.type !== "work" || p.isNV) { pl.tipo[i] = "fijo"; pl.plan[i] = null; return; }
@@ -17889,7 +17892,13 @@ function armadoSemana(lunesStr, hist = {}) {
     });
     // Día de tienda cerrada: para 30 y 48 h es su franco; para 18 y 24 h queda LIBRE y el franco va otro día
     const idxCerrado = dias.findIndex((_, i) => pl.tipo[i] === "cerrado");
-    pl.cerradoEsFranco = idxCerrado >= 0 && contrato >= 30 && !tieneF;
+    // Premio: el franco de la semana pegado al cierre (antes o después, nunca domingo). No aplica si ya
+    // pidió el franco otro día, si está de vacaciones esa semana o si no hay día pegado para mover.
+    pl.cerradoIdx = idxCerrado;
+    pl.premioOpc = idxCerrado < 0 ? [] : [idxCerrado - 1, idxCerrado + 1].filter((i) => i >= 0 && i < 7 && pl.flex0(i) && new Date(dias[i] + "T00:00:00").getDay() !== 0);
+    pl.premioPosible = idxCerrado >= 0 && !tieneF && !tieneVac && contrato > 0 && pl.premioOpc.length > 0;
+    pl.premio = pl.premioPosible && !!premiados && premiados.has(c.id);
+    pl.cerradoEsFranco = idxCerrado >= 0 && !tieneF && !pl.premio && (contrato >= 30 || fCerrado);
     pl.necesitaF = !tieneF && !tieneVac && !pl.cerradoEsFranco;
     pl.meta = Math.max(0, Math.round(contrato - pl.fijoH));
     pl.flex = dias.map((_, i) => pl.tipo[i] === "trabajo" || pl.tipo[i] === "cortado" || pl.tipo[i] === "vacio");
@@ -17983,8 +17992,9 @@ function armadoSemana(lunesStr, hist = {}) {
     pl.francoDia = null;
     if (pl.necesitaF) {
       const permitido = (i) => !diasFrancoOk || diasFrancoOk.includes(new Date(dias[i] + "T00:00:00").getDay());
-      const base = vacios.length ? vacios : trabaja; // primero en un día vacío; si no hay, en uno que trabajaba
-      const opc = base.filter(permitido);
+      let base = vacios.length ? vacios : trabaja; // primero en un día vacío; si no hay, en uno que trabajaba
+      if (pl.premio) base = pl.premioOpc; // premio: pegado al día de tienda cerrada
+      const opc = pl.premio ? base : base.filter(permitido);
       const elegido = (opc.length ? opc : base).slice().sort((x, y) => puntajeFranco(x) - puntajeFranco(y))[0];
       if (elegido !== undefined) { pl.francoDia = elegido; trabaja = trabaja.filter((i) => i !== elegido); }
     }
@@ -18066,7 +18076,11 @@ function armadoSemana(lunesStr, hist = {}) {
   const conSuplente = dias.filter((_, i) => tes[i].tit === 0 && tes[i].sup > 0);
   const tesEncontrados = personas.filter((pl) => pl.tes).map((pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name);
   let sinCajero = 0;
-  for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) if (dem[i][h] > 0 && covC[i][h] + Math.max(0, covR[i][h] - 1) < 0.999) sinCajero++;
+  const sinCajeroDia = dias.map(() => 0);
+  for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) if (dem[i][h] > 0 && covC[i][h] + Math.max(0, covR[i][h] - 1) < 0.999) { sinCajero++; sinCajeroDia[i]++; }
+  const nomPl = (pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name;
+  const premio = personas.filter((pl) => pl.premio && pl.francoDia !== null && pl.francoDia !== undefined).map((pl) => ({ id: pl.c.id, nombre: nomPl(pl), dia: dias[pl.francoDia], hueco: sinCajeroDia[pl.francoDia] }));
+  const candidatosPremio = personas.filter((pl) => pl.premioPosible).map((pl) => ({ id: pl.c.id, nombre: nomPl(pl), contrato: pl.contrato }));
   const cambios = [];
   optimizables.forEach((pl) => dias.forEach((d, i) => {
     if (pl.tipo[i] === "cerrado") {
@@ -18082,8 +18096,25 @@ function armadoSemana(lunesStr, hist = {}) {
     if (norm(nuevo) !== norm(viejo)) cambios.push({ id: pl.c.id, nombre: (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name, d, de: viejo || "vacío", a: nuevo });
   }));
   const sinSol = optimizables.filter((pl) => pl.sinSolucion).map((pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name);
-  return { antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
+  return { premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
     estimadas: dias.filter((_, i) => estimada[i]), sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
+}
+// Armado con premio: si el franco pegado al cierre deja horas sin cajero, a esa persona no se le da
+function armadoConPremio(lunes, hist, premiados) {
+  const set = new Set(premiados || []);
+  let r = armadoSemana(lunes, hist, { premiados: set });
+  const sacados = [], probados = new Set();
+  for (let k = 0; k < 30; k++) {
+    const malo = r.premio.filter((x) => x.hueco > 0 && !probados.has(x.id)).sort((a, b) => b.hueco - a.hueco)[0];
+    if (!malo) break;
+    probados.add(malo.id);
+    set.delete(malo.id);
+    const r2 = armadoSemana(lunes, hist, { premiados: set });
+    if (r2.sinCajero < r.sinCajero) { r = r2; sacados.push(malo.nombre); } else set.add(malo.id);
+  }
+  r.premioSacados = sacados;
+  r.premioNoElegidos = r.candidatosPremio.filter((x) => !(premiados || []).includes(x.id)).map((x) => x.nombre);
+  return r;
 }
 window.armarSinAdicionales = async function () {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
@@ -18097,8 +18128,24 @@ window.armarSinAdicionales = async function () {
       snap.docs.forEach((d) => { const x = d.data(); if (x && x.curva) hist[d.id] = x.curva; });
     } catch (e) { console.warn("No se pudieron traer las curvas anteriores", e); }
   }
+  // Semana con tienda cerrada: elegir a quién se le da el franco pegado al cierre (todos tildados)
+  let cand = [];
+  try { cand = armadoSemana(lunes, hist, { premiados: new Set() }).candidatosPremio; } catch (e) { console.error(e); }
+  if (!cand.length) { armadoMostrar(lunes, hist, null); return; }
+  const filasP = cand.slice().sort((a, b) => a.nombre.localeCompare(b.nombre))
+    .map((x) => `<div><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="premio-chk" value="${x.id}" checked> ${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">· ${x.contrato} h</span></label></div>`).join("");
+  borradorModal("Franco pegado al cierre", `<p>Esta semana la tienda cierra. A los tildados se les pone el franco de la semana <b>pegado a ese día</b> (antes o después, nunca domingo), donde menos falte gente. Destildá a los que no corresponde.</p>
+    <p style="color: var(--text-muted); font-size: 0.8rem">No aparecen los que ya pidieron el franco otro día o están de vacaciones. Si a alguien no se le puede dar sin dejar horas sin cajero, se le pone en otro día y te aviso.</p>
+    <div style="margin:6px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
+    <div class="bm-lista">${filasP}</div>`,
+    [{ txt: "Cancelar" }, { txt: "Armar", clase: "bm-prin", fn: () => {
+      const ids = [...document.querySelectorAll(".premio-chk")].filter((c) => c.checked).map((c) => c.value);
+      setTimeout(() => armadoMostrar(lunes, hist, ids), 0);
+    } }]);
+};
+function armadoMostrar(lunes, hist, premiados) {
   let r;
-  try { r = armadoSemana(lunes, hist); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
+  try { r = premiados ? armadoConPremio(lunes, hist, premiados) : armadoSemana(lunes, hist); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
   const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
   const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
   const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
@@ -18108,7 +18155,10 @@ window.armarSinAdicionales = async function () {
     ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy → <b>${r1(r.despues)} h</b> con la propuesta.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se arma para tener al menos un cajero de 8 a 22.</p>`}
     ${r.estimadas.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.estimadas.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se usó el promedio del mismo día de las semanas anteriores.</p>` : ""}
     ${r.sinCurva.length ? `<p class="bm-ojo">Sin curva ni historial: ${r.sinCurva.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se armó para tener al menos un cajero de 8 a 22.</p>` : ""}
-    ${r.cerrados.length ? `<p>Tienda cerrada: ${r.cerrados.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Ese día no trabaja nadie: es el franco de los de 30 y 48 h; los de 18 y 24 h tienen libre y su franco otro día.</p>` : ""}
+    ${r.cerrados.length ? `<p>Tienda cerrada: ${r.cerrados.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Ese día no trabaja nadie: es el franco de los de 30 y 48 h; los de 18 y 24 h tienen libre y su franco otro día.${r.premio && r.premio.length ? " A los que tienen el franco pegado, el día del cierre queda LIBRE." : ""}</p>` : ""}
+    ${r.premio && r.premio.length ? `<p>Franco pegado al cierre (${r.premio.length}): ${r.premio.slice().sort((a, b) => a.nombre.localeCompare(b.nombre)).map((x) => `${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">${dn[new Date(x.dia + "T00:00:00").getDay()]} ${fc(x.dia)}</span>`).join(", ")}.</p>` : ""}
+    ${r.premioSacados && r.premioSacados.length ? `<p class="bm-ojo">Sin franco pegado para no dejar horas sin cajero: ${r.premioSacados.map(borradorEsc).join(", ")}.</p>` : ""}
+    ${r.premioNoElegidos && r.premioNoElegidos.length ? `<p style="color: var(--text-muted)">Sin premio (destildados): ${r.premioNoElegidos.map(borradorEsc).join(", ")}.</p>` : ""}
     ${r.sinCajero ? `<p class="bm-ojo">⚠ Quedan ${r.sinCajero} ${r.sinCajero === 1 ? "hora" : "horas"} sin ningún cajero: no alcanza la gente o los descansos no lo permiten.</p>` : `<p>Todas las horas abiertas tienen al menos un cajero.</p>`}
     ${r.tesEncontrados.length ? (r.sinTes.length
       ? `<p class="bm-ojo">⚠ Tesorería 7 h sin cubrir: ${r.sinTes.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}.</p>`
