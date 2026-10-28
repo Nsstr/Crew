@@ -3762,7 +3762,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.53
+            Versión: v1.7.54
           </div>
         </div>
       </div>
@@ -5015,7 +5015,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.53";
+  const APP_VERSION = "v1.7.54";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17789,123 +17789,252 @@ function armadoSlot(tramos) {
   return tramos.map((t) => `${f(t.s)}a${f(t.e)}`).join("/");
 }
 function armadoSemana(lunesStr) {
+  // Armado sugerido de la semana (solo en borrador):
+  // · Cada persona queda con exactamente las horas de su contrato.
+  // · Puede mover horarios dentro del horario con demanda, respetando: 4 h mínimo por día y por tramo,
+  //   tope diario (9 h part time, 12 h el resto), 12 h de descanso entre días y 35 h cuando hay un día
+  //   de descanso en el medio (igual que las alertas de la app), también contra el domingo anterior
+  //   y el lunes siguiente.
+  // · No toca francos/libres ya cargados, pedidos fijados, vacaciones, ausencias ni turnos que cruzan
+  //   la medianoche. Los cortados se ajustan dentro de sus tramos.
+  // · Días vacíos: los decide (trabaja / LIBRE) y, si la persona no tiene franco esa semana, le pone uno
+  //   en el día de menos demanda (respetando los días de franco del evento, si hay reglas).
+  // · Cobertura: mínimo 1 cajero en cada hora abierta (prioridad máxima); si hay 2 o más rollers en
+  //   una hora, uno puede cubrir caja.
   const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunesStr + "T00:00:00"), i)));
-  const cuentan = (c, d) => {
-    if (c._isCruzado) return false;
-    const rol = presuEsRoller(c);
-    const o = getPlanningObj(c.id, d) || {};
-    return !rol || !!o.comoCajero;
-  };
-  const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado);
+  const prevDia = formatDate(addDays(new Date(lunesStr + "T00:00:00"), -1));
+  const sigDia = formatDate(addDays(new Date(lunesStr + "T00:00:00"), 7));
   const enVac = (id, d) => (state.vacations || []).some((v) => v.colaboradorId === id && d >= v.startDate && d <= v.endDate);
-  // Cobertura por media hora (48 por día) y demanda
-  const cov = Object.fromEntries(dias.map((d) => [d, Array(48).fill(0)]));
-  const dem = Object.fromEntries(dias.map((d) => {
+  const ev = presuActivo();
+  const diasFrancoOk = ev && ev.reglas && Array.isArray(ev.reglas.diasFranco) && ev.reglas.diasFranco.length ? ev.reglas.diasFranco : null;
+  // Demanda por hora; sin curva cargada: 1 por hora de 8 a 22 (para el mínimo de un cajero)
+  const dem = dias.map((d) => {
     const c = state.demandaCajas && state.demandaCajas[d];
-    return [d, c ? Array.from({ length: 48 }, (_, k) => Number(c[Math.floor(k / 2)]) || 0) : null];
-  }));
-  const sumar = (d, tramos, signo) => tramos.forEach((t) => { for (let k = Math.round(t.s * 2); k < Math.round(t.e * 2); k++) cov[d][k] += signo; });
-  const faltan = () => dias.reduce((t, d) => t + (dem[d] ? dem[d].reduce((a, r, k) => a + Math.max(0, r - cov[d][k]) / 2, 0) : 0), 0);
-  // Plan de cada persona
+    return Array.from({ length: 24 }, (_, h) => (c ? Number(c[h]) || 0 : h >= 8 && h < 22 ? 1 : 0));
+  });
+  const conCurva = dias.map((d) => !!(state.demandaCajas && state.demandaCajas[d]));
+  const abre = dem.map((arr) => { const i = arr.findIndex((v) => v > 0); return i < 0 ? 8 : i; });
+  const cierra = dem.map((arr) => { let i = -1; arr.forEach((v, h) => { if (v > 0) i = h; }); return i < 0 ? 22 : i + 1; });
+  const covC = dias.map(() => Array(24).fill(0)), covR = dias.map(() => Array(24).fill(0));
+  const costoHora = (i, h) => {
+    const r = dem[i][h];
+    if (r <= 0) return 0;
+    const c = covC[i][h], ro = covR[i][h];
+    const ef = c + Math.max(0, ro - 1); // con 2 o más rollers, uno puede cubrir caja
+    let k = Math.max(0, r - ef) + Math.max(0, ef - r) * 0.04;
+    if (ef === 0) k += 8;          // mínimo 1 cajero por hora
+    if (ro === 0) k += 0.3;        // que haya algún roller
+    return k;
+  };
+  const costoTotal = () => { let t = 0; for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) t += costoHora(i, h); return t; };
+  const faltanH = () => { let t = 0; for (let i = 0; i < 7; i++) if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; };
+  const tramosDe = (p) => (p.isCortado ? p.tramos : [p]).map((t) => ({ s: t.start, e: t.end <= t.start ? 24 : t.end }));
+  const aplicar = (pl, i, tr, signo) => {
+    const cov = pl.rolDia[i] ? covR : covC;
+    tr.forEach((t) => { for (let h = Math.floor(t.s); h < Math.ceil(t.e); h++) if (h >= 0 && h < 24) cov[i][h] += signo * (Math.min(t.e, h + 1) - Math.max(t.s, h)); });
+  };
+  // Personas
+  const todos = cdvColaboradoresCajas().filter((c) => !c._isCruzado);
   const personas = [];
-  gente.forEach((c) => {
+  todos.forEach((c) => {
     const contrato = presuContrato(c);
-    const pl = { c, contrato, dias: {}, fijas: 0, variables: [], cuenta: {} };
-    dias.forEach((d) => {
-      pl.cuenta[d] = cuentan(c, d);
-      if (enVac(c.id, d)) return;
+    const esRol = presuEsRoller(c);
+    const pl = { c, contrato, cap: contrato <= 30 ? 9 : 12, rolDia: [], tipo: [], plan: [], orig: [], fijoH: 0, libre: [] };
+    let tieneF = false, tieneVac = false;
+    dias.forEach((d, i) => {
+      const o = getPlanningObj(c.id, d) || {};
+      pl.rolDia[i] = esRol && !o.comoCajero;
       const val = String(getSlotEfectivo(c.id, d) || "").replace("*", "").trim();
       const p = parseShift(val);
-      if (!p || p.type !== "work" || p.isNV) return;
-      const tr = (p.isCortado ? p.tramos : [p]).map((t) => ({ s: t.start, e: t.end }));
-      const cruza = tr.some((t) => t.e <= t.s);
-      const o = getPlanningObj(c.id, d) || {};
-      const original = tr.map((t) => ({ s: t.s, e: t.e <= t.s ? 24 : t.e }));
-      pl.dias[d] = { original, plan: original, val };
-      if (pl.cuenta[d]) sumar(d, original, 1);
-      if (cruza || o.fijado || !(contrato > 0) || contrato >= 48) pl.fijas += p.hours;
-      else pl.variables.push(d);
+      pl.orig[i] = val;
+      if (enVac(c.id, d)) { pl.tipo[i] = "fijo"; pl.plan[i] = null; tieneVac = true; return; }
+      if (!val || !p || p.type === "none") { pl.tipo[i] = "vacio"; pl.plan[i] = null; return; }
+      if (p.type === "franco") { tieneF = true; pl.tipo[i] = "fijo"; pl.plan[i] = null; return; }
+      if (p.type !== "work" || p.isNV) { pl.tipo[i] = "fijo"; pl.plan[i] = null; return; }
+      const tr = tramosDe(p);
+      const cruza = (p.isCortado ? p.tramos : [p]).some((t) => t.end <= t.start);
+      if (cruza || o.fijado || !(contrato > 0)) { pl.tipo[i] = "fijo"; pl.plan[i] = tr; pl.fijoH += p.hours; return; }
+      pl.tipo[i] = p.isCortado ? "cortado" : "trabajo";
+      pl.plan[i] = tr;
+      pl.libre[i] = tr; // cortado: se ajusta dentro de sus tramos
     });
-    const horasVar = pl.variables.reduce((t, d) => t + pl.dias[d].original.reduce((a, x) => a + (x.e - x.s), 0), 0);
-    pl.objetivo = Math.max(0, contrato - pl.fijas);
-    if (contrato > 0 && contrato < 48 && pl.variables.length && horasVar > pl.objetivo + 0.01) personas.push(pl);
+    pl.necesitaF = !tieneF && !tieneVac;
+    pl.meta = Math.max(0, Math.round(contrato - pl.fijoH));
+    pl.flex = dias.map((_, i) => pl.tipo[i] === "trabajo" || pl.tipo[i] === "cortado" || pl.tipo[i] === "vacio");
+    personas.push(pl);
   });
-  const antes = faltan();
-  const tope = (c) => (presuContrato(c) <= 30 ? 9 : 12);
-  // Opciones de un día: largo (medias horas) -> mejor plan dentro del horario original
-  const opcionesDia = (pl, d) => {
-    const orig = pl.dias[d].original;
-    const val = (s, e) => { // valor de cubrir [s,e) dado el resto
-      let v = 0;
-      for (let k = Math.round(s * 2); k < Math.round(e * 2); k++) {
-        const r = dem[d] ? dem[d][k] : 0;
-        v += !pl.cuenta[d] ? 0.01 : r > 0 ? (cov[d][k] < r ? 1 : 0.03) : 0.005;
-      }
-      return v;
+  personas.forEach((pl) => pl.plan.forEach((tr, i) => { if (tr) aplicar(pl, i, tr, 1); }));
+  const antes = faltanH(), costoAntes = costoTotal();
+  // Descansos (como las alertas): 12 h entre días seguidos; 35 h si hay un día de descanso en el medio
+  const limites = (pl) => {
+    const prev = parseShift(String(getSlotEfectivo(pl.c.id, prevDia) || "").replace("*", ""));
+    const sig = parseShift(String(getSlotEfectivo(pl.c.id, sigDia) || "").replace("*", ""));
+    return {
+      prevFin: prev && prev.type === "work" && !prev.isNV ? -24 + (prev.end <= prev.start ? 24 + prev.end : prev.end) : null,
+      sigIni: sig && sig.type === "work" && !sig.isNV ? 7 * 24 + sig.start : null,
     };
-    const mejorEn = (t, L) => { // mejor ventana de largo L dentro del tramo t
-      let best = null;
-      const paso = t.s % 1 || t.e % 1 ? 0.5 : 1; // horas enteras, salvo que el turno ya tenga medias horas
-      for (let s0 = t.s; s0 + L <= t.e + 1e-9; s0 += paso) {
-        const v = val(s0, s0 + L) - Math.abs(s0 - t.s) * 0.0005;
-        if (!best || v > best.v) best = { v, tr: [{ s: s0, e: s0 + L }] };
-      }
-      return best;
-    };
-    const out = { 0: { v: -40, tr: [] } }; // dejar el día libre solo si no hay otra forma (mínimo 4 h)
-    const cap = tope(pl.c);
-    orig.forEach((t) => {
-      const pasoL = t.s % 1 || t.e % 1 ? 0.5 : 1;
-      for (let L = 4; L <= Math.min(cap, t.e - t.s) + 1e-9; L += pasoL) {
-        const m = mejorEn(t, L); const k = Math.round(L * 2);
-        if (m && (!out[k] || m.v > out[k].v)) out[k] = m;
-      }
-    });
-    if (orig.length === 2) {
-      const [a, b] = orig;
-      const pa = a.s % 1 || a.e % 1 ? 0.5 : 1, pb = b.s % 1 || b.e % 1 ? 0.5 : 1;
-      for (let L1 = 4; L1 <= a.e - a.s + 1e-9; L1 += pa) for (let L2 = 4; L2 <= b.e - b.s + 1e-9; L2 += pb) {
-        if (L1 + L2 > cap + 1e-9) continue;
-        const m1 = mejorEn(a, L1), m2 = mejorEn(b, L2);
-        if (!m1 || !m2) continue;
-        if (m2.tr[0].s - m1.tr[0].e < 4 - 1e-9) continue; // corte mínimo de 4 h
-        const k = Math.round((L1 + L2) * 2), v = m1.v + m2.v;
-        if (!out[k] || v > out[k].v) out[k] = { v, tr: [...m1.tr, ...m2.tr] };
-      }
+  };
+  const valido = (pl, plan, lim) => {
+    let fin = lim.prevFin, descansoEnMedio = false;
+    for (let i = 0; i < 7; i++) {
+      const tr = plan[i];
+      if (!tr || !tr.length) { if (fin !== null) descansoEnMedio = true; continue; }
+      const ini = i * 24 + tr[0].s;
+      if (fin !== null && ini - fin < (descansoEnMedio ? 35 : 12) - 1e-9) return false;
+      fin = i * 24 + tr[tr.length - 1].e;
+      descansoEnMedio = false;
     }
+    if (lim.sigIni !== null && fin !== null) {
+      const ultimo = [...Array(7).keys()].reverse().find((i) => plan[i] && plan[i].length);
+      const enMedio = ultimo !== undefined && ultimo < 6;
+      if (lim.sigIni - fin < (enMedio ? 35 : 12) - 1e-9) return false;
+    }
+    return true;
+  };
+  const largo = (tr) => (tr || []).reduce((t, x) => t + (x.e - x.s), 0);
+  // Mejor ubicación de un día para un largo dado (devuelve tramos o null)
+  const candidatos = (pl, i, L) => {
+    const out = [];
+    if (pl.tipo[i] === "cortado") {
+      const [a, b] = pl.libre[i];
+      const dentro = (t, l) => { const r = []; for (let s0 = t.s; s0 + l <= t.e + 1e-9; s0 += 1) r.push({ s: s0, e: s0 + l }); return r; };
+      if (b) for (let l1 = 4; l1 <= L - 4; l1++) dentro(a, l1).forEach((x) => dentro(b, L - l1).forEach((y) => { if (y.s - x.e >= 4) out.push([x, y]); }));
+      [a, b].filter(Boolean).forEach((t) => dentro(t, L).forEach((x) => out.push([x])));
+      return out;
+    }
+    const lo = Math.max(6, Math.min(abre[i], pl.tipo[i] === "trabajo" ? Math.floor(pl.plan[i] ? pl.plan[i][0].s : abre[i]) : abre[i]));
+    const hi = Math.min(24, Math.max(cierra[i], 0));
+    for (let s0 = lo; s0 + L <= hi + 1e-9; s0 += 1) out.push([{ s: s0, e: s0 + L }]);
     return out;
   };
-  const optimizar = (pl) => {
-    pl.variables.forEach((d) => { if (pl.cuenta[d]) sumar(d, pl.dias[d].plan, -1); });
-    const meta = Math.round(pl.objetivo * 2);
-    const ops = pl.variables.map((d) => opcionesDia(pl, d));
-    // DP: elegir un largo por día sumando exactamente la meta
-    let dp = new Map([[0, { v: 0, el: [] }]]);
-    ops.forEach((op) => {
-      const nd = new Map();
-      dp.forEach((st, h) => Object.entries(op).forEach(([k, o]) => {
-        const h2 = h + Number(k); if (h2 > meta) return;
-        const v = st.v + o.v; const prev = nd.get(h2);
-        if (!prev || v > prev.v) nd.set(h2, { v, el: [...st.el, o.tr] });
-      }));
-      dp = nd;
+  const costoDia = (i) => { let t = 0; for (let h = 0; h < 24; h++) t += costoHora(i, h); return t; };
+  const mejorUbicar = (pl, plan, i, L, lim) => {
+    if (plan[i]) aplicar(pl, i, plan[i], -1);
+    let best = null;
+    candidatos(pl, i, L).forEach((tr) => {
+      const prueba = plan.slice(); prueba[i] = tr;
+      if (!valido(pl, prueba, lim)) return;
+      aplicar(pl, i, tr, 1);
+      // Preferir horarios parecidos entre días y cerca del que ya tenía (el horario no salta de mañana a noche)
+      let est = 0;
+      [i - 1, i + 1].forEach((j) => { if (j >= 0 && j < 7 && plan[j] && plan[j].length) est += Math.abs(tr[0].s - plan[j][0].s) * 0.06; });
+      if (pl.tipo[i] === "trabajo" && pl.plan0 && pl.plan0[i]) est += Math.abs(tr[0].s - pl.plan0[i][0].s) * 0.04;
+      const k = costoDia(i) + est;
+      aplicar(pl, i, tr, -1);
+      if (!best || k < best.k - 1e-9) best = { k, tr };
     });
-    let fin = dp.get(meta);
-    if (!fin) { let bk = -1; dp.forEach((st, h) => { if (h <= meta && h > bk) { bk = h; fin = st; } }); }
-    if (fin) pl.variables.forEach((d, i) => { pl.dias[d].plan = fin.el[i]; });
-    pl.variables.forEach((d) => { if (pl.cuenta[d]) sumar(d, pl.dias[d].plan, 1); });
+    if (plan[i]) aplicar(pl, i, plan[i], 1);
+    return best;
   };
-  personas.sort((a, b) => b.variables.length - a.variables.length);
-  for (let pasada = 0; pasada < 4; pasada++) personas.forEach(optimizar);
-  const despues = faltan();
+  const optimizarPersona = (pl) => {
+    const flex = dias.map((_, i) => i).filter((i) => pl.flex[i]);
+    if (!flex.length || !(pl.contrato > 0)) return;
+    const lim = limites(pl);
+    pl.plan0 = pl.plan0 || pl.plan.map((x) => x && x.map((y) => ({ ...y })));
+    // quitar a la persona de la cobertura en los días flexibles
+    flex.forEach((i) => { if (pl.plan[i]) aplicar(pl, i, pl.plan[i], -1); });
+    const plan = pl.plan.slice();
+    flex.forEach((i) => { plan[i] = null; });
+    // Cuánto le falta a cada día con la gente que ya está (sin esta persona): ahí conviene que trabaje
+    const faltaDia = (i) => { let t = 0; for (let h = 0; h < 24; h++) { const r = dem[i][h]; if (r > 0) { const ef = covC[i][h] + Math.max(0, covR[i][h] - 1); t += Math.max(0, r - ef) + (ef < 1 ? 8 : 0); } } return t; };
+    let trabaja = flex.filter((i) => pl.tipo[i] !== "vacio");
+    const vacios = flex.filter((i) => pl.tipo[i] === "vacio");
+    // franco: si no tiene, en el día donde más sobra gente (respetando los días permitidos del evento)
+    pl.francoDia = null;
+    if (pl.necesitaF) {
+      const permitido = (i) => !diasFrancoOk || diasFrancoOk.includes(new Date(dias[i] + "T00:00:00").getDay());
+      const base = vacios.length ? vacios : trabaja; // primero en un día vacío; si no hay, en uno que trabajaba
+      const opc = base.filter(permitido);
+      const elegido = (opc.length ? opc : base).slice().sort((x, y) => faltaDia(x) - faltaDia(y))[0];
+      if (elegido !== undefined) { pl.francoDia = elegido; trabaja = trabaja.filter((i) => i !== elegido); }
+    }
+    // cuántos días: los más posibles con al menos 4 h (más días cortos antes que pocos largos)
+    const disponibles = trabaja.length + vacios.filter((i) => i !== pl.francoDia).length;
+    const nObj = Math.max(Math.ceil(pl.meta / pl.cap), Math.min(disponibles, Math.floor(pl.meta / 4)));
+    const libres = vacios.filter((i) => i !== pl.francoDia).sort((x, y) => faltaDia(y) - faltaDia(x));
+    while (trabaja.length < nObj && libres.length) trabaja.push(libres.shift());
+    // si sobran días (no llegan a 4 h cada uno), se libera el que menos falta hace
+    trabaja.sort((x, y) => faltaDia(y) - faltaDia(x));
+    while (trabaja.length && trabaja.length * 4 > pl.meta) trabaja.pop();
+    // largos iniciales parejos
+    const n = trabaja.length;
+    const L = {};
+    trabaja.forEach((i, k) => { L[i] = Math.min(pl.cap, Math.floor(pl.meta / n) + (k < pl.meta % n ? 1 : 0)); });
+    // ubicar cada día
+    const ubicarTodo = () => {
+      for (const i of trabaja) {
+        const b = mejorUbicar(pl, plan, i, L[i], lim);
+        if (b) { plan[i] = b.tr; aplicar(pl, i, b.tr, 1); } else { plan[i] = null; }
+      }
+    };
+    ubicarTodo();
+    // mejoras: correr horas de un día a otro si baja el costo
+    for (let vuelta = 0; vuelta < 3; vuelta++) {
+      let mejoro = false;
+      for (const i of trabaja) for (const j of trabaja) {
+        if (i === j || L[i] - 1 < 4 || L[j] + 1 > pl.cap || !plan[i] || !plan[j]) continue;
+        const k0 = costoDia(i) + costoDia(j);
+        const bi = mejorUbicar(pl, plan, i, L[i] - 1, lim);
+        if (!bi) continue;
+        aplicar(pl, i, plan[i], -1); const oldI = plan[i]; plan[i] = bi.tr; aplicar(pl, i, bi.tr, 1);
+        const bj = mejorUbicar(pl, plan, j, L[j] + 1, lim);
+        if (bj) {
+          aplicar(pl, j, plan[j], -1); const oldJ = plan[j]; plan[j] = bj.tr; aplicar(pl, j, bj.tr, 1);
+          if (costoDia(i) + costoDia(j) < k0 - 1e-6) { L[i]--; L[j]++; mejoro = true; continue; }
+          aplicar(pl, j, plan[j], -1); plan[j] = oldJ; aplicar(pl, j, oldJ, 1);
+        }
+        aplicar(pl, i, plan[i], -1); plan[i] = oldI; aplicar(pl, i, oldI, 1);
+      }
+      if (!mejoro) break;
+    }
+    // mover un día vacío de trabajo a otro día vacío libre, si mejora la cobertura
+    for (let vuelta = 0; vuelta < 2; vuelta++) {
+      for (const w of trabaja.slice()) {
+        if (pl.tipo[w] !== "vacio" || !plan[w]) continue;
+        const offs = flex.filter((i) => pl.tipo[i] === "vacio" && !trabaja.includes(i) && i !== pl.francoDia);
+        for (const o of offs) {
+          const k0 = costoDia(w) + costoDia(o);
+          aplicar(pl, w, plan[w], -1); const oldW = plan[w]; plan[w] = null;
+          const b = mejorUbicar(pl, plan, o, L[w], lim);
+          if (b) {
+            plan[o] = b.tr; aplicar(pl, o, b.tr, 1);
+            if (costoDia(w) + costoDia(o) < k0 - 1e-6) { L[o] = L[w]; delete L[w]; trabaja.splice(trabaja.indexOf(w), 1, o); break; }
+            aplicar(pl, o, b.tr, -1); plan[o] = null;
+          }
+          plan[w] = oldW; aplicar(pl, w, oldW, 1);
+        }
+      }
+    }
+    // si algún día no se pudo ubicar (descansos), se vuelve al horario que tenía
+    const ok = trabaja.every((i) => plan[i]) && largo(trabaja.reduce((t, i) => t.concat(plan[i]), [])) === pl.meta && valido(pl, plan, lim);
+    if (!ok) {
+      flex.forEach((i) => { if (plan[i]) aplicar(pl, i, plan[i], -1); });
+      flex.forEach((i) => { plan[i] = pl.plan[i]; if (plan[i]) aplicar(pl, i, plan[i], 1); });
+      pl.sinSolucion = true;
+      return;
+    }
+    pl.sinSolucion = false;
+    flex.forEach((i) => { if (!trabaja.includes(i)) plan[i] = null; });
+    pl.plan = plan;
+    pl.trabaja = trabaja;
+  };
+  const optimizables = personas.filter((pl) => pl.flex.some(Boolean) && pl.contrato > 0);
+  optimizables.sort((a, b) => (a.rolDia.some(Boolean) ? 1 : 0) - (b.rolDia.some(Boolean) ? 1 : 0));
+  for (let pasada = 0; pasada < 3; pasada++) optimizables.forEach(optimizarPersona);
+  const despues = faltanH();
+  let sinCajero = 0;
+  for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) if (dem[i][h] > 0 && covC[i][h] + Math.max(0, covR[i][h] - 1) < 0.999) sinCajero++;
   const cambios = [];
-  personas.forEach((pl) => pl.variables.forEach((d) => {
-    const nuevo = pl.dias[d].plan.length ? armadoSlot(pl.dias[d].plan) : "L";
-    const viejo = armadoSlot(pl.dias[d].original);
-    if (nuevo !== viejo) cambios.push({ id: pl.c.id, nombre: (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name, d, de: pl.dias[d].val, a: nuevo });
+  optimizables.forEach((pl) => dias.forEach((d, i) => {
+    if (!pl.flex[i]) return;
+    const tr = pl.plan[i];
+    const nuevo = tr && tr.length ? armadoSlot(tr) : pl.francoDia === i ? "F" : pl.tipo[i] === "vacio" ? "L" : "L";
+    const viejo = pl.orig[i] || "";
+    const norm = (v) => { const p = parseShift(v); return p && p.type === "work" ? armadoSlot(tramosDe(p)) : String(v || "").toUpperCase(); };
+    if (norm(nuevo) !== norm(viejo)) cambios.push({ id: pl.c.id, nombre: (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name, d, de: viejo || "vacío", a: nuevo });
   }));
-  // Los que ya están en su contrato: igual se les borra lo marcado como adicional (ya no corresponde)
-  return { antes, despues, cambios, personas: personas.length, conDemanda: dias.filter((d) => dem[d]).length };
+  const sinSol = optimizables.filter((pl) => pl.sinSolucion).map((pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name);
+  return { antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol };
 }
 window.armarSinAdicionales = function () {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
@@ -17917,8 +18046,10 @@ window.armarSinAdicionales = function () {
   const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
   const lista = r.cambios.slice().sort((a, b) => (a.nombre + a.d).localeCompare(b.nombre + b.d))
     .map((x) => `<div><b>${borradorEsc(x.nombre)}</b> · ${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)}: ${borradorEsc(x.de)} → <b>${x.a === "L" ? "LIBRE" : borradorEsc(x.a)}</b></div>`).join("");
-  borradorModal("Armar horario sin adicionales", `<p>Semana del <b>${fc(lunes)}</b>. Cada persona queda con las horas de su contrato, sin cambiar los días que trabaja ni salir del horario que tiene cargado.</p>
-    ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy (con adicionales) → <b>${r1(r.despues)} h</b> sin adicionales.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se recorta sin poder mirar la curva.</p>`}
+  borradorModal("Armar sugerido de la semana", `<p>Semana del <b>${fc(lunes)}</b>. Cada persona queda con las horas de su contrato (sin adicionales). Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
+    ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy → <b>${r1(r.despues)} h</b> con la propuesta.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se arma para tener al menos un cajero de 8 a 22.</p>`}
+    ${r.sinCajero ? `<p class="bm-ojo">⚠ Quedan ${r.sinCajero} ${r.sinCajero === 1 ? "hora" : "horas"} sin ningún cajero: no alcanza la gente o los descansos no lo permiten.</p>` : `<p>Todas las horas abiertas tienen al menos un cajero.</p>`}
+    ${r.sinSol.length ? `<p class="bm-ojo">Sin cambios para ${r.sinSol.map(borradorEsc).join(", ")}: con sus descansos no se pudo armar otra opción.</p>` : ""}
     ${r.cambios.length ? `<p>${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"} en ${r.personas} ${r.personas === 1 ? "persona" : "personas"}:</p><div class="bm-lista">${lista}</div>` : `<p>No hay nada para recortar: todos están en su contrato.</p>`}
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Es solo en el borrador. Después lo revisás con la cobertura y lo ajustás a mano. Podés deshacerlo.</p>`,
     [{ txt: "Cancelar" }, ...(r.cambios.length ? [{ txt: `Aplicar ${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"}`, clase: "bm-prin", fn: async () => {
@@ -18006,7 +18137,7 @@ window.borradorPintarFranja = function () {
       <span class="bf-n" id="borradorN"></span>
       <button type="button" onclick="window.borradorGuardarArchivo()" title="Bajar el borrador como archivo">Guardar</button>
       <button type="button" onclick="window.borradorAbrirArchivo()" title="Abrir un borrador guardado">Abrir</button>
-      <button type="button" onclick="window.armarSinAdicionales()" title="Deja a cada persona con las horas de su contrato en la semana que se ve, cuidando la cobertura de la curva">Armar sin adicionales</button>
+      <button type="button" onclick="window.armarSinAdicionales()" title="Arma la semana que se ve: cada persona con las horas de su contrato, cuidando la curva y los descansos">Armar sugerido</button>
       <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales">Pasar a real</button>
       <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>`;
     // Va arriba de la grilla, ocupando su lugar (no flota sobre los horarios)
