@@ -3767,7 +3767,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.68
+            Versión: v1.7.69
           </div>
         </div>
       </div>
@@ -5029,7 +5029,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.68";
+  const APP_VERSION = "v1.7.69";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18060,6 +18060,12 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     if (pl.tes) lo = Math.min(lo, TES_HORA); // pueden entrar a las 7 para tesorería
     const hi = Math.min(24, Math.max(cierra[i], 0));
     for (let s0 = lo; s0 + L <= hi + 1e-9; s0 += 1) out.push([{ s: s0, e: s0 + L }]);
+    // Part time (menos de 24 h): sábado y domingo pueden hacer doble turno si hace falta
+    const finde = [0, 6].includes(new Date(dias[i] + "T00:00:00").getDay());
+    if (finde && pl.contrato < 24 && L >= 8 && pl.tipo[i] !== "cortado")
+      for (let l1 = 4; l1 <= L - 4; l1++)
+        for (let s1 = lo; s1 + l1 <= hi; s1++)
+          for (let s2 = s1 + l1 + 4; s2 + (L - l1) <= hi + 1e-9; s2++) out.push([{ s: s1, e: s1 + l1 }, { s: s2, e: s2 + L - l1 }]);
     return out;
   };
   const costoDia = (i) => { let t = costoTes(i); for (let h = 0; h < 24; h++) t += costoHora(i, h); return t; };
@@ -18074,6 +18080,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       let est = 0;
       [i - 1, i + 1].forEach((j) => { if (j >= 0 && j < 7 && plan[j] && plan[j].length) est += Math.abs(tr[0].s - plan[j][0].s) * 0.06; });
       if (pl.tipo[i] === "trabajo" && pl.plan0 && pl.plan0[i]) est += Math.abs(tr[0].s - pl.plan0[i][0].s) * 0.04;
+      if (tr.length > 1 && pl.tipo[i] !== "cortado") est += 1.5; // doble turno solo si de verdad hace falta
       const k = costoDia(i) + est;
       aplicar(pl, i, tr, -1);
       if (!best || k < best.k - 1e-9) best = { k, tr };
@@ -18100,9 +18107,10 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     // Sábado no se da franco (y el viernes, en lo posible tampoco): salvo que esté cargado a mano
     const dow = (i) => new Date(dias[i] + "T00:00:00").getDay();
     const castigoDia = (i) => (dow(i) === 6 ? 40 : dow(i) === 5 ? 6 : 0);
+    const sabadoPT = (i) => pl.contrato < 24 && dow(i) === 6; // los de 18 h trabajan el sábado (no franco ni libre)
     const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i) + castigoDia(i) - (i === 6 && pl.domingo === "libre" ? 4 : 0);
     // Día que más conviene trabajar: donde más falta; a igualdad, donde hay menos gente
-    const puntajeTrabajo = (i) => faltaDia(i) - 0.3 * gente(i) + 0.5 * francos(i) + castigoDia(i) * 0.5 + (i === 6 && pl.domingo === "trabaja" ? 100 : 0);
+    const puntajeTrabajo = (i) => faltaDia(i) - 0.3 * gente(i) + 0.5 * francos(i) + castigoDia(i) * 0.5 + (i === 6 && pl.domingo === "trabaja" ? 100 : 0) + (sabadoPT(i) ? 100 : 0);
     let trabaja = flex.filter((i) => pl.tipo[i] !== "vacio");
     const vacios = flex.filter((i) => pl.tipo[i] === "vacio");
     // franco: si no tiene, en el día donde más sobra gente (respetando los días permitidos del evento)
@@ -18161,7 +18169,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     for (let vuelta = 0; vuelta < 2; vuelta++) {
       for (const w of trabaja.slice()) {
         if (pl.tipo[w] !== "vacio" || !plan[w]) continue;
-        if (dow(w) === 6 || (w === 6 && pl.domingo === "trabaja")) continue; // el sábado (y el domingo que le toca) se trabaja
+        if (dow(w) === 6 || (w === 6 && pl.domingo === "trabaja")) continue; // (incluye el sábado de los de 18 h) // el sábado (y el domingo que le toca) se trabaja
         const offs = flex.filter((i) => pl.tipo[i] === "vacio" && !trabaja.includes(i) && i !== pl.francoDia);
         for (const o of offs) {
           const k0 = costoDia(w) + costoDia(o);
@@ -18338,9 +18346,33 @@ async function armadoTuvoOtraFiesta(cierre, cand) {
   });
   return { nombre: md === "12-25" ? "Año Nuevo" : "Navidad", ids };
 }
-window.armarSinAdicionales = async function () {
+window.armarSinAdicionales = async function (decidido) {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
   const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
+  // Si la semana ya tiene cambios en el borrador (de un armado viejo o a mano), se puede armar sobre eso
+  // o volver a empezar desde los horarios reales
+  if (decidido !== true) {
+    const ids = new Set(cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => c.id));
+    const diasW = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), i)));
+    const claves = new Set([...Object.keys(borrador.docs || {}), ...Object.keys(borrador.original || {})]);
+    const cambiadas = [...claves].filter((k) => diasW.includes(k.slice(-10)) && ids.has(k.slice(0, -11)) && JSON.stringify(borrador.docs[k] || null) !== JSON.stringify(borrador.original[k] || null));
+    if (cambiadas.length) {
+      borradorModal("Armar sugerido", `<p>Esta semana ya tiene <b>${cambiadas.length} ${cambiadas.length === 1 ? "cambio" : "cambios"}</b> en el borrador (de un armado anterior o hechos a mano).</p>
+        <p><b>Armar sobre lo que hay:</b> respeta los francos y libres que pusiste a mano.</p>
+        <p><b>Empezar de cero:</b> vuelve la semana a los horarios reales y arma desde ahí. Se pierden los cambios de esta semana en el borrador (los pedidos fijados en lo real se respetan).</p>`,
+        [{ txt: "Cancelar" }, { txt: "Empezar de cero", fn: async () => {
+          for (const k of cambiadas) {
+            const o = borrador.original[k];
+            if (o) { await setDoc(doc(db, "planificacion", k), JSON.parse(JSON.stringify(o))); state.planning[k] = JSON.parse(JSON.stringify(o)); }
+            else { await deleteDoc(doc(db, "planificacion", k)); delete state.planning[k]; }
+          }
+          borradorPersistir();
+          renderUI();
+          setTimeout(() => window.armarSinAdicionales(true), 50);
+        } }, { txt: "Armar sobre lo que hay", clase: "bm-prin", fn: () => { setTimeout(() => window.armarSinAdicionales(true), 0); } }]);
+      return;
+    }
+  }
   // Curvas de Recaudaciones de las 8 semanas anteriores y de esta semana (para estimar días sin curva)
   const hist = {};
   if (!isMockMode) {
