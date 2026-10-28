@@ -3765,7 +3765,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.66
+            Versión: v1.7.67
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.66";
+  const APP_VERSION = "v1.7.67";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18024,9 +18024,10 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       const dentro = (t, l) => { const r = []; for (let s0 = t.s; s0 + l <= t.e + 1e-9; s0 += 1) r.push({ s: s0, e: s0 + l }); return r; };
       if (b) for (let l1 = 4; l1 <= L - 4; l1++) dentro(a, l1).forEach((x) => dentro(b, L - l1).forEach((y) => { if (y.s - x.e >= 4) out.push([x, y]); }));
       [a, b].filter(Boolean).forEach((t) => dentro(t, L).forEach((x) => out.push([x])));
-      return out;
+      // Si dentro de sus tramos no entra (p. ej. un cortado con adicional y menos horas), un horario corrido
+      if (out.length) return out;
     }
-    let lo = Math.max(6, Math.min(abre[i], pl.tipo[i] === "trabajo" ? Math.floor(pl.plan[i] ? pl.plan[i][0].s : abre[i]) : abre[i]));
+    let lo = Math.max(6, Math.min(abre[i], pl.tipo[i] !== "vacio" && pl.plan0 && pl.plan0[i] ? Math.floor(pl.plan0[i][0].s) : abre[i]));
     if (pl.tes) lo = Math.min(lo, TES_HORA); // pueden entrar a las 7 para tesorería
     const hi = Math.min(24, Math.max(cierra[i], 0));
     for (let s0 = lo; s0 + L <= hi + 1e-9; s0 += 1) out.push([{ s: s0, e: s0 + L }]);
@@ -18199,7 +18200,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const horarios = dias.map((d, i) => (horarioEsp[i] ? { d, ...horarioEsp[i] } : null)).filter(Boolean);
   const faltanDia = dias.map((_, i) => { let t = 0; if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; });
   const demDia = dem.map((arr) => arr.reduce((t, v) => t + v, 0));
-  return { idxCierre: kC, faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
+  return { ids: optimizables.map((pl) => pl.c.id), idxCierre: kC, faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
     domingoPendiente: personas.filter((pl) => pl.domingo === "libre" && pl.plan[6] && pl.plan[6].length).map(nomPl),
     deAnioAnterior: dias.filter((_, i) => estimada[i] === "anio"),
     estimadas: dias.filter((_, i) => estimada[i] === true), sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
@@ -18445,6 +18446,16 @@ function armadoMostrar(lunes, hist, premiados, sabados) {
         await setDoc(doc(db, "planificacion", k), { ...(borrador.docs[k] || {}), colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null, armadoSlot: x.a, premioFiesta }, { merge: true });
         const o = state.planning[k] && typeof state.planning[k] === "object" ? state.planning[k] : {};
         state.planning[k] = { ...o, colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null, armadoSlot: x.a, premioFiesta };
+      }
+      // Semana sin adicionales: se sacan también las marcas de adicionales y los turnos adicionales que quedaron
+      const diasSem = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), i)));
+      for (const id of r.ids || []) for (const d of diasSem) {
+        const k = `${id}_${d}`, o = borrador.docs[k];
+        if (!o || ((o.adicManual === null || o.adicManual === undefined) && !o.turnoAdicional)) continue;
+        if (!(k in previos)) previos[k] = JSON.parse(JSON.stringify(o));
+        await setDoc(doc(db, "planificacion", k), { adicManual: null, turnoAdicional: null }, { merge: true });
+        const so = state.planning[k] && typeof state.planning[k] === "object" ? state.planning[k] : {};
+        state.planning[k] = { ...so, adicManual: null, turnoAdicional: null };
       }
       borrador.paraReloj = true;
       borradorPersistir();
