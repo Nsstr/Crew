@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.77
+            Versión: v1.7.78
           </div>
         </div>
       </div>
@@ -4893,7 +4893,7 @@ function borradorGuardarNube() {
       await fsSetDoc(doc(db, "borradores", borrador.nubeId), JSON.parse(JSON.stringify({
         nombre: borrador.nombre || "Borrador", creado: borrador.creado || new Date().toISOString(),
         actualizado: borrador.actualizado || new Date().toISOString(), cambios,
-        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [],
+        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [], semanasReloj: Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : null,
       })));
     } catch (e) {
       console.warn("No se pudo guardar el borrador en la nube", e);
@@ -5031,7 +5031,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.77";
+  const APP_VERSION = "v1.7.78";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17744,7 +17744,7 @@ async function borradorDesdeNube(id, datos) {
     if (c.o === null) delete original[k]; else original[k] = c.o;
     if (c.d === null) { borrados[k] = docs[k] || null; delete docs[k]; } else docs[k] = c.d;
   });
-  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [] };
+  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [], ...(Array.isArray(datos.semanasReloj) ? { semanasReloj: datos.semanasReloj } : {}) };
 }
 async function borradorListaNube() {
   if (isMockMode) return [];
@@ -18444,7 +18444,7 @@ window.borradorTrabar = function () {
       state.planning[k] = { ...so, adicManual: null, turnoAdicional: null };
     }
     borrador.trabadas = [...new Set([...(borrador.trabadas || []), lunes])];
-    if (sacar) borrador.paraReloj = true;
+    if (sacar) { borrador.paraReloj = true; borrador.semanasReloj = [...new Set([...(borrador.semanasReloj || []), lunes])]; }
     borradorPersistir();
     renderUI();
     showToast("Semana trabada", `La semana del ${fc(lunes)} queda como cargada en el reloj.${sacar ? " Se sacaron las marcas de adicionales." : ""}`, "success");
@@ -18628,6 +18628,7 @@ function armadoMostrar(lunes, hist, premiados, sabados) {
         state.planning[k] = { ...so, adicManual: null, turnoAdicional: null };
       }
       borrador.paraReloj = true;
+      borrador.semanasReloj = [...new Set([...(Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : []), lunes])];
       borradorPersistir();
       renderUI();
       const t = showToast("Listo", `Semana armada sin adicionales (${r.cambios.length} cambios).`, "success");
@@ -18647,13 +18648,40 @@ function armadoMostrar(lunes, hist, premiados, sabados) {
     } }] : [])]);
 };
 
-window.borradorPasarAReal = async function () {
-  if (borrador && borrador.paraReloj) {
-    borradorModal("Pasar a real", `<p>Este borrador tiene semanas armadas <b>sin adicionales</b> (para cargar en el reloj). Si lo pasás a real, le sacarías las adicionales al horario real.</p><p>Para eso no se usa "Pasar a real": exportá la planilla desde este borrador y cargala en el reloj.</p>`, [{ txt: "Entendido", clase: "bm-prin" }]);
+// Semanas armadas sin adicionales (para el reloj): pasarlas a real le saca las adicionales a lo real
+function borradorSemanaEsReloj(lunes) {
+  if (!borrador) return false;
+  if (Array.isArray(borrador.semanasReloj)) return borrador.semanasReloj.includes(lunes);
+  return !!borrador.paraReloj; // borradores viejos: no se sabe qué semana, se avisa en todas
+}
+window.borradorPasarAReal = async function (semanas) {
+  const todos = borradorCambios();
+  if (!todos.length) { showToast("Nada para pasar", "El borrador no tiene cambios respecto de lo real.", "info"); return; }
+  const lunesDe = (id) => formatDate(getStartOfWeek(new Date(id.slice(-10) + "T00:00:00")));
+  if (!Array.isArray(semanas)) {
+    // Paso 1: elegir qué semanas pasar (por defecto, solo la que se ve)
+    const porSemana = {};
+    todos.forEach((x) => { const l = lunesDe(x.id); porSemana[l] = (porSemana[l] || 0) + 1; });
+    const visible = borradorLunesVisible();
+    const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
+    const filas = Object.keys(porSemana).sort().map((l) => {
+      const reloj = borradorSemanaEsReloj(l);
+      const fin = formatDate(addDays(new Date(l + "T00:00:00"), 6));
+      return `<div><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="pr-sem" value="${l}" ${l === visible && !reloj ? "checked" : ""}> Semana del <b>${fc(l)}</b> al ${fc(fin)} <span style="color:var(--text-muted)">· ${porSemana[l]} ${porSemana[l] === 1 ? "cambio" : "cambios"}${l === visible ? " · la que estás viendo" : ""}</span>${reloj ? ` <span class="bm-ojo">· armada sin adicionales (para el reloj)</span>` : ""}</label></div>`;
+    }).join("");
+    const m = borradorModal("Pasar a real · elegí las semanas", `<p>Elegí qué semanas del borrador pasan a los horarios reales. Las demás quedan en el borrador.</p>
+      <div class="bm-lista">${filas}</div>
+      ${Object.keys(porSemana).some(borradorSemanaEsReloj) ? `<p class="bm-ojo" style="font-size:0.8rem">Las semanas armadas sin adicionales vienen destildadas: si las pasás, le sacás las adicionales a lo real.</p>` : ""}`,
+      [{ txt: "Cancelar" }, { txt: "Seguir", clase: "bm-prin", fn: () => {
+        const sel = [...document.querySelectorAll(".pr-sem")].filter((c) => c.checked).map((c) => c.value);
+        if (!sel.length) { showToast("Elegí una semana", "Tildá al menos una semana para pasar.", "info"); return false; }
+        setTimeout(() => window.borradorPasarAReal(sel), 0);
+      } }]);
     return;
   }
-  const cambios = borradorCambios();
-  if (!cambios.length) { showToast("Nada para pasar", "El borrador no tiene cambios respecto de lo real.", "info"); return; }
+  const cambios = todos.filter((x) => semanas.includes(lunesDe(x.id)));
+  if (!cambios.length) { showToast("Nada para pasar", "Esas semanas no tienen cambios.", "info"); return; }
+  const conReloj = semanas.filter(borradorSemanaEsReloj);
   // ¿Alguien cambió en lo real esos mismos días desde que se armó el borrador?
   let pisados = new Set();
   try {
@@ -18668,7 +18696,7 @@ window.borradorPasarAReal = async function () {
     .sort((a, b) => a.orden.localeCompare(b.orden))
     .map((x) => `<div>${pisados.has(x.id) ? `<span class="bm-ojo" title="Alguien lo cambió en lo real después de armar el borrador">⚠ </span>` : ""}<b>${borradorEsc(x.nom)}</b> · ${x.fecha}: ${borradorEsc(x.slotAntes || "vacío")} → <b>${borradorEsc(x.slotDespues || "vacío")}</b></div>`)
     .join("");
-  const mReal = borradorModal("Pasar a real", `<p>Se van a cambiar <b>${cambios.length} ${cambios.length === 1 ? "horario" : "horarios"}</b> en los horarios reales. Solo los que tocaste en el borrador; el resto queda como está.</p>${pisados.size ? `<p class="bm-ojo">⚠ ${pisados.size} de esos días los cambió alguien en lo real después de que armaste el borrador. Si seguís, quedan como en el borrador.</p>` : ""}<div class="bm-lista">${filas}</div>
+  const mReal = borradorModal("Pasar a real", `${conReloj.length ? `<p class="bm-ojo">⚠ Incluye ${conReloj.length === 1 ? "una semana armada" : "semanas armadas"} sin adicionales: en lo real esos días quedan sin las adicionales.</p>` : ""}<p>Se van a cambiar <b>${cambios.length} ${cambios.length === 1 ? "horario" : "horarios"}</b> en los horarios reales. Solo los que tocaste en el borrador; el resto queda como está.</p>${pisados.size ? `<p class="bm-ojo">⚠ ${pisados.size} de esos días los cambió alguien en lo real después de que armaste el borrador. Si seguís, quedan como en el borrador.</p>` : ""}<div class="bm-lista">${filas}</div>
     <label class="bm-confirma"><input type="checkbox" id="bmConfirmaReal"> Revisé los cambios y quiero cambiar los horarios reales</label>`, [
     { txt: "Cancelar" },
     { txt: `Pasar ${cambios.length} a real`, clase: "bm-peligro", fn: async () => {
