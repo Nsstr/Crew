@@ -723,6 +723,7 @@
     #borradorFranja button:hover { background: rgba(245, 158, 11, 0.15); }
     #borradorFranja button.bf-real { background: transparent; color: #fca5a5; border: 1px dashed #dc2626; }
     #borradorFranja .bf-sep { flex: 1 1 40px; min-width: 40px; }
+    #borradorFranja button.bf-trabada { background: #15803d; border-color: #15803d; color: #fff; }
     #borradorModal .bm-pie button:disabled { opacity: 0.4; cursor: not-allowed; }
     #borradorModal .bm-confirma { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 8px 10px; border: 1px solid rgba(220, 38, 38, 0.45); border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
     #borradorModal { position: fixed; inset: 0; z-index: 100002; background: rgba(2, 6, 23, 0.7); display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -3767,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.74
+            Versión: v1.7.75
           </div>
         </div>
       </div>
@@ -4892,6 +4893,7 @@ function borradorGuardarNube() {
       await fsSetDoc(doc(db, "borradores", borrador.nubeId), JSON.parse(JSON.stringify({
         nombre: borrador.nombre || "Borrador", creado: borrador.creado || new Date().toISOString(),
         actualizado: borrador.actualizado || new Date().toISOString(), cambios,
+        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [],
       })));
     } catch (e) {
       console.warn("No se pudo guardar el borrador en la nube", e);
@@ -5029,7 +5031,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.74";
+  const APP_VERSION = "v1.7.75";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -8627,6 +8629,7 @@ window.renderUI = function renderUI() {
   renderCajasDayView();
   renderCajasMobileView();
   if (celdasVigiladas && alertasVivas && (celdasVigiladas.size || alertasVivas.size)) revisarAlertasVivas();
+  try { if (typeof borradorActivo === "function" && borradorActivo() && window.borradorPintarFranja) window.borradorPintarFranja(); } catch (e) {}
 
   if (!window.hasInitialScrolled) {
     setTimeout(() => {
@@ -17725,7 +17728,7 @@ async function borradorDesdeNube(id, datos) {
     if (c.o === null) delete original[k]; else original[k] = c.o;
     if (c.d === null) { borrados[k] = docs[k] || null; delete docs[k]; } else docs[k] = c.d;
   });
-  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados };
+  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [] };
 }
 async function borradorListaNube() {
   if (isMockMode) return [];
@@ -18402,9 +18405,42 @@ async function armadoTuvoOtraFiesta(cierre, cand) {
   });
   return { nombre: md === "12-25" ? "Año Nuevo" : "Navidad", ids };
 }
+function borradorLunesVisible() { return formatDate(getStartOfWeek(new Date(state.currentWeekStart))); }
+function borradorSemanaTrabada(lunes) { return !!(borrador && (borrador.trabadas || []).includes(lunes || borradorLunesVisible())); }
+// Trabar / destrabar la semana que se ve. Al trabar se pueden sacar las marcas de horas adicionales de la semana
+window.borradorTrabar = function () {
+  if (!borradorActivo()) return;
+  const lunes = borradorLunesVisible();
+  const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  if (borradorSemanaTrabada(lunes)) {
+    borradorModal("Destrabar semana", `<p>¿Destrabar la semana del <b>${fc(lunes)}</b>? "Armar sugerido" la va a poder cambiar de nuevo.</p>`,
+      [{ txt: "Cancelar" }, { txt: "Destrabar", clase: "bm-prin", fn: () => { borrador.trabadas = (borrador.trabadas || []).filter((x) => x !== lunes); borradorPersistir(); window.borradorPintarFranja(); } }]);
+    return;
+  }
+  const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), i)));
+  const ids = cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => c.id);
+  const marcas = [];
+  ids.forEach((id) => dias.forEach((d) => { const o = borrador.docs[`${id}_${d}`]; if (o && ((o.adicManual !== null && o.adicManual !== undefined && o.adicManual !== "") || o.turnoAdicional)) marcas.push(`${id}_${d}`); }));
+  const trabar = async (sacar) => {
+    if (sacar) for (const k of marcas) {
+      await setDoc(doc(db, "planificacion", k), { adicManual: null, turnoAdicional: null }, { merge: true });
+      const so = state.planning[k] && typeof state.planning[k] === "object" ? state.planning[k] : {};
+      state.planning[k] = { ...so, adicManual: null, turnoAdicional: null };
+    }
+    borrador.trabadas = [...new Set([...(borrador.trabadas || []), lunes])];
+    if (sacar) borrador.paraReloj = true;
+    borradorPersistir();
+    renderUI();
+    showToast("Semana trabada", `La semana del ${fc(lunes)} queda como cargada en el reloj.${sacar ? " Se sacaron las marcas de adicionales." : ""}`, "success");
+  };
+  borradorModal("Trabar semana", `<p>La semana del <b>${fc(lunes)}</b> queda como <b>cargada en el reloj</b>: "Armar sugerido" no la toca. Podés seguir cambiándola a mano.</p>
+    ${marcas.length ? `<p>Tiene <b>${marcas.length}</b> ${marcas.length === 1 ? "día" : "días"} con horas adicionales marcadas. Para el reloj van sin adicionales: ¿las saco?</p>` : ""}`,
+    [{ txt: "Cancelar" }, ...(marcas.length ? [{ txt: "Solo trabar", fn: () => trabar(false) }, { txt: "Trabar y sacar adicionales", clase: "bm-prin", fn: () => trabar(true) }] : [{ txt: "Trabar", clase: "bm-prin", fn: () => trabar(false) }])]);
+};
 window.armarSinAdicionales = async function (decidido) {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
   const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
+  if (borradorSemanaTrabada(lunes)) { showToast("Semana trabada", "Esta semana está marcada como cargada en el reloj. Destrabala para volver a armarla.", "info"); return; }
   // Si la semana ya tiene cambios en el borrador (de un armado viejo o a mano), se puede armar sobre eso
   // o volver a empezar desde los horarios reales
   if (decidido !== true) {
@@ -18669,6 +18705,7 @@ window.borradorPintarFranja = function () {
       <button type="button" onclick="window.borradorGuardarArchivo()" title="Bajar una copia de respaldo del borrador (.json). No hace falta: el borrador ya se guarda solo en la nube">Copia</button>
       <button type="button" onclick="window.borradorAbrirArchivo()" title="Abrir una copia (.json) de un borrador">Abrir</button>
       <button type="button" onclick="window.armarSinAdicionales()" title="Arma la semana que se ve: cada persona con las horas de su contrato, cuidando la curva y los descansos">Armar sugerido</button>
+      <button type="button" id="borradorTrabaBtn" onclick="window.borradorTrabar()" title="Marcar la semana que se ve como cargada en el reloj: Armar sugerido no la toca">Trabar semana</button>
       <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>
       <span class="bf-sep"></span>
       <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales (pide confirmación)">Pasar a real…</button>`;
@@ -18678,6 +18715,13 @@ window.borradorPintarFranja = function () {
     const inp = fr.querySelector("#borradorNombre");
     inp.value = borrador.nombre || "";
     inp.oninput = () => { borrador.nombre = inp.value; borradorPersistir(); };
+  }
+  const tb = fr.querySelector("#borradorTrabaBtn");
+  if (tb) {
+    const tr = borradorSemanaTrabada();
+    tb.textContent = tr ? "🔒 Semana en el reloj" : "Trabar semana";
+    tb.classList.toggle("bf-trabada", tr);
+    tb.title = tr ? "Esta semana está trabada (cargada en el reloj): Armar sugerido no la toca. Tocá para destrabarla" : "Marcar la semana que se ve como cargada en el reloj: Armar sugerido no la toca";
   }
   const n = borradorCambios().length;
   fr.querySelector("#borradorN").textContent = n ? `${n} ${n === 1 ? "cambio" : "cambios"}` : "sin cambios";
