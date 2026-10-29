@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.76
+            Versión: v1.7.77
           </div>
         </div>
       </div>
@@ -5031,7 +5031,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.76";
+  const APP_VERSION = "v1.7.77";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -10628,9 +10628,11 @@ window.presuRangoElegir = function (modo, desde, hasta) {
 // que corresponde a las horas trabajadas en esos días (proporcional)
 // Adicionales de un período: suma, día por día, lo que reparte adicSemana (mismo número que la fila de abajo)
 function presuAdicEnRango(p, r, desde, hasta, filtro = () => true, diaOk = () => true) {
-  if (!(p.total > 0) || !r || !r.personas) return null;
+  // Se suman las adicionales declaradas día por día (aunque el evento no tenga un total de horas cargado)
+  const personas = r && r.personas ? r.personas : (state.collaborators || []).filter((c) => (c.area || "Disponibilidad") === p.area && !c._isCruzado).map((c) => ({ c }));
+  if (!personas.length) return null;
   let total = 0;
-  r.personas.filter(filtro).forEach((x) => {
+  personas.filter(filtro).forEach((x) => {
     for (let d = new Date(desde + "T00:00:00"); formatDate(d) <= hasta; d = addDays(d, 1)) {
       const dStr = formatDate(d);
       if (dStr < p.inicio || dStr > p.fin || !diaOk(dStr)) continue;
