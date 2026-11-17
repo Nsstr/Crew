@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.78
+            Versión: v1.7.79
           </div>
         </div>
       </div>
@@ -5031,7 +5031,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.78";
+  const APP_VERSION = "v1.7.79";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17931,6 +17931,9 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     // Días especiales (vísperas y días pegados a feriados o cierres): la curva del mismo día del año anterior
     const ant = armadoDiaEspecial(d) && hist[armadoAnioAnterior(d)];
     if (ant) { estimada[i] = "anio"; return Array.from({ length: 24 }, (_, h) => Number(ant[h]) || 0); }
+    // Planificación ideal para la fecha: el mismo día de la semana, la misma semana del año pasado
+    const ant364 = hist[formatDate(addDays(new Date(d + "T00:00:00"), -364))];
+    if (ant364) { estimada[i] = "anio364"; return Array.from({ length: 24 }, (_, h) => Number(ant364[h]) || 0); }
     const dow = new Date(d + "T00:00:00").getDay();
     const desde56 = formatDate(addDays(new Date(d + "T00:00:00"), -56));
     const previas = Object.entries(hist).filter(([f, cv]) => cv && f < d && f >= desde56 && new Date(f + "T00:00:00").getDay() === dow && !armadoTiendaCerrada(f) && !armadoDiaEspecial(f)).map(([, cv]) => cv);
@@ -18032,6 +18035,19 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     pl.cerradoEsFranco = idxCerrado >= 0 && !tieneF && fCerrado;
     pl.necesitaF = !tieneF && !tieneVac && !pl.cerradoEsFranco;
     pl.meta = Math.max(0, Math.round(contrato - pl.fijoH));
+    // Tope por día: 8 h para todos; los rollers, en casos puntuales, hasta 9 (con castigo)
+    pl.esRoller = pl.rolDia.some(Boolean);
+    pl.cap = pl.esRoller ? 9 : 8;
+    // Feriados con la tienda abierta: el que no viene (NV) no tiene el franco pegado al feriado;
+    // el que viene lo tiene pegado como premio (si la cobertura lo permite)
+    pl.noFrancoEn = []; pl.feriadoPegar = [];
+    dias.forEach((d, i) => {
+      if (cerrado[i] || !(state.holidays || []).includes(d)) return;
+      const v = String(getSlotEfectivo(c.id, d) || "").replace("*", "").trim();
+      const pegados = [i - 1, i + 1].filter((j) => j >= 0 && j < 7);
+      if (/^nv/i.test(v)) pl.noFrancoEn.push(...pegados);
+      else if (!enVac(c.id, d) && !/^(f|l|libre|v|vac)/i.test(v)) pl.feriadoPegar.push(...pegados);
+    });
     // Domingos libres del mes (como el contador "Dom." de la grilla): si ya tiene los acordados, este domingo
     // trabaja; si los domingos que quedan en el mes no alcanzan para dárselos, este domingo es libre
     pl.domingo = null;
@@ -18077,6 +18093,11 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     plA.forEach((pl) => { pl.turnoDeseado = quiereA; });
     plB.forEach((pl) => { pl.turnoDeseado = otro(quiereA); });
   }
+  // Cajeros: cada semana cambian de turno respecto de la anterior (en lo posible; la cobertura manda)
+  personas.filter((pl) => !pl.esRoller && !pl.turnoDeseado).forEach((pl) => {
+    const prev = turnoPrevio(pl.c);
+    if (prev) { pl.turnoDeseado = otro(prev); pl.pesoTurno = 1.2; }
+  });
   // Domingos del mes: cuántos dar esta semana para que alcancen los domingos que quedan, y a quiénes
   // (primero a los que no les queda otro domingo)
   const candDom = personas.filter((pl) => pl.necesitaF && pl.domDisp > 0 && pl.flex[6] && !pl.premio && pl.tipo[6] !== "cerrado");
@@ -18147,7 +18168,8 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       [i - 1, i + 1].forEach((j) => { if (j >= 0 && j < 7 && plan[j] && plan[j].length) est += Math.abs(tr[0].s - plan[j][0].s) * 0.06; });
       if (pl.tipo[i] === "trabajo" && pl.plan0 && pl.plan0[i]) est += Math.abs(tr[0].s - pl.plan0[i][0].s) * 0.04;
       if (tr.length > 1 && pl.tipo[i] !== "cortado") est += 1.5; // doble turno solo si de verdad hace falta
-      if (pl.turnoDeseado && turnoDe(tr) !== pl.turnoDeseado) est += 2.5; // rotación de la pareja de rollers
+      if (tr.reduce((t, x) => t + x.e - x.s, 0) > 8 + 1e-9) est += 5; // 9 h solo en casos puntuales (rollers)
+      if (pl.turnoDeseado && turnoDe(tr) !== pl.turnoDeseado) est += pl.pesoTurno || 2.5; // rotación (rollers en pareja, cajeros por semana)
       // los tres titulares de tesorería no en el mismo turno el mismo día
       if (pl.tes === "tit" && personas.filter((p) => p !== pl && p.tes === "tit" && p.plan[i] && p.plan[i].length && turnoDe(p.plan[i]) === turnoDe(tr)).length >= 2) est += 6;
       const k = costoDia(i) + est;
@@ -18177,7 +18199,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const dow = (i) => new Date(dias[i] + "T00:00:00").getDay();
     const castigoDia = (i) => (dow(i) === 6 ? 40 : dow(i) === 5 ? 6 : 0);
     const sabadoPT = (i) => pl.contrato < 24 && dow(i) === 6; // los de 18 h trabajan el sábado (no franco ni libre)
-    const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i) + castigoDia(i) - (i === 6 ? (pl.domingo === "libre" ? 15 : pl.domNecesidad >= 0.5 ? 8 : pl.domDisp > 0 ? 3 : 0) : 0);
+    const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i) + castigoDia(i) - (i === 6 ? (pl.domingo === "libre" ? 15 : pl.domNecesidad >= 0.5 ? 8 : pl.domDisp > 0 ? 3 : 0) : 0) - (pl.feriadoPegar.includes(i) ? 10 : 0);
     // Día que más conviene trabajar: donde más falta; a igualdad, donde hay menos gente
     const puntajeTrabajo = (i) => faltaDia(i) - 0.3 * gente(i) + 0.5 * francos(i) + castigoDia(i) * 0.5 + (i === 6 && pl.domingo === "trabaja" ? 100 : 0) + (sabadoPT(i) ? 100 : 0) + (i === pl.tcDia ? 300 : 0);
     let trabaja = flex.filter((i) => pl.tipo[i] !== "vacio");
@@ -18187,6 +18209,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     if (pl.necesitaF) {
       const permitido = (i) => !diasFrancoOk || diasFrancoOk.includes(new Date(dias[i] + "T00:00:00").getDay());
       let base = vacios.length ? vacios : trabaja; // primero en un día vacío; si no hay, en uno que trabajaba
+      if (!pl.premio && pl.feriadoPegar.length) base = [...new Set([...base, ...pl.feriadoPegar.filter((i) => flex.includes(i) && i !== pl.tcDia)])]; // vino el feriado: franco pegado como premio
       if (pl.premio) base = pl.premioOpc; // premio: pegado al día de tienda cerrada
       if (pl.premio && sabadoOk && sabadoOk.has(pl.c.id)) { const s6 = base.filter((i) => dow(i) === 6); if (s6.length) base = s6; }
       base = base.filter((i) => i !== pl.tcDia); // el día de tienda cerrada lleva su horario (TC), no es el franco
@@ -18195,6 +18218,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       if (!pl.premio && base.some((i) => dow(i) !== 6)) base = base.filter((i) => dow(i) !== 6);
       if (!pl.premio && pl.contrato < 30 && !(pl.domDisp > 0) && base.some((i) => dow(i) !== 0 && dow(i) !== 6)) base = base.filter((i) => dow(i) !== 0);
       if (pl.domForzar && flex.includes(6)) base = [6]; // le toca su domingo del mes esta semana
+      if (pl.noFrancoEn.length && base.some((i) => !pl.noFrancoEn.includes(i))) base = base.filter((i) => !pl.noFrancoEn.includes(i)); // no viene el feriado: franco no pegado
       const opc = pl.premio ? base : base.filter(permitido);
       const elegido = (opc.length ? opc : base).slice().sort((x, y) => puntajeFranco(x) - puntajeFranco(y))[0];
       if (elegido !== undefined) { pl.francoDia = elegido; trabaja = trabaja.filter((i) => i !== elegido); }
@@ -18315,6 +18339,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   return { ids: optimizables.map((pl) => pl.c.id), idxCierre: kC, faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
     domingoPendiente: personas.filter((pl) => (pl.domingo === "libre" || pl.domForzar) && pl.plan[6] && pl.plan[6].length).map(nomPl),
     deAnioAnterior: dias.filter((_, i) => estimada[i] === "anio"),
+    deSemanaAnterior: dias.filter((_, i) => estimada[i] === "anio364"),
     estimadas: dias.filter((_, i) => estimada[i] === true), parejas: dias.filter((_, i) => estimada[i] === "pareja"), nivelParejo, sinCurva: dias.filter((_, i) => !cerrado[i] && !conCurva[i]), cerrados: dias.filter((_, i) => cerrado[i]) };
 }
 // Armado con premio: si el franco pegado al cierre deja horas sin cajero, a esa persona no se le da
@@ -18453,6 +18478,23 @@ window.borradorTrabar = function () {
     ${marcas.length ? `<p>Tiene <b>${marcas.length}</b> ${marcas.length === 1 ? "día" : "días"} con horas adicionales marcadas. Para el reloj van sin adicionales: ¿las saco?</p>` : ""}`,
     [{ txt: "Cancelar" }, ...(marcas.length ? [{ txt: "Solo trabar", fn: () => trabar(false) }, { txt: "Trabar y sacar adicionales", clase: "bm-prin", fn: () => trabar(true) }] : [{ txt: "Trabar", clase: "bm-prin", fn: () => trabar(false) }])]);
 };
+// Curvas de Recaudaciones para armar una semana: las 8 semanas anteriores, esta y la siguiente, y las del
+// año pasado (mismas fechas y misma semana, para días sin curva)
+async function armadoTraerCurvas(lunes, hist = {}) {
+  if (isMockMode) return hist;
+  const traer = async (a, b) => {
+    const snap = await fsGetDocs(fsQuery(collection(db, "demanda_cajas"), fsWhere("fecha", ">=", a), fsWhere("fecha", "<=", b)));
+    snap.docs.forEach((d) => { const x = d.data(); if (x && x.curva) hist[d.id] = x.curva; });
+  };
+  try {
+    const L = new Date(lunes + "T00:00:00");
+    const hastaH = formatDate(addDays(L, 13));
+    await traer(formatDate(addDays(L, -56)), hastaH);
+    await traer(armadoAnioAnterior(lunes), armadoAnioAnterior(hastaH));
+    await traer(formatDate(addDays(L, -371)), formatDate(addDays(L, -364 + 13)));
+  } catch (e) { console.warn("No se pudieron traer las curvas anteriores", e); }
+  return hist;
+}
 window.armarSinAdicionales = async function (decidido) {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
   const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
@@ -18481,102 +18523,97 @@ window.armarSinAdicionales = async function (decidido) {
       return;
     }
   }
-  // Curvas de Recaudaciones de las 8 semanas anteriores y de esta semana (para estimar días sin curva)
-  const hist = {};
-  if (!isMockMode) {
-    try {
-      const desdeH = formatDate(addDays(new Date(lunes + "T00:00:00"), -56)), hastaH = formatDate(addDays(new Date(lunes + "T00:00:00"), 13));
-      const snap = await fsGetDocs(fsQuery(collection(db, "demanda_cajas"), fsWhere("fecha", ">=", desdeH), fsWhere("fecha", "<=", hastaH)));
-      snap.docs.forEach((d) => { const x = d.data(); if (x && x.curva) hist[d.id] = x.curva; });
-      // misma semana (y la siguiente) del año anterior, para vísperas y días pegados a feriados
-      const a1 = armadoAnioAnterior(lunes), a2 = armadoAnioAnterior(hastaH);
-      const snapA = await fsGetDocs(fsQuery(collection(db, "demanda_cajas"), fsWhere("fecha", ">=", a1), fsWhere("fecha", "<=", a2)));
-      snapA.docs.forEach((d) => { const x = d.data(); if (x && x.curva) hist[d.id] = x.curva; });
-    } catch (e) { console.warn("No se pudieron traer las curvas anteriores", e); }
-  }
-  // Semana con tienda cerrada: elegir a quién se le da el franco pegado al cierre (todos tildados)
-  let cand = [], r0 = null;
-  try { r0 = armadoSemana(lunes, hist, { premiados: new Set() }); cand = r0.candidatosPremio; } catch (e) { console.error(e); }
-  if (!cand.length) { armadoMostrar(lunes, hist, null); return; }
-  const fcP = (f) => f.split("-").reverse().slice(0, 2).join("/");
-  const otra = await armadoTuvoOtraFiesta(r0.cerrados[0], cand);
-  const filasP = cand.slice().sort((a, b) => a.nombre.localeCompare(b.nombre))
-    .map((x) => `<div style="display:flex;gap:8px;align-items:center"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;flex:1"><input type="checkbox" class="premio-chk" value="${x.id}" ${otra.ids.has(x.id) ? "" : "checked"}> ${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">· ${x.contrato} h${otra.ids.has(x.id) ? ` · ya lo tuvo en ${otra.nombre}` : ""}</span></label><label class="pr-sab" style="display:none;gap:6px;align-items:center;cursor:pointer;font-size:0.78rem"><input type="checkbox" class="sab-chk" value="${x.id}"> Sábado</label></div>`).join("");
-  const sabTxt = r0.sabadoDia ? `sábado ${fcP(r0.sabadoDia)}` : "";
-  const m = borradorModal("Franco pegado al cierre", `<p>Esta semana la tienda cierra. A los tildados se les pone el franco de la semana <b>pegado a ese día</b> (antes o después, ${new Date(r0.cerrados[0] + "T00:00:00").getDay() === 6 ? "el domingo solo a quien le quede su domingo libre del mes" : `nunca domingo${r0.sabadoDia ? "; el sábado solo si lo otorgás abajo" : " ni sábado"}`}), donde menos falte gente. Destildá a los que no corresponde.</p>
-    ${otra.nombre ? `<p style="font-size: 0.85rem">En Navidad y Año Nuevo se da una fiesta o la otra: los que ya tuvieron el franco pegado en ${otra.nombre} vienen destildados.</p>` : ""}
-    <p style="color: var(--text-muted); font-size: 0.8rem">No aparecen los que ya pidieron el franco otro día o están de vacaciones. Si a alguien no se le puede dar sin dejar horas sin cajero o sin roller, se le pone en otro día y te aviso.</p>
-    <div id="premioLimInfo" class="bm-confirma" style="display:block;cursor:default;border-color:var(--border);font-weight:500">Calculando cuántos pueden tener el franco pegado…</div>
-    ${r0.sabadoDia ? `<label class="bm-confirma" style="border-color: var(--border)"><input type="checkbox" id="premioSabOn"> Otorgar el ${sabTxt} a algunos (premio a los mejores)</label><div id="premioSabInfo" style="font-size:0.8rem;margin:6px 2px 0;color:var(--text-muted)"></div>` : ""}
-    <div style="margin:6px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=false);document.querySelectorAll('.sab-chk').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
-    <div class="bm-lista">${filasP}</div>`,
-    [{ txt: "Cancelar" }, { txt: "Armar", clase: "bm-prin", fn: () => {
-      const ids = [...document.querySelectorAll(".premio-chk")].filter((c) => c.checked).map((c) => c.value);
-      const on = document.getElementById("premioSabOn")?.checked;
-      const sab = on ? [...document.querySelectorAll(".sab-chk")].filter((c) => c.checked && ids.includes(c.value)).map((c) => c.value) : [];
-      setTimeout(() => armadoMostrar(lunes, hist, ids, sab), 0);
-    } }]);
-  // Otorgar sábado: se calcula cuántos se lo pueden tomar sin afectar la cobertura y no deja tildar más
-  const on = m.querySelector("#premioSabOn"), info = m.querySelector("#premioSabInfo");
-  let maxSab = null;
-  const contar = () => {
-    const n = [...m.querySelectorAll(".sab-chk")].filter((c) => c.checked).length;
-    if (info && maxSab !== null) info.innerHTML = maxSab ? `Se le puede dar a hasta <b>${maxSab}</b> sin afectar la dotación ni la cobertura del sábado. Elegidos: <b>${n}</b> de ${maxSab}.` : "Ese sábado no se le puede dar a nadie sin dejar horas sin cajero o sin roller.";
-    m.querySelectorAll(".sab-chk").forEach((c) => { c.disabled = maxSab === null || (!c.checked && n >= maxSab); });
-  };
-  if (on) on.onchange = () => {
-    m.querySelectorAll(".pr-sab").forEach((x) => { x.style.display = on.checked ? "flex" : "none"; });
-    if (on.checked && maxSab === null) {
-      info.textContent = "Calculando cuántos pueden tener el sábado…";
-      setTimeout(() => { try { maxSab = armadoMaxSabado(lunes, hist, cand); } catch (e) { console.error(e); maxSab = 0; } contar(); }, 30);
-    } else contar();
-  };
-  m.querySelectorAll(".sab-chk").forEach((c) => { c.onchange = () => {
-    if (c.checked) { const p = m.querySelector(`.premio-chk[value="${c.value}"]`); if (p) p.checked = true; }
-    contar();
-  }; });
-  m.querySelectorAll(".premio-chk").forEach((c) => { c.addEventListener("change", () => { if (!c.checked) { const sc = m.querySelector(`.sab-chk[value="${c.value}"]`); if (sc) sc.checked = false; contar(); } }); });
-  // Límite de premiados: máximo para esta fecha y, en Navidad, mínimo para que en Año Nuevo alcance la gente
-  const lim = m.querySelector("#premioLimInfo");
-  let maxP = null, maxR = null, minP = 0, minR = 0;
-  const esRolId = new Set(cand.filter((x) => x.rol).map((x) => x.id));
-  const contarP = () => {
-    if (!lim || maxP === null) return;
-    const chks = [...m.querySelectorAll(".premio-chk")];
-    const n = chks.filter((c) => c.checked).length;
-    const nR = chks.filter((c) => c.checked && esRolId.has(c.value)).length;
-    const rango = (a, b) => (a && a === b ? `<b>${b}</b>` : a ? `entre <b>${a}</b> y <b>${b}</b>` : `hasta <b>${b}</b>`);
-    const avisos = [];
-    if (n > maxP) avisos.push(`sobran ${n - maxP} en total`);
-    if (nR > maxR) avisos.push(`sobran ${nR - maxR} ${nR - maxR === 1 ? "roller" : "rollers"}`);
-    if (n < minP) avisos.push(`faltan ${minP - n} en total`);
-    if (nR < minR) avisos.push(`faltan ${minR - nR} ${minR - nR === 1 ? "roller" : "rollers"}`);
-    lim.innerHTML = `Para no afectar la dotación ni la cobertura${minP || minR ? ` (y que en ${otra.nombre} queden suficientes trabajando)` : ""} se le puede dar a ${rango(minP, maxP)} personas, de las cuales rollers ${rango(minR, maxR)}. Elegidos: <b>${n}</b> (${nR} rollers).`
-      + (avisos.length ? ` <span class="bm-ojo">⚠ ${avisos.join(" · ")}.</span>` : ` <span style="color:#15803d">✓ ${minP || minR ? "Alcanza en las dos fiestas" : "Dentro del límite"}.</span>`);
-    chks.forEach((c) => { c.disabled = !c.checked && (n >= maxP || (esRolId.has(c.value) && nR >= maxR)); });
-  };
-  m.querySelectorAll(".premio-chk").forEach((c) => c.addEventListener("change", contarP));
-  m.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => setTimeout(contarP, 0)));
-  setTimeout(() => {
-    try {
-      const cap = armadoMaxPremio(lunes, hist, cand);
-      maxP = cap.max; maxR = cap.maxRol;
-      const md = r0.cerrados[0].slice(5);
-      if (md === "12-25") {
-        const otraF = `${Number(r0.cerrados[0].slice(0, 4)) + 1}-01-01`;
-        const lunesO = formatDate(getStartOfWeek(new Date(otraF + "T00:00:00")));
-        const candO = armadoConSemanaCargada(lunesO, () => armadoSemana(lunesO, hist, { premiados: new Set() }).candidatosPremio);
-        const capO = armadoConSemanaCargada(lunesO, () => armadoMaxPremio(lunesO, hist, candO));
-        const ids = new Set(cand.map((x) => x.id));
-        const comunes = candO.filter((x) => ids.has(x.id));
-        // Los que no tienen franco en Navidad lo tienen en Año Nuevo: no pueden ser más de lo que aguanta esa fecha
-        minP = Math.min(maxP, Math.max(0, comunes.length - capO.max));
-        minR = Math.min(maxR, Math.max(0, comunes.filter((x) => x.rol).length - capO.maxRol));
-      }
-    } catch (e) { console.error(e); maxP = cand.length; maxR = cand.length; minP = 0; minR = 0; }
-    contarP();
-  }, 30);
+  const hist = await armadoTraerCurvas(lunes);
+  armadoPedirPremio(lunes, hist).then((pr) => { if (pr) armadoMostrar(lunes, hist, pr.premiados, pr.sabados); });
 };
+// Semana con tienda cerrada: pide a quién se le da el franco pegado al cierre. Devuelve
+// { premiados, sabados } (premiados null si no hay cierre) o null si se canceló
+function armadoPedirPremio(lunes, hist) {
+  return new Promise(async (resolve) => {
+    // Semana con tienda cerrada: elegir a quién se le da el franco pegado al cierre (todos tildados)
+    let cand = [], r0 = null;
+    try { r0 = armadoSemana(lunes, hist, { premiados: new Set() }); cand = r0.candidatosPremio; } catch (e) { console.error(e); }
+    if (!cand.length) { resolve({ premiados: null }); return; }
+    const fcP = (f) => f.split("-").reverse().slice(0, 2).join("/");
+    const otra = await armadoTuvoOtraFiesta(r0.cerrados[0], cand);
+    const filasP = cand.slice().sort((a, b) => a.nombre.localeCompare(b.nombre))
+      .map((x) => `<div style="display:flex;gap:8px;align-items:center"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;flex:1"><input type="checkbox" class="premio-chk" value="${x.id}" ${otra.ids.has(x.id) ? "" : "checked"}> ${borradorEsc(x.nombre)} <span style="color:var(--text-muted)">· ${x.contrato} h${otra.ids.has(x.id) ? ` · ya lo tuvo en ${otra.nombre}` : ""}</span></label><label class="pr-sab" style="display:none;gap:6px;align-items:center;cursor:pointer;font-size:0.78rem"><input type="checkbox" class="sab-chk" value="${x.id}"> Sábado</label></div>`).join("");
+    const sabTxt = r0.sabadoDia ? `sábado ${fcP(r0.sabadoDia)}` : "";
+    const m = borradorModal("Franco pegado al cierre", `<p>Esta semana la tienda cierra. A los tildados se les pone el franco de la semana <b>pegado a ese día</b> (antes o después, ${new Date(r0.cerrados[0] + "T00:00:00").getDay() === 6 ? "el domingo solo a quien le quede su domingo libre del mes" : `nunca domingo${r0.sabadoDia ? "; el sábado solo si lo otorgás abajo" : " ni sábado"}`}), donde menos falte gente. Destildá a los que no corresponde.</p>
+      ${otra.nombre ? `<p style="font-size: 0.85rem">En Navidad y Año Nuevo se da una fiesta o la otra: los que ya tuvieron el franco pegado en ${otra.nombre} vienen destildados.</p>` : ""}
+      <p style="color: var(--text-muted); font-size: 0.8rem">No aparecen los que ya pidieron el franco otro día o están de vacaciones. Si a alguien no se le puede dar sin dejar horas sin cajero o sin roller, se le pone en otro día y te aviso.</p>
+      <div id="premioLimInfo" class="bm-confirma" style="display:block;cursor:default;border-color:var(--border);font-weight:500">Calculando cuántos pueden tener el franco pegado…</div>
+      ${r0.sabadoDia ? `<label class="bm-confirma" style="border-color: var(--border)"><input type="checkbox" id="premioSabOn"> Otorgar el ${sabTxt} a algunos (premio a los mejores)</label><div id="premioSabInfo" style="font-size:0.8rem;margin:6px 2px 0;color:var(--text-muted)"></div>` : ""}
+      <div style="margin:6px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.premio-chk').forEach((c)=>c.checked=false);document.querySelectorAll('.sab-chk').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
+      <div class="bm-lista">${filasP}</div>`,
+      [{ txt: "Cancelar", fn: () => resolve(null) }, { txt: "Armar", clase: "bm-prin", fn: () => {
+        const ids = [...document.querySelectorAll(".premio-chk")].filter((c) => c.checked).map((c) => c.value);
+        const on = document.getElementById("premioSabOn")?.checked;
+        const sab = on ? [...document.querySelectorAll(".sab-chk")].filter((c) => c.checked && ids.includes(c.value)).map((c) => c.value) : [];
+        resolve({ premiados: ids, sabados: sab });
+      } }]);
+    // Otorgar sábado: se calcula cuántos se lo pueden tomar sin afectar la cobertura y no deja tildar más
+    const on = m.querySelector("#premioSabOn"), info = m.querySelector("#premioSabInfo");
+    let maxSab = null;
+    const contar = () => {
+      const n = [...m.querySelectorAll(".sab-chk")].filter((c) => c.checked).length;
+      if (info && maxSab !== null) info.innerHTML = maxSab ? `Se le puede dar a hasta <b>${maxSab}</b> sin afectar la dotación ni la cobertura del sábado. Elegidos: <b>${n}</b> de ${maxSab}.` : "Ese sábado no se le puede dar a nadie sin dejar horas sin cajero o sin roller.";
+      m.querySelectorAll(".sab-chk").forEach((c) => { c.disabled = maxSab === null || (!c.checked && n >= maxSab); });
+    };
+    if (on) on.onchange = () => {
+      m.querySelectorAll(".pr-sab").forEach((x) => { x.style.display = on.checked ? "flex" : "none"; });
+      if (on.checked && maxSab === null) {
+        info.textContent = "Calculando cuántos pueden tener el sábado…";
+        setTimeout(() => { try { maxSab = armadoMaxSabado(lunes, hist, cand); } catch (e) { console.error(e); maxSab = 0; } contar(); }, 30);
+      } else contar();
+    };
+    m.querySelectorAll(".sab-chk").forEach((c) => { c.onchange = () => {
+      if (c.checked) { const p = m.querySelector(`.premio-chk[value="${c.value}"]`); if (p) p.checked = true; }
+      contar();
+    }; });
+    m.querySelectorAll(".premio-chk").forEach((c) => { c.addEventListener("change", () => { if (!c.checked) { const sc = m.querySelector(`.sab-chk[value="${c.value}"]`); if (sc) sc.checked = false; contar(); } }); });
+    // Límite de premiados: máximo para esta fecha y, en Navidad, mínimo para que en Año Nuevo alcance la gente
+    const lim = m.querySelector("#premioLimInfo");
+    let maxP = null, maxR = null, minP = 0, minR = 0;
+    const esRolId = new Set(cand.filter((x) => x.rol).map((x) => x.id));
+    const contarP = () => {
+      if (!lim || maxP === null) return;
+      const chks = [...m.querySelectorAll(".premio-chk")];
+      const n = chks.filter((c) => c.checked).length;
+      const nR = chks.filter((c) => c.checked && esRolId.has(c.value)).length;
+      const rango = (a, b) => (a && a === b ? `<b>${b}</b>` : a ? `entre <b>${a}</b> y <b>${b}</b>` : `hasta <b>${b}</b>`);
+      const avisos = [];
+      if (n > maxP) avisos.push(`sobran ${n - maxP} en total`);
+      if (nR > maxR) avisos.push(`sobran ${nR - maxR} ${nR - maxR === 1 ? "roller" : "rollers"}`);
+      if (n < minP) avisos.push(`faltan ${minP - n} en total`);
+      if (nR < minR) avisos.push(`faltan ${minR - nR} ${minR - nR === 1 ? "roller" : "rollers"}`);
+      lim.innerHTML = `Para no afectar la dotación ni la cobertura${minP || minR ? ` (y que en ${otra.nombre} queden suficientes trabajando)` : ""} se le puede dar a ${rango(minP, maxP)} personas, de las cuales rollers ${rango(minR, maxR)}. Elegidos: <b>${n}</b> (${nR} rollers).`
+        + (avisos.length ? ` <span class="bm-ojo">⚠ ${avisos.join(" · ")}.</span>` : ` <span style="color:#15803d">✓ ${minP || minR ? "Alcanza en las dos fiestas" : "Dentro del límite"}.</span>`);
+      chks.forEach((c) => { c.disabled = !c.checked && (n >= maxP || (esRolId.has(c.value) && nR >= maxR)); });
+    };
+    m.querySelectorAll(".premio-chk").forEach((c) => c.addEventListener("change", contarP));
+    m.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => setTimeout(contarP, 0)));
+    setTimeout(() => {
+      try {
+        const cap = armadoMaxPremio(lunes, hist, cand);
+        maxP = cap.max; maxR = cap.maxRol;
+        const md = r0.cerrados[0].slice(5);
+        if (md === "12-25") {
+          const otraF = `${Number(r0.cerrados[0].slice(0, 4)) + 1}-01-01`;
+          const lunesO = formatDate(getStartOfWeek(new Date(otraF + "T00:00:00")));
+          const candO = armadoConSemanaCargada(lunesO, () => armadoSemana(lunesO, hist, { premiados: new Set() }).candidatosPremio);
+          const capO = armadoConSemanaCargada(lunesO, () => armadoMaxPremio(lunesO, hist, candO));
+          const ids = new Set(cand.map((x) => x.id));
+          const comunes = candO.filter((x) => ids.has(x.id));
+          // Los que no tienen franco en Navidad lo tienen en Año Nuevo: no pueden ser más de lo que aguanta esa fecha
+          minP = Math.min(maxP, Math.max(0, comunes.length - capO.max));
+          minR = Math.min(maxR, Math.max(0, comunes.filter((x) => x.rol).length - capO.maxRol));
+        }
+      } catch (e) { console.error(e); maxP = cand.length; maxR = cand.length; minP = 0; minR = 0; }
+      contarP();
+    }, 30);
+  });
+}
 function armadoMostrar(lunes, hist, premiados, sabados) {
   let r;
   try { r = premiados ? armadoConPremio(lunes, hist, premiados, sabados) : armadoSemana(lunes, hist); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
@@ -18588,6 +18625,7 @@ function armadoMostrar(lunes, hist, premiados, sabados) {
   borradorModal("Armar sugerido de la semana", `<p>Semana del <b>${fc(lunes)}</b>. Cada persona queda con las horas de su contrato (sin adicionales). Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
     ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy → <b>${r1(r.despues)} h</b> con la propuesta.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se arma para tener al menos un cajero de 8 a 22.</p>`}
     ${r.deAnioAnterior.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.deAnioAnterior.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Por ser día especial se usó la curva del mismo día del año pasado.</p>` : ""}
+    ${r.deSemanaAnterior.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.deSemanaAnterior.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se usó la del mismo día de la misma semana del año pasado.</p>` : ""}
     ${r.domingoPendiente.length ? `<p class="bm-ojo">Les falta su domingo libre del mes y este domingo no se pudo sin dejar poca gente: ${r.domingoPendiente.map(borradorEsc).join(", ")}.</p>` : ""}
     ${r.estimadas.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.estimadas.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se usó el promedio del mismo día de las semanas anteriores.</p>` : ""}
     ${r.parejas.length ? `<p class="bm-ojo">Sin curva ni historial: ${r.parejas.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se repartió la gente pareja: unos ${r.nivelParejo} cajeros por hora de 8 a 22 (con la curva de Recaudaciones queda mucho mejor).</p>` : ""}
@@ -18609,9 +18647,23 @@ function armadoMostrar(lunes, hist, premiados, sabados) {
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Es solo en el borrador. Después lo revisás con la cobertura y lo ajustás a mano. Podés deshacerlo.</p>`,
     [{ txt: "Cancelar" }, ...(r.cambios.length ? [{ txt: `Aplicar ${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"}`, clase: "bm-prin", fn: async () => {
       const previos = {};
+      await armadoAplicar(lunes, r, previos);
+      borradorPersistir();
+      renderUI();
+      const t = showToast("Listo", `Semana armada sin adicionales (${r.cambios.length} cambios).`, "success");
+      if (t) {
+        const b = document.createElement("button");
+        b.className = "toast-ver"; b.type = "button"; b.textContent = "Deshacer";
+        b.onclick = async () => { t.remove(); await armadoDeshacer(previos); showToast("Deshecho", "La semana volvió como estaba.", "info"); };
+        t.querySelector(".toast-desc").after(b);
+      }
+    } }] : [])]);
+};
+// Escribe en el borrador lo que propuso el armado de una semana (guarda lo anterior en previos para deshacer)
+async function armadoAplicar(lunes, r, previos) {
       for (const x of r.cambios) {
         const k = `${x.id}_${x.d}`;
-        previos[k] = borrador.docs[k] ? JSON.parse(JSON.stringify(borrador.docs[k])) : null;
+        if (!(k in previos)) previos[k] = borrador.docs[k] ? JSON.parse(JSON.stringify(borrador.docs[k])) : null;
         const premioFiesta = (r.premio || []).some((pr) => pr.id === x.id && pr.dia === x.d) ? true : null;
         await setDoc(doc(db, "planificacion", k), { ...(borrador.docs[k] || {}), colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null, armadoSlot: x.a, premioFiesta }, { merge: true });
         const o = state.planning[k] && typeof state.planning[k] === "object" ? state.planning[k] : {};
@@ -18629,23 +18681,101 @@ function armadoMostrar(lunes, hist, premiados, sabados) {
       }
       borrador.paraReloj = true;
       borrador.semanasReloj = [...new Set([...(Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : []), lunes])];
-      borradorPersistir();
-      renderUI();
-      const t = showToast("Listo", `Semana armada sin adicionales (${r.cambios.length} cambios).`, "success");
-      if (t) {
-        const b = document.createElement("button");
-        b.className = "toast-ver"; b.type = "button"; b.textContent = "Deshacer";
-        b.onclick = async () => {
-          t.remove();
-          for (const [k, v] of Object.entries(previos)) {
-            if (v) { await setDoc(doc(db, "planificacion", k), v); state.planning[k] = v; }
-          }
-          renderUI();
-          showToast("Deshecho", "La semana volvió como estaba.", "info");
-        };
-        t.querySelector(".toast-desc").after(b);
-      }
-    } }] : [])]);
+}
+async function armadoDeshacer(previos) {
+  for (const [k, v] of Object.entries(previos)) {
+    if (v) { await setDoc(doc(db, "planificacion", k), v); state.planning[k] = v; }
+    else { await deleteDoc(doc(db, "planificacion", k)); delete state.planning[k]; }
+  }
+  borradorPersistir();
+  renderUI();
+}
+
+// ===== Armar el mes: todas las semanas del mes que se ve, en orden (cada una mira cómo quedó la anterior:
+// descansos, rotación, domingos del mes, Navidad/Año Nuevo). Las semanas trabadas no se tocan.
+window.armarMes = async function () {
+  if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
+  const visible = new Date(borradorLunesVisible() + "T00:00:00");
+  const ref = addDays(visible, 3); // el mes de la semana que se ve (por su jueves)
+  const y = ref.getFullYear(), mIdx = ref.getMonth();
+  const primero = new Date(y, mIdx, 1), ultimo = new Date(y, mIdx + 1, 0);
+  const semanas = [];
+  for (let l = getStartOfWeek(primero); l <= ultimo; l = addDays(l, 7)) semanas.push(formatDate(l));
+  const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const finSem = (l) => formatDate(addDays(new Date(l + "T00:00:00"), 6));
+  const trabadas = semanas.filter((l) => borradorSemanaTrabada(l));
+  const aArmar = semanas.filter((l) => !borradorSemanaTrabada(l));
+  if (!aArmar.length) { showToast("Nada para armar", "Todas las semanas del mes están trabadas.", "info"); return; }
+  // ¿Qué semanas ya tienen cambios en el borrador?
+  const ids = new Set(cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => c.id));
+  const claves = [...new Set([...Object.keys(borrador.docs || {}), ...Object.keys(borrador.original || {})])];
+  const cambiadasDe = (l) => {
+    const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(l + "T00:00:00"), i)));
+    return claves.filter((k) => dias.includes(k.slice(-10)) && ids.has(k.slice(0, -11)) && JSON.stringify(borrador.docs[k] || null) !== JSON.stringify(borrador.original[k] || null));
+  };
+  const conCambios = aArmar.filter((l) => cambiadasDe(l).length);
+  const modo = await new Promise((resolve) => {
+    borradorModal(`Armar ${meses[mIdx]}`, `<p>Se arman <b>${aArmar.length} semanas</b>, en orden, del <b>${fc(semanas[0])}</b> al <b>${fc(finSem(semanas[semanas.length - 1]))}</b> (semanas completas, de lunes a domingo).</p>
+      <p style="font-size:0.85rem">Con todo lo de cada semana: la curva (o, si no está, la del año pasado o la estimada), horarios especiales y días de tienda cerrada, pedidos y francos cargados, rotación, domingos del mes, descansos, 4 h mínimo y 8 h máximo (9 solo rollers, en casos puntuales), feriados (NV sin franco pegado) y el franco pegado a las fiestas (te pregunto a quién en cada fiesta).</p>
+      ${trabadas.length ? `<p>No se tocan las trabadas: ${trabadas.map((l) => `${fc(l)} al ${fc(finSem(l))}`).join(", ")}.</p>` : ""}
+      ${conCambios.length ? `<p class="bm-ojo">${conCambios.length === 1 ? "Una semana ya tiene" : `${conCambios.length} semanas ya tienen`} cambios en el borrador. <b>Empezar de cero</b> las vuelve a los horarios reales antes de armar (los pedidos fijados en lo real se respetan); <b>sobre lo que hay</b> respeta los francos y libres que pusiste a mano.</p>` : ""}`,
+      [{ txt: "Cancelar", fn: () => resolve(null) },
+        ...(conCambios.length ? [{ txt: "Armar sobre lo que hay", fn: () => resolve("sobre") }, { txt: "Empezar de cero", clase: "bm-prin", fn: () => resolve("cero") }] : [{ txt: `Armar ${meses[mIdx]}`, clase: "bm-prin", fn: () => resolve("sobre") }])]);
+  });
+  if (!modo) return;
+  // Que la grilla tenga todo el borrador de esas semanas (y la anterior y la siguiente) a mano
+  const desde = formatDate(addDays(new Date(semanas[0] + "T00:00:00"), -7)), hasta = formatDate(addDays(new Date(semanas[semanas.length - 1] + "T00:00:00"), 13));
+  Object.entries(borrador.docs || {}).forEach(([k, o]) => { const f = k.slice(-10); if (f >= desde && f <= hasta && !(k in state.planning)) state.planning[k] = JSON.parse(JSON.stringify(o)); });
+  const previos = {};
+  if (modo === "cero") {
+    for (const l of conCambios) for (const k of cambiadasDe(l)) {
+      if (!(k in previos)) previos[k] = borrador.docs[k] ? JSON.parse(JSON.stringify(borrador.docs[k])) : null;
+      const o = borrador.original[k];
+      if (o) { await setDoc(doc(db, "planificacion", k), JSON.parse(JSON.stringify(o))); state.planning[k] = JSON.parse(JSON.stringify(o)); }
+      else { await deleteDoc(doc(db, "planificacion", k)); delete state.planning[k]; }
+    }
+  }
+  const resumen = [];
+  let hist = {};
+  for (let n = 0; n < aArmar.length; n++) {
+    const lunes = aArmar[n];
+    showToast("Armando el mes", `Semana ${n + 1} de ${aArmar.length}: del ${fc(lunes)} al ${fc(finSem(lunes))}…`, "info");
+    hist = await armadoTraerCurvas(lunes, hist);
+    const pr = await armadoPedirPremio(lunes, hist);
+    if (pr === null) { resumen.push({ lunes, cancelada: true }); continue; }
+    let r;
+    try { r = pr.premiados ? armadoConPremio(lunes, hist, pr.premiados, pr.sabados) : armadoSemana(lunes, hist); }
+    catch (e) { console.error(e); resumen.push({ lunes, error: true }); continue; }
+    await armadoAplicar(lunes, r, previos);
+    resumen.push({ lunes, r });
+  }
+  borradorPersistir();
+  renderUI();
+  // Resumen del mes
+  const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const dia = (d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`;
+  const filas = resumen.map((x) => {
+    const tit = `<b>${fc(x.lunes)} al ${fc(finSem(x.lunes))}</b>`;
+    if (x.cancelada) return `<div>${tit}: no se armó (cancelaste la elección del franco pegado).</div>`;
+    if (x.error) return `<div class="bm-ojo">${tit}: no se pudo armar.</div>`;
+    const r = x.r, av = [];
+    if (r.sinCajero) av.push(`${r.sinCajero} h sin cajero`);
+    if (r.sinRoller) av.push(`sin roller: ${r.sinRollerTxt.map((z) => `${dia(z.d)} ${z.txt}`).join(", ")}`);
+    if (r.sinTes && r.sinTes.length) av.push(`tesorería 7 h sin cubrir: ${r.sinTes.map(dia).join(", ")}`);
+    if (r.domingoPendiente.length) av.push(`les falta el domingo: ${r.domingoPendiente.join(", ")}`);
+    if (r.sinSol.length) av.push(`sin cambios para ${r.sinSol.join(", ")}`);
+    const curva = [];
+    if (r.deSemanaAnterior.length || r.deAnioAnterior.length) curva.push("curva del año pasado");
+    if (r.estimadas.length) curva.push("curva estimada");
+    if (r.parejas.length) curva.push("gente pareja (sin curva)");
+    return `<div style="margin-bottom:6px">${tit}: ${r.cambios.length} cambios${r.premio && r.premio.length ? ` · franco pegado a ${r.premio.length}` : ""}${curva.length ? ` <span style="color:var(--text-muted)">· ${curva.join(", ")}</span>` : ""}${av.length ? `<div class="bm-ojo" style="font-size:0.8rem">⚠ ${borradorEsc(av.join(" · "))}</div>` : ` <span style="color:#15803d">✓</span>`}</div>`;
+  }).join("");
+  const total = resumen.reduce((t, x) => t + (x.r ? x.r.cambios.length : 0), 0);
+  borradorModal(`${meses[mIdx][0].toUpperCase() + meses[mIdx].slice(1)} armado`, `<p>${total} cambios en ${resumen.filter((x) => x.r).length} semanas, ya cargados en el borrador.</p>
+    <div class="bm-lista">${filas}</div>
+    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Revisalo semana por semana con la cobertura y ajustá a mano lo que haga falta. Es solo en el borrador.</p>`,
+    [{ txt: "Deshacer todo", fn: async () => { await armadoDeshacer(previos); showToast("Deshecho", "El mes volvió como estaba.", "info"); } }, { txt: "Listo", clase: "bm-prin" }]);
 };
 
 // Semanas armadas sin adicionales (para el reloj): pasarlas a real le saca las adicionales a lo real
@@ -18749,6 +18879,7 @@ window.borradorPintarFranja = function () {
       <button type="button" onclick="window.borradorGuardarArchivo()" title="Bajar una copia de respaldo del borrador (.json). No hace falta: el borrador ya se guarda solo en la nube">Copia</button>
       <button type="button" onclick="window.borradorAbrirArchivo()" title="Abrir una copia (.json) de un borrador">Abrir</button>
       <button type="button" onclick="window.armarSinAdicionales()" title="Arma la semana que se ve: cada persona con las horas de su contrato, cuidando la curva y los descansos">Armar sugerido</button>
+      <button type="button" onclick="window.armarMes()" title="Arma todas las semanas del mes que se ve, en orden, con todas las reglas">Armar el mes</button>
       <button type="button" id="borradorTrabaBtn" onclick="window.borradorTrabar()" title="Marcar la semana que se ve como cargada en el reloj: Armar sugerido no la toca">Trabar semana</button>
       <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>
       <span class="bf-sep"></span>
