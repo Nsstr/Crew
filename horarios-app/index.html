@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.113
+            Versión: v1.7.114
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.113";
+  const APP_VERSION = "v1.7.114";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15520,10 +15520,10 @@ function desDetallePersonas(dias, semanas, total, fc2) {
     return { html: `<div class="pk"><div class="pk-h"><h2>${titulo}</h2><p>${sub}</p></div>
       <div class="pk-k"><small>Piden</small><b>${desH(req)} h</b></div>
       <div class="pk-k cj"><small>Cajeros · horas normales</small><b>${desH(sc.n)} h</b>${req ? (() => { const d = desDif(tC - req); return `<span class="dif ${d.cls}">${d.txt}</span>`; })() : ""}</div>
-      <div class="pk-k ad"><small>Horas adicionales</small><b>${desH(sc.a + sr.a)} h</b><div class="pk-sp"><span>Cajeros ${desH(sc.a)} h</span><span>Rollers ${desH(sr.a)} h</span></div></div>
-      <div class="pk-k cja"><small>Cajeros · normales + adicionales</small><b>${desH(sc.n + sc.a)} h</b>${req ? chipK(tCA - req) : ""}</div></div>`, sc, sr };
+      <div class="pk-k ad"><small>Horas adicionales</small><b>${desH(sc.a + sr.a)} h</b><div class="pk-sp"><span>Cajeros ${desH(sc.a)} h</span><span>Rollers ${desH(sr.a)} h</span></div><div class="pk-nt">Total para presupuesto</div></div>
+      <div class="pk-k cja"><small>Cajeros · normales + adicionales</small><b>${desH(sc.n + sc.a)} h</b>${req ? chipK(tCA - req) : ""}<div class="pk-nt">${desH(sc.n)} normales + ${desH(sc.a)} adic. de cajeros · rollers no suman</div></div></div>`, sc, sr };
   };
-  const pie = (sc, sr) => `<div class="pk-fin"><div><small>Normal</small><b>${desH(sc.n + sr.n)} h</b></div><div class="ad"><small>Adicionales</small><b>${desH(sc.a + sr.a)} h</b></div><div class="tt"><small>Total</small><b>${desH(sc.n + sc.a + sr.n + sr.a)} h</b></div></div>`;
+  const pie = (sc, sr) => `<div class="pk-fin"><span class="pk-ft">Todo el equipo (cajeros + rollers)</span><div><small>Normal</small><b>${desH(sc.n + sr.n)} h</b></div><div class="ad"><small>Adicionales</small><b>${desH(sc.a + sr.a)} h</b></div><div class="tt"><small>Total</small><b>${desH(sc.n + sc.a + sr.n + sr.a)} h</b></div></div>`;
   const tablaBloque = (tit, color, lista, cols, celda, sumaFila) => {
     let N = 0, A = 0;
     const filas = lista.map((g) => { const t = sumaFila(g); N += t.n; A += t.a; return `<tr><td class="nm"><b>${g.nombre}</b><small>${g.contrato ? g.contrato + " h" : ""}</small></td>${cols.map((c) => celda(g, c)).join("")}${celdaTot(t.n, t.a)}</tr>`; }).join("");
@@ -15746,16 +15746,17 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     .hora td.ok { background: #eef2f6; } .hora td.hf { background: #fbdcdc; }
     .hora tbody tr:nth-child(even) td.ok { background: #e8edf3; }
     /* Detalle por persona */
-    .pk { display: flex; gap: 8px; margin-bottom: 6px; align-items: stretch; }
-    .pk-h { flex: 1.4; background: linear-gradient(90deg, #1e293b, #334155); color: #fff; border-radius: 10px; padding: 6px 14px; }
+    .pk { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; }
+    .pk-h { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; background: linear-gradient(90deg, #1e293b, #334155); color: #fff; border-radius: 10px; padding: 7px 14px; }
     .pk-h h2 { color: #fff; border: none; padding: 0; margin: 0; font-size: 14px; } .pk-h p { margin: 2px 0 0; color: #cbd5e1; font-size: 9.5px; }
-    .pk-k { flex: 1; border: 1px solid #e2e8f0; border-radius: 10px; padding: 5px 12px; background: #f8fafc; }
+    .pk-k { border: 1px solid #e2e8f0; border-radius: 10px; padding: 5px 12px; background: #f8fafc; }
     .pk-k small { display: block; color: #64748b; font-size: 9px; font-weight: 600; } .pk-k b { font-size: 16px; }
     .pk-k .dif { margin-left: 6px; vertical-align: 3px; font-size: 10px; }
     .pk-k.cj { background: linear-gradient(90deg, #d8f5e9, #f0fbf6); border-color: #bbf0d6; }
     .pk-k.ad { background: #ecfeff; border-color: #a5f3fc; } .pk-k.ad b { color: #0e7490; }
     .pk-k.cja { background: #1e293b; border-color: #1e293b; color: #fff; } .pk-k.cja small { color: #cbd5e1; }
-    .pk-k .dif { white-space: nowrap; } .pk-sp { display: flex; gap: 10px; font-size: 9px; color: #0e7490; margin-top: 1px; } .pk-sp span { background: #cffafe; border-radius: 6px; padding: 0 6px; }
+    .pk-k .dif { white-space: nowrap; } .pk-nt { font-size: 8.5px; color: #64748b; margin-top: 2px; } .pk-k.cja .pk-nt { color: #cbd5e1; } .pk-ft { align-self: center; font-size: 9.5px; color: #64748b; font-weight: 600; }
+    .pk-sp { display: flex; gap: 10px; font-size: 9px; color: #0e7490; margin-top: 1px; } .pk-sp span { background: #cffafe; border-radius: 6px; padding: 0 6px; }
     .pg { margin-bottom: 4px; } .pg-t { display: flex; justify-content: space-between; align-items: baseline; border-left: 4px solid var(--c); padding-left: 8px; margin-bottom: 2px; }
     .pg-t span { font-weight: 700; font-size: 12px; } .pg-t small { color: #64748b; font-size: 9px; }
     .pp { border-collapse: separate; border-spacing: 2px 1.5px; table-layout: fixed; }
