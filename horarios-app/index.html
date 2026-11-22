@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.85
+            Versión: v1.7.86
           </div>
         </div>
       </div>
@@ -5031,7 +5031,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.85";
+  const APP_VERSION = "v1.7.86";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18317,6 +18317,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const cand = optimizables.filter((pl) => !pl.sinSolucion && pl.contrato > 0 && pl.contrato < TOPE_SEM && !excl.has(pl.c.id));
     cand.forEach((pl) => { usado.set(pl, 0); lims.set(pl, limites(pl)); });
     const hiDe = (i) => Math.min(24, Math.max(cierra[i], 0));
+    const faltaEnDia = (i) => { for (let h = 0; h < 24; h++) if (dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1)) > 0.5) return true; return false; };
     const loDe = (pl, i) => Math.max(6, pl.tes ? Math.min(abre[i], TES_HORA) : abre[i]);
     for (let vuelta = 0; vuelta < 600; vuelta++) {
       let best = null;
@@ -18337,14 +18338,20 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
               if (ini.s - st >= loDe(pl, i) - 1e-9) opciones.push({ tr: [{ s: ini.s - st, e: ini.e }, ...tr.slice(1)], h: st });
               if (fin.e + st <= hiDe(i) + 1e-9) opciones.push({ tr: [...tr.slice(0, -1), { s: fin.s, e: fin.e + st }], h: st });
             });
+            // rearmar el día más largo (corrido o doble turno), solo si ese día todavía falta gente
+            if (faltaEnDia(i)) {
+              [...new Set([L + 1, L + 2, Math.min(cap, L + 3), cap].filter((x) => x > L + 1e-9 && x <= cap + 1e-9 && x - L <= resto + 1e-9))].forEach((nl) => {
+                candidatos(pl, i, nl).forEach((x) => opciones.push({ tr: x, h: nl - L }));
+              });
+            }
             // doble turno: un segundo tramo de 4 h con al menos 4 h de corte (ej. 10a14 + 18a22)
             if (tr.length === 1 && resto >= 4 - 1e-9 && L + 4 <= cap + 1e-9) {
               const t0 = tr[0];
               for (let s2 = Math.ceil(t0.e + 4); s2 + 4 <= hiDe(i) + 1e-9; s2++) opciones.push({ tr: [t0, { s: s2, e: s2 + 4 }], h: 4 });
               for (let s2 = loDe(pl, i); s2 + 4 + 4 <= t0.s + 1e-9; s2++) opciones.push({ tr: [{ s: s2, e: s2 + 4 }, t0], h: 4 });
             }
-          } else if (resto >= 4 - 1e-9) {
-            candidatos(pl, i, 4).filter((x) => x.length === 1).forEach((x) => opciones.push({ tr: x, h: 4 }));
+          } else if (resto >= 4 - 1e-9 && faltaEnDia(i)) {
+            [4, 5, 6, Math.min(capAd(pl), resto)].filter((nl, k, arr) => nl >= 4 && nl <= resto + 1e-9 && arr.indexOf(nl) === k).forEach((nl) => candidatos(pl, i, nl).forEach((x) => opciones.push({ tr: x, h: nl })));
           }
           if (!opciones.length) return;
           const k0 = costoDia(i);
@@ -18370,6 +18377,27 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       adicPor[pl.c.id] = adicPor[pl.c.id] || {};
       adicPor[pl.c.id][dias[i]] = (adicPor[pl.c.id][dias[i]] || 0) + o.h;
     }
+    // Repaso: con las mismas horas de cada día, ¿hay un horario (corrido o doble) que cubra mejor?
+    for (let rep = 0; rep < 2; rep++) cand.forEach((pl) => {
+      const lim = lims.get(pl);
+      dias.forEach((d, i) => {
+        const tr = pl.plan[i];
+        if (!tr || !tr.length || !pl.flex[i] || i === pl.tcDia || cerrado[i] || !faltaEnDia(i)) return;
+        const L = largo(tr);
+        const k0 = costoDia(i);
+        aplicar(pl, i, tr, -1);
+        let best = null;
+        candidatos(pl, i, L).forEach((x) => {
+          const prueba = pl.plan.slice(); prueba[i] = x;
+          if (!valido(pl, prueba, lim)) return;
+          aplicar(pl, i, x, 1);
+          const k = costoDia(i);
+          aplicar(pl, i, x, -1);
+          if (k < k0 - 0.05 && (!best || k < best.k)) best = { k, x };
+        });
+        if (best) { pl.plan[i] = best.x; aplicar(pl, i, best.x, 1); } else aplicar(pl, i, tr, 1);
+      });
+    });
   }
   const despues = faltanH();
   const sinTes = dias.filter((_, i) => !cerrado[i] && tes[i].tit === 0 && tes[i].sup === 0);
