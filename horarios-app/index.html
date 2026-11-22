@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.108
+            Versión: v1.7.109
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.108";
+  const APP_VERSION = "v1.7.109";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15377,6 +15377,22 @@ const DES_GRUPOS = [
   { key: "rol", titulo: "Cajeros + rollers", color: "#7c3aed" },
   { key: "todos", titulo: "Todos (cajeros + vendedores + rollers)", color: "#0f172a" },
 ];
+// Medias horas (0..47) que cubre una lista de tramos
+function desMedias(tramos) {
+  const out = new Set();
+  tramos.forEach((t) => { for (let m = 0; m < 48; m++) if (m / 2 >= t.start - 1e-6 && m / 2 < t.end - 1e-6) out.add(m); });
+  return [...out].sort((a, b) => a - b);
+}
+const desHora = (x) => `${Math.floor(x)}${x % 1 ? ":30" : ""}`;
+function desRangosMedias(ms) {
+  if (!ms.length) return "";
+  const r = []; let a = ms[0], b = ms[0];
+  ms.slice(1).forEach((m) => { if (m === b + 1) b = m; else { r.push([a, b]); a = b = m; } });
+  r.push([a, b]);
+  return r.map(([x, y]) => `${desHora(x / 2)}–${desHora((y + 1) / 2)}`).join(", ");
+}
+// Horas con decimal solo si hace falta: 8 / 8,5
+const desH = (n) => { const r = Math.round(n * 10) / 10; return (Number.isInteger(r) ? String(r) : r.toFixed(1).replace(".", ",")).replace(/\B(?=(\d{3})+(?!\d))/g, "."); };
 async function desCalcular(desde, hasta) {
   const { planning, demanda } = await covTraerPeriodo(desde, hasta);
   const diasLargos = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -15408,17 +15424,18 @@ async function desCalcular(desde, hasta) {
         otros.forEach((o) => { dia.aus[o.id] = o.estado; });
         const cajeros = [...bloques.apertura, ...bloques.siesta, ...bloques.cierre];
         const rollers = bloques.roller || [];
+        // Se cuenta por medias horas (9 a 17:30 = 8,5 h); cada media hora suma 0,5 en la hora que cae
         const sumar = (personas, grupos) => personas.forEach((p) => {
-          const todas = horasDe(p.tramos);
-          let normales = horasDe(p.tramos.filter((t) => !t.adicional));
+          const todas = desMedias(p.tramos);
+          let normales = desMedias(p.tramos.filter((t) => !t.adicional));
           // horas marcadas como adicionales ese día: se sacan del final del turno
           const o = getPlanningObj(p.id, dStr) || {};
-          const marca = Math.ceil(Number(o.adicManual) || 0);
+          const marca = Math.round((Number(o.adicManual) || 0) * 2);
           if (marca > 0) normales = normales.slice(0, Math.max(0, normales.length - marca));
-          grupos.forEach((g) => { todas.forEach((h) => dia.cnt[g + "_a"][h]++); normales.forEach((h) => dia.cnt[g + "_n"][h]++); });
-          if (todas.length > normales.length) dia.adicPers.push({ id: p.id, nombre: p.nombre, h: todas.length - normales.length });
-          const extra = todas.filter((h) => !normales.includes(h));
-          dia.pers[p.id] = { n: normales.length, a: extra.length, hn: normales.length ? covRangos(normales) : "", ha: extra.length ? covRangos(extra) : "", rc: !!p.rollerComoCajero };
+          grupos.forEach((g) => { todas.forEach((m) => { dia.cnt[g + "_a"][m >> 1] += 0.5; }); normales.forEach((m) => { dia.cnt[g + "_n"][m >> 1] += 0.5; }); });
+          if (todas.length > normales.length) dia.adicPers.push({ id: p.id, nombre: p.nombre, h: (todas.length - normales.length) / 2 });
+          const extra = todas.filter((m) => !normales.includes(m));
+          dia.pers[p.id] = { n: normales.length / 2, a: extra.length / 2, hn: desRangosMedias(normales), ha: desRangosMedias(extra), rc: !!p.rollerComoCajero };
         });
         sumar(cajeros, ["caj", "vend", "rol", "todos"]);
         sumar(respaldo, ["vend", "todos"]);
@@ -15485,7 +15502,7 @@ function desDetallePersonas(dias, semanas, total, fc2) {
   const bloques = [["Cajeros", "#10b981", gente.filter((g) => !g.roller)], ["Rollers", "#7c3aed", gente.filter((g) => g.roller)]].filter((b) => b[2].length);
   const ausTxt = (e) => { if (!e) return "Sin turno"; if (e === "F") return "Franco"; if (e === "V") return "Vacaciones"; if (e === "Libre") return "Libre"; return e.replace(/^Revisar: /, "Revisar "); };
   const sumaDe = (id, lista) => lista.reduce((o, x) => { const p = x.pers[id]; if (p) { o.n += p.n; o.a += p.a; } return o; }, { n: 0, a: 0 });
-  const celdaTot = (n, a) => `<td class="k">${desN(n)}</td><td class="k ad">${a ? desN(a) : "—"}</td><td class="k tt">${desN(n + a)}</td>`;
+  const celdaTot = (n, a) => `<td class="k">${desH(n)}</td><td class="k ad">${a ? desH(a) : "—"}</td><td class="k tt">${desH(n + a)}</td>`;
   const cab = (cols) => `<thead><tr><th class="nm">Persona</th>${cols.map((c) => `<th>${c}</th>`).join("")}<th class="k">Normal</th><th class="k ad">Adic.</th><th class="k tt">Total</th></tr></thead>`;
   const kpis = (titulo, sub, lista, req) => {
     const caj = gente.filter((g) => !g.roller), rol = gente.filter((g) => g.roller);
@@ -15495,12 +15512,12 @@ function desDetallePersonas(dias, semanas, total, fc2) {
     const tCA = lista.filter((x) => x.conDemanda && !x.cerrada).reduce((a, x) => a + x.t.caj_a.tengo, 0);
     const chipK = (n) => { const d = desDif(n); return `<span class="dif ${d.cls}">${d.txt}</span>`; };
     return { html: `<div class="pk"><div class="pk-h"><h2>${titulo}</h2><p>${sub}</p></div>
-      <div class="pk-k"><small>Piden</small><b>${desN(req)} h</b></div>
-      <div class="pk-k cj"><small>Cajeros · horas normales</small><b>${desN(sc.n)} h</b>${req ? (() => { const d = desDif(tC - req); return `<span class="dif ${d.cls}">${d.txt}</span>`; })() : ""}</div>
-      <div class="pk-k ad"><small>Adicionales de cajeros</small><b>+${desN(sc.a)} h</b>${sr.a ? `<em class="pk-r">rollers +${desN(sr.a)} h</em>` : ""}</div>
-      <div class="pk-k cja"><small>Cajeros · normales + adicionales</small><b>${desN(sc.n + sc.a)} h</b>${req ? chipK(tCA - req) : ""}</div></div>`, sc, sr };
+      <div class="pk-k"><small>Piden</small><b>${desH(req)} h</b></div>
+      <div class="pk-k cj"><small>Cajeros · horas normales</small><b>${desH(sc.n)} h</b>${req ? (() => { const d = desDif(tC - req); return `<span class="dif ${d.cls}">${d.txt}</span>`; })() : ""}</div>
+      <div class="pk-k ad"><small>Adicionales de cajeros</small><b>+${desH(sc.a)} h</b>${sr.a ? `<em class="pk-r">rollers +${desH(sr.a)} h</em>` : ""}</div>
+      <div class="pk-k cja"><small>Cajeros · normales + adicionales</small><b>${desH(sc.n + sc.a)} h</b>${req ? chipK(tCA - req) : ""}</div></div>`, sc, sr };
   };
-  const pie = (sc, sr) => `<div class="pk-fin"><div><small>Normal</small><b>${desN(sc.n + sr.n)} h</b></div><div class="ad"><small>Adicionales</small><b>${desN(sc.a + sr.a)} h</b></div><div class="tt"><small>Total</small><b>${desN(sc.n + sc.a + sr.n + sr.a)} h</b></div></div>`;
+  const pie = (sc, sr) => `<div class="pk-fin"><div><small>Normal</small><b>${desH(sc.n + sr.n)} h</b></div><div class="ad"><small>Adicionales</small><b>${desH(sc.a + sr.a)} h</b></div><div class="tt"><small>Total</small><b>${desH(sc.n + sc.a + sr.n + sr.a)} h</b></div></div>`;
   const tablaBloque = (tit, color, lista, cols, celda, sumaFila) => {
     let N = 0, A = 0;
     const filas = lista.map((g) => { const t = sumaFila(g); N += t.n; A += t.a; return `<tr><td class="nm"><b>${g.nombre}</b><small>${g.contrato ? g.contrato + " h" : ""}</small></td>${cols.map((c) => celda(g, c)).join("")}${celdaTot(t.n, t.a)}</tr>`; }).join("");
@@ -15512,7 +15529,7 @@ function desDetallePersonas(dias, semanas, total, fc2) {
   const celdaSem = (g, c) => {
     const t = sumaDe(g.id, c.dias);
     if (!t.n && !t.a) return `<td><div class="au">—</div></td>`;
-    return `<td><div class="dc${t.a ? " con" : ""}"><div class="hh"><b>${desN(t.n)} h</b>${t.a ? `<i>+${desN(t.a)}</i>` : ""}</div></div></td>`;
+    return `<td><div class="dc${t.a ? " con" : ""}"><div class="hh"><b>${desH(t.n)} h</b>${t.a ? `<i>+${desH(t.a)}</i>` : ""}</div></div></td>`;
   };
   const kp = kpis("Total del período", `${fc2(dias[0].fecha)} al ${fc2(dias[dias.length - 1].fecha)} · horas por persona en cada semana`, dias, total.req);
   let html = `<section class="salto">${kp.html}${bloques.map(([t, c, l]) => tablaBloque(t, c, l, colsSem, celdaSem, (g) => sumaDe(g.id, dias))).join("")}${pie(kp.sc, kp.sr)}</section>`;
@@ -15525,7 +15542,7 @@ function desDetallePersonas(dias, semanas, total, fc2) {
       if (x.cerrada) return `<td><div class="au">Cerrada</div></td>`;
       const p = x.pers[g.id];
       if (!p) return `<td><div class="au">${ausTxt(x.aus[g.id])}</div></td>`;
-      return `<td><div class="dc${p.a ? " con" : ""}"><div class="hh"><b>${p.n} h</b>${p.a ? `<i>+${p.a}</i>` : ""}</div><div class="hr">${p.hn}${p.ha ? `<span class="hx"> +${p.ha}</span>` : ""}${p.rc ? `<span class="rc">como cajero</span>` : ""}</div></div></td>`;
+      return `<td><div class="dc${p.a ? " con" : ""}"><div class="hh"><b>${desH(p.n)} h</b>${p.a ? `<i>+${desH(p.a)}</i>` : ""}</div><div class="hr">${p.hn}${p.ha ? `<span class="hx"> +${p.ha}</span>` : ""}${p.rc ? `<span class="rc">como cajero</span>` : ""}</div></div></td>`;
     };
     const fuera = w.desde !== w.lunes ? ` · los días anteriores al ${fc2(w.desde)} no están en el rango elegido` : "";
     const k = kpis(`Semana del ${fc2(w.desde)} al ${fc2(w.hasta)}`, `${ds.length} día${ds.length === 1 ? "" : "s"}${fuera}`, ds, w.req);
@@ -15633,8 +15650,8 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     else if (caj - r <= -3) cls = "f3";
     else if (caj < r) cls = "f1";
     else if (caj > r) cls = "sb";
-    const pie = [vend > 0 ? `<i class="v">+${vend}v</i>` : "", adic > 0 ? `<i class="a">${adic}ad</i>` : ""].filter(Boolean).join(" ");
-    return `<td><div class="bz ${cls}"><b>${caj}</b><span>/${x.conDemanda ? r : "–"}</span>${pie ? `<em>${pie}</em>` : ""}</div></td>`;
+    const pie = [vend > 0 ? `<i class="v">+${desH(vend)}v</i>` : "", adic > 0 ? `<i class="a">${desH(adic)}ad</i>` : ""].filter(Boolean).join(" ");
+    return `<td><div class="bz ${cls}"><b>${desH(caj)}</b><span>/${x.conDemanda ? r : "–"}</span>${pie ? `<em>${pie}</em>` : ""}</div></td>`;
   };
   const porHora = `<section class="salto"><h2>Por hora · cajeros / pedido</h2>
     <div class="ley"><span><i class="bz f3"></i>Faltan 3 o más</span><span><i class="bz f1"></i>Faltan 1 o 2</span><span><i class="bz ok"></i>Justo</span><span><i class="bz sb"></i>Sobra</span>
