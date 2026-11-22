@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.103
+            Versión: v1.7.104
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.103";
+  const APP_VERSION = "v1.7.104";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15524,8 +15524,8 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
   };
 
   // ---- Tablas por semana / por día (mismas columnas) ----
-  const cab = (primera, franjas) => `<thead><tr><th class="l">${primera}</th><th>Piden</th>${DES_GRUPOS.map((g) => `<th colspan="2" class="grp"><span class="dot" style="background:${g.color}"></span>${nomCorto[g.key]}</th>`).join("")}${franjas ? `<th class="l">Horas con faltante de cajeros</th>` : ""}</tr></thead>`;
-  const celdas = (t, req, hay) => `<td class="ini">${desN(t.tengo || 0)}</td><td>${hay ? chip((t.tengoConDem ?? t.tengo ?? 0) - req) : ""}</td>`;
+  const cab = (primera, franjas) => `<thead><tr><th class="l">${primera}</th><th>Piden</th>${DES_GRUPOS.map((g) => `<th colspan="2" class="grp ${g.key === "caj" ? "cjh" : "sch"}"><span class="dot" style="background:${g.color}"></span>${nomCorto[g.key]}</th>`).join("")}</tr></thead>`;
+  const celdas = (t, req, hay, key) => { const c = key === "caj" ? "cj" : "sc"; return `<td class="ini ${c}">${desN(t.tengo || 0)}</td><td class="${c}">${hay ? chip((t.tengoConDem ?? t.tengo ?? 0) - req) : ""}</td>`; };
   // Por semana: una tarjeta por semana, cajeros grande y los otros 3 chicos debajo
   const tablaSemanas = (v) => `<div class="semanas" style="grid-template-columns:repeat(${Math.max(1, Math.min(5, semanas.length))},1fr)">${semanas.map((w) => {
     const hay = w.req > 0;
@@ -15538,11 +15538,11 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
   const franjasDe = (x, v) => { const hs = []; for (let h = 0; h < 24; h++) if (x.r[h] > x.cnt["caj_" + v][h]) hs.push(h); return hs.length ? covRangos(hs) : "—"; };
   const tablaDias = (v) => `<table class="det">${cab("Día", true)}<tbody>
     ${dias.map((x) => {
-      if (x.cerrada) return `<tr class="cerr"><td class="l">${x.etiqueta}</td><td colspan="${2 + DES_GRUPOS.length * 2}" class="l">Tienda cerrada</td></tr>`;
-      if (!x.conDemanda) return `<tr class="cerr${x.feriado ? " fer" : ""}"><td class="l">${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}</td><td colspan="${2 + DES_GRUPOS.length * 2}" class="l">Sin pedido cargado · cajeros ${desN(x.t["caj_" + v].tengo)} h, todos ${desN(x.t["todos_" + v].tengo)} h (no suma al total)</td></tr>`;
-      return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}</td><td>${desN(x.req)}</td>${DES_GRUPOS.map((g) => celdas(x.t[g.key + "_" + v], x.req, true)).join("")}<td class="l fr">${franjasDe(x, v)}</td></tr>`;
+      if (x.cerrada) return `<tr class="cerr"><td class="l">${x.etiqueta}</td><td colspan="${1 + DES_GRUPOS.length * 2}" class="l">Tienda cerrada</td></tr>`;
+      if (!x.conDemanda) return `<tr class="cerr${x.feriado ? " fer" : ""}"><td class="l">${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}</td><td colspan="${1 + DES_GRUPOS.length * 2}" class="l">Sin pedido cargado · cajeros ${desN(x.t["caj_" + v].tengo)} h, todos ${desN(x.t["todos_" + v].tengo)} h (no suma al total)</td></tr>`;
+      return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}</td><td>${desN(x.req)}</td>${DES_GRUPOS.map((g) => celdas(x.t[g.key + "_" + v], x.req, true, g.key)).join("")}</tr>`;
     }).join("")}
-    <tr class="tot"><td class="l">Total</td><td>${desN(total.req)}</td>${DES_GRUPOS.map((g) => celdas(total.t[g.key + "_" + v] || {}, total.req, true)).join("")}<td></td></tr>
+    <tr class="tot"><td class="l">Total</td><td>${desN(total.req)}</td>${DES_GRUPOS.map((g) => celdas(total.t[g.key + "_" + v] || {}, total.req, true, g.key)).join("")}</tr>
     </tbody></table>`;
 
   // ---- Adicionales por persona ----
@@ -15652,6 +15652,16 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     .det td.ini { border-left: 1px solid #e2e8f0; }
     .hora td.ok { background: #eef2f6; } .hora td.hf { background: #fbdcdc; }
     .hora tbody tr:nth-child(even) td.ok { background: #e8edf3; }
+    /* Por día: cajeros destacado, el resto más tenue */
+    .det th.cjh { background: #d1f2e4; color: #065f46; font-size: 11px; }
+    .det td.cj { background: color-mix(in srgb, #10b981 9%, #fff) !important; font-size: 12px; font-weight: 700; padding-top: 5px; padding-bottom: 5px; }
+    .det td.cj .dif { font-size: 10.5px; padding: 2px 9px; }
+    .det td.ini.cj { border-left: 3px solid #10b981; }
+    .det tbody tr:nth-child(even) td.cj { background: color-mix(in srgb, #10b981 14%, #fff) !important; }
+    .det th.sch { font-size: 9px; color: #94a3b8; }
+    .det td.sc { color: #64748b; font-size: 9.5px; }
+    .det td.sc .dif { font-size: 8.5px; padding: 0 6px; opacity: .8; }
+    .det td:nth-child(2) { font-weight: 600; }
   </style></head><body>
     <header><h1>Desglose de horario · Línea de Cajas</h1><div class="per">${fc(desde)} al ${fc(hasta)}</div></header>
     <section><h2>Lo que piden contra lo que tenemos${hayAdic ? " · horas normales" : ""}</h2>
