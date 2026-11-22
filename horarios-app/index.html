@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.110
+            Versión: v1.7.111
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.110";
+  const APP_VERSION = "v1.7.111";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15520,7 +15520,7 @@ function desDetallePersonas(dias, semanas, total, fc2) {
     return { html: `<div class="pk"><div class="pk-h"><h2>${titulo}</h2><p>${sub}</p></div>
       <div class="pk-k"><small>Piden</small><b>${desH(req)} h</b></div>
       <div class="pk-k cj"><small>Cajeros · horas normales</small><b>${desH(sc.n)} h</b>${req ? (() => { const d = desDif(tC - req); return `<span class="dif ${d.cls}">${d.txt}</span>`; })() : ""}</div>
-      <div class="pk-k ad"><small>Adicionales de cajeros</small><b>+${desH(sc.a)} h</b>${sr.a ? `<em class="pk-r">rollers +${desH(sr.a)} h</em>` : ""}</div>
+      <div class="pk-k ad"><small>Horas adicionales</small><b>${desH(sc.a + sr.a)} h</b><div class="pk-sp"><span>Cajeros ${desH(sc.a)} h</span><span>Rollers ${desH(sr.a)} h</span></div></div>
       <div class="pk-k cja"><small>Cajeros · normales + adicionales</small><b>${desH(sc.n + sc.a)} h</b>${req ? chipK(tCA - req) : ""}</div></div>`, sc, sr };
   };
   const pie = (sc, sr) => `<div class="pk-fin"><div><small>Normal</small><b>${desH(sc.n + sr.n)} h</b></div><div class="ad"><small>Adicionales</small><b>${desH(sc.a + sr.a)} h</b></div><div class="tt"><small>Total</small><b>${desH(sc.n + sc.a + sr.n + sr.a)} h</b></div></div>`;
@@ -15754,7 +15754,7 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     .pk-k.cj { background: linear-gradient(90deg, #d8f5e9, #f0fbf6); border-color: #bbf0d6; }
     .pk-k.ad { background: #ecfeff; border-color: #a5f3fc; } .pk-k.ad b { color: #0e7490; }
     .pk-k.cja { background: #1e293b; border-color: #1e293b; color: #fff; } .pk-k.cja small { color: #cbd5e1; }
-    .pk-k .dif { white-space: nowrap; } .pk-r { font-style: normal; font-size: 9px; color: #64748b; margin-left: 6px; }
+    .pk-k .dif { white-space: nowrap; } .pk-sp { display: flex; gap: 10px; font-size: 9px; color: #0e7490; margin-top: 1px; } .pk-sp span { background: #cffafe; border-radius: 6px; padding: 0 6px; }
     .pg { margin-bottom: 4px; } .pg-t { display: flex; justify-content: space-between; align-items: baseline; border-left: 4px solid var(--c); padding-left: 8px; margin-bottom: 2px; }
     .pg-t span { font-weight: 700; font-size: 12px; } .pg-t small { color: #64748b; font-size: 9px; }
     .pp { border-collapse: separate; border-spacing: 2px 1.5px; table-layout: fixed; }
