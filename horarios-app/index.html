@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.86
+            Versión: v1.7.87
           </div>
         </div>
       </div>
@@ -4893,7 +4893,7 @@ function borradorGuardarNube() {
       await fsSetDoc(doc(db, "borradores", borrador.nubeId), JSON.parse(JSON.stringify({
         nombre: borrador.nombre || "Borrador", creado: borrador.creado || new Date().toISOString(),
         actualizado: borrador.actualizado || new Date().toISOString(), cambios,
-        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [], adicExcluidos: Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null, semanasReloj: Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : null,
+        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [], adicExcluidos: Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null, feriadoMas: borrador.feriadoMas || null, semanasReloj: Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : null,
       })));
     } catch (e) {
       console.warn("No se pudo guardar el borrador en la nube", e);
@@ -5031,7 +5031,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.86";
+  const APP_VERSION = "v1.7.87";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -17744,7 +17744,7 @@ async function borradorDesdeNube(id, datos) {
     if (c.o === null) delete original[k]; else original[k] = c.o;
     if (c.d === null) { borrados[k] = docs[k] || null; delete docs[k]; } else docs[k] = c.d;
   });
-  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [], ...(Array.isArray(datos.adicExcluidos) ? { adicExcluidos: datos.adicExcluidos } : {}), ...(Array.isArray(datos.semanasReloj) ? { semanasReloj: datos.semanasReloj } : {}) };
+  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [], ...(Array.isArray(datos.adicExcluidos) ? { adicExcluidos: datos.adicExcluidos } : {}), ...(datos.feriadoMas ? { feriadoMas: datos.feriadoMas } : {}), ...(Array.isArray(datos.semanasReloj) ? { semanasReloj: datos.semanasReloj } : {}) };
 }
 async function borradorListaNube() {
   if (isMockMode) return [];
@@ -18044,6 +18044,8 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     // Feriados con la tienda abierta: el que no viene (NV) no tiene el franco pegado al feriado;
     // el que viene lo tiene pegado como premio (si la cobertura lo permite)
     pl.noFrancoEn = []; pl.feriadoPegar = [];
+    // Feriados: los marcados hacen más horas ese día (mínimo 6, máximo 8), sacadas de los otros días del contrato
+    pl.feriadoMas = dias.map((d, i) => i).filter((i) => !cerrado[i] && opts.feriadoMas && (opts.feriadoMas[dias[i]] || []).includes(c.id));
     dias.forEach((d, i) => {
       if (cerrado[i] || !(state.holidays || []).includes(d)) return;
       const v = String(getSlotEfectivo(c.id, d) || "").replace("*", "").trim();
@@ -18203,7 +18205,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const sabadoPT = (i) => pl.contrato < 24 && dow(i) === 6; // los de 18 h trabajan el sábado (no franco ni libre)
     const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i) + castigoDia(i) - (i === 6 ? (pl.domingo === "libre" ? 15 : pl.domNecesidad >= 0.5 ? 8 : pl.domDisp > 0 ? 3 : 0) : 0) - (pl.feriadoPegar.includes(i) ? 10 : 0);
     // Día que más conviene trabajar: donde más falta; a igualdad, donde hay menos gente
-    const puntajeTrabajo = (i) => faltaDia(i) - 0.3 * gente(i) + 0.5 * francos(i) + castigoDia(i) * 0.5 + (i === 6 && pl.domingo === "trabaja" ? 100 : 0) + (sabadoPT(i) ? 100 : 0) + (i === pl.tcDia ? 300 : 0);
+    const puntajeTrabajo = (i) => faltaDia(i) - 0.3 * gente(i) + 0.5 * francos(i) + castigoDia(i) * 0.5 + (i === 6 && pl.domingo === "trabaja" ? 100 : 0) + (sabadoPT(i) ? 100 : 0) + (i === pl.tcDia ? 300 : 0) + (pl.feriadoMas.includes(i) ? 200 : 0);
     let trabaja = flex.filter((i) => pl.tipo[i] !== "vacio");
     const vacios = flex.filter((i) => pl.tipo[i] === "vacio");
     // franco: si no tiene, en el día donde más sobra gente (respetando los días permitidos del evento)
@@ -18215,6 +18217,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       if (pl.premio) base = pl.premioOpc; // premio: pegado al día de tienda cerrada
       if (pl.premio && sabadoOk && sabadoOk.has(pl.c.id)) { const s6 = base.filter((i) => dow(i) === 6); if (s6.length) base = s6; }
       base = base.filter((i) => i !== pl.tcDia); // el día de tienda cerrada lleva su horario (TC), no es el franco
+      if (base.some((i) => !pl.feriadoMas.includes(i))) base = base.filter((i) => !pl.feriadoMas.includes(i)); // viene el feriado y hace más horas
       if (pl.domingo === "trabaja" && base.some((i) => i !== 6)) base = base.filter((i) => i !== 6);
       // franco nunca sábado; los de 18 y 24 h tampoco domingo (salvo que les toque su domingo del mes)
       if (!pl.premio && base.some((i) => dow(i) !== 6)) base = base.filter((i) => dow(i) !== 6);
@@ -18238,6 +18241,16 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const n = trabaja.length;
     const L = {};
     trabaja.forEach((i, k) => { L[i] = Math.min(pl.cap, Math.floor(pl.meta / n) + (k < pl.meta % n ? 1 : 0)); });
+    // feriado con más horas: al menos 6 (hasta 8), sacándolas de los días más largos
+    const minL = (i) => (pl.feriadoMas.includes(i) ? 6 : 4);
+    const capL = (i) => (pl.feriadoMas.includes(i) ? Math.min(8, pl.cap) : pl.cap);
+    trabaja.filter((i) => pl.feriadoMas.includes(i)).forEach((i) => {
+      while (L[i] < 6) {
+        const j = trabaja.filter((x) => x !== i && L[x] > minL(x)).sort((a, b) => L[b] - L[a])[0];
+        if (j === undefined) break;
+        L[j]--; L[i]++;
+      }
+    });
     // ubicar cada día
     const ubicarTodo = () => {
       for (const i of trabaja) {
@@ -18250,7 +18263,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     for (let vuelta = 0; vuelta < 3; vuelta++) {
       let mejoro = false;
       for (const i of trabaja) for (const j of trabaja) {
-        if (i === j || L[i] - 1 < 4 || L[j] + 1 > pl.cap || !plan[i] || !plan[j]) continue;
+        if (i === j || L[i] - 1 < minL(i) || L[j] + 1 > capL(j) || !plan[i] || !plan[j]) continue;
         if (i === pl.tcDia || j === pl.tcDia) continue; // el horario del día cerrado (TC) queda como un día normal
         const k0 = costoDia(i) + costoDia(j);
         const bi = mejorUbicar(pl, plan, i, L[i] - 1, lim);
@@ -18270,7 +18283,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     for (let vuelta = 0; vuelta < 2; vuelta++) {
       for (const w of trabaja.slice()) {
         if (pl.tipo[w] !== "vacio" || !plan[w]) continue;
-        if (dow(w) === 6 || (w === 6 && pl.domingo === "trabaja")) continue; // (incluye el sábado de los de 18 h) // el sábado (y el domingo que le toca) se trabaja
+        if (dow(w) === 6 || (w === 6 && pl.domingo === "trabaja") || pl.feriadoMas.includes(w)) continue; // (incluye el sábado de los de 18 h) // el sábado (y el domingo que le toca) se trabaja
         const offs = flex.filter((i) => pl.tipo[i] === "vacio" && !trabaja.includes(i) && i !== pl.francoDia);
         for (const o of offs) {
           const k0 = costoDia(w) + costoDia(o);
@@ -18331,7 +18344,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
           const tr = pl.plan[i];
           const opciones = [];
           if (tr && tr.length) {
-            const L = largo(tr), cap = capAd(pl);
+            const L = largo(tr), cap = pl.feriadoMas.includes(i) ? 8 : capAd(pl);
             [1, 0.5].forEach((st) => {
               if (st > resto + 1e-9 || L + st > cap + 1e-9) return;
               const ini = tr[0], fin = tr[tr.length - 1];
@@ -18436,10 +18449,16 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const horarios = dias.map((d, i) => (horarioEsp[i] ? { d, ...horarioEsp[i] } : null)).filter(Boolean);
   const faltanDia = dias.map((_, i) => { let t = 0; if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; });
   const demDia = dem.map((arr) => arr.reduce((t, v) => t + v, 0));
+  // Rollers marcados para hacer más horas el feriado: no se arman, solo se avisa si tienen menos de 6 h
+  const feriadoAvisos = [];
+  personas.filter((pl) => pl.esRoller && pl.feriadoMas.length).forEach((pl) => pl.feriadoMas.forEach((i) => {
+    const h = largo(pl.plan[i]);
+    if (h < 6 - 1e-9) feriadoAvisos.push(`${nomPl(pl)} el ${dias[i].split("-").reverse().slice(0, 2).join("/")} tiene ${h ? `${h} h` : "sin horario"} (marcado para 6 a 8 h)`);
+  }));
   const adicTotal = Object.values(adicPor).reduce((t, x) => t + Object.values(x).reduce((a, b) => a + b, 0), 0);
   const adicDia = dias.map((d) => Object.values(adicPor).reduce((t, x) => t + (x[d] || 0), 0));
   const adicPersona = optimizables.filter((pl) => adicPor[pl.c.id]).map((pl) => ({ nombre: nomPl(pl), contrato: pl.contrato, h: Object.values(adicPor[pl.c.id]).reduce((a, b) => a + b, 0) }));
-  return { modoAdic: !!opts.adicionales, adicPor, adicTotal, adicDia, adicPersona, sinAdicFaltan, ids: optimizables.map((pl) => pl.c.id), idxCierre: kC, faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
+  return { feriadoAvisos, modoAdic: !!opts.adicionales, adicPor, adicTotal, adicDia, adicPersona, sinAdicFaltan, ids: optimizables.map((pl) => pl.c.id), idxCierre: kC, faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
     domingoPendiente: personas.filter((pl) => (pl.domingo === "libre" || pl.domForzar) && pl.plan[6] && pl.plan[6].length).map(nomPl),
     deAnioAnterior: dias.filter((_, i) => estimada[i] === "anio"),
     deSemanaAnterior: dias.filter((_, i) => estimada[i] === "anio364"),
@@ -18637,6 +18656,36 @@ function armadoElegirAdicionales(fechas) {
       } }]);
   });
 }
+// Feriados (con la tienda abierta) dentro de unas fechas
+function armadoFeriadosEn(fechas) { return fechas.filter((f) => (state.holidays || []).includes(f) && !armadoTiendaCerrada(f)); }
+// Quiénes hacen más horas (6 a 8) el feriado. Se recuerda en el borrador. Devuelve el mapa o null si se canceló
+function armadoElegirFeriado(feriados) {
+  return new Promise((resolve) => {
+    if (!feriados.length) { resolve(borrador.feriadoMas || {}); return; }
+    const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado && presuContrato(c) > 0 && (!presuEsRoller(c) || presuContrato(c) <= 30))
+      .sort((a, b) => (presuEsRoller(a) - presuEsRoller(b)) || String(a.name).localeCompare(String(b.name)));
+    const guardado = borrador.feriadoMas || {};
+    const nom = (c) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(c)) || c.name;
+    const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+    const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
+    const bloques = feriados.map((f) => {
+      const filas = gente.map((c) => {
+        const v = String(getSlotEfectivo(c.id, f) || "").trim();
+        if (/^nv/i.test(v)) return `<div style="color:var(--text-muted);font-size:0.8rem">${borradorEsc(nom(c))} · no viene (NV)</div>`;
+        return `<div><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="fer-mas" data-f="${f}" value="${c.id}" ${(guardado[f] || []).includes(c.id) ? "checked" : ""}> ${borradorEsc(nom(c))} <span style="color:var(--text-muted)">· ${presuContrato(c)} h${presuEsRoller(c) ? " · roller (solo te aviso)" : ""}</span></label></div>`;
+      }).join("");
+      return `<p style="margin:10px 0 4px"><b>Feriado ${dn[new Date(f + "T00:00:00").getDay()]} ${fc(f)}</b></p><div class="bm-lista">${filas}</div>`;
+    }).join("");
+    borradorModal("Feriados: ¿quiénes hacen más horas?", `<p>Tildá a los que ese día pueden hacer <b>de 6 a 8 h</b>. Las horas salen de su contrato (los otros días de la semana hacen menos). A los rollers no los armo: si están tildados y lo que cargaste tiene menos de 6 h, te aviso.</p>${bloques}`,
+      [{ txt: "Cancelar", fn: () => resolve(null) }, { txt: "Seguir", clase: "bm-prin", fn: () => {
+        const mapa = { ...(borrador.feriadoMas || {}) };
+        feriados.forEach((f) => { mapa[f] = [...document.querySelectorAll(`.fer-mas[data-f="${f}"]`)].filter((c) => c.checked).map((c) => c.value); });
+        borrador.feriadoMas = mapa;
+        borradorPersistir();
+        resolve(mapa);
+      } }]);
+  });
+}
 window.armarSinAdicionales = async function (decidido, modo) {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
   const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
@@ -18648,6 +18697,8 @@ window.armarSinAdicionales = async function (decidido, modo) {
       if (!ex) return;
       window.__armadoAdicDias = ex.dias;
     }
+    const fer = armadoFeriadosEn(Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), i))));
+    if (fer.length && !(await armadoElegirFeriado(fer))) return;
   }
   // Si la semana ya tiene cambios en el borrador (de un armado viejo o a mano), se puede armar sobre eso
   // o volver a empezar desde los horarios reales
@@ -18766,7 +18817,7 @@ function armadoPedirPremio(lunes, hist) {
 }
 function armadoMostrar(lunes, hist, premiados, sabados, modo) {
   let r;
-  const extra = { adicionales: modo === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias: modo === "con" ? window.__armadoAdicDias || null : null };
+  const extra = { adicionales: modo === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias: modo === "con" ? window.__armadoAdicDias || null : null, feriadoMas: borrador.feriadoMas || {} };
   try { r = premiados ? armadoConPremio(lunes, hist, premiados, sabados, extra) : armadoSemana(lunes, hist, extra); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
   const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
   const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
@@ -18776,6 +18827,7 @@ function armadoMostrar(lunes, hist, premiados, sabados, modo) {
   borradorModal("Armar sugerido de la semana", `<p>Semana del <b>${fc(lunes)}</b>. ${r.modoAdic ? "Cada persona con su contrato y, donde la curva lo pide, horas adicionales (hasta 42 h por semana)." : "Cada persona queda con las horas de su contrato (sin adicionales)."} Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
     ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy → <b>${r1(r.despues)} h</b> con la propuesta.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se arma para tener al menos un cajero de 8 a 22.</p>`}
     ${r.modoAdic ? armadoTextoAdic(r) : ""}
+    ${r.feriadoAvisos && r.feriadoAvisos.length ? `<p class="bm-ojo">⚠ Feriado: ${r.feriadoAvisos.map(borradorEsc).join(" · ")}.</p>` : ""}
     ${r.deAnioAnterior.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.deAnioAnterior.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Por ser día especial se usó la curva del mismo día del año pasado.</p>` : ""}
     ${r.deSemanaAnterior.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.deSemanaAnterior.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se usó la del mismo día de la misma semana del año pasado.</p>` : ""}
     ${r.domingoPendiente.length ? `<p class="bm-ojo">Les falta su domingo libre del mes y este domingo no se pudo sin dejar poca gente: ${r.domingoPendiente.map(borradorEsc).join(", ")}.</p>` : ""}
@@ -18904,7 +18956,11 @@ window.armarMes = async function () {
     if (!ex) return;
     adicDias = ex.dias;
   }
-  const extra = { adicionales: conAdic === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias };
+  const todasF = [];
+  for (let d = new Date(semanas[0] + "T00:00:00"); formatDate(d) <= finSem(semanas[semanas.length - 1]); d = addDays(d, 1)) todasF.push(formatDate(d));
+  const ferMes = armadoFeriadosEn(todasF);
+  if (ferMes.length && !(await armadoElegirFeriado(ferMes))) return;
+  const extra = { adicionales: conAdic === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias, feriadoMas: borrador.feriadoMas || {} };
   // Que la grilla tenga todo el borrador de esas semanas (y la anterior y la siguiente) a mano
   const desde = formatDate(addDays(new Date(semanas[0] + "T00:00:00"), -7)), hasta = formatDate(addDays(new Date(semanas[semanas.length - 1] + "T00:00:00"), 13));
   Object.entries(borrador.docs || {}).forEach(([k, o]) => { const f = k.slice(-10); if (f >= desde && f <= hasta && !(k in state.planning)) state.planning[k] = JSON.parse(JSON.stringify(o)); });
@@ -18943,6 +18999,7 @@ window.armarMes = async function () {
     const r = x.r, av = [];
     if (r.sinCajero) av.push(`${r.sinCajero} h sin cajero`);
 
+    if (r.feriadoAvisos && r.feriadoAvisos.length) av.push(...r.feriadoAvisos);
     if (r.domingoPendiente.length) av.push(`les falta el domingo: ${r.domingoPendiente.join(", ")}`);
     if (r.sinSol.length) av.push(`sin cambios para ${r.sinSol.join(", ")}`);
     const curva = [];
