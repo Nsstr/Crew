@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.104
+            Versión: v1.7.105
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.104";
+  const APP_VERSION = "v1.7.105";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15562,20 +15562,29 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
   // pie de la grilla con lo mismo que muestra (todo lo cargado)
   const faltaA = Array(24).fill(0), sobraA = Array(24).fill(0);
   conDem.forEach((x) => { for (let h = 0; h < 24; h++) { faltaA[h] += Math.max(0, x.r[h] - x.cnt.caj_a[h]); sobraA[h] += Math.max(0, x.cnt.todos_a[h] - x.r[h]); } });
+  // Grilla por hora en mosaico: cada hora es una baldosa redondeada pintada según cuánto falta o sobra
+  const horasG = (() => { let a = 24, b = -1; dias.forEach((x) => { if (x.cerrada) return; for (let h = 0; h < 24; h++) if (x.r[h] > 0 || x.cnt.caj_a[h] > 0) { a = Math.min(a, h); b = Math.max(b, h); } }); const o = []; for (let h = a; h <= b; h++) o.push(h); return o; })();
+  const baldosa = (x, h) => {
+    const caj = x.cnt.caj_a[h], r = x.r[h], vend = x.cnt.vend_a[h] - caj, adic = caj - x.cnt.caj_n[h];
+    if (!caj && !r) return `<td><div class="bz vacia"></div></td>`;
+    let cls = "ok";
+    if (!x.conDemanda) cls = "sp";
+    else if (caj - r <= -3) cls = "f3";
+    else if (caj < r) cls = "f1";
+    else if (caj > r) cls = "sb";
+    const pie = [vend > 0 ? `<i class="v">+${vend}v</i>` : "", adic > 0 ? `<i class="a">${adic}ad</i>` : ""].filter(Boolean).join(" ");
+    return `<td><div class="bz ${cls}"><b>${caj}</b><span>/${x.conDemanda ? r : "–"}</span>${pie ? `<em>${pie}</em>` : ""}</div></td>`;
+  };
   const porHora = `<section class="salto"><h2>Por hora · cajeros / pedido</h2>
-    <p class="sub">Cada celda: cajeros que hay / cajeros que piden. En rojo, las horas donde faltan cajeros. Abajo, en <span style="color:#c2410c">naranja</span> los vendedores con fallo de caja que pueden cobrar${hayAdic ? ' y en <span style="color:#0891b2">celeste</span> cuántos cajeros están en horas adicionales' : ""}.</p>
-    <table class="hora"><thead><tr><th class="l">Día</th>${horas.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>
+    <div class="ley"><span><i class="bz f3"></i>Faltan 3 o más</span><span><i class="bz f1"></i>Faltan 1 o 2</span><span><i class="bz ok"></i>Justo</span><span><i class="bz sb"></i>Sobra</span>
+      <span class="lt">Número grande: cajeros que hay · chico: los que piden · <b style="color:#c2410c">+1v</b> vendedores con fallo de caja${hayAdic ? ' · <b style="color:#0891b2">1ad</b> cajeros en horas adicionales' : ""}</span></div>
+    <table class="mosaico"><thead><tr><th class="l">Día</th>${horasG.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>
     ${dias.map((x) => {
-      if (x.cerrada) return `<tr class="cerr"><td class="l">${x.etiqueta}</td><td colspan="${horas.length}" class="l">Tienda cerrada</td></tr>`;
-      return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}</td>${horas.map((h) => {
-        const caj = x.cnt.caj_a[h], r = x.r[h], vend = x.cnt.vend_a[h] - caj, adic = caj - x.cnt.caj_n[h];
-        const falta = x.conDemanda && caj < r;
-        const extra = [vend > 0 ? `<i class="v">+${vend} vend</i>` : "", adic > 0 ? `<i class="a">${adic} adic</i>` : ""].filter(Boolean).join(" ");
-        return `<td class="${falta ? "hf" : caj || r ? "ok" : ""}"><b>${caj}</b>/${x.conDemanda ? r : "–"}${extra ? `<br>${extra}` : ""}</td>`;
-      }).join("")}</tr>`;
+      if (x.cerrada) return `<tr><td class="l dia cerr-t">${x.etiqueta}</td><td colspan="${horasG.length}"><div class="bz cerrada">Tienda cerrada</div></td></tr>`;
+      return `<tr><td class="l dia${x.feriado ? " ferd" : ""}">${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}</td>${horasG.map((h) => baldosa(x, h)).join("")}</tr>`;
     }).join("")}
-    <tr class="tot"><td class="l">Faltan cajeros (h)</td>${horas.map((h) => `<td class="${faltaA[h] ? "rojo" : ""}">${faltaA[h] ? desN(faltaA[h]) : "·"}</td>`).join("")}</tr>
-    <tr class="tot"><td class="l">Sobran con todos (h)</td>${horas.map((h) => `<td class="${sobraA[h] ? "verde" : ""}">${sobraA[h] ? desN(sobraA[h]) : "·"}</td>`).join("")}</tr>
+    <tr class="pie"><td class="l dia">Faltan cajeros (h)</td>${horasG.map((h) => `<td><div class="tz ${faltaA[h] ? "rj" : ""}">${faltaA[h] ? desN(faltaA[h]) : "·"}</div></td>`).join("")}</tr>
+    <tr class="pie"><td class="l dia">Sobran con todos (h)</td>${horasG.map((h) => `<td><div class="tz ${sobraA[h] ? "vd" : ""}">${sobraA[h] ? desN(sobraA[h]) : "·"}</div></td>`).join("")}</tr>
     </tbody></table></section>`;
 
   const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Desglose de horario · ${fc(desde)} al ${fc(hasta)}</title><style>
@@ -15652,6 +15661,27 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     .det td.ini { border-left: 1px solid #e2e8f0; }
     .hora td.ok { background: #eef2f6; } .hora td.hf { background: #fbdcdc; }
     .hora tbody tr:nth-child(even) td.ok { background: #e8edf3; }
+    /* Mosaico por hora */
+    .mosaico { border-collapse: separate; border-spacing: 3px; table-layout: fixed; margin-left: -3px; width: calc(100% + 6px); }
+    .mosaico th { background: none !important; padding: 2px 0 3px; text-align: center; font-size: 9px; color: #64748b; }
+    .mosaico th.l { width: 112px; text-align: left; padding-left: 4px; }
+    .mosaico td { padding: 0; border: none; background: none !important; }
+    .mosaico td.dia { font-size: 9.5px; white-space: nowrap; padding-left: 4px; color: #334155; }
+    .mosaico td.ferd { color: #92400e; } .mosaico td.cerr-t { color: #94a3b8; }
+    .bz { border-radius: 6px; height: 27px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; align-content: center; line-height: 1.05; font-variant-numeric: tabular-nums; }
+    .bz b { font-size: 11px; font-weight: 700; } .bz span { font-size: 8.5px; opacity: .75; margin-left: 1px; }
+    .bz em { font-style: normal; width: 100%; text-align: center; font-size: 7px; } .bz em i { font-style: normal; font-weight: 600; }
+    .bz em i.v { color: #c2410c; } .bz em i.a { color: #0e7490; }
+    .bz.vacia { background: #f4f6f9; height: 27px; }
+    .bz.f3 { background: #f5a3a3; color: #7f1d1d; } .bz.f1 { background: #fcdada; color: #991b1b; }
+    .bz.ok { background: #cdeedd; color: #065f46; } .bz.sb { background: #dbeafe; color: #1e3a8a; } .bz.sp { background: #eef2f6; color: #475569; }
+    .bz.cerrada { background: #f1f5f9; color: #94a3b8; font-style: italic; font-size: 9.5px; height: 22px; }
+    .ley { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 9.5px; color: #475569; margin: 2px 0 8px 12px; }
+    .ley span { display: flex; align-items: center; gap: 5px; } .ley i.bz { display: inline-block; width: 16px; height: 12px; border-radius: 3px; }
+    .ley .lt { color: #64748b; }
+    .tz { border-radius: 6px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 9.5px; font-weight: 700; background: #f4f6f9; color: #94a3b8; }
+    .tz.rj { background: #fee2e2; color: #b91c1c; } .tz.vd { background: #dcfce7; color: #15803d; }
+    .mosaico tr.pie td.dia { font-weight: 700; padding-top: 4px; }
     /* Por día: cajeros destacado, el resto más tenue */
     .det th.cjh { background: #d1f2e4; color: #065f46; font-size: 11px; }
     .det td.cj { background: color-mix(in srgb, #10b981 9%, #fff) !important; font-size: 12px; font-weight: 700; padding-top: 5px; padding-bottom: 5px; }
