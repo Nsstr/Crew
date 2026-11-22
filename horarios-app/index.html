@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.100
+            Versión: v1.7.101
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.100";
+  const APP_VERSION = "v1.7.101";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15616,6 +15616,24 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     .hora td.ok { background: #f8fafc; } .hora i { font-style: normal; font-size: 7.5px; white-space: nowrap; }
     .hora i.v { color: #c2410c; } .hora i.a { color: #0891b2; }
     .rojo { color: #b91c1c; } .verde { color: #15803d; }
+    /* Coloración: tonos pizarra suaves para que no sea todo blanco */
+    body { color: #1e293b; }
+    header { background: linear-gradient(90deg, #1e293b, #334155); color: #fff; border: none; border-radius: 10px; padding: 12px 18px; }
+    header .per { color: #cbd5e1; font-weight: 600; }
+    h2 { border-left: 4px solid #475569; padding-left: 8px; color: #1e293b; margin-bottom: 4px; }
+    .sub { padding-left: 12px; }
+    th { background: #e9eef4; color: #475569; border-bottom: none; }
+    thead tr:first-child th:first-child { border-radius: 6px 0 0 0; } thead tr:first-child th:last-child { border-radius: 0 6px 0 0; }
+    tbody tr:nth-child(even) td { background: #f6f8fb; }
+    td { border-bottom: 1px solid #e9eef4; }
+    .tot td { background: #dfe6ee !important; border-top: none; }
+    .fer td { background: #fdf6dc !important; }
+    .card { background: color-mix(in srgb, var(--c) 7%, #ffffff); border-color: color-mix(in srgb, var(--c) 22%, #ffffff); }
+    .hero { background: linear-gradient(90deg, color-mix(in srgb, var(--c) 13%, #ffffff), color-mix(in srgb, var(--c) 4%, #ffffff)); }
+    .det th.grp { background: #e9eef4; border-left: 1px solid #d5dde7; }
+    .det td.ini { border-left: 1px solid #e2e8f0; }
+    .hora td.ok { background: #eef2f6; } .hora td.hf { background: #fbdcdc; }
+    .hora tbody tr:nth-child(even) td.ok { background: #e8edf3; }
   </style></head><body>
     <header><h1>Desglose de horario · Línea de Cajas</h1><div class="per">${fc(desde)} al ${fc(hasta)}</div></header>
     <section><h2>Lo que piden contra lo que tenemos${hayAdic ? " · horas normales" : ""}</h2>
