@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.83
+            Versión: v1.7.84
           </div>
         </div>
       </div>
@@ -5031,7 +5031,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.83";
+  const APP_VERSION = "v1.7.84";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18298,7 +18298,9 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     pl.plan = plan;
     pl.trabaja = trabaja;
   };
-  const optimizables = personas.filter((pl) => (pl.flex.some(Boolean) || pl.tipo.includes("cerrado")) && pl.contrato > 0);
+  // Solo se arman los cajeros: los rollers (y la tesorería) los arma Néstor a mano; sus horarios cargados
+  // cuentan igual para la cobertura
+  const optimizables = personas.filter((pl) => (pl.flex.some(Boolean) || pl.tipo.includes("cerrado")) && pl.contrato > 0 && !pl.esRoller);
   optimizables.sort((a, b) => (a.rolDia.some(Boolean) ? 1 : 0) - (b.rolDia.some(Boolean) ? 1 : 0));
   for (let pasada = 0; pasada < 3; pasada++) optimizables.forEach(optimizarPersona);
   // ---- Con adicionales: después del contrato, se suman horas donde la curva sigue descubierta.
@@ -18350,7 +18352,9 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
             const prueba = pl.plan.slice(); prueba[i] = o.tr;
             if (!valido(pl, prueba, lim)) return;
             aplicar(pl, i, o.tr, 1);
-            const g = (k0 - costoDia(i)) / o.h;
+            let g = (k0 - costoDia(i)) / o.h;
+            // los de 18 h son los primeros para las adicionales, sobre todo con doble turno
+            if (pl.contrato <= 18 && g > 0.9) g += o.tr.length > 1 ? 0.8 : 0.3;
             aplicar(pl, i, o.tr, -1);
             if (g > 0.9 && (!best || g > best.g + 1e-9)) best = { pl, i, o, g };
           });
@@ -18378,7 +18382,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const sinRoller = sinRollerDia.reduce((t, x) => t + x.length, 0);
   const nomPl = (pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name;
   const premio = personas.filter((pl) => pl.premio && pl.francoDia !== null && pl.francoDia !== undefined).map((pl) => ({ id: pl.c.id, nombre: nomPl(pl), dia: dias[pl.francoDia], hueco: sinCajeroDia[pl.francoDia] + sinRollerDia[pl.francoDia].length }));
-  const candidatosPremio = personas.filter((pl) => pl.premioPosible).map((pl) => ({ id: pl.c.id, nombre: nomPl(pl), contrato: pl.contrato, rol: pl.rolDia.some(Boolean) }));
+  const candidatosPremio = personas.filter((pl) => pl.premioPosible && !pl.esRoller).map((pl) => ({ id: pl.c.id, nombre: nomPl(pl), contrato: pl.contrato, rol: pl.rolDia.some(Boolean) }));
   // Sábado pegado al cierre que se puede otorgar (no en Navidad ni Año Nuevo)
   const kC = cerrado.findIndex(Boolean);
   const idxSab = kC < 0 || ["12-25", "01-01"].includes(dias[kC].slice(5)) ? null
@@ -18577,8 +18581,8 @@ function armadoElegirModo(titulo) {
 // excluidos del evento si los tiene. Devuelve la lista de excluidos o null si se canceló.
 function armadoElegirAdicionales() {
   return new Promise((resolve) => {
-    const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado && presuContrato(c) > 0 && presuContrato(c) < 42)
-      .sort((a, b) => (presuEsRoller(a) - presuEsRoller(b)) || String(a.name).localeCompare(String(b.name)));
+    const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado && !presuEsRoller(c) && presuContrato(c) > 0 && presuContrato(c) < 42)
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
     let excl = Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null;
     if (!excl) { const p = typeof presuActivo === "function" ? presuActivo() : null; excl = p && Array.isArray(p.excluidos) ? p.excluidos : []; }
     const nom = (c) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(c)) || c.name;
@@ -18691,7 +18695,7 @@ function armadoPedirPremio(lunes, hist) {
       if (nR > maxR) avisos.push(`sobran ${nR - maxR} ${nR - maxR === 1 ? "roller" : "rollers"}`);
       if (n < minP) avisos.push(`faltan ${minP - n} en total`);
       if (nR < minR) avisos.push(`faltan ${minR - nR} ${minR - nR === 1 ? "roller" : "rollers"}`);
-      lim.innerHTML = `Para no afectar la dotación ni la cobertura${minP || minR ? ` (y que en ${otra.nombre} queden suficientes trabajando)` : ""} se le puede dar a ${rango(minP, maxP)} personas, de las cuales rollers ${rango(minR, maxR)}. Elegidos: <b>${n}</b> (${nR} rollers).`
+      lim.innerHTML = `Para no afectar la dotación ni la cobertura${minP || minR ? ` (y que en ${otra.nombre} queden suficientes trabajando)` : ""} se le puede dar a ${rango(minP, maxP)} personas${esRolId.size ? `, de las cuales rollers ${rango(minR, maxR)}` : ""}. Elegidos: <b>${n}</b>${esRolId.size ? ` (${nR} rollers)` : ""}.`
         + (avisos.length ? ` <span class="bm-ojo">⚠ ${avisos.join(" · ")}.</span>` : ` <span style="color:#15803d">✓ ${minP || minR ? "Alcanza en las dos fiestas" : "Dentro del límite"}.</span>`);
       chks.forEach((c) => { c.disabled = !c.checked && (n >= maxP || (esRolId.has(c.value) && nR >= maxR)); });
     };
@@ -18742,12 +18746,9 @@ function armadoMostrar(lunes, hist, premiados, sabados, modo) {
     ${r.premioSacados && r.premioSacados.length ? `<p class="bm-ojo">Sin franco pegado para no dejar horas sin cajero o sin roller: ${r.premioSacados.map(borradorEsc).join(", ")}.</p>` : ""}
     ${r.premioNoElegidos && r.premioNoElegidos.length ? `<p style="color: var(--text-muted)">Sin premio (destildados): ${r.premioNoElegidos.map(borradorEsc).join(", ")}.</p>` : ""}
     ${r.horarios && r.horarios.length ? `<p>Horario especial de la tienda: ${r.horarios.map((x) => `${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)} de ${x.a} a ${x.c}`).join(", ")}.</p>` : ""}
-    ${r.sinRoller ? `<p class="bm-ojo">⚠ Sin roller: ${r.sinRollerTxt.map((x) => `${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)} de ${x.txt}`).join(" · ")}. No alcanzan los rollers con sus francos y descansos.</p>` : `<p>Todas las horas abiertas tienen al menos un roller.</p>`}
+    <p style="color: var(--text-muted)">Rollers y tesorería: no se arman (los cargás vos); lo que tengan cargado cuenta para la cobertura.${r.sinRoller ? ` Con lo cargado hoy quedan horas sin roller: ${r.sinRollerTxt.map((x) => `${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)} de ${x.txt}`).join(" · ")}.` : ""}</p>
     ${r.sinCajero ? `<p class="bm-ojo">⚠ Quedan ${r.sinCajero} ${r.sinCajero === 1 ? "hora" : "horas"} sin ningún cajero: no alcanza la gente o los descansos no lo permiten.</p>` : `<p>Todas las horas abiertas tienen al menos un cajero.</p>`}
-    ${r.tesEncontrados.length ? (r.sinTes.length
-      ? `<p class="bm-ojo">⚠ Tesorería 7 h sin cubrir: ${r.sinTes.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}.</p>`
-      : `<p>Tesorería: todos los días entra alguien a las 7${r.conSuplente.length ? ` (con la suplente: ${r.conSuplente.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")})` : ""}.</p>`)
-      : `<p class="bm-ojo">No encontré a las personas de tesorería en esta área.</p>`}
+
     ${r.sinSol.length ? `<p class="bm-ojo">Sin cambios para ${r.sinSol.map(borradorEsc).join(", ")}: con sus descansos no se pudo armar otra opción.</p>` : ""}
     ${r.cambios.length ? `<p>${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"} en ${r.personas} ${r.personas === 1 ? "persona" : "personas"}:</p><div class="bm-lista">${lista}</div>` : `<p>Ya está lo mejor que encuentro: no hay cambios para hacer.</p>`}
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Es solo en el borrador. Después lo revisás con la cobertura y lo ajustás a mano. Podés deshacerlo.</p>`,
@@ -18892,8 +18893,7 @@ window.armarMes = async function () {
     if (x.error) return `<div class="bm-ojo">${tit}: no se pudo armar.</div>`;
     const r = x.r, av = [];
     if (r.sinCajero) av.push(`${r.sinCajero} h sin cajero`);
-    if (r.sinRoller) av.push(`sin roller: ${r.sinRollerTxt.map((z) => `${dia(z.d)} ${z.txt}`).join(", ")}`);
-    if (r.sinTes && r.sinTes.length) av.push(`tesorería 7 h sin cubrir: ${r.sinTes.map(dia).join(", ")}`);
+
     if (r.domingoPendiente.length) av.push(`les falta el domingo: ${r.domingoPendiente.join(", ")}`);
     if (r.sinSol.length) av.push(`sin cambios para ${r.sinSol.join(", ")}`);
     const curva = [];
