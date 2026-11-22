@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.95
+            Versión: v1.7.96
           </div>
         </div>
       </div>
@@ -3865,7 +3865,7 @@
         </div>
 
         <div id="pdfCoberturaOpts" style="display: none; flex-direction: column; gap: 0.6rem;">
-          <p id="covDescCobertura" style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Tres cuadros contra lo que pide Recaudaciones: cajeros, cajeros + vendedores y solo horas de contrato.</p>
+          <p id="covDescCobertura" style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Horas reales contra lo que pide Recaudaciones (sin contar francos, libres, vacaciones, NV ni ausencias): cajeros, + vendedores con fallo de caja, + rollers y todos juntos. Primero con las horas normales y abajo con las adicionales. Resumen, por semana y por día.</p>
           <div style="display: flex; gap: 0.5rem;">
             <div style="flex: 1; display: flex; flex-direction: column; gap: 0.2rem;">
               <label style="font-size: 0.8rem; color: var(--text-muted);">Desde</label>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.95";
+  const APP_VERSION = "v1.7.96";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15044,13 +15044,17 @@ pdfForm.addEventListener("submit", async (e) => {
       return;
     }
     const formato = document.querySelector('input[name="covFormato"]:checked').value;
+    // El PDF se abre en una ventana para imprimir o guardar (se abre ya, dentro del clic)
+    const win = formato === "pdf" ? window.open("", "_blank") : null;
+    if (win) win.document.write('<p style="font-family:sans-serif;padding:20px">Armando el desglose…</p>');
     pdfModal.style.display = "none";
-    showToast("Preparando", "Armando el detalle de cobertura…", "info");
+    showToast("Preparando", "Armando el desglose de horario…", "info");
     try {
-      await covExportarDetalle(desde, hasta, formato);
+      await desExportar(desde, hasta, formato, win);
     } catch (err) {
-      console.error("Error al generar el detalle de cobertura:", err);
-      showToast("No se pudo armar", "El detalle falló. Volvé a intentar.", "error");
+      console.error("Error al generar el desglose:", err);
+      if (win) win.close();
+      showToast("No se pudo armar", "El desglose falló. Volvé a intentar.", "error");
     }
     return;
   }
@@ -15360,6 +15364,182 @@ async function covCalcularPeriodo(desde, hasta) {
 const covPct = (cub, req) => (req ? `${Math.round((cub / req) * 100)}%` : "—");
 const covFecha = (s) => s.split("-").reverse().join("/");
 const covH = (n) => Math.round(n * 100) / 100;
+
+// ===== PDF Desglose de Horario =====
+// Horas reales de la gente que viene (francos, libres, vacaciones, NV, enfermos, suspensiones y demás
+// ausencias no cuentan), hora por hora contra lo que pide Recaudaciones. Cuatro grupos (cajeros,
+// + vendedores con fallo de caja, + rollers, todos) y dos versiones: horas normales (sin adicionales:
+// sin turnos adicionales, sin las horas marcadas como adicionales y nunca por encima del contrato de la
+// semana) y con adicionales (todo lo cargado).
+const DES_GRUPOS = [
+  { key: "caj", titulo: "Cajeros", color: "#10b981" },
+  { key: "vend", titulo: "Cajeros + vendedores (fallo de caja)", color: "#c2410c" },
+  { key: "rol", titulo: "Cajeros + rollers", color: "#7c3aed" },
+  { key: "todos", titulo: "Todos (cajeros + vendedores + rollers)", color: "#0f172a" },
+];
+async function desCalcular(desde, hasta) {
+  const { planning, demanda } = await covTraerPeriodo(desde, hasta);
+  const diasLargos = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const planOrig = state.planning, demOrig = state.demandaCajas;
+  state.planning = planning; state.demandaCajas = demanda;
+  const contratoDe = (id) => {
+    const c = state.collaborators.find((x) => x.id === id);
+    const h = c ? parseFloat(c.hours) || parseFloat(c.cargaHoraria) || parseFloat(c.contractHours) || 0 : 0;
+    return h > 0 ? h : Infinity;
+  };
+  // Horas (enteras) que cubre una lista de tramos
+  const horasDe = (tramos) => { const out = []; tramos.forEach((t) => { for (let h = 0; h < 24; h++) if (h >= t.start && h < t.end) out.push(h); }); return out.sort((a, b) => a - b); };
+  const dias = [];
+  try {
+    let restante = {}, semana = null;
+    for (let d = new Date(desde + "T00:00:00"); formatDate(d) <= hasta; d = addDays(d, 1)) {
+      const dStr = formatDate(d);
+      const lun = formatDate(getStartOfWeek(d));
+      if (lun !== semana) { semana = lun; restante = {}; }
+      const evento = state.eventos && state.eventos[dStr];
+      const curva = demanda[dStr] || null;
+      const dia = { fecha: dStr, semana: lun, etiqueta: `${diasLargos[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
+        feriado: (state.holidays || []).includes(dStr), cerrada: !!(evento && evento.tiendaCerrada), conDemanda: !!curva, req: 0,
+        r: Array(24).fill(0), cnt: {} };
+      DES_GRUPOS.forEach((g) => { dia.cnt[g.key + "_n"] = Array(24).fill(0); dia.cnt[g.key + "_a"] = Array(24).fill(0); });
+      if (curva) for (let h = 0; h < 24; h++) { dia.r[h] = Number(curva[h]) || 0; dia.req += dia.r[h]; }
+      if (!dia.cerrada) {
+        const { bloques, respaldo } = cdvArmarDia(dStr);
+        const cajeros = [...bloques.apertura, ...bloques.siesta, ...bloques.cierre];
+        const rollers = bloques.roller || [];
+        const sumar = (personas, grupos) => personas.forEach((p) => {
+          const todas = horasDe(p.tramos);
+          let normales = horasDe(p.tramos.filter((t) => !t.adicional));
+          // horas marcadas como adicionales ese día: se sacan del final del turno
+          const o = getPlanningObj(p.id, dStr) || {};
+          const marca = Math.ceil(Number(o.adicManual) || 0);
+          if (marca > 0) normales = normales.slice(0, Math.max(0, normales.length - marca));
+          // nunca por encima del contrato de la semana
+          if (restante[p.id] === undefined) restante[p.id] = contratoDe(p.id);
+          normales = normales.filter(() => { if (restante[p.id] >= 0.5) { restante[p.id] -= 1; return true; } return false; });
+          grupos.forEach((g) => { todas.forEach((h) => dia.cnt[g + "_a"][h]++); normales.forEach((h) => dia.cnt[g + "_n"][h]++); });
+        });
+        sumar(cajeros, ["caj", "vend", "rol", "todos"]);
+        sumar(respaldo, ["vend", "todos"]);
+        sumar(rollers, ["rol", "todos"]);
+      }
+      // Totales del día por grupo y versión
+      dia.t = {};
+      Object.entries(dia.cnt).forEach(([k, arr]) => {
+        let tengo = 0, falta = 0, cub = 0;
+        for (let h = 0; h < 24; h++) { tengo += arr[h]; falta += Math.max(0, dia.r[h] - arr[h]); cub += Math.min(arr[h], dia.r[h]); }
+        dia.t[k] = { tengo, falta, cub };
+      });
+      dias.push(dia);
+    }
+  } finally { state.planning = planOrig; state.demandaCajas = demOrig; }
+  // Sumas: período y por semana (lo pedido solo cuenta en días con demanda cargada)
+  const sumarDias = (lista) => {
+    const out = { req: 0, dias: lista.length, t: {} };
+    lista.forEach((x) => {
+      if (x.cerrada) return;
+      if (x.conDemanda) out.req += x.req;
+      Object.entries(x.t).forEach(([k, v]) => {
+        const o = out.t[k] || (out.t[k] = { tengo: 0, falta: 0, cub: 0, tengoConDem: 0 });
+        o.tengo += v.tengo;
+        if (x.conDemanda) { o.falta += v.falta; o.cub += v.cub; o.tengoConDem += v.tengo; }
+      });
+    });
+    return out;
+  };
+  const semanas = [...new Set(dias.map((x) => x.semana))].map((l) => ({ lunes: l, ...sumarDias(dias.filter((x) => x.semana === l)) }));
+  return { dias, total: sumarDias(dias), semanas };
+}
+async function desExportar(desde, hasta, formato, win) {
+  const datos = await desCalcular(desde, hasta);
+  if (!datos.dias.some((x) => x.conDemanda)) showToast("Sin demanda", "Recaudaciones no cargó nada en esas fechas: se muestran solo las horas que tenemos.", "warning");
+  const nombre = `Desglose_horario_${desde}_al_${hasta}`;
+  if (formato === "xlsx") desExcel(datos, desde, hasta, nombre);
+  else desImprimir(datos, desde, hasta, win);
+}
+const desN = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+function desFilasResumen(sum, v) {
+  return DES_GRUPOS.map((g) => {
+    const t = sum.t[g.key + "_" + v] || { tengo: 0, falta: 0, cub: 0, tengoConDem: 0 };
+    return { g, tengo: t.tengo, dif: t.tengoConDem - sum.req, falta: t.falta, cumpl: sum.req ? Math.round((t.cub / sum.req) * 100) : null };
+  });
+}
+function desImprimir({ dias, total, semanas }, desde, hasta, win) {
+  const fc = (f) => f.split("-").reverse().join("/");
+  const fc2 = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const tablaResumen = (sum, v, titulo) => `<h3>${titulo}</h3><table><tr><th class="l">Grupo</th><th>Pedido</th><th>Tengo</th><th>Diferencia</th><th>Falta</th><th>Cumplimiento</th></tr>
+    ${desFilasResumen(sum, v).map((x) => `<tr><td class="l"><span class="dot" style="background:${x.g.color}"></span>${x.g.titulo}</td><td>${desN(sum.req)}</td><td><b>${desN(x.tengo)}</b></td><td class="${x.dif < 0 ? "rojo" : ""}">${desN(x.dif)}</td><td class="${x.falta ? "rojo" : ""}">${desN(x.falta)}</td><td>${x.cumpl === null ? "—" : x.cumpl + "%"}</td></tr>`).join("")}</table>`;
+  const adicFila = (sum) => DES_GRUPOS.map((g) => desN(((sum.t[g.key + "_a"] || {}).tengo || 0) - ((sum.t[g.key + "_n"] || {}).tengo || 0)));
+  const porSemana = `<h3>Por semana</h3><table><tr><th class="l" rowspan="2">Semana</th><th rowspan="2">Pedido</th>${DES_GRUPOS.map((g) => `<th colspan="3" style="border-top:3px solid ${g.color}">${g.titulo}</th>`).join("")}</tr>
+    <tr>${DES_GRUPOS.map(() => `<th>Normal</th><th>Con adic.</th><th>Falta n/a</th>`).join("")}</tr>
+    ${semanas.map((w) => `<tr><td class="l">${fc2(w.lunes)} al ${fc2(formatDate(addDays(new Date(w.lunes + "T00:00:00"), 6)))}</td><td>${desN(w.req)}</td>${DES_GRUPOS.map((g) => { const n = w.t[g.key + "_n"] || {}, a = w.t[g.key + "_a"] || {}; return `<td>${desN(n.tengo || 0)}</td><td>${desN(a.tengo || 0)}</td><td class="${(n.falta || 0) ? "rojo" : ""}">${desN(n.falta || 0)} / ${desN(a.falta || 0)}</td>`; }).join("")}</tr>`).join("")}</table>`;
+  const porDia = (v, titulo) => `<h3>${titulo}</h3><table><tr><th class="l" rowspan="2">Día</th><th rowspan="2">Pedido</th>${DES_GRUPOS.map((g) => `<th colspan="3" style="border-top:3px solid ${g.color}">${g.titulo}</th>`).join("")}</tr>
+    <tr>${DES_GRUPOS.map(() => `<th>Tengo</th><th>Falta</th><th>%</th>`).join("")}</tr>
+    ${dias.map((x) => {
+      if (x.cerrada) return `<tr><td class="l">${x.etiqueta}</td><td colspan="${1 + DES_GRUPOS.length * 3}" class="l gris">Tienda cerrada</td></tr>`;
+      return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${x.etiqueta}${x.feriado ? " (feriado)" : ""}</td><td>${x.conDemanda ? desN(x.req) : "—"}</td>${DES_GRUPOS.map((g) => { const t = x.t[g.key + "_" + v]; return `<td>${desN(t.tengo)}</td><td class="${x.conDemanda && t.falta ? "rojo" : ""}">${x.conDemanda ? desN(t.falta) : "—"}</td><td>${x.conDemanda && x.req ? Math.round((t.cub / x.req) * 100) + "%" : "—"}</td>`; }).join("")}</tr>`;
+    }).join("")}</table>`;
+  const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Desglose de horario · ${fc(desde)} al ${fc(hasta)}</title><style>
+    @page { size: A4 landscape; margin: 9mm; }
+    body { font-family: Arial, sans-serif; color: #0f172a; font-size: 10px; margin: 0; }
+    h1 { font-size: 17px; margin: 0 0 2px; } h2 { font-size: 13px; margin: 14px 0 4px; } h3 { font-size: 11.5px; margin: 10px 0 4px; }
+    .sub { color: #475569; font-size: 10.5px; margin-bottom: 3px; } .nota { color: #64748b; font-size: 9px; margin-bottom: 6px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 6px; page-break-inside: auto; }
+    tr { page-break-inside: avoid; }
+    th, td { border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right; } th { background: #f1f5f9; text-align: center; font-size: 9.5px; }
+    .l { text-align: left; } .rojo { color: #b91c1c; font-weight: 700; } .gris { color: #64748b; } .fer { background: #fef9c3; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+    .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } .salto { page-break-before: always; }
+    .adic td { background: #ecfeff; }
+  </style></head><body>
+    <h1>Desglose de horario · Línea de Cajas</h1>
+    <div class="sub">Período ${fc(desde)} al ${fc(hasta)} · Pedido según Recaudaciones</div>
+    <div class="nota">Horas reales de la gente que viene: no cuentan francos, libres, vacaciones, NV, enfermos ni otras ausencias. <b>Normal</b> = sin adicionales (sin turnos adicionales, sin las horas marcadas como adicionales y nunca más que el contrato de la semana). <b>Con adicionales</b> = todo lo cargado. Falta = lo que falta en cada hora (lo que sobra en una hora no cubre otra). Pedido, diferencia, falta y cumplimiento solo cuentan días con demanda cargada.</div>
+    <div class="dos"><div>${tablaResumen(total, "n", "Horas normales (sin adicionales)")}</div><div>${tablaResumen(total, "a", "Con adicionales")}</div></div>
+    <table class="adic"><tr><th class="l">Horas adicionales del período</th>${DES_GRUPOS.map((g) => `<th>${g.titulo}</th>`).join("")}</tr><tr><td class="l">Diferencia entre con adicionales y normal</td>${adicFila(total).map((v) => `<td><b>${v}</b></td>`).join("")}</tr></table>
+    ${porSemana}
+    <div class="salto"></div>
+    ${porDia("n", "Por día · Horas normales (sin adicionales)")}
+    <div class="salto"></div>
+    ${porDia("a", "Por día · Con adicionales")}
+  </body></html>`;
+  let destino = win && !win.closed ? win : null, marco = null;
+  if (!destino) {
+    marco = document.createElement("iframe");
+    marco.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+    document.body.appendChild(marco);
+    destino = marco.contentWindow;
+  }
+  destino.document.open(); destino.document.write(doc); destino.document.close();
+  setTimeout(() => { destino.focus(); destino.print(); if (marco) setTimeout(() => marco.remove(), 60000); }, 400);
+}
+function desExcel({ dias, total, semanas }, desde, hasta, nombre) {
+  if (typeof XLSX === "undefined") { showToast("No se pudo armar", "El Excel no cargó. Recargá la página.", "error"); return; }
+  const fc = (f) => f.split("-").reverse().join("/");
+  const r1 = (n) => Math.round(n * 10) / 10;
+  const wb = XLSX.utils.book_new();
+  const res = [[`Desglose de horario · Línea de Cajas · ${fc(desde)} al ${fc(hasta)}`],
+    ["Horas reales de la gente que viene (sin francos, libres, vacaciones, NV ni ausencias). Normal = sin adicionales. Pedido y falta solo en días con demanda cargada."], []];
+  [["n", "HORAS NORMALES (SIN ADICIONALES)"], ["a", "CON ADICIONALES"]].forEach(([v, tit]) => {
+    res.push([tit], ["Grupo", "Pedido", "Tengo", "Diferencia", "Falta", "Cumplimiento"]);
+    desFilasResumen(total, v).forEach((x) => res.push([x.g.titulo, r1(total.req), r1(x.tengo), r1(x.dif), r1(x.falta), x.cumpl === null ? "" : x.cumpl / 100]));
+    res.push([]);
+  });
+  res.push(["POR SEMANA"], ["Semana", "Pedido", ...DES_GRUPOS.flatMap((g) => [`${g.titulo} · normal`, `${g.titulo} · con adic.`, `${g.titulo} · falta normal`, `${g.titulo} · falta con adic.`])]);
+  semanas.forEach((w) => res.push([`${fc(w.lunes)}`, r1(w.req), ...DES_GRUPOS.flatMap((g) => { const n = w.t[g.key + "_n"] || {}, a = w.t[g.key + "_a"] || {}; return [r1(n.tengo || 0), r1(a.tengo || 0), r1(n.falta || 0), r1(a.falta || 0)]; })]));
+  const ws1 = XLSX.utils.aoa_to_sheet(res);
+  ws1["!cols"] = [{ wch: 38 }, ...Array(16).fill({ wch: 13 })];
+  XLSX.utils.book_append_sheet(wb, ws1, "Resumen");
+  [["n", "Por día normal"], ["a", "Por día con adicionales"]].forEach(([v, hoja]) => {
+    const filas = [["Día", "Fecha", "Pedido", ...DES_GRUPOS.flatMap((g) => [`${g.titulo} · tengo`, `${g.titulo} · falta`])]];
+    dias.forEach((x) => filas.push([x.etiqueta.split(" ")[0], fc(x.fecha), x.cerrada ? "Tienda cerrada" : x.conDemanda ? r1(x.req) : "", ...DES_GRUPOS.flatMap((g) => { const t = x.t[g.key + "_" + v]; return x.cerrada ? ["", ""] : [r1(t.tengo), x.conDemanda ? r1(t.falta) : ""]; })]));
+    const ws = XLSX.utils.aoa_to_sheet(filas);
+    ws["!cols"] = [{ wch: 11 }, { wch: 11 }, { wch: 9 }, ...Array(8).fill({ wch: 16 })];
+    XLSX.utils.book_append_sheet(wb, ws, hoja);
+  });
+  XLSX.writeFile(wb, `${nombre}.xlsx`);
+  showToast("Listo", "Excel descargado.", "success");
+}
 
 async function covExportarDetalle(desde, hasta, formato) {
   const datos = await covCalcularPeriodo(desde, hasta);
