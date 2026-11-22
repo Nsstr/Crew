@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.97
+            Versión: v1.7.98
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.97";
+  const APP_VERSION = "v1.7.98";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15464,6 +15464,12 @@ function desFilasResumen(sum, v) {
     return { g, tengo: t.tengo, dif: t.tengoConDem - sum.req };
   });
 }
+// Rango de horas con algo (pedido o gente) en todo el período
+function desRangoHoras(dias) {
+  let a = 24, b = -1;
+  dias.forEach((x) => { if (x.cerrada) return; for (let h = 0; h < 24; h++) if (x.r[h] > 0 || x.cnt.todos_a[h] > 0) { a = Math.min(a, h); b = Math.max(b, h); } });
+  const out = []; for (let h = a; h <= b; h++) out.push(h); return out;
+}
 function desHayAdic(sum) { return DES_GRUPOS.some((g) => Math.round(((sum.t[g.key + "_a"] || {}).tengo || 0) - ((sum.t[g.key + "_n"] || {}).tengo || 0)) !== 0); }
 function desImprimir({ dias, total, semanas }, desde, hasta, win) {
   const fc = (f) => f.split("-").reverse().join("/");
@@ -15488,6 +15494,19 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
   const adicBloque = hayAdic
     ? `<section><h2>Horas adicionales del período</h2><div class="kpis">${DES_GRUPOS.map((g) => `<div class="kpi"><span class="dot" style="background:${g.color}"></span><div><b>${desN(((total.t[g.key + "_a"] || {}).tengo || 0) - ((total.t[g.key + "_n"] || {}).tengo || 0))} h</b><small>${g.titulo}</small></div></div>`).join("")}</div></section>`
     : `<p class="aviso">No hay horas adicionales cargadas en este período, así que no se muestran los cuadros “con adicionales”.</p>`;
+  const horas = desRangoHoras(dias);
+  const porHora = `<section class="salto"><h2>Por hora · cajeros / pedido</h2>
+    <p class="sub">Cada celda: cajeros que hay / cajeros que piden. En rojo, las horas donde faltan cajeros. Abajo, en <span style="color:#c2410c">naranja</span> los vendedores con fallo de caja que pueden cobrar${hayAdic ? ' y en <span style="color:#0891b2">celeste</span> cuántos cajeros están en horas adicionales' : ""}.</p>
+    <table class="hora"><thead><tr><th class="l">Día</th>${horas.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>
+    ${dias.map((x) => {
+      if (x.cerrada) return `<tr class="cerr"><td class="l">${x.etiqueta}</td><td colspan="${horas.length}" class="l">Tienda cerrada</td></tr>`;
+      return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}</td>${horas.map((h) => {
+        const caj = x.cnt.caj_a[h], r = x.r[h], vend = x.cnt.vend_a[h] - caj, adic = caj - x.cnt.caj_n[h];
+        const falta = x.conDemanda && caj < r;
+        const extra = [vend > 0 ? `<i class="v">+${vend} vend</i>` : "", adic > 0 ? `<i class="a">${adic} adic</i>` : ""].filter(Boolean).join(" ");
+        return `<td class="${falta ? "hf" : caj || r ? "ok" : ""}"><b>${caj}</b>/${x.conDemanda ? r : "–"}${extra ? `<br>${extra}` : ""}</td>`;
+      }).join("")}</tr>`;
+    }).join("")}</tbody></table></section>`;
   const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Desglose de horario · ${fc(desde)} al ${fc(hasta)}</title><style>
     @page { size: A4 landscape; margin: 10mm; }
     * { box-sizing: border-box; }
@@ -15520,6 +15539,12 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     .kpi b { font-size: 15px; display: block; } .kpi small { color: #64748b; font-size: 9.5px; } .kpi .dot { margin-top: 5px; }
     .aviso { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; color: #475569; margin: 0 0 18px; }
     .salto { page-break-before: always; }
+    .hora { table-layout: fixed; } .hora th.l { width: 115px; }
+    .hora th, .hora td { padding: 3px 2px; text-align: center; font-size: 9.5px; border-bottom: 1px solid #eef2f6; }
+    .hora th.l, .hora td.l { text-align: left; padding-left: 6px; white-space: nowrap; }
+    .hora td b { font-weight: 700; } .hora td.hf { background: #fee2e2; } .hora td.hf b { color: #b91c1c; }
+    .hora td.ok { background: #f8fafc; } .hora i { font-style: normal; font-size: 7.5px; white-space: nowrap; }
+    .hora i.v { color: #c2410c; } .hora i.a { color: #0891b2; }
   </style></head><body>
     <header><h1>Desglose de horario · Línea de Cajas</h1><div class="per">${fc(desde)} al ${fc(hasta)}</div></header>
     <p class="leyenda"><b>Piden</b> = horas que pide Recaudaciones. <b>Tenemos</b> = horas de la gente que viene (no cuentan francos, libres, vacaciones, NV, enfermos ni otras ausencias). <b>Diferencia</b> = tenemos menos piden: en rojo lo que falta, en verde lo que sobra. Solo se comparan días con pedido cargado.</p>
@@ -15529,6 +15554,7 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     ${hayAdic ? porSemana("a", "Por semana · con adicionales") : ""}
     ${porDia("n", "Por día · horas normales")}
     ${hayAdic ? porDia("a", "Por día · con adicionales") : ""}
+    ${porHora}
   </body></html>`;
   let destino = win && !win.closed ? win : null, marco = null;
   if (!destino) {
@@ -15570,6 +15596,16 @@ function desExcel({ dias, total, semanas }, desde, hasta, nombre) {
     ws["!cols"] = [{ wch: 11 }, { wch: 11 }, { wch: 9 }, ...Array(8).fill({ wch: 18 })];
     XLSX.utils.book_append_sheet(wb, ws, v === "n" ? "Por día normal" : "Por día con adicionales");
   });
+  const horas = desRangoHoras(dias);
+  const fh = [["Cajeros que hay / cajeros que piden, y vendedores con fallo de caja que pueden cobrar"], ["Día", "Fecha", ...horas.map((h) => `${h} h`)]];
+  dias.forEach((x) => fh.push([x.etiqueta.split(" ")[0], fc(x.fecha), ...horas.map((h) => {
+    if (x.cerrada) return "Cerrada";
+    const caj = x.cnt.caj_a[h], vend = x.cnt.vend_a[h] - caj;
+    return `${caj}/${x.conDemanda ? x.r[h] : "-"}${vend > 0 ? ` +${vend} vend` : ""}`;
+  })]));
+  const wsH = XLSX.utils.aoa_to_sheet(fh);
+  wsH["!cols"] = [{ wch: 11 }, { wch: 11 }, ...horas.map(() => ({ wch: 11 }))];
+  XLSX.utils.book_append_sheet(wb, wsH, "Por hora");
   XLSX.writeFile(wb, `${nombre}.xlsx`);
   showToast("Listo", "Excel descargado.", "success");
 }
