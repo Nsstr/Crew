@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.112
+            Versión: v1.7.113
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.112";
+  const APP_VERSION = "v1.7.113";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15548,9 +15548,9 @@ function desDetallePersonas(dias, semanas, total, fc2) {
       if (x.cerrada) return `<td><div class="au">Cerrada</div></td>`;
       const p = x.pers[g.id];
       if (!p) return `<td><div class="au">${ausTxt(x.aus[g.id])}</div></td>`;
-      return `<td><div class="dc${p.a ? " con" : ""}"><div class="hh"><b>${desH(p.n)} h</b>${p.a ? `<i>+${desH(p.a)}</i>` : ""}</div><div class="hr">${p.hn}${p.ha ? `<span class="hx"> +${p.ha}</span>` : ""}${p.rc ? `<span class="rc">como cajero</span>` : ""}</div></div></td>`;
+      return `<td><div class="dc${p.a ? " con" : ""}"><div class="hh"><b>${desH(p.n)} h</b>${p.a ? `<i>+${desH(p.a)}</i>` : ""}${p.rc ? `<span class="rc">caj.</span>` : ""}</div><div class="hr">${p.hn}${p.ha ? `<span class="hx"> +${p.ha}</span>` : ""}</div></div></td>`;
     };
-    const fuera = w.desde !== w.lunes ? ` · los días anteriores al ${fc2(w.desde)} no están en el rango elegido` : "";
+    const fuera = w.desde !== w.lunes ? ` · desde el ${fc2(w.desde)} por el rango elegido` : "";
     const k = kpis(`Semana del ${fc2(w.desde)} al ${fc2(w.hasta)}`, `${ds.length} día${ds.length === 1 ? "" : "s"}${fuera}`, ds, w.req);
     html += `<section class="salto">${k.html}${bloques.map(([t, c, l]) => tablaBloque(t, c, l, cols, celdaDia, (g) => sumaDe(g.id, ds))).join("")}${pie(k.sc, k.sr)}</section>`;
   });
@@ -15611,7 +15611,7 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
   const cab = (primera, franjas) => `<thead><tr><th class="l">${primera}</th><th>Piden</th>${DES_GRUPOS.map((g) => `<th colspan="2" class="grp ${g.key === "caj" ? "cjh" : "sch"}"><span class="dot" style="background:${g.color}"></span>${nomCorto[g.key]}</th>`).join("")}</tr></thead>`;
   const celdas = (t, req, hay, key) => { const c = key === "caj" ? "cj" : "sc"; return `<td class="ini ${c}">${desN(t.tengo || 0)}</td><td class="${c}">${hay ? chip((t.tengoConDem ?? t.tengo ?? 0) - req) : ""}</td>`; };
   // Por semana: una tarjeta por semana, cajeros grande y los otros 3 chicos debajo
-  const tablaSemanas = (v) => `<div class="semanas" style="grid-template-columns:repeat(${Math.max(1, Math.min(5, semanas.length))},1fr)">${semanas.map((w) => {
+  const tablaSemanas = (v) => `<div class="semanas" style="grid-template-columns:repeat(${Math.max(1, Math.min(3, semanas.length))},1fr)">${semanas.map((w) => {
     const hay = w.req > 0;
     const tC = w.t["caj_" + v] || {};
     const mini = DES_GRUPOS.slice(1).map((g) => { const t = w.t[g.key + "_" + v] || {}; return `<div class="sm-f"><span class="dot" style="background:${g.color}"></span><span class="sm-n">${nomCorto[g.key]}</span><b>${desN(t.tengo || 0)} h</b>${hay ? chip((t.tengoConDem || 0) - w.req) : ""}</div>`; }).join("");
@@ -15665,13 +15665,14 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     <table class="mosaico"><thead><tr><th class="l">Día</th>${horasG.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>
     ${dias.map((x) => {
       if (x.cerrada) return `<tr><td class="l dia cerr-t">${x.etiqueta}</td><td colspan="${horasG.length}"><div class="bz cerrada">Tienda cerrada</div></td></tr>`;
-      return `<tr><td class="l dia${x.feriado ? " ferd" : ""}">${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}</td>${horasG.map((h) => baldosa(x, h)).join("")}</tr>`;
+      const corta = x.etiqueta.slice(0, 3) + " " + x.etiqueta.split(" ").pop();
+      return `<tr><td class="l dia${x.feriado ? " ferd" : ""}">${corta}${x.feriado ? ' <span class="tag">fer.</span>' : ""}</td>${horasG.map((h) => baldosa(x, h)).join("")}</tr>`;
     }).join("")}
     </tbody></table></section>`;
 
   const detallePersonas = desDetallePersonas(dias, semanas, total, fc2);
   const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Desglose de horario · ${fc(desde)} al ${fc(hasta)}</title><style>
-    @page { size: A4 landscape; margin: 10mm; }
+    @page { size: A4 portrait; margin: 9mm; }
     * { box-sizing: border-box; }
     body { font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif; color: #1e293b; font-size: 10.5px; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; }
@@ -15764,8 +15765,8 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     .pp td.nm { padding-left: 4px; text-align: left; } .pp td.nm b { display: block; font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pp td.nm small { color: #64748b; font-size: 9.5px; }
     .pp .dc { background: #f4f6f9; border-radius: 6px; height: 34px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     .pp .dc.con { background: #ecfeff; box-shadow: inset 0 0 0 1px #a5f3fc; }
-    .pp .hh b { font-size: 13px; } .pp .hh i { font-style: normal; font-weight: 700; color: #0e7490; font-size: 11px; margin-left: 3px; background: #cffafe; border-radius: 5px; padding: 0 4px; }
-    .pp .hr { font-size: 10px; color: #64748b; white-space: nowrap; } .pp .hx { color: #0891b2; } .pp .rc { color: #7c3aed; margin-left: 3px; }
+    .pp .hh { white-space: nowrap; } .pp .hh b { font-size: 13px; } .pp .hh i { font-style: normal; font-weight: 700; color: #0e7490; font-size: 11px; margin-left: 3px; background: #cffafe; border-radius: 5px; padding: 0 4px; }
+    .pp .hr { font-size: 10px; color: #64748b; white-space: nowrap; } .pp .hx { color: #0891b2; } .pp .rc { color: #fff; background: #7c3aed; border-radius: 5px; font-size: 8px; font-weight: 700; padding: 0 3px; margin-left: 3px; }
     .pp .au { border-radius: 6px; height: 29px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #94a3b8; text-align: center; height: 34px !important; background: repeating-linear-gradient(45deg, #f8fafc, #f8fafc 5px, #eef2f6 5px, #eef2f6 10px); }
     .pp td.k { text-align: center; font-size: 13px; font-weight: 600; background: #eef2f6 !important; border-radius: 6px; height: 34px; }
     .pp td.k.ad { background: #ecfeff !important; color: #0e7490; } .pp td.k.tt { background: #1e293b !important; color: #fff; font-weight: 700; }
@@ -15776,15 +15777,15 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     /* Mosaico por hora */
     .mosaico { border-collapse: separate; border-spacing: 3px; table-layout: fixed; margin-left: -3px; width: calc(100% + 6px); }
     .mosaico th { background: none !important; padding: 2px 0 3px; text-align: center; font-size: 11px; color: #64748b; }
-    .mosaico th.l { width: 112px; text-align: left; padding-left: 4px; }
+    .mosaico th.l { width: 92px; text-align: left; padding-left: 4px; }
     .mosaico td { padding: 0; border: none; background: none !important; }
     .mosaico td.dia { font-size: 11px; white-space: nowrap; padding-left: 4px; color: #334155; }
     .mosaico td.ferd { color: #92400e; } .mosaico td.cerr-t { color: #94a3b8; }
-    .bz { border-radius: 6px; height: 34px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; align-content: center; line-height: 1.05; font-variant-numeric: tabular-nums; }
-    .bz b { font-size: 13px; font-weight: 700; } .bz span { font-size: 10.5px; opacity: .8; margin-left: 1px; }
-    .bz em { font-style: normal; width: 100%; text-align: center; font-size: 9.5px; margin-top: 1px; } .bz em i { font-style: normal; font-weight: 600; }
+    .bz { border-radius: 5px; height: 31px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; align-content: center; line-height: 1.05; font-variant-numeric: tabular-nums; }
+    .bz b { font-size: 12.5px; font-weight: 700; } .bz span { font-size: 10px; opacity: .8; margin-left: 1px; }
+    .bz em { font-style: normal; width: 100%; text-align: center; font-size: 8.5px; margin-top: 1px; white-space: nowrap; letter-spacing: -.2px; } .bz em i { font-style: normal; font-weight: 600; }
     .bz em i.v { color: #c2410c; } .bz em i.a { color: #0e7490; }
-    .bz.vacia { background: #f4f6f9; height: 34px; }
+    .bz.vacia { background: #f4f6f9; height: 31px; }
     .bz.f3 { background: #f5a3a3; color: #7f1d1d; } .bz.f1 { background: #fcdada; color: #991b1b; }
     .bz.ok { background: #cdeedd; color: #065f46; } .bz.sb { background: #dbeafe; color: #1e3a8a; } .bz.sp { background: #eef2f6; color: #475569; }
     .bz.cerrada { background: #f1f5f9; color: #94a3b8; font-style: italic; font-size: 9.5px; height: 22px; }
