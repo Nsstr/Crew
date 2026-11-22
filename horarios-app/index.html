@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.106
+            Versión: v1.7.107
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.106";
+  const APP_VERSION = "v1.7.107";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15400,11 +15400,12 @@ async function desCalcular(desde, hasta) {
       const curva = demanda[dStr] || null;
       const dia = { fecha: dStr, semana: lun, etiqueta: `${diasLargos[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
         feriado: (state.holidays || []).includes(dStr), cerrada: !!(evento && evento.tiendaCerrada), conDemanda: !!curva, req: 0,
-        r: Array(24).fill(0), cnt: {}, adicPers: [] };
+        r: Array(24).fill(0), cnt: {}, adicPers: [], pers: {}, aus: {} };
       DES_GRUPOS.forEach((g) => { dia.cnt[g.key + "_n"] = Array(24).fill(0); dia.cnt[g.key + "_a"] = Array(24).fill(0); });
       if (curva) for (let h = 0; h < 24; h++) { dia.r[h] = Number(curva[h]) || 0; dia.req += dia.r[h]; }
       if (!dia.cerrada) {
-        const { bloques, respaldo } = cdvArmarDia(dStr);
+        const { bloques, respaldo, otros } = cdvArmarDia(dStr);
+        otros.forEach((o) => { dia.aus[o.id] = o.estado; });
         const cajeros = [...bloques.apertura, ...bloques.siesta, ...bloques.cierre];
         const rollers = bloques.roller || [];
         const sumar = (personas, grupos) => personas.forEach((p) => {
@@ -15416,6 +15417,8 @@ async function desCalcular(desde, hasta) {
           if (marca > 0) normales = normales.slice(0, Math.max(0, normales.length - marca));
           grupos.forEach((g) => { todas.forEach((h) => dia.cnt[g + "_a"][h]++); normales.forEach((h) => dia.cnt[g + "_n"][h]++); });
           if (todas.length > normales.length) dia.adicPers.push({ id: p.id, nombre: p.nombre, h: todas.length - normales.length });
+          const extra = todas.filter((h) => !normales.includes(h));
+          dia.pers[p.id] = { n: normales.length, a: extra.length, hn: normales.length ? covRangos(normales) : "", ha: extra.length ? covRangos(extra) : "", rc: !!p.rollerComoCajero };
         });
         sumar(cajeros, ["caj", "vend", "rol", "todos"]);
         sumar(respaldo, ["vend", "todos"]);
@@ -15445,7 +15448,7 @@ async function desCalcular(desde, hasta) {
     });
     return out;
   };
-  const semanas = [...new Set(dias.map((x) => x.semana))].map((l) => ({ lunes: l, ...sumarDias(dias.filter((x) => x.semana === l)) }));
+  const semanas = [...new Set(dias.map((x) => x.semana))].map((l) => { const ds = dias.filter((x) => x.semana === l); return { lunes: l, desde: ds[0].fecha, hasta: ds[ds.length - 1].fecha, ...sumarDias(ds) }; });
   return { dias, total: sumarDias(dias), semanas };
 }
 async function desExportar(desde, hasta, formato, win) {
@@ -15472,6 +15475,61 @@ function desRangoHoras(dias) {
   const out = []; for (let h = a; h <= b; h++) out.push(h); return out;
 }
 function desHayAdic(sum) { return DES_GRUPOS.some((g) => Math.round(((sum.t[g.key + "_a"] || {}).tengo || 0) - ((sum.t[g.key + "_n"] || {}).tengo || 0)) !== 0); }
+// Detalle por colaborador: total del período (columnas = semanas) y después una página por semana (columnas = días)
+function desDetallePersonas(dias, semanas, total, fc2) {
+  const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => {
+    const roller = ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller");
+    const h = parseFloat(c.hours) || parseFloat(c.cargaHoraria) || parseFloat(c.contractHours) || 0;
+    return { id: c.id, nombre: (c.name || "").split("(")[0].split("-")[0].trim(), roller, contrato: h };
+  }).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const bloques = [["Cajeros", "#10b981", gente.filter((g) => !g.roller)], ["Rollers", "#7c3aed", gente.filter((g) => g.roller)]].filter((b) => b[2].length);
+  const ausTxt = (e) => { if (!e) return "Sin turno"; if (e === "F") return "Franco"; if (e === "V") return "Vacaciones"; if (e === "Libre") return "Libre"; return e.replace(/^Revisar: /, "Revisar "); };
+  const sumaDe = (id, lista) => lista.reduce((o, x) => { const p = x.pers[id]; if (p) { o.n += p.n; o.a += p.a; } return o; }, { n: 0, a: 0 });
+  const celdaTot = (n, a) => `<td class="k">${desN(n)}</td><td class="k ad">${a ? desN(a) : "—"}</td><td class="k tt">${desN(n + a)}</td>`;
+  const cab = (cols) => `<thead><tr><th class="nm">Persona</th>${cols.map((c) => `<th>${c}</th>`).join("")}<th class="k">Normal</th><th class="k ad">Adic.</th><th class="k tt">Total</th></tr></thead>`;
+  const kpis = (titulo, sub, lista, req) => {
+    const caj = gente.filter((g) => !g.roller), rol = gente.filter((g) => g.roller);
+    const sc = caj.reduce((o, g) => { const t = sumaDe(g.id, lista); o.n += t.n; o.a += t.a; return o; }, { n: 0, a: 0 });
+    const sr = rol.reduce((o, g) => { const t = sumaDe(g.id, lista); o.n += t.n; o.a += t.a; return o; }, { n: 0, a: 0 });
+    const tC = lista.filter((x) => x.conDemanda && !x.cerrada).reduce((a, x) => a + x.t.caj_n.tengo, 0);
+    return { html: `<div class="pk"><div class="pk-h"><h2>${titulo}</h2><p>${sub}</p></div>
+      <div class="pk-k"><small>Piden</small><b>${desN(req)} h</b></div>
+      <div class="pk-k cj"><small>Cajeros · horas normales</small><b>${desN(sc.n)} h</b>${req ? (() => { const d = desDif(tC - req); return `<span class="dif ${d.cls}">${d.txt}</span>`; })() : ""}</div>
+      <div class="pk-k ad"><small>Adicionales</small><b>${desN(sc.a + sr.a)} h</b></div></div>`, sc, sr };
+  };
+  const pie = (sc, sr) => `<div class="pk-fin"><div><small>Normal</small><b>${desN(sc.n + sr.n)} h</b></div><div class="ad"><small>Adicionales</small><b>${desN(sc.a + sr.a)} h</b></div><div class="tt"><small>Total</small><b>${desN(sc.n + sc.a + sr.n + sr.a)} h</b></div></div>`;
+  const tablaBloque = (tit, color, lista, cols, celda, sumaFila) => {
+    let N = 0, A = 0;
+    const filas = lista.map((g) => { const t = sumaFila(g); N += t.n; A += t.a; return `<tr><td class="nm"><b>${g.nombre}</b><small>${g.contrato ? g.contrato + " h" : ""}</small></td>${cols.map((c) => celda(g, c)).join("")}${celdaTot(t.n, t.a)}</tr>`; }).join("");
+    return `<div class="pg"><div class="pg-t" style="--c:${color}"><span>${tit}</span><small>${lista.length} persona${lista.length === 1 ? "" : "s"}</small></div>
+      <table class="pp">${cab(cols.map((c) => c.titulo))}<tbody>${filas}
+      <tr class="st"><td class="nm">Total ${tit.toLowerCase()}</td><td colspan="${cols.length}"></td>${celdaTot(N, A)}</tr></tbody></table></div>`;
+  };
+  const colsSem = semanas.map((w) => ({ titulo: `${fc2(w.desde)} – ${fc2(w.hasta)}`, dias: dias.filter((x) => x.fecha >= w.desde && x.fecha <= w.hasta) }));
+  const celdaSem = (g, c) => {
+    const t = sumaDe(g.id, c.dias);
+    if (!t.n && !t.a) return `<td><div class="au">—</div></td>`;
+    return `<td><div class="dc${t.a ? " con" : ""}"><div class="hh"><b>${desN(t.n)} h</b>${t.a ? `<i>+${desN(t.a)}</i>` : ""}</div></div></td>`;
+  };
+  const kp = kpis("Total del período", `${fc2(dias[0].fecha)} al ${fc2(dias[dias.length - 1].fecha)} · horas por persona en cada semana`, dias, total.req);
+  let html = `<section class="salto">${kp.html}${bloques.map(([t, c, l]) => tablaBloque(t, c, l, colsSem, celdaSem, (g) => sumaDe(g.id, dias))).join("")}${pie(kp.sc, kp.sr)}</section>`;
+  const nd = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  semanas.forEach((w) => {
+    const ds = dias.filter((x) => x.fecha >= w.desde && x.fecha <= w.hasta);
+    const cols = ds.map((x) => ({ titulo: `${nd[new Date(x.fecha + "T00:00:00").getDay()]} ${x.fecha.slice(8)}${x.feriado ? " ★" : ""}`, x }));
+    const celdaDia = (g, c) => {
+      const x = c.x;
+      if (x.cerrada) return `<td><div class="au">Cerrada</div></td>`;
+      const p = x.pers[g.id];
+      if (!p) return `<td><div class="au">${ausTxt(x.aus[g.id])}</div></td>`;
+      return `<td><div class="dc${p.a ? " con" : ""}"><div class="hh"><b>${p.n} h</b>${p.a ? `<i>+${p.a}</i>` : ""}</div><div class="hr">${p.hn}${p.ha ? `<span class="hx"> +${p.ha}</span>` : ""}${p.rc ? `<span class="rc">como cajero</span>` : ""}</div></div></td>`;
+    };
+    const fuera = w.desde !== w.lunes ? ` · los días anteriores al ${fc2(w.desde)} no están en el rango elegido` : "";
+    const k = kpis(`Semana del ${fc2(w.desde)} al ${fc2(w.hasta)}`, `${ds.length} día${ds.length === 1 ? "" : "s"}${fuera}`, ds, w.req);
+    html += `<section class="salto">${k.html}${bloques.map(([t, c, l]) => tablaBloque(t, c, l, cols, celdaDia, (g) => sumaDe(g.id, ds))).join("")}${pie(k.sc, k.sr)}</section>`;
+  });
+  return html;
+}
 function desImprimir({ dias, total, semanas }, desde, hasta, win) {
   const fc = (f) => f.split("-").reverse().join("/");
   const fc2 = (f) => f.split("-").reverse().slice(0, 2).join("/");
@@ -15531,7 +15589,7 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     const hay = w.req > 0;
     const tC = w.t["caj_" + v] || {};
     const mini = DES_GRUPOS.slice(1).map((g) => { const t = w.t[g.key + "_" + v] || {}; return `<div class="sm-f"><span class="dot" style="background:${g.color}"></span><span class="sm-n">${nomCorto[g.key]}</span><b>${desN(t.tengo || 0)} h</b>${hay ? chip((t.tengoConDem || 0) - w.req) : ""}</div>`; }).join("");
-    return `<div class="sem"><div class="sem-t">${fc2(w.lunes)} al ${fc2(formatDate(addDays(new Date(w.lunes + "T00:00:00"), 6)))}<span>piden ${desN(w.req)} h</span></div>
+    return `<div class="sem"><div class="sem-t">${fc2(w.desde)} al ${fc2(w.hasta)}<span>piden ${desN(w.req)} h</span></div>
       <div class="sem-c"><small>Cajeros</small><div><b>${desN(tC.tengo || 0)} h</b>${hay ? chip((tC.tengoConDem || 0) - w.req, true) : ""}</div></div>
       <div class="sem-m">${mini}</div></div>`;
   }).join("")}</div>`;
@@ -15585,6 +15643,7 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     }).join("")}
     </tbody></table></section>`;
 
+  const detallePersonas = desDetallePersonas(dias, semanas, total, fc2);
   const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Desglose de horario · ${fc(desde)} al ${fc(hasta)}</title><style>
     @page { size: A4 landscape; margin: 10mm; }
     * { box-sizing: border-box; }
@@ -15659,6 +15718,33 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     .det td.ini { border-left: 1px solid #e2e8f0; }
     .hora td.ok { background: #eef2f6; } .hora td.hf { background: #fbdcdc; }
     .hora tbody tr:nth-child(even) td.ok { background: #e8edf3; }
+    /* Detalle por persona */
+    .pk { display: flex; gap: 8px; margin-bottom: 6px; align-items: stretch; }
+    .pk-h { flex: 1.4; background: linear-gradient(90deg, #1e293b, #334155); color: #fff; border-radius: 10px; padding: 6px 14px; }
+    .pk-h h2 { color: #fff; border: none; padding: 0; margin: 0; font-size: 14px; } .pk-h p { margin: 2px 0 0; color: #cbd5e1; font-size: 9.5px; }
+    .pk-k { flex: 1; border: 1px solid #e2e8f0; border-radius: 10px; padding: 5px 12px; background: #f8fafc; }
+    .pk-k small { display: block; color: #64748b; font-size: 9px; font-weight: 600; } .pk-k b { font-size: 16px; }
+    .pk-k .dif { margin-left: 6px; vertical-align: 3px; font-size: 10px; }
+    .pk-k.cj { background: linear-gradient(90deg, #d8f5e9, #f0fbf6); border-color: #bbf0d6; }
+    .pk-k.ad { background: #ecfeff; border-color: #a5f3fc; } .pk-k.ad b { color: #0e7490; }
+    .pg { margin-bottom: 4px; } .pg-t { display: flex; justify-content: space-between; align-items: baseline; border-left: 4px solid var(--c); padding-left: 8px; margin-bottom: 2px; }
+    .pg-t span { font-weight: 700; font-size: 12px; } .pg-t small { color: #64748b; font-size: 9px; }
+    .pp { border-collapse: separate; border-spacing: 2px 1.5px; table-layout: fixed; }
+    .pp th { background: none !important; font-size: 8.5px; color: #64748b; padding: 2px; text-align: center; }
+    .pp th.nm { width: 120px; text-align: left; } .pp th.k { width: 46px; } .pp th.ad { color: #0e7490; } .pp th.tt { color: #1e293b; }
+    .pp td { padding: 0; border: none; background: none !important; vertical-align: middle; }
+    .pp td.nm { padding-left: 4px; text-align: left; } .pp td.nm b { display: block; font-size: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pp td.nm small { color: #94a3b8; font-size: 8px; }
+    .pp .dc { background: #f4f6f9; border-radius: 6px; height: 25px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    .pp .dc.con { background: #ecfeff; box-shadow: inset 0 0 0 1px #a5f3fc; }
+    .pp .hh b { font-size: 11px; } .pp .hh i { font-style: normal; font-weight: 700; color: #0e7490; font-size: 9px; margin-left: 3px; background: #cffafe; border-radius: 5px; padding: 0 4px; }
+    .pp .hr { font-size: 7.5px; color: #94a3b8; white-space: nowrap; } .pp .hx { color: #0891b2; } .pp .rc { color: #7c3aed; margin-left: 3px; }
+    .pp .au { border-radius: 6px; height: 29px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #94a3b8; text-align: center; height: 25px !important; background: repeating-linear-gradient(45deg, #f8fafc, #f8fafc 5px, #eef2f6 5px, #eef2f6 10px); }
+    .pp td.k { text-align: center; font-size: 11px; font-weight: 600; background: #eef2f6 !important; border-radius: 6px; height: 25px; }
+    .pp td.k.ad { background: #ecfeff !important; color: #0e7490; } .pp td.k.tt { background: #1e293b !important; color: #fff; font-weight: 700; }
+    .pp tr.st td.nm { font-weight: 700; font-size: 9.5px; } .pp tr.st td.k { height: 19px; font-weight: 800; }
+    .pk-fin { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; } .pk-fin div { border-radius: 8px; padding: 3px 12px; background: #eef2f6; display: flex; align-items: baseline; gap: 8px; }
+    .pk-fin small { font-size: 9px; color: #64748b; } .pk-fin b { font-size: 13px; }
+    .pk-fin .ad { background: #ecfeff; color: #0e7490; } .pk-fin .tt { background: #1e293b; color: #fff; } .pk-fin .tt small { color: #cbd5e1; }
     /* Mosaico por hora */
     .mosaico { border-collapse: separate; border-spacing: 3px; table-layout: fixed; margin-left: -3px; width: calc(100% + 6px); }
     .mosaico th { background: none !important; padding: 2px 0 3px; text-align: center; font-size: 9px; color: #64748b; }
@@ -15703,6 +15789,7 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     ${hayAdic ? `<section class="salto"><h2>Por día · con adicionales</h2>${tablaDias("a")}</section>` : ""}
     ${bloqueAdic}
     ${porHora}
+    ${detallePersonas}
   </body></html>`;
   let destino = win && !win.closed ? win : null, marco = null;
   if (!destino) {
