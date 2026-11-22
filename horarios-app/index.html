@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.99
+            Versión: v1.7.100
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.99";
+  const APP_VERSION = "v1.7.100";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15513,12 +15513,15 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
   if (sinDem.length) ideas.push(`Hay ${sinDem.length} día${sinDem.length > 1 ? "s" : ""} sin pedido cargado (${sinDem.map((x) => fc2(x.fecha)).join(", ")}): sus horas no se comparan.`);
 
   // ---- Tarjetas ----
-  const tarjetas = (v) => DES_GRUPOS.map((g) => {
-    const t = total.t[g.key + "_" + v] || {};
-    const dif = (t.tengoConDem || 0) - total.req;
-    return `<div class="card" style="--c:${g.color}"><div class="ct">${g.titulo}</div>
-      <div class="cn">${desN(t.tengo || 0)} h <small>de ${desN(total.req)} h que piden</small></div>${chip(dif, true)}</div>`;
-  }).join("");
+  const tarjetas = (v) => {
+    const una = (g, grande) => {
+      const t = total.t[g.key + "_" + v] || {};
+      const dif = (t.tengoConDem || 0) - total.req;
+      return `<div class="card${grande ? " hero" : ""}" style="--c:${g.color}"><div class="ct">${g.titulo}</div>
+        <div class="cn">${desN(t.tengo || 0)} h <small>de ${desN(total.req)} h que piden</small></div>${chip(dif, true)}</div>`;
+    };
+    return `${una(DES_GRUPOS[0], true)}<div class="cards">${DES_GRUPOS.slice(1).map((g) => una(g, false)).join("")}</div>`;
+  };
 
   // ---- Tablas por semana / por día (mismas columnas) ----
   const cab = (primera, franjas) => `<thead><tr><th class="l">${primera}</th><th>Piden</th>${DES_GRUPOS.map((g) => `<th colspan="2" class="grp"><span class="dot" style="background:${g.color}"></span>${nomCorto[g.key]}</th>`).join("")}${franjas ? `<th class="l">Horas con faltante de cajeros</th>` : ""}</tr></thead>`;
@@ -15580,10 +15583,15 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     section { margin-bottom: 16px; }
     h2 { font-size: 13px; margin: 0 0 2px; font-weight: 700; }
     .sub { margin: 0 0 6px; color: #64748b; font-size: 10px; }
-    .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 6px; }
-    .card { border: 1px solid #e2e8f0; border-top: 3px solid var(--c); border-radius: 8px; padding: 9px 11px; }
-    .ct { font-size: 10px; color: #475569; font-weight: 600; margin-bottom: 3px; }
-    .cn { font-size: 17px; font-weight: 700; margin-bottom: 5px; } .cn small { font-size: 9.5px; color: #64748b; font-weight: 400; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 6px; }
+    .card { border: 1px solid #e2e8f0; border-left: 3px solid var(--c); border-radius: 8px; padding: 6px 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .ct { font-size: 9.5px; color: #64748b; font-weight: 600; width: 100%; }
+    .cn { font-size: 13px; font-weight: 700; } .cn small { font-size: 9px; color: #94a3b8; font-weight: 400; }
+    .card .dif { font-size: 9.5px; padding: 1px 8px; }
+    .hero { border: 1px solid #e2e8f0; border-left: 6px solid var(--c); padding: 14px 18px; margin-bottom: 8px; gap: 18px; }
+    .hero .ct { font-size: 12px; color: #334155; }
+    .hero .cn { font-size: 30px; letter-spacing: -.5px; } .hero .cn small { font-size: 12px; color: #64748b; }
+    .hero .dif { font-size: 15px; padding: 4px 14px; border-radius: 14px; }
     .ideas { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px 14px; margin: 0; }
     .ideas li { margin: 3px 0; line-height: 1.45; font-size: 10.5px; }
     .leyenda { font-size: 9.5px; color: #64748b; margin: 6px 0 0; }
@@ -15594,7 +15602,6 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     .l { text-align: left; } .fuerte { font-weight: 700; }
     .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
     .dif { display: inline-block; padding: 1px 7px; border-radius: 10px; font-weight: 700; font-size: 9.5px; white-space: nowrap; }
-    .card .dif { font-size: 11px; padding: 2px 10px; }
     .falta { background: #fee2e2; color: #b91c1c; } .sobra { background: #dcfce7; color: #15803d; } .justo { background: #f1f5f9; color: #475569; }
     .det th.grp { text-align: center; color: #334155; text-transform: none; font-size: 10px; border-left: 1px solid #e2e8f0; }
     .det td.ini { border-left: 1px solid #e2e8f0; } .det td.fr { color: #b91c1c; font-size: 9.5px; }
@@ -15613,9 +15620,8 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     <header><h1>Desglose de horario · Línea de Cajas</h1><div class="per">${fc(desde)} al ${fc(hasta)}</div></header>
     <section><h2>Lo que piden contra lo que tenemos${hayAdic ? " · horas normales" : ""}</h2>
       <p class="sub">Horas de la gente que viene: no cuentan francos, libres, vacaciones, NV, enfermos ni otras ausencias. Solo se comparan días con pedido cargado.</p>
-      <div class="cards">${tarjetas("n")}</div></section>
-    ${hayAdic ? `<section><h2>Con adicionales</h2><p class="sub">Todo lo cargado, incluidas las horas adicionales.</p><div class="cards">${tarjetas("a")}</div></section>` : `<p class="sub">No hay horas adicionales cargadas en este período.</p>`}
-    <section><h2>Lectura rápida</h2><ul class="ideas">${ideas.map((t) => `<li>${t}</li>`).join("")}</ul></section>
+      ${tarjetas("n")}</section>
+    ${hayAdic ? `<section><h2>Con adicionales</h2><p class="sub">Todo lo cargado, incluidas las horas adicionales.</p>${tarjetas("a")}</section>` : `<p class="sub">No hay horas adicionales cargadas en este período.</p>`}
     <section><h2>Por semana${hayAdic ? " · horas normales" : ""}</h2>${tablaSemanas("n")}
       <p class="leyenda">En cada grupo: horas que tenemos y la diferencia contra lo que piden (rojo falta, verde sobra). Cajeros, después + vendedores con fallo de caja, + rollers y todos juntos.</p></section>
     ${hayAdic ? `<section><h2>Por semana · con adicionales</h2>${tablaSemanas("a")}</section>` : ""}
