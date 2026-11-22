@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.82
+            Versión: v1.7.83
           </div>
         </div>
       </div>
@@ -5031,7 +5031,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.82";
+  const APP_VERSION = "v1.7.83";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18150,9 +18150,8 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     if (pl.tes) lo = Math.min(lo, TES_HORA); // pueden entrar a las 7 para tesorería
     const hi = Math.min(24, Math.max(cierra[i], 0));
     for (let s0 = lo; s0 + L <= hi + 1e-9; s0 += 1) out.push([{ s: s0, e: s0 + L }]);
-    // Part time (menos de 24 h): sábado y domingo pueden hacer doble turno si hace falta
-    const finde = [0, 6].includes(new Date(dias[i] + "T00:00:00").getDay());
-    if (finde && pl.contrato < 24 && L >= 8 && pl.tipo[i] !== "cortado")
+    // Doble turno (todos menos los de 48 h, cualquier día): dos tramos de 4 h o más con al menos 4 h de corte
+    if (pl.contrato < 48 && L >= 8 && pl.tipo[i] !== "cortado")
       for (let l1 = 4; l1 <= L - 4; l1++)
         for (let s1 = lo; s1 + l1 <= hi; s1++)
           for (let s2 = s1 + l1 + 4; s2 + (L - l1) <= hi + 1e-9; s2++) out.push([{ s: s1, e: s1 + l1 }, { s: s2, e: s2 + L - l1 }]);
@@ -18335,6 +18334,12 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
               if (ini.s - st >= loDe(pl, i) - 1e-9) opciones.push({ tr: [{ s: ini.s - st, e: ini.e }, ...tr.slice(1)], h: st });
               if (fin.e + st <= hiDe(i) + 1e-9) opciones.push({ tr: [...tr.slice(0, -1), { s: fin.s, e: fin.e + st }], h: st });
             });
+            // doble turno: un segundo tramo de 4 h con al menos 4 h de corte (ej. 10a14 + 18a22)
+            if (tr.length === 1 && resto >= 4 - 1e-9 && L + 4 <= cap + 1e-9) {
+              const t0 = tr[0];
+              for (let s2 = Math.ceil(t0.e + 4); s2 + 4 <= hiDe(i) + 1e-9; s2++) opciones.push({ tr: [t0, { s: s2, e: s2 + 4 }], h: 4 });
+              for (let s2 = loDe(pl, i); s2 + 4 + 4 <= t0.s + 1e-9; s2++) opciones.push({ tr: [{ s: s2, e: s2 + 4 }, t0], h: 4 });
+            }
           } else if (resto >= 4 - 1e-9) {
             candidatos(pl, i, 4).filter((x) => x.length === 1).forEach((x) => opciones.push({ tr: x, h: 4 }));
           }
