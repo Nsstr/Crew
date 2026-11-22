@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.114
+            Versión: v1.7.115
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.114";
+  const APP_VERSION = "v1.7.115";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15499,7 +15499,7 @@ function desRangoHoras(dias) {
 }
 function desHayAdic(sum) { return DES_GRUPOS.some((g) => Math.round(((sum.t[g.key + "_a"] || {}).tengo || 0) - ((sum.t[g.key + "_n"] || {}).tengo || 0)) !== 0); }
 // Detalle por colaborador: total del período (columnas = semanas) y después una página por semana (columnas = días)
-function desDetallePersonas(dias, semanas, total, fc2) {
+function desDetallePersonas(dias, semanas, total, fc2, flujoDe) {
   const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => {
     const roller = ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller");
     const h = parseFloat(c.hours) || parseFloat(c.cargaHoraria) || parseFloat(c.contractHours) || 0;
@@ -15517,11 +15517,7 @@ function desDetallePersonas(dias, semanas, total, fc2) {
     const tC = lista.filter((x) => x.conDemanda && !x.cerrada).reduce((a, x) => a + x.t.caj_n.tengo, 0);
     const tCA = lista.filter((x) => x.conDemanda && !x.cerrada).reduce((a, x) => a + x.t.caj_a.tengo, 0);
     const chipK = (n) => { const d = desDif(n); return `<span class="dif ${d.cls}">${d.txt}</span>`; };
-    return { html: `<div class="pk"><div class="pk-h"><h2>${titulo}</h2><p>${sub}</p></div>
-      <div class="pk-k"><small>Piden</small><b>${desH(req)} h</b></div>
-      <div class="pk-k cj"><small>Cajeros · horas normales</small><b>${desH(sc.n)} h</b>${req ? (() => { const d = desDif(tC - req); return `<span class="dif ${d.cls}">${d.txt}</span>`; })() : ""}</div>
-      <div class="pk-k ad"><small>Horas adicionales</small><b>${desH(sc.a + sr.a)} h</b><div class="pk-sp"><span>Cajeros ${desH(sc.a)} h</span><span>Rollers ${desH(sr.a)} h</span></div><div class="pk-nt">Total para presupuesto</div></div>
-      <div class="pk-k cja"><small>Cajeros · normales + adicionales</small><b>${desH(sc.n + sc.a)} h</b>${req ? chipK(tCA - req) : ""}<div class="pk-nt">${desH(sc.n)} normales + ${desH(sc.a)} adic. de cajeros · rollers no suman</div></div></div>`, sc, sr };
+    return { html: `<div class="pk"><div class="pk-h"><h2>${titulo}</h2><p>${sub}</p></div></div>${flujoDe(lista)}`, sc, sr };
   };
   const pie = (sc, sr) => `<div class="pk-fin"><span class="pk-ft">Todo el equipo (cajeros + rollers)</span><div><small>Normal</small><b>${desH(sc.n + sr.n)} h</b></div><div class="ad"><small>Adicionales</small><b>${desH(sc.a + sr.a)} h</b></div><div class="tt"><small>Total</small><b>${desH(sc.n + sc.a + sr.n + sr.a)} h</b></div></div>`;
   const tablaBloque = (tit, color, lista, cols, celda, sumaFila) => {
@@ -15531,11 +15527,11 @@ function desDetallePersonas(dias, semanas, total, fc2) {
       <table class="pp">${cab(cols.map((c) => c.titulo))}<tbody>${filas}
       <tr class="st"><td class="nm">Total ${tit.toLowerCase()}</td><td colspan="${cols.length}"></td>${celdaTot(N, A)}</tr></tbody></table></div>`;
   };
-  const colsSem = semanas.map((w) => ({ titulo: `${fc2(w.desde)} – ${fc2(w.hasta)}`, dias: dias.filter((x) => x.fecha >= w.desde && x.fecha <= w.hasta) }));
+  const colsSem = semanas.map((w) => ({ titulo: w.desde === w.hasta ? fc2(w.desde) : `${fc2(w.desde)} – ${fc2(w.hasta)}`, dias: dias.filter((x) => x.fecha >= w.desde && x.fecha <= w.hasta) }));
   const celdaSem = (g, c) => {
     const t = sumaDe(g.id, c.dias);
     if (!t.n && !t.a) return `<td><div class="au">—</div></td>`;
-    return `<td><div class="dc${t.a ? " con" : ""}"><div class="hh"><b>${desH(t.n)} h</b>${t.a ? `<i>+${desH(t.a)}</i>` : ""}</div></div></td>`;
+    return `<td><div class="dc${t.a ? " con" : ""}"><div class="hh"><b>${desH(t.n + t.a)} h</b>${t.a ? `<i>${t.n ? desH(t.a) + " adic." : "todo adic."}</i>` : ""}</div></div></td>`;
   };
   const kp = kpis("Total del período", `${fc2(dias[0].fecha)} al ${fc2(dias[dias.length - 1].fecha)} · horas por persona en cada semana`, dias, total.req);
   let html = `<section class="salto">${kp.html}${bloques.map(([t, c, l]) => tablaBloque(t, c, l, colsSem, celdaSem, (g) => sumaDe(g.id, dias))).join("")}${pie(kp.sc, kp.sr)}</section>`;
@@ -15548,7 +15544,7 @@ function desDetallePersonas(dias, semanas, total, fc2) {
       if (x.cerrada) return `<td><div class="au">Cerrada</div></td>`;
       const p = x.pers[g.id];
       if (!p) return `<td><div class="au">${ausTxt(x.aus[g.id])}</div></td>`;
-      return `<td><div class="dc${p.a ? " con" : ""}"><div class="hh"><b>${desH(p.n)} h</b>${p.a ? `<i>+${desH(p.a)}</i>` : ""}${p.rc ? `<span class="rc">caj.</span>` : ""}</div><div class="hr">${p.hn}${p.ha ? `<span class="hx"> +${p.ha}</span>` : ""}</div></div></td>`;
+      return `<td><div class="dc${p.a ? " con" : ""}"><div class="hh"><b>${desH(p.n + p.a)} h</b>${p.a ? `<i>${p.n ? desH(p.a) + " adic." : "todo adic."}</i>` : ""}${p.rc ? `<span class="rc">caj.</span>` : ""}</div><div class="hr">${p.hn}${p.ha ? `<span class="hx">${p.hn ? " +" : ""}${p.ha}</span>` : ""}</div></div></td>`;
     };
     const fuera = w.desde !== w.lunes ? ` · desde el ${fc2(w.desde)} por el rango elegido` : "";
     const k = kpis(`Semana del ${fc2(w.desde)} al ${fc2(w.hasta)}`, `${ds.length} día${ds.length === 1 ? "" : "s"}${fuera}`, ds, w.req);
@@ -15670,7 +15666,46 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     }).join("")}
     </tbody></table></section>`;
 
-  const detallePersonas = desDetallePersonas(dias, semanas, total, fc2);
+  // ===== Resumen nuevo: cada número una sola vez =====
+  const idsRoller = new Set(cdvColaboradoresCajas().filter((c) => !c._isCruzado && ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller")).map((c) => c.id));
+  const resumenDe = (lista) => {
+    let req = 0, n = 0, a = 0, nD = 0, aD = 0, rolA = 0, rcH = 0;
+    lista.forEach((x) => {
+      if (x.cerrada) return;
+      n += x.t.caj_n.tengo; a += x.t.caj_a.tengo;
+      if (x.conDemanda) { req += x.req; nD += x.t.caj_n.tengo; aD += x.t.caj_a.tengo; }
+      Object.entries(x.pers).forEach(([id, p]) => { if (idsRoller.has(id) && !p.rc) rolA += p.a; if (p.rc) rcH += p.n + p.a; });
+    });
+    return { req, n, a, adicCaj: a - n, rolA, rcH, difN: nD - req, difA: aD - req };
+  };
+  const chipH = (n, largo) => { const r = Math.round(n * 10) / 10; const cls = r < 0 ? "falta" : r > 0 ? "sobra" : "justo"; const txt = largo ? (r < 0 ? `Faltan ${desH(-r)} h` : r > 0 ? `Sobran ${desH(r)} h` : "Justo") : (r < 0 ? `−${desH(-r)}` : r > 0 ? `+${desH(r)}` : "0"); return `<span class="dif ${cls}">${txt}</span>`; };
+  const flujoDe = (R) => `<div class="flow">
+    <div class="fk"><small>Piden</small><b>${desH(R.req)} h</b><div class="fn">Recaudaciones</div></div><div class="fo">→</div>
+    <div class="fk cj"><small>Cajeros · horas normales</small><b>${desH(R.n)} h</b>${R.req ? chipH(R.difN, true) : ""}</div><div class="fo">+</div>
+    <div class="fk ad"><small>Horas adicionales</small><b>${desH(R.adicCaj + R.rolA)} h</b><div class="fsp"><span>Cajeros ${desH(R.adicCaj)}</span><span>Rollers ${desH(R.rolA)}</span></div><div class="fn">Total para presupuesto</div></div><div class="fo">=</div>
+    <div class="fk tt"><small>Cajeros con adicionales</small><b>${desH(R.a)} h</b>${R.req ? chipH(R.difA, true) : ""}<div class="fn">${desH(R.n)} + ${desH(R.adicCaj)} de cajeros</div></div>
+  </div>${R.rcH ? `<p class="lead" style="margin-top:-8px">Incluye ${desH(R.rcH)} h de rollers el día que van como cajero.</p>` : ""}`;
+  const R = resumenDe(dias);
+  const flujo = flujoDe(R);
+  const nd3 = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const tablaSem = `<table class="rt"><thead><tr><th class="l">Semana</th><th>Piden</th><th class="cj">Cajeros normales</th><th class="ad">Adicionales cajeros</th><th class="ca">Con adicionales</th><th>Diferencia</th><th class="ad">Adic. rollers</th></tr></thead><tbody>
+    ${semanas.map((w) => { const ds = dias.filter((x) => x.fecha >= w.desde && x.fecha <= w.hasta); const r = resumenDe(ds); const nd = ds.length;
+      return `<tr><td class="l">${w.desde === w.hasta ? `${nd3[new Date(w.desde + "T00:00:00").getDay()]} ${fc2(w.desde)}` : `${fc2(w.desde)} al ${fc2(w.hasta)}`} <span class="gr">· ${nd} día${nd === 1 ? "" : "s"}</span></td><td>${desH(r.req)}</td><td class="cj">${desH(r.n)}</td><td class="ad">${r.adicCaj ? "+" + desH(r.adicCaj) : "—"}</td><td class="ca">${desH(r.a)}</td><td>${r.req ? chipH(r.difA) : "—"}</td><td class="ad">${r.rolA ? desH(r.rolA) : "—"}</td></tr>`; }).join("")}
+    <tr class="tot"><td class="l">Total</td><td>${desH(R.req)}</td><td>${desH(R.n)}</td><td>${R.adicCaj ? "+" + desH(R.adicCaj) : "—"}</td><td>${desH(R.a)}</td><td>${R.req ? chipH(R.difA) : "—"}</td><td>${R.rolA ? desH(R.rolA) : "—"}</td></tr></tbody></table>`;
+  const tablaDia = `<table class="rt"><thead><tr><th class="l">Día</th><th>Piden</th><th class="cj">Cajeros normales</th><th class="ad">Adicionales</th><th class="ca">Con adicionales</th><th>Diferencia</th></tr></thead><tbody>
+    ${dias.map((x) => {
+      const et = `${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}`;
+      if (x.cerrada) return `<tr class="cerr"><td class="l">${et}</td><td colspan="5" class="l">Tienda cerrada</td></tr>`;
+      const n = x.t.caj_n.tengo, a = x.t.caj_a.tengo;
+      return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${et}</td><td>${x.conDemanda ? desH(x.req) : "—"}</td><td class="cj">${desH(n)}</td><td class="ad">${a - n ? "+" + desH(a - n) : "—"}</td><td class="ca">${desH(a)}</td><td>${x.conDemanda ? chipH(a - x.req) : '<span class="gr">sin pedido</span>'}</td></tr>`;
+    }).join("")}
+    <tr class="tot"><td class="l">Total</td><td>${desH(R.req)}</td><td>${desH(R.n)}</td><td>${R.adicCaj ? "+" + desH(R.adicCaj) : "—"}</td><td>${desH(R.a)}</td><td>${R.req ? chipH(R.difA) : "—"}</td></tr></tbody></table>`;
+  const apoyo = `<section class="blq"><h2>Dato extra · otros que pueden cobrar</h2><p class="sub">No son dotación de cajas. Muestra cómo quedaría si además cobran vendedores con fallo de caja o rollers.</p>
+    <table class="rt"><thead><tr><th class="l">Cajeros más…</th><th>Sin adicionales</th><th>Diferencia</th><th>Con adicionales</th><th>Diferencia</th></tr></thead><tbody>
+    ${[["vend", "+ Vendedores con fallo de caja"], ["rol", "+ Rollers"], ["todos", "Vendedores y rollers"]].map(([k, t]) => { const n = total.t[k + "_n"] || {}, a = total.t[k + "_a"] || {};
+      return `<tr><td class="l">${t}</td><td>${desH(n.tengo || 0)} h</td><td>${total.req ? chipH((n.tengoConDem || 0) - total.req) : "—"}</td><td>${desH(a.tengo || 0)} h</td><td>${total.req ? chipH((a.tengoConDem || 0) - total.req) : "—"}</td></tr>`; }).join("")}
+    </tbody></table></section>`;
+  const detallePersonas = desDetallePersonas(dias, semanas, total, fc2, (lista) => flujoDe(resumenDe(lista)));
   const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Desglose de horario · ${fc(desde)} al ${fc(hasta)}</title><style>
     @page { size: A4 portrait; margin: 9mm; }
     * { box-sizing: border-box; }
@@ -15745,6 +15780,23 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     .det td.ini { border-left: 1px solid #e2e8f0; }
     .hora td.ok { background: #eef2f6; } .hora td.hf { background: #fbdcdc; }
     .hora tbody tr:nth-child(even) td.ok { background: #e8edf3; }
+    /* Resumen */
+    .lead { font-size: 10px; color: #64748b; margin: 0 0 8px; }
+    .flow { display: grid; grid-template-columns: 1fr 16px 1fr 16px 1fr 16px 1.1fr; align-items: stretch; margin-bottom: 14px; }
+    .fo { display: flex; align-items: center; justify-content: center; font-size: 16px; color: #94a3b8; font-weight: 700; }
+    .fk { border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 11px; background: #f8fafc; }
+    .fk small { display: block; font-size: 9.5px; color: #64748b; font-weight: 600; margin-bottom: 2px; }
+    .fk b { display: block; font-size: 21px; letter-spacing: -.4px; } .fk .dif { margin-top: 4px; font-size: 10.5px; }
+    .fk.cj { background: linear-gradient(90deg, #d8f5e9, #f0fbf6); border-color: #bbf0d6; }
+    .fk.ad { background: #ecfeff; border-color: #a5f3fc; } .fk.ad b { color: #0e7490; }
+    .fk.tt { background: #1e293b; border-color: #1e293b; color: #fff; } .fk.tt small { color: #cbd5e1; }
+    .fn { font-size: 8.5px; color: #94a3b8; margin-top: 3px; } .fk.tt .fn { color: #cbd5e1; }
+    .fsp { margin-top: 3px; } .fsp span { display: inline-block; white-space: nowrap; font-size: 9px; color: #0e7490; background: #cffafe; border-radius: 6px; padding: 0 6px; margin: 0 3px 2px 0; }
+    .rt { font-size: 11px; } .rt th { font-size: 9px; } .rt td { padding: 5px 8px; }
+    .rt th.cj { background: #d1f2e4; color: #065f46; } .rt td.cj { background: #eefbf5 !important; font-weight: 700; font-size: 12.5px; }
+    .rt th.ad, .rt td.ad { color: #0e7490; } .rt td.ad { font-weight: 600; }
+    .rt th.ca { color: #1e293b; } .rt td.ca { font-weight: 800; font-size: 12.5px; }
+    .rt .gr { color: #94a3b8; font-size: 9.5px; }
     /* Detalle por persona */
     .pk { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; }
     .pk-h { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; background: linear-gradient(90deg, #1e293b, #334155); color: #fff; border-radius: 10px; padding: 7px 14px; }
@@ -15808,17 +15860,13 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     .det td:nth-child(2) { font-weight: 600; }
   </style></head><body>
     <header><h1>Desglose de horario · Línea de Cajas</h1><div class="per">${fc(desde)} al ${fc(hasta)}</div></header>
-    <section><h2>Lo que piden contra lo que tenemos${hayAdic ? " · horas normales" : ""}</h2>
-      <p class="sub">Horas de la gente que viene: no cuentan francos, libres, vacaciones, NV, enfermos ni otras ausencias. Solo se comparan días con pedido cargado.</p>
-      ${tarjetas("n")}</section>
-    ${hayAdic ? `<section><h2>Con adicionales</h2><p class="sub">Todo lo cargado, incluidas las horas adicionales.</p>${tarjetas("a")}</section>` : `<p class="sub">No hay horas adicionales cargadas en este período.</p>`}
-    <section class="blq"><h2>Por semana${hayAdic ? " · horas normales" : ""}</h2>${tablaSemanas("n")}
-</section>
-    ${hayAdic ? `<section class="blq"><h2>Por semana · con adicionales</h2>${tablaSemanas("a")}</section>` : ""}
-    <section class="salto"><h2>Por día${hayAdic ? " · horas normales" : ""}</h2>${tablaDias("n")}</section>
-    ${hayAdic ? `<section class="salto"><h2>Por día · con adicionales</h2>${tablaDias("a")}</section>` : ""}
+    <p class="lead">Horas de cajeros que vienen (no cuentan francos, libres, vacaciones, NV, enfermos ni otras ausencias). Los rollers no son dotación salvo el día que van como cajero. Solo se comparan días con pedido cargado.</p>
+    ${flujo}
+    <section class="blq"><h2>Por semana</h2><p class="sub">Lo que piden suma solo los días del rango elegido.</p>${tablaSem}</section>
+    <section class="salto"><h2>Por día</h2>${tablaDia}</section>
     ${porHora}
     ${detallePersonas}
+    <section class="salto">${apoyo}</section>
   </body></html>`;
   let destino = win && !win.closed ? win : null, marco = null;
   if (!destino) {
