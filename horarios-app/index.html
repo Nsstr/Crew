@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.105
+            Versión: v1.7.106
           </div>
         </div>
       </div>
@@ -5027,7 +5027,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.105";
+  const APP_VERSION = "v1.7.106";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15583,8 +15583,6 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
       if (x.cerrada) return `<tr><td class="l dia cerr-t">${x.etiqueta}</td><td colspan="${horasG.length}"><div class="bz cerrada">Tienda cerrada</div></td></tr>`;
       return `<tr><td class="l dia${x.feriado ? " ferd" : ""}">${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}</td>${horasG.map((h) => baldosa(x, h)).join("")}</tr>`;
     }).join("")}
-    <tr class="pie"><td class="l dia">Faltan cajeros (h)</td>${horasG.map((h) => `<td><div class="tz ${faltaA[h] ? "rj" : ""}">${faltaA[h] ? desN(faltaA[h]) : "·"}</div></td>`).join("")}</tr>
-    <tr class="pie"><td class="l dia">Sobran con todos (h)</td>${horasG.map((h) => `<td><div class="tz ${sobraA[h] ? "vd" : ""}">${sobraA[h] ? desN(sobraA[h]) : "·"}</div></td>`).join("")}</tr>
     </tbody></table></section>`;
 
   const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Desglose de horario · ${fc(desde)} al ${fc(hasta)}</title><style>
