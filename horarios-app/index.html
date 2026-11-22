@@ -3768,7 +3768,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.80
+            Versión: v1.7.81
           </div>
         </div>
       </div>
@@ -5031,7 +5031,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.80";
+  const APP_VERSION = "v1.7.81";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18302,6 +18302,64 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const optimizables = personas.filter((pl) => (pl.flex.some(Boolean) || pl.tipo.includes("cerrado")) && pl.contrato > 0);
   optimizables.sort((a, b) => (a.rolDia.some(Boolean) ? 1 : 0) - (b.rolDia.some(Boolean) ? 1 : 0));
   for (let pasada = 0; pasada < 3; pasada++) optimizables.forEach(optimizarPersona);
+  // ---- Con adicionales: después del contrato, se suman horas donde la curva sigue descubierta.
+  // Tope 42 h por semana por persona (los de 48 no hacen), 8,5 h por día los cajeros y 9 los rollers,
+  // 4 h mínimo si se agrega un día, mismos descansos; el franco no se toca.
+  const sinAdicFaltan = faltanH();
+  const adicPor = {};
+  if (opts.adicionales) {
+    const TOPE_SEM = 42;
+    const capAd = (pl) => (pl.esRoller ? 9 : 8.5);
+    const usado = new Map();
+    const lims = new Map();
+    const cand = optimizables.filter((pl) => !pl.sinSolucion && pl.contrato > 0 && pl.contrato < TOPE_SEM);
+    cand.forEach((pl) => { usado.set(pl, 0); lims.set(pl, limites(pl)); });
+    const hiDe = (i) => Math.min(24, Math.max(cierra[i], 0));
+    const loDe = (pl, i) => Math.max(6, pl.tes ? Math.min(abre[i], TES_HORA) : abre[i]);
+    for (let vuelta = 0; vuelta < 600; vuelta++) {
+      let best = null;
+      cand.forEach((pl) => {
+        const resto = TOPE_SEM - pl.contrato - usado.get(pl);
+        if (resto < 0.5 - 1e-9) return;
+        const lim = lims.get(pl);
+        dias.forEach((d, i) => {
+          if (!pl.flex[i] || i === pl.francoDia || i === pl.tcDia || cerrado[i]) return;
+          const tr = pl.plan[i];
+          const opciones = [];
+          if (tr && tr.length) {
+            const L = largo(tr), cap = capAd(pl);
+            [1, 0.5].forEach((st) => {
+              if (st > resto + 1e-9 || L + st > cap + 1e-9) return;
+              const ini = tr[0], fin = tr[tr.length - 1];
+              if (ini.s - st >= loDe(pl, i) - 1e-9) opciones.push({ tr: [{ s: ini.s - st, e: ini.e }, ...tr.slice(1)], h: st });
+              if (fin.e + st <= hiDe(i) + 1e-9) opciones.push({ tr: [...tr.slice(0, -1), { s: fin.s, e: fin.e + st }], h: st });
+            });
+          } else if (resto >= 4 - 1e-9) {
+            candidatos(pl, i, 4).filter((x) => x.length === 1).forEach((x) => opciones.push({ tr: x, h: 4 }));
+          }
+          if (!opciones.length) return;
+          const k0 = costoDia(i);
+          if (tr) aplicar(pl, i, tr, -1);
+          opciones.forEach((o) => {
+            const prueba = pl.plan.slice(); prueba[i] = o.tr;
+            if (!valido(pl, prueba, lim)) return;
+            aplicar(pl, i, o.tr, 1);
+            const g = (k0 - costoDia(i)) / o.h;
+            aplicar(pl, i, o.tr, -1);
+            if (g > 0.9 && (!best || g > best.g + 1e-9)) best = { pl, i, o, g };
+          });
+          if (tr) aplicar(pl, i, tr, 1);
+        });
+      });
+      if (!best) break;
+      const { pl, i, o } = best;
+      if (pl.plan[i]) aplicar(pl, i, pl.plan[i], -1);
+      pl.plan[i] = o.tr; aplicar(pl, i, o.tr, 1);
+      usado.set(pl, usado.get(pl) + o.h);
+      adicPor[pl.c.id] = adicPor[pl.c.id] || {};
+      adicPor[pl.c.id][dias[i]] = (adicPor[pl.c.id][dias[i]] || 0) + o.h;
+    }
+  }
   const despues = faltanH();
   const sinTes = dias.filter((_, i) => !cerrado[i] && tes[i].tit === 0 && tes[i].sup === 0);
   const conSuplente = dias.filter((_, i) => tes[i].tit === 0 && tes[i].sup > 0);
@@ -18339,7 +18397,10 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const horarios = dias.map((d, i) => (horarioEsp[i] ? { d, ...horarioEsp[i] } : null)).filter(Boolean);
   const faltanDia = dias.map((_, i) => { let t = 0; if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; });
   const demDia = dem.map((arr) => arr.reduce((t, v) => t + v, 0));
-  return { ids: optimizables.map((pl) => pl.c.id), idxCierre: kC, faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
+  const adicTotal = Object.values(adicPor).reduce((t, x) => t + Object.values(x).reduce((a, b) => a + b, 0), 0);
+  const adicDia = dias.map((d) => Object.values(adicPor).reduce((t, x) => t + (x[d] || 0), 0));
+  const adicPersona = optimizables.filter((pl) => adicPor[pl.c.id]).map((pl) => ({ nombre: nomPl(pl), contrato: pl.contrato, h: Object.values(adicPor[pl.c.id]).reduce((a, b) => a + b, 0) }));
+  return { modoAdic: !!opts.adicionales, adicPor, adicTotal, adicDia, adicPersona, sinAdicFaltan, ids: optimizables.map((pl) => pl.c.id), idxCierre: kC, faltanDia, demDia, idxSab, sabadoDia: idxSab === null ? null : dias[idxSab], huecoCajDia: sinCajeroDia, huecoRolDia: sinRollerDia.map((x) => x.length), sinRoller, sinRollerTxt, horarios, premio, candidatosPremio, antes, despues, cambios, personas: new Set(cambios.map((x) => x.id)).size, conDemanda: conCurva.filter(Boolean).length, sinCajero, sinSol, sinTes, conSuplente, tesEncontrados,
     domingoPendiente: personas.filter((pl) => (pl.domingo === "libre" || pl.domForzar) && pl.plan[6] && pl.plan[6].length).map(nomPl),
     deAnioAnterior: dias.filter((_, i) => estimada[i] === "anio"),
     deSemanaAnterior: dias.filter((_, i) => estimada[i] === "anio364"),
@@ -18355,9 +18416,9 @@ function armadoDiaPremioOk(dias, idxCerrado, i, sabadoOtorgado) {
   if (dw === 6) return !!sabadoOtorgado && !["12-25", "01-01"].includes(dias[idxCerrado].slice(5));
   return true;
 }
-function armadoConPremio(lunes, hist, premiados, sabados) {
+function armadoConPremio(lunes, hist, premiados, sabados, extra = {}) {
   const set = new Set(premiados || []), sab = new Set(sabados || []);
-  const correr = () => armadoSemana(lunes, hist, { premiados: set, sabado: sab });
+  const correr = () => armadoSemana(lunes, hist, { ...extra, premiados: set, sabado: sab });
   let r = correr();
   const sacados = [], sabSacados = [], probados = new Set();
   for (let k = 0; k < 40; k++) {
@@ -18498,10 +18559,19 @@ async function armadoTraerCurvas(lunes, hist = {}) {
   } catch (e) { console.warn("No se pudieron traer las curvas anteriores", e); }
   return hist;
 }
-window.armarSinAdicionales = async function (decidido) {
+// ¿Armar sin adicionales (para el reloj) o con adicionales (para cubrir lo que pide Recaudaciones)?
+function armadoElegirModo(titulo) {
+  return new Promise((resolve) => {
+    borradorModal(titulo || "Armar sugerido", `<p><b>Sin adicionales:</b> cada uno con las horas de su contrato (para cargar en el reloj).</p>
+      <p><b>Con adicionales:</b> además del contrato, suma horas donde la curva de Recaudaciones sigue descubierta, para ver cuántas adicionales hay que pedir y dónde. Tope 42 h por semana (los de 48 no hacen), 8,5 h por día los cajeros y 9 los rollers, siempre con un franco. Las adicionales quedan marcadas día por día.</p>`,
+      [{ txt: "Cancelar", fn: () => resolve(null) }, { txt: "Con adicionales", fn: () => resolve("con") }, { txt: "Sin adicionales", clase: "bm-prin", fn: () => resolve("sin") }]);
+  });
+}
+window.armarSinAdicionales = async function (decidido, modo) {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
   const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
   if (borradorSemanaTrabada(lunes)) { showToast("Semana trabada", "Esta semana está marcada como cargada en el reloj. Destrabala para volver a armarla.", "info"); return; }
+  if (!modo) { modo = await armadoElegirModo(); if (!modo) return; }
   // Si la semana ya tiene cambios en el borrador (de un armado viejo o a mano), se puede armar sobre eso
   // o volver a empezar desde los horarios reales
   if (decidido !== true) {
@@ -18521,13 +18591,13 @@ window.armarSinAdicionales = async function (decidido) {
           }
           borradorPersistir();
           renderUI();
-          setTimeout(() => window.armarSinAdicionales(true), 50);
-        } }, { txt: "Armar sobre lo que hay", clase: "bm-prin", fn: () => { setTimeout(() => window.armarSinAdicionales(true), 0); } }]);
+          setTimeout(() => window.armarSinAdicionales(true, modo), 50);
+        } }, { txt: "Armar sobre lo que hay", clase: "bm-prin", fn: () => { setTimeout(() => window.armarSinAdicionales(true, modo), 0); } }]);
       return;
     }
   }
   const hist = await armadoTraerCurvas(lunes);
-  armadoPedirPremio(lunes, hist).then((pr) => { if (pr) armadoMostrar(lunes, hist, pr.premiados, pr.sabados); });
+  armadoPedirPremio(lunes, hist).then((pr) => { if (pr) armadoMostrar(lunes, hist, pr.premiados, pr.sabados, modo); });
 };
 // Semana con tienda cerrada: pide a quién se le da el franco pegado al cierre. Devuelve
 // { premiados, sabados } (premiados null si no hay cierre) o null si se canceló
@@ -18617,16 +18687,18 @@ function armadoPedirPremio(lunes, hist) {
     }, 30);
   });
 }
-function armadoMostrar(lunes, hist, premiados, sabados) {
+function armadoMostrar(lunes, hist, premiados, sabados, modo) {
   let r;
-  try { r = premiados ? armadoConPremio(lunes, hist, premiados, sabados) : armadoSemana(lunes, hist); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
+  const extra = { adicionales: modo === "con" };
+  try { r = premiados ? armadoConPremio(lunes, hist, premiados, sabados, extra) : armadoSemana(lunes, hist, extra); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
   const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
   const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
   const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
   const lista = r.cambios.slice().sort((a, b) => (a.nombre + a.d).localeCompare(b.nombre + b.d))
     .map((x) => `<div><b>${borradorEsc(x.nombre)}</b> · ${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)}: ${borradorEsc(x.de)} → <b>${x.a === "L" ? "LIBRE" : borradorEsc(x.a)}</b></div>`).join("");
-  borradorModal("Armar sugerido de la semana", `<p>Semana del <b>${fc(lunes)}</b>. Cada persona queda con las horas de su contrato (sin adicionales). Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
+  borradorModal("Armar sugerido de la semana", `<p>Semana del <b>${fc(lunes)}</b>. ${r.modoAdic ? "Cada persona con su contrato y, donde la curva lo pide, horas adicionales (hasta 42 h por semana)." : "Cada persona queda con las horas de su contrato (sin adicionales)."} Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
     ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy → <b>${r1(r.despues)} h</b> con la propuesta.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se arma para tener al menos un cajero de 8 a 22.</p>`}
+    ${r.modoAdic ? armadoTextoAdic(r) : ""}
     ${r.deAnioAnterior.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.deAnioAnterior.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Por ser día especial se usó la curva del mismo día del año pasado.</p>` : ""}
     ${r.deSemanaAnterior.length ? `<p class="bm-ojo">Sin curva de Recaudaciones: ${r.deSemanaAnterior.map((d) => `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)}`).join(", ")}. Se usó la del mismo día de la misma semana del año pasado.</p>` : ""}
     ${r.domingoPendiente.length ? `<p class="bm-ojo">Les falta su domingo libre del mes y este domingo no se pudo sin dejar poca gente: ${r.domingoPendiente.map(borradorEsc).join(", ")}.</p>` : ""}
@@ -18648,12 +18720,12 @@ function armadoMostrar(lunes, hist, premiados, sabados) {
     ${r.sinSol.length ? `<p class="bm-ojo">Sin cambios para ${r.sinSol.map(borradorEsc).join(", ")}: con sus descansos no se pudo armar otra opción.</p>` : ""}
     ${r.cambios.length ? `<p>${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"} en ${r.personas} ${r.personas === 1 ? "persona" : "personas"}:</p><div class="bm-lista">${lista}</div>` : `<p>Ya está lo mejor que encuentro: no hay cambios para hacer.</p>`}
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Es solo en el borrador. Después lo revisás con la cobertura y lo ajustás a mano. Podés deshacerlo.</p>`,
-    [{ txt: "Cancelar" }, ...(r.cambios.length ? [{ txt: `Aplicar ${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"}`, clase: "bm-prin", fn: async () => {
+    [{ txt: "Cancelar" }, ...(r.cambios.length || r.adicTotal ? [{ txt: `Aplicar ${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"}`, clase: "bm-prin", fn: async () => {
       const previos = {};
       await armadoAplicar(lunes, r, previos);
       borradorPersistir();
       renderUI();
-      const t = showToast("Listo", `Semana armada sin adicionales (${r.cambios.length} cambios).`, "success");
+      const t = showToast("Listo", r.modoAdic ? `Semana armada con ${armadoR1(r.adicTotal)} h de adicionales (${r.cambios.length} cambios).` : `Semana armada sin adicionales (${r.cambios.length} cambios).`, "success");
       if (t) {
         const b = document.createElement("button");
         b.className = "toast-ver"; b.type = "button"; b.textContent = "Deshacer";
@@ -18672,18 +18744,39 @@ async function armadoAplicar(lunes, r, previos) {
         const o = state.planning[k] && typeof state.planning[k] === "object" ? state.planning[k] : {};
         state.planning[k] = { ...o, colaboradorId: x.id, fecha: x.d, slot: x.a, adicManual: null, armadoSlot: x.a, premioFiesta };
       }
-      // Semana sin adicionales: se sacan también las marcas de adicionales y los turnos adicionales que quedaron
+      // Marcas de adicionales de la semana: sin adicionales se sacan todas; con adicionales quedan las que
+      // propuso el armado (y se sacan las viejas)
       const diasSem = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), i)));
       for (const id of r.ids || []) for (const d of diasSem) {
         const k = `${id}_${d}`, o = borrador.docs[k];
-        if (!o || ((o.adicManual === null || o.adicManual === undefined) && !o.turnoAdicional)) continue;
-        if (!(k in previos)) previos[k] = JSON.parse(JSON.stringify(o));
-        await setDoc(doc(db, "planificacion", k), { adicManual: null, turnoAdicional: null }, { merge: true });
+        const val = r.modoAdic && r.adicPor && r.adicPor[id] && r.adicPor[id][d] ? r.adicPor[id][d] : null;
+        const actual = o && o.adicManual !== undefined && o.adicManual !== "" ? o.adicManual : null;
+        if (!o && val === null) continue;
+        if (o && actual === val && !o.turnoAdicional) continue;
+        if (!(k in previos)) previos[k] = o ? JSON.parse(JSON.stringify(o)) : null;
+        await setDoc(doc(db, "planificacion", k), { ...(o ? {} : { colaboradorId: id, fecha: d }), adicManual: val, turnoAdicional: null }, { merge: true });
         const so = state.planning[k] && typeof state.planning[k] === "object" ? state.planning[k] : {};
-        state.planning[k] = { ...so, adicManual: null, turnoAdicional: null };
+        state.planning[k] = { ...so, adicManual: val, turnoAdicional: null };
       }
-      borrador.paraReloj = true;
-      borrador.semanasReloj = [...new Set([...(Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : []), lunes])];
+      if (!r.modoAdic) {
+        borrador.paraReloj = true;
+        borrador.semanasReloj = [...new Set([...(Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : []), lunes])];
+      } else if (Array.isArray(borrador.semanasReloj)) borrador.semanasReloj = borrador.semanasReloj.filter((x) => x !== lunes);
+}
+const armadoR1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+// Texto del resumen de adicionales de una semana armada con adicionales
+function armadoTextoAdic(r) {
+  const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const lunes = Object.values(r.adicPor || {}).flatMap((x) => Object.keys(x)).sort()[0];
+  if (!r.adicTotal) return `<p>Con los contratos ya no queda nada para cubrir con adicionales (o los topes no dejan sumar más).</p>`;
+  const porDia = r.adicDia.map((h, i) => (h ? `${armadoR1(h)} h` : null));
+  const base = r.cambios[0] ? r.cambios[0].d : lunes;
+  const lun = formatDate(getStartOfWeek(new Date((base || lunes) + "T00:00:00")));
+  const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lun + "T00:00:00"), i)));
+  return `<p style="font-size:1rem"><b>Adicionales a pedir: ${armadoR1(r.adicTotal)} h</b> · faltaban ${armadoR1(r.sinAdicFaltan)} h contra la curva y con adicionales quedan ${armadoR1(r.despues)} h.</p>
+    <p style="font-size:0.85rem">Por día: ${dias.map((d, i) => (porDia[i] ? `${dn[new Date(d + "T00:00:00").getDay()]} ${fc(d)} ${porDia[i]}` : null)).filter(Boolean).join(" · ")}</p>
+    <p style="font-size:0.85rem">Por persona: ${r.adicPersona.slice().sort((a, b) => b.h - a.h).map((x) => `${borradorEsc(x.nombre)} ${armadoR1(x.h)} h`).join(" · ")}</p>`;
 }
 async function armadoDeshacer(previos) {
   for (const [k, v] of Object.entries(previos)) {
@@ -18727,6 +18820,9 @@ window.armarMes = async function () {
         ...(conCambios.length ? [{ txt: "Armar sobre lo que hay", fn: () => resolve("sobre") }, { txt: "Empezar de cero", clase: "bm-prin", fn: () => resolve("cero") }] : [{ txt: `Armar ${meses[mIdx]}`, clase: "bm-prin", fn: () => resolve("sobre") }])]);
   });
   if (!modo) return;
+  const conAdic = await armadoElegirModo(`Armar ${meses[mIdx]}`);
+  if (!conAdic) return;
+  const extra = { adicionales: conAdic === "con" };
   // Que la grilla tenga todo el borrador de esas semanas (y la anterior y la siguiente) a mano
   const desde = formatDate(addDays(new Date(semanas[0] + "T00:00:00"), -7)), hasta = formatDate(addDays(new Date(semanas[semanas.length - 1] + "T00:00:00"), 13));
   Object.entries(borrador.docs || {}).forEach(([k, o]) => { const f = k.slice(-10); if (f >= desde && f <= hasta && !(k in state.planning)) state.planning[k] = JSON.parse(JSON.stringify(o)); });
@@ -18748,7 +18844,7 @@ window.armarMes = async function () {
     const pr = await armadoPedirPremio(lunes, hist);
     if (pr === null) { resumen.push({ lunes, cancelada: true }); continue; }
     let r;
-    try { r = pr.premiados ? armadoConPremio(lunes, hist, pr.premiados, pr.sabados) : armadoSemana(lunes, hist); }
+    try { r = pr.premiados ? armadoConPremio(lunes, hist, pr.premiados, pr.sabados, extra) : armadoSemana(lunes, hist, extra); }
     catch (e) { console.error(e); resumen.push({ lunes, error: true }); continue; }
     await armadoAplicar(lunes, r, previos);
     resumen.push({ lunes, r });
@@ -18772,10 +18868,12 @@ window.armarMes = async function () {
     if (r.deSemanaAnterior.length || r.deAnioAnterior.length) curva.push("curva del año pasado");
     if (r.estimadas.length) curva.push("curva estimada");
     if (r.parejas.length) curva.push("gente pareja (sin curva)");
-    return `<div style="margin-bottom:6px">${tit}: ${r.cambios.length} cambios${r.premio && r.premio.length ? ` · franco pegado a ${r.premio.length}` : ""}${curva.length ? ` <span style="color:var(--text-muted)">· ${curva.join(", ")}</span>` : ""}${av.length ? `<div class="bm-ojo" style="font-size:0.8rem">⚠ ${borradorEsc(av.join(" · "))}</div>` : ` <span style="color:#15803d">✓</span>`}</div>`;
+    return `<div style="margin-bottom:6px">${tit}: ${r.cambios.length} cambios${r.modoAdic ? ` · <b>${armadoR1(r.adicTotal)} h de adicionales</b> (quedan faltando ${armadoR1(r.despues)} h)` : ""}${r.premio && r.premio.length ? ` · franco pegado a ${r.premio.length}` : ""}${curva.length ? ` <span style="color:var(--text-muted)">· ${curva.join(", ")}</span>` : ""}${av.length ? `<div class="bm-ojo" style="font-size:0.8rem">⚠ ${borradorEsc(av.join(" · "))}</div>` : ` <span style="color:#15803d">✓</span>`}</div>`;
   }).join("");
   const total = resumen.reduce((t, x) => t + (x.r ? x.r.cambios.length : 0), 0);
+  const totAdic = resumen.reduce((t, x) => t + (x.r && x.r.modoAdic ? x.r.adicTotal : 0), 0);
   borradorModal(`${meses[mIdx][0].toUpperCase() + meses[mIdx].slice(1)} armado`, `<p>${total} cambios en ${resumen.filter((x) => x.r).length} semanas, ya cargados en el borrador.</p>
+    ${extra.adicionales ? `<p style="font-size:1rem"><b>Adicionales a pedir en el mes: ${armadoR1(totAdic)} h</b> (marcadas día por día en la fila de horas adicionales).</p>` : ""}
     <div class="bm-lista">${filas}</div>
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Revisalo semana por semana con la cobertura y ajustá a mano lo que haga falta. Es solo en el borrador.</p>`,
     [{ txt: "Deshacer todo", fn: async () => { await armadoDeshacer(previos); showToast("Deshecho", "El mes volvió como estaba.", "info"); } }, { txt: "Listo", clase: "bm-prin" }]);
