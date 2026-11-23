@@ -3771,7 +3771,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.118
+            Versión: v1.7.119
           </div>
         </div>
       </div>
@@ -5030,7 +5030,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.118";
+  const APP_VERSION = "v1.7.119";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18499,7 +18499,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   // · Días vacíos: los decide (trabaja / LIBRE) y, si la persona no tiene franco esa semana, le pone uno
   //   en el día de menos demanda (respetando los días de franco del evento, si hay reglas).
   // · Cobertura: mínimo 1 cajero en cada hora abierta (prioridad máxima); si hay 2 o más rollers en
-  //   una hora, uno puede cubrir caja.
+  //   una hora, uno puede cubrir caja. (Ya no: los rollers no cuentan como cajeros salvo marcados.)
   const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunesStr + "T00:00:00"), i)));
   const prevDia = formatDate(addDays(new Date(lunesStr + "T00:00:00"), -1));
   const sigDia = formatDate(addDays(new Date(lunesStr + "T00:00:00"), 7));
@@ -18577,7 +18577,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const r = dem[i][h];
     if (r <= 0) return 0;
     const c = covC[i][h], ro = covR[i][h];
-    const ef = c + Math.max(0, ro - 1); // con 2 o más rollers, uno puede cubrir caja
+    const ef = c; // los rollers no son dotación de caja (solo cuentan el día que van como cajero)
     // Lo que falta pesa más cuanto más descubierta está la hora (en proporción a lo pedido): así, si no
     // alcanza la gente, el faltante se reparte parejo entre mañana y noche en vez de amontonarse en una punta
     const falta = Math.max(0, r - ef);
@@ -18589,7 +18589,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   };
   const costoTes = (i) => (cerrado[i] ? 0 : tes[i].tit > 0 ? 0 : tes[i].sup > 0 ? 3 : 12);
   const costoTotal = () => { let t = 0; for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) t += costoHora(i, h); return t; };
-  const faltanH = () => { let t = 0; for (let i = 0; i < 7; i++) if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; };
+  const faltanH = () => { let t = 0; for (let i = 0; i < 7; i++) if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h])); return t; };
   const tramosDe = (p) => (p.isCortado ? p.tramos : [p]).map((t) => ({ s: t.start, e: t.end <= t.start ? 24 : t.end }));
   const aplicar = (pl, i, tr, signo) => {
     if (pl.tes && tr && tr.length && Math.abs(tr[0].s - TES_HORA) < 1e-9) tes[i][pl.tes] += signo;
@@ -18802,7 +18802,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     flex.forEach((i) => { plan[i] = null; });
     // Cuánto le falta a cada día con la gente que ya está (sin esta persona): ahí conviene que trabaje
     const esRol = pl.rolDia.some(Boolean);
-    const faltaDia = (i) => { let t = 0; for (let h = 0; h < 24; h++) { const r = dem[i][h]; if (r > 0) { const ef = covC[i][h] + Math.max(0, covR[i][h] - 1); t += Math.max(0, r - ef) + (ef < 1 ? 8 : 0) + (esRol && covR[i][h] < 1 - 1e-9 ? 8 : 0); } } return t; };
+    const faltaDia = (i) => { let t = 0; for (let h = 0; h < 24; h++) { const r = dem[i][h]; if (r > 0) { const ef = covC[i][h]; t += Math.max(0, r - ef) + (ef < 1 ? 8 : 0) + (esRol && covR[i][h] < 1 - 1e-9 ? 8 : 0); } } return t; };
     // Para repartir: cuánta gente ya trabaja y cuántos francos hay cada día (sin contar a esta persona)
     const gente = (i) => personas.filter((p) => p !== pl && p.plan[i] && p.plan[i].length).length;
     const francos = (i) => personas.filter((p) => p !== pl && (p.francoDia === i || (p.tipo[i] === "fijo" && /^f$/i.test(String(p.orig[i] || "").trim())))).length;
@@ -18938,7 +18938,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const cand = optimizables.filter((pl) => !pl.sinSolucion && pl.contrato > 0 && pl.contrato < TOPE_SEM && !excl.has(pl.c.id));
     cand.forEach((pl) => { usado.set(pl, 0); lims.set(pl, limites(pl)); });
     const hiDe = (i) => Math.min(24, Math.max(cierra[i], 0));
-    const faltaEnDia = (i) => { if (finLimpieza[i] && covC[i][finLimpieza[i] - 1] < 5 - 1e-9) return true; for (let h = 0; h < 24; h++) if (dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1)) > 0.5) return true; return false; };
+    const faltaEnDia = (i) => { if (finLimpieza[i] && covC[i][finLimpieza[i] - 1] < 5 - 1e-9) return true; for (let h = 0; h < 24; h++) if (dem[i][h] - (covC[i][h]) > 0.5) return true; return false; };
     const loDe = (pl, i) => Math.max(6, pl.tes ? Math.min(abre[i], TES_HORA) : abre[i]);
     for (let vuelta = 0; vuelta < 600; vuelta++) {
       let best = null;
@@ -19026,7 +19026,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const tesEncontrados = personas.filter((pl) => pl.tes).map((pl) => (typeof nombreCortoCelular === "function" && nombreCortoCelular(pl.c)) || pl.c.name);
   let sinCajero = 0;
   const sinCajeroDia = dias.map(() => 0);
-  for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) if (dem[i][h] > 0 && covC[i][h] + Math.max(0, covR[i][h] - 1) < 0.999) { sinCajero++; sinCajeroDia[i]++; }
+  for (let i = 0; i < 7; i++) for (let h = 0; h < 24; h++) if (dem[i][h] > 0 && covC[i][h] < 0.999) { sinCajero++; sinCajeroDia[i]++; }
   // Horas sin roller, por día (para avisar)
   const sinRollerDia = dias.map((_, i) => { const hs = []; for (let h = 0; h < 24; h++) if (dem[i][h] > 0 && covR[i][h] < 0.999) hs.push(h); return hs; });
   const sinRoller = sinRollerDia.reduce((t, x) => t + x.length, 0);
@@ -19055,7 +19055,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const rangos = (hs) => { const out = []; hs.forEach((h) => { const u = out[out.length - 1]; if (u && u[1] === h) u[1] = h + 1; else out.push([h, h + 1]); }); return out.map(([a, b]) => `${a} a ${b}`).join(", "); };
   const sinRollerTxt = dias.map((d, i) => (sinRollerDia[i].length ? { d, txt: rangos(sinRollerDia[i]) } : null)).filter(Boolean);
   const horarios = dias.map((d, i) => (horarioEsp[i] ? { d, ...horarioEsp[i] } : null)).filter(Boolean);
-  const faltanDia = dias.map((_, i) => { let t = 0; if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h] + Math.max(0, covR[i][h] - 1))); return t; });
+  const faltanDia = dias.map((_, i) => { let t = 0; if (conCurva[i]) for (let h = 0; h < 24; h++) t += Math.max(0, dem[i][h] - (covC[i][h])); return t; });
   const demDia = dem.map((arr) => arr.reduce((t, v) => t + v, 0));
   // Rollers marcados para hacer más horas el feriado: no se arman, solo se avisa si tienen menos de 6 h
   const feriadoAvisos = [];
