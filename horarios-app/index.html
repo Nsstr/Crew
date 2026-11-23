@@ -3771,7 +3771,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.117
+            Versión: v1.7.118
           </div>
         </div>
       </div>
@@ -5030,7 +5030,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.117";
+  const APP_VERSION = "v1.7.118";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -19526,11 +19526,31 @@ async function armadoDeshacer(previos) {
 
 // ===== Armar el mes: todas las semanas del mes que se ve, en orden (cada una mira cómo quedó la anterior:
 // descansos, rotación, domingos del mes, Navidad/Año Nuevo). Las semanas trabadas no se tocan.
-window.armarMes = async function () {
+// Un solo botón: pregunta si se arma la semana que se ve (con sus fechas) o un mes entero
+window.armarElegir = function () {
+  if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
+  const lunes = borradorLunesVisible();
+  const dn = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const fl = (f) => { const d = new Date(f + "T00:00:00"); return `${dn[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`; };
+  const dom = formatDate(addDays(new Date(lunes + "T00:00:00"), 6));
+  const trab = borradorSemanaTrabada(lunes);
+  const ref = addDays(new Date(lunes + "T00:00:00"), 3);
+  const ops = [];
+  for (let k = -1; k <= 3; k++) { const d = new Date(ref.getFullYear(), ref.getMonth() + k, 1); ops.push({ y: d.getFullYear(), m: d.getMonth(), sel: k === 0 }); }
+  const sel = `<select id="armarMesSel" style="padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 0.9rem;">${ops.map((o) => `<option value="${o.y}-${o.m}"${o.sel ? " selected" : ""}>${meses[o.m][0].toUpperCase() + meses[o.m].slice(1)} ${o.y}</option>`).join("")}</select>`;
+  borradorModal("Armar sugerido", `<p>¿Qué querés armar?</p>
+    <div style="border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 8px 0;"><b>La semana que estás viendo</b><div style="color: var(--text-muted); margin-top: 2px;">del ${fl(lunes)} al ${fl(dom)}${trab ? " · <b>está trabada</b>: destrabala con el candado para armarla" : ""}</div></div>
+    <div style="border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 8px 0;"><b>Un mes entero</b>, semana por semana y en orden<div style="margin-top: 6px;">${sel}</div><div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">Las semanas trabadas no se tocan. Si alguna ya tiene adicionales, te pregunto antes.</div></div>`,
+    [{ txt: "Cancelar" },
+      { txt: "Armar el mes", fn: () => { const v = (document.getElementById("armarMesSel") || {}).value || ""; const [yy, mm] = v.split("-").map(Number); setTimeout(() => window.armarMes(yy, mm), 50); } },
+      { txt: "Armar la semana", clase: "bm-prin", fn: () => setTimeout(() => window.armarSinAdicionales(), 50) }]);
+};
+window.armarMes = async function (yElegido, mElegido) {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
   const visible = new Date(borradorLunesVisible() + "T00:00:00");
   const ref = addDays(visible, 3); // el mes de la semana que se ve (por su jueves)
-  const y = ref.getFullYear(), mIdx = ref.getMonth();
+  const y = Number.isInteger(yElegido) ? yElegido : ref.getFullYear(), mIdx = Number.isInteger(mElegido) ? mElegido : ref.getMonth();
   const primero = new Date(y, mIdx, 1), ultimo = new Date(y, mIdx + 1, 0);
   const semanas = [];
   for (let l = getStartOfWeek(primero); l <= ultimo; l = addDays(l, 7)) semanas.push(formatDate(l));
@@ -19766,8 +19786,7 @@ window.borradorPintarFranja = function () {
   if (!fr) {
     fr = document.createElement("div"); fr.id = "borradorFranja";
     fr.innerHTML = `<input id="borradorNombre" title="Nombre del borrador (tocá para cambiarlo)" maxlength="40">
-      <button type="button" onclick="window.armarSinAdicionales()" title="Arma la semana que se ve: cada persona con las horas de su contrato, cuidando la curva y los descansos">Armar sugerido</button>
-      <button type="button" onclick="window.armarMes()" title="Arma todas las semanas del mes que se ve, en orden, con todas las reglas">Armar el mes</button>
+      <button type="button" onclick="window.armarElegir()" title="Armar la semana que se ve o un mes entero">Armar sugerido</button>
       <button type="button" id="borradorTrabaBtn" class="bf-candado" onclick="window.borradorTrabar()"></button>
       <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>
       <span class="bf-sep"></span>
