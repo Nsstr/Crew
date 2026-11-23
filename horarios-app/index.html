@@ -798,6 +798,15 @@
     html.tema-claro:not(.modo-borrador) table#planningTable td.day-cell.today-col .shift-cell.input-work { border-color: #a7f3d0 !important; }
     html.tema-claro:not(.modo-borrador) #cajasDayView { background: #eef2f6; border-left: none !important; }
     html.tema-claro:not(.modo-borrador) #cajasDayView .cdv-body > div:not(.cdv-side), html.tema-claro:not(.modo-borrador) #cajasDayView .cdv-side { background: #ffffff; border-radius: 12px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 0 0 1px #e2e8f0; padding: 12px 14px; }
+    /* Pedidos fijados: cajita con borde ámbar redondeado y un puntito, en vez del recuadro recto */
+    html.tema-claro table#planningTable td.day-cell.cell-wrapper.is-fixed, html.modo-borrador table#planningTable td.day-cell.cell-wrapper.is-fixed { outline: none !important; position: relative; }
+    html.tema-claro table#planningTable td.day-cell.cell-wrapper.is-fixed::before, html.modo-borrador table#planningTable td.day-cell.cell-wrapper.is-fixed::before { display: none !important; }
+    html.tema-claro table#planningTable td.day-cell.cell-wrapper.is-fixed .shift-cell.shift-cell.shift-cell, html.modo-borrador table#planningTable td.day-cell.cell-wrapper.is-fixed .shift-cell.shift-cell.shift-cell {
+      border: 1.5px solid #f59e0b !important; background: #fffbeb !important; border-radius: 7px !important; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14) !important;
+    }
+    html.tema-claro table#planningTable td.day-cell.cell-wrapper.is-fixed::after, html.modo-borrador table#planningTable td.day-cell.cell-wrapper.is-fixed::after {
+      content: "" !important; display: block !important; visibility: visible !important; position: absolute; top: 4px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; z-index: 3; pointer-events: none;
+    }
     /* Menú desplegable (está dentro de la barra oscura): blanco y sólido */
     html.tema-claro:not(.modo-borrador) .main-app-nav #navDropdownMenu {
       --bg: #eef2f6; --surface: #ffffff; --surface-hover: #f1f5f9; --text: #1e293b; --text-muted: #64748b; --border: #e2e8f0; color-scheme: light;
@@ -3891,7 +3900,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.138
+            Versión: v1.7.139
           </div>
         </div>
       </div>
@@ -5176,7 +5185,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.138";
+  const APP_VERSION = "v1.7.139";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -8252,7 +8261,7 @@ function renderCajasDayView() {
     if (falta) horasCortas++;
     const colW = `calc(${ancho(0, 1)} - 4px)`;
     const left = `calc(${pct(h)} + 2px)`;
-    covBars += `<div style="left:${left};width:${colW};height:${(c / maxVal) * 100}%;background:${falta ? "#ef4444" : "#10b981"};opacity:0.75"></div>`;
+    covBars += `<div style="left:${left};width:${colW};height:${(c / maxVal) * 100}%;background:${falta ? (r - c <= 1 ? "#fbbf24" : "#ef4444") : "#10b981"};opacity:0.85"></div>`;
     // Rollers apilados encima, como apoyo: no cuentan para la cobertura
     if (ro > 0) covBars += `<div style="left:${left};width:${colW};bottom:${(c / maxVal) * 100}%;height:${(ro / maxVal) * 100}%;background:#8b5cf6;opacity:0.55"></div>`;
     if (demanda && r > 0) {
@@ -8272,7 +8281,7 @@ function renderCajasDayView() {
       <span class="cdv-legend">
         ${demanda ? `<span><i style="border:1.5px dashed rgba(255,255,255,0.85)"></i>Requerido</span>` : ""}
         <span><i style="background:#10b981"></i>Cajeros</span>
-        ${demanda ? `<span><i style="background:#ef4444"></i>Falta gente</span>` : ""}
+        ${demanda ? `<span><i style="background:#fbbf24"></i>Falta 1</span><span><i style="background:#ef4444"></i>Faltan 2 o más</span>` : ""}
         ${totalRol ? `<span><i style="background:#8b5cf6;opacity:0.55"></i>Rollers (aparte)</span>` : ""}
       </span>
     </div>
@@ -8385,7 +8394,7 @@ function renderCajasMobileView() {
     totalPlan += c; totalReq += r; totalRol += ro;
     if (falta) { faltantes.push(h); sumaFalta += r - c; }
     const left = `calc(${pct(h)} + 1px)`, w = `calc(${ancho(0, 1)} - 2px)`;
-    barras += `<div style="left:${left};width:${w};height:${(c / maxVal) * 100}%;background:${falta ? "#ef4444" : "#10b981"};opacity:0.8"></div>`;
+    barras += `<div style="left:${left};width:${w};height:${(c / maxVal) * 100}%;background:${falta ? (r - c <= 1 ? "#fbbf24" : "#ef4444") : "#10b981"};opacity:0.85"></div>`;
     if (ro > 0) barras += `<div style="left:${left};width:${w};bottom:${(c / maxVal) * 100}%;height:${(ro / maxVal) * 100}%;background:#8b5cf6;opacity:0.55"></div>`;
     if (demanda && r > 0) barras += `<div style="left:${left};width:${w};height:${(r / maxVal) * 100}%;border:1px dashed rgba(255,255,255,0.8)"></div>`;
     // Una hora por columna, alineada con su barra, como en la vista de escritorio
@@ -8420,7 +8429,7 @@ function renderCajasMobileView() {
         ${demanda ? `<span class="cmv-cov-lbl">Req.</span><div class="cmv-nums">${numsReq}</div>` : ""}
         ${totalRol ? `<span class="cmv-cov-lbl cmv-rol">Roller</span><div class="cmv-nums cmv-nums-rol">${numsRol}</div>` : ""}
       </div>
-      ${demanda ? `<div class="cmv-cov-legend cmv-cov-mas"><span><i style="border:1px dashed rgba(255,255,255,0.8)"></i>Requerido</span><span><i style="background:#10b981"></i>Cajeros</span><span><i style="background:#ef4444"></i>Falta gente</span>${totalRol ? `<span><i style="background:#8b5cf6;opacity:0.55"></i>Rollers (aparte)</span>` : ""}</div>` : ""}
+      ${demanda ? `<div class="cmv-cov-legend cmv-cov-mas"><span><i style="border:1px dashed rgba(255,255,255,0.8)"></i>Requerido</span><span><i style="background:#10b981"></i>Cajeros</span><span><i style="background:#fbbf24"></i>Falta 1</span><span><i style="background:#ef4444"></i>Faltan 2+</span>${totalRol ? `<span><i style="background:#8b5cf6;opacity:0.55"></i>Rollers (aparte)</span>` : ""}</div>` : ""}
     </div>`;
 
   const celda = (id, valor) =>
@@ -16577,7 +16586,7 @@ function covHojaDiaHTML(dStr, demanda, contratoDia = {}) {
   const barrasCob = horas.map((h) => {
     const c = counts[h], ro = counts.rollers[h], r = req(h), falta = curva && c < r;
     const l = `calc(${pct(h)} + 2px)`, w = `calc(${ancho(0, 1)} - 4px)`;
-    return `<div class="cb" style="left:${l};width:${w};height:${(c / maxVal) * 100}%;background:${falta ? "#ef4444" : "#10b981"}"></div>` +
+    return `<div class="cb" style="left:${l};width:${w};height:${(c / maxVal) * 100}%;background:${falta ? (r - c <= 1 ? "#fbbf24" : "#ef4444") : "#10b981"}"></div>` +
       (ro ? `<div class="cb" style="left:${l};width:${w};bottom:${(c / maxVal) * 100}%;height:${(ro / maxVal) * 100}%;background:#a78bfa"></div>` : "") +
       (r ? `<div class="cb req" style="left:${l};width:${w};height:${(r / maxVal) * 100}%"></div>` : "");
   }).join("");
@@ -16626,7 +16635,7 @@ function covHojaDiaHTML(dStr, demanda, contratoDia = {}) {
     <table class="pl">${colgroup}${filas}</table>
     <h3>Cobertura por hora</h3>
     <table class="pl">${colgroup}${cobertura}</table>
-    <div class="ley"><i style="background:#10b981"></i>Cajeros <i style="background:#ef4444"></i>Falta gente <i class="lreq"></i>Pedido <i style="background:#a78bfa"></i>Rollers (aparte) <i class="ladic"></i>Turno adicional</div>
+    <div class="ley"><i style="background:#10b981"></i>Cajeros <i style="background:#fbbf24"></i>Falta 1 <i style="background:#ef4444"></i>Faltan 2 o más <i class="lreq"></i>Pedido <i style="background:#a78bfa"></i>Rollers (aparte) <i class="ladic"></i>Turno adicional</div>
     ${comparativos}${listasHTML}</section>`;
 }
 
