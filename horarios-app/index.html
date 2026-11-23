@@ -846,7 +846,12 @@
     #borradorModal .bm-ojo { color: #fbbf24; }
     #borradorModal .bm-mini { border-radius: 7px; padding: 4px 10px; font-family: inherit; font-weight: 700; font-size: 0.75rem; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text); }
     #borradorModal .bm-mini:hover { border-color: #f59e0b; }
-    @media (max-width: 768px) { #borradorNavBtn { display: none !important; } }
+    /* Celular: el borrador se ve como la pantalla principal; armar y pasar a real quedan para la compu */
+    @media (max-width: 768px) {
+      #borradorFranja.bf-arriba { padding: 6px 10px; gap: 6px; }
+      #borradorFranja .bf-solo-pc, #borradorFranja .bf-sep, #borradorFranja .bf-real { display: none !important; }
+      #borradorFranja #borradorNombre { flex: 1 1 auto; min-width: 0; }
+    }
 
     /* Avisos: un botón con número y un panel con la lista */
     #avisosBtn { position: relative; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); padding: 0 0.55rem; height: 100%; display: none; align-items: center; justify-content: center; gap: 5px; cursor: pointer; font-family: inherit; font-weight: 700; font-size: 0.75rem; margin-right: 6px; transition: background 0.2s, border-color 0.2s, color 0.2s; }
@@ -3886,7 +3891,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.136
+            Versión: v1.7.137
           </div>
         </div>
       </div>
@@ -5171,7 +5176,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.136";
+  const APP_VERSION = "v1.7.137";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18912,7 +18917,6 @@ window.borradorBorrarDefinitivo = function (id, nombre) {
 };
 window.borradorMenu = function () {
   document.getElementById("navDropdownMenu") && (document.getElementById("navDropdownMenu").style.display = "none");
-  if (window.innerWidth <= 768) { showToast("Solo en la compu", "El modo borrador es para la versión de escritorio.", "info"); return; }
   if (borradorActivo()) { window.borradorSalir(); return; }
   const g = borradorGuardado();
   const intro = `<p>Es una copia de los horarios para probar otra alternativa. Funciona todo igual (reglas, avisos, presupuesto, cobertura, planilla), pero <b>no toca los horarios reales</b>. Se guarda aparte, en la nube, y lo podés seguir desde cualquier compu.</p><p style="color: var(--text-muted);">Vacaciones, eventos y colaboradores siguen siendo los reales.</p>`;
@@ -20371,8 +20375,8 @@ window.borradorPintarFranja = function () {
   if (!fr) {
     fr = document.createElement("div"); fr.id = "borradorFranja";
     fr.innerHTML = `<input id="borradorNombre" title="Nombre del borrador (tocá para cambiarlo)" maxlength="40">
-      <button type="button" onclick="window.armarElegir()" title="Armar la semana que se ve o un mes entero">Armar sugerido</button>
-      <button type="button" id="borradorTrabaBtn" class="bf-candado" onclick="window.borradorTrabar()"></button>
+      <button type="button" class="bf-solo-pc" onclick="window.armarElegir()" title="Armar la semana que se ve o un mes entero">Armar sugerido</button>
+      <button type="button" id="borradorTrabaBtn" class="bf-candado bf-solo-pc" onclick="window.borradorTrabar()"></button>
       <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>
       <span class="bf-sep"></span>
       <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales (pide confirmación)">Pasar a real…</button>`;
