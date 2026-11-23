@@ -3782,7 +3782,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.131
+            Versión: v1.7.132
           </div>
         </div>
       </div>
@@ -5063,7 +5063,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.131";
+  const APP_VERSION = "v1.7.132";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18845,7 +18845,9 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       if (cerrado[i]) { pl.tipo[i] = "cerrado"; pl.plan[i] = null; if (p && p.type === "franco" && !deArmado) fCerrado = true; return; }
       if (!val || !p || p.type === "none") { pl.tipo[i] = "vacio"; pl.plan[i] = null; return; }
       if (p.type === "franco") { tieneF = true; pl.tipo[i] = "fijo"; pl.plan[i] = null; return; }
-      if (p.type !== "work" || p.isNV) { pl.tipo[i] = "fijo"; pl.plan[i] = null; return; }
+      // No viene con horario cargado (NV del feriado, E/…): esas horas son parte del contrato de la semana
+      if (p.type === "work" && p.isNV) { pl.tipo[i] = "fijo"; pl.plan[i] = null; pl.fijoH += p.realHours || 0; return; }
+      if (p.type !== "work") { pl.tipo[i] = "fijo"; pl.plan[i] = null; return; }
       const tr = tramosDe(p);
       const cruza = (p.isCortado ? p.tramos : [p]).some((t) => t.end <= t.start);
       if (cruza || o.fijado || !(contrato > 0)) { pl.tipo[i] = "fijo"; pl.plan[i] = tr; pl.fijoH += p.hours; return; }
