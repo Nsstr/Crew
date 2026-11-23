@@ -3782,7 +3782,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.123
+            Versión: v1.7.124
           </div>
         </div>
       </div>
@@ -5058,7 +5058,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.123";
+  const APP_VERSION = "v1.7.124";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -19364,16 +19364,16 @@ function armadoElegirAdicionales(fechas) {
     const semanasF = [];
     (fechas || []).forEach((f) => { const l = formatDate(getStartOfWeek(new Date(f + "T00:00:00"))); let w = semanasF.find((x) => x.l === l); if (!w) { w = { l, dias: [] }; semanasF.push(w); } w.dias.push(f); });
     const grilla = semanasF.map((w) => `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">${w.dias.map((f) => `<label style="display:flex;flex-direction:column;align-items:center;font-size:0.72rem;min-width:34px;cursor:pointer;border:1px solid var(--border);border-radius:6px;padding:2px 3px"><span>${dnC[new Date(f + "T00:00:00").getDay()]} ${Number(f.slice(8))}</span><input type="checkbox" class="adic-dia" value="${f}" checked></label>`).join("")}</div>`).join("");
-    borradorModal("Horas adicionales", `<p><b>¿Qué días?</b> Destildá los días en que no se usan adicionales.</p>
+    borradorModal("Horas adicionales", `<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:10px"><p style="margin:0 0 6px"><b>¿Cuánto se puede pasar de lo pedido?</b> Para tapar más horas donde falta gente, se aceptan horas de más en otras franjas, con este tope por hora.</p>
+      <select id="adicPasarse" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit">
+        ${[[0, "Nada: solo donde falta gente"], [1, "Hasta 1 persona de más por hora"], [2, "Hasta 2 personas de más por hora"], [3, "Hasta 3 personas de más por hora"]].map(([v, t]) => `<option value="${v}"${(borrador.adicPasarse ?? 1) === v ? " selected" : ""}>${t}</option>`).join("")}
+      </select></div>
+      <p><b>¿Qué días?</b> Destildá los días en que no se usan adicionales.</p>
       <div style="margin:4px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.adic-dia').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.adic-dia').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
       <div>${grilla}</div>
       <p style="margin-top:10px"><b>¿Quiénes?</b> Tildá a los que pueden hacer horas adicionales. Los destildados quedan solo con su contrato. Los de 48 h no aparecen porque no hacen.</p>
       <div style="margin:6px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.adic-si').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.adic-si').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
       <div class="bm-lista">${filas}</div>
-      <p style="margin-top:10px"><b>¿Cuánto se puede pasar de lo pedido?</b> Para tapar más horas donde falta gente, se aceptan horas de más en otras franjas, con este tope por hora.</p>
-      <select id="adicPasarse" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit">
-        ${[[0, "Nada: solo donde falta gente"], [1, "Hasta 1 persona de más por hora"], [2, "Hasta 2 personas de más por hora"], [3, "Hasta 3 personas de más por hora"]].map(([v, t]) => `<option value="${v}"${(borrador.adicPasarse ?? 1) === v ? " selected" : ""}>${t}</option>`).join("")}
-      </select>
       <p style="color: var(--text-muted); font-size: 0.8rem">Queda guardado en el borrador para la próxima vez.</p>`,
       [{ txt: "Cancelar", fn: () => resolve(null) }, { txt: "Armar", clase: "bm-prin", fn: () => {
         const ps = Number((document.getElementById("adicPasarse") || {}).value) || 0;
