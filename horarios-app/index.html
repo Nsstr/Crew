@@ -3782,7 +3782,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.126
+            Versión: v1.7.127
           </div>
         </div>
       </div>
@@ -4920,7 +4920,7 @@ function borradorGuardarNube() {
       await fsSetDoc(doc(db, "borradores", borrador.nubeId), JSON.parse(JSON.stringify({
         nombre: borrador.nombre || "Borrador", creado: borrador.creado || new Date().toISOString(),
         actualizado: borrador.actualizado || new Date().toISOString(), cambios,
-        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [], adicExcluidos: Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null, feriadoMas: borrador.feriadoMas || null, semanasReloj: Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : null, adicPasarse: Number.isFinite(borrador.adicPasarse) ? borrador.adicPasarse : null,
+        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [], adicExcluidos: Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null, feriadoMas: borrador.feriadoMas || null, semanasReloj: Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : null, adicPasarse: Number.isFinite(borrador.adicPasarse) ? borrador.adicPasarse : null, adicMaxDia: Number.isFinite(borrador.adicMaxDia) ? borrador.adicMaxDia : null, adicMaxSem: Number.isFinite(borrador.adicMaxSem) ? borrador.adicMaxSem : null,
       })));
     } catch (e) {
       console.warn("No se pudo guardar el borrador en la nube", e);
@@ -5058,7 +5058,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.126";
+  const APP_VERSION = "v1.7.127";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18420,7 +18420,7 @@ async function borradorDesdeNube(id, datos) {
     if (c.o === null) delete original[k]; else original[k] = c.o;
     if (c.d === null) { borrados[k] = docs[k] || null; delete docs[k]; } else docs[k] = c.d;
   });
-  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [], ...(Array.isArray(datos.adicExcluidos) ? { adicExcluidos: datos.adicExcluidos } : {}), ...(datos.feriadoMas ? { feriadoMas: datos.feriadoMas } : {}), ...(Array.isArray(datos.semanasReloj) ? { semanasReloj: datos.semanasReloj } : {}), ...(Number.isFinite(datos.adicPasarse) ? { adicPasarse: datos.adicPasarse } : {}) };
+  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [], ...(Array.isArray(datos.adicExcluidos) ? { adicExcluidos: datos.adicExcluidos } : {}), ...(datos.feriadoMas ? { feriadoMas: datos.feriadoMas } : {}), ...(Array.isArray(datos.semanasReloj) ? { semanasReloj: datos.semanasReloj } : {}), ...(Number.isFinite(datos.adicPasarse) ? { adicPasarse: datos.adicPasarse } : {}), ...(Number.isFinite(datos.adicMaxDia) ? { adicMaxDia: datos.adicMaxDia } : {}), ...(Number.isFinite(datos.adicMaxSem) ? { adicMaxSem: datos.adicMaxSem } : {}) };
 }
 async function borradorListaNube() {
   if (isMockMode) return [];
@@ -19045,14 +19045,15 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const sinAdicFaltan = faltanH();
   const adicPor = {};
   if (opts.adicionales) {
-    const TOPE_SEM = 42;
+    const TOPE_SEM = Number(opts.maxSem) > 0 ? Number(opts.maxSem) : 42; // lo que diga RR. HH. (se carga al armar)
+    const MAX_DIA = Number(opts.maxDia) > 0 ? Number(opts.maxDia) : 8.5;
     // Cuánto se puede pasar de lo pedido por hora para tapar más faltante (lo elige el usuario)
     const PASARSE = Math.max(0, Number(opts.pasarse) || 0);
     // Con tolerancia: vale agregar si tapa algo de faltante (aunque sobre en otras horas, hasta el tope);
     // sin tolerancia: cada hora agregada tiene que tapar casi una hora de faltante
     const UMBRAL = PASARSE > 0 ? 0.3 : 0.9;
     const pasaTope = (i, tr) => tr.some((t) => { for (let h = Math.floor(t.s); h < Math.ceil(t.e); h++) if (h >= 0 && h < 24 && covC[i][h] > dem[i][h] + PASARSE + 1e-9 && !(finLimpieza[i] && h === finLimpieza[i] - 1)) return true; return false; });
-    const capAd = (pl) => (pl.esRoller ? 9 : 8.5);
+    const capAd = (pl) => (pl.esRoller ? Math.max(9, MAX_DIA) : MAX_DIA);
     const usado = new Map();
     const lims = new Map();
     const excl = new Set(opts.adicExcluidos || []);
@@ -19352,7 +19353,7 @@ async function armadoTraerCurvas(lunes, hist = {}) {
 function armadoElegirModo(titulo) {
   return new Promise((resolve) => {
     borradorModal(titulo || "Armar sugerido", `<p><b>Sin adicionales:</b> cada uno con las horas de su contrato (para cargar en el reloj).</p>
-      <p><b>Con adicionales:</b> además del contrato, suma horas donde la curva de Recaudaciones sigue descubierta, para ver cuántas adicionales hay que pedir y dónde. Tope 42 h por semana (los de 48 no hacen), 8,5 h por día los cajeros y 9 los rollers, siempre con un franco. Las adicionales quedan marcadas día por día.</p>`,
+      <p><b>Con adicionales:</b> además del contrato, suma horas donde la curva de Recaudaciones sigue descubierta, para ver cuántas adicionales hay que pedir y dónde. Con los topes por día y por semana que cargues (los de 48 no hacen), siempre con un franco. Las adicionales quedan marcadas día por día.</p>`,
       [{ txt: "Cancelar", fn: () => resolve(null) }, { txt: "Con adicionales", fn: () => resolve("con") }, { txt: "Sin adicionales", clase: "bm-prin", fn: () => resolve("sin") }]);
   });
 }
@@ -19360,7 +19361,7 @@ function armadoElegirModo(titulo) {
 // excluidos del evento si los tiene. Devuelve la lista de excluidos o null si se canceló.
 function armadoElegirAdicionales(fechas) {
   return new Promise((resolve) => {
-    const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado && !presuEsRoller(c) && presuContrato(c) > 0 && presuContrato(c) < 42)
+    const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado && !presuEsRoller(c) && presuContrato(c) > 0 && presuContrato(c) < 48)
       .sort((a, b) => String(a.name).localeCompare(String(b.name)));
     let excl = Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null;
     if (!excl) { const p = typeof presuActivo === "function" ? presuActivo() : null; excl = p && Array.isArray(p.excluidos) ? p.excluidos : []; }
@@ -19374,7 +19375,12 @@ function armadoElegirAdicionales(fechas) {
     borradorModal("Horas adicionales", `<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:10px"><p style="margin:0 0 6px"><b>¿Cuánto se puede pasar de lo pedido?</b> Para tapar más horas donde falta gente, se aceptan horas de más en otras franjas, con este tope por hora.</p>
       <select id="adicPasarse" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit">
         ${[[0, "Nada: solo donde falta gente"], [1, "Hasta 1 persona de más por hora"], [2, "Hasta 2 personas de más por hora"], [3, "Hasta 3 personas de más por hora"]].map(([v, t]) => `<option value="${v}"${(borrador.adicPasarse ?? 1) === v ? " selected" : ""}>${t}</option>`).join("")}
-      </select></div>
+      </select>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;align-items:center">
+        <label>Máximo por día <input id="adicMaxDia" type="number" min="4" max="12" step="0.5" value="${borrador.adicMaxDia ?? 8.5}" style="width:64px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit"> h</label>
+        <label>Máximo por semana <input id="adicMaxSem" type="number" min="18" max="60" step="0.5" value="${borrador.adicMaxSem ?? 42}" style="width:64px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit"> h</label>
+      </div>
+      <p style="margin:4px 0 0;color:var(--text-muted);font-size:0.78rem">Topes que da Recursos Humanos para el evento (contrato + adicionales). Los de 48 h no hacen adicionales.</p></div>
       <p><b>¿Qué días?</b> Destildá los días en que no se usan adicionales.</p>
       <div style="margin:4px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.adic-dia').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.adic-dia').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
       <div>${grilla}</div>
@@ -19385,6 +19391,9 @@ function armadoElegirAdicionales(fechas) {
       [{ txt: "Cancelar", fn: () => resolve(null) }, { txt: "Armar", clase: "bm-prin", fn: () => {
         const ps = Number((document.getElementById("adicPasarse") || {}).value) || 0;
         borrador.adicPasarse = ps;
+        const md = Number((document.getElementById("adicMaxDia") || {}).value), ms = Number((document.getElementById("adicMaxSem") || {}).value);
+        borrador.adicMaxDia = md >= 4 && md <= 12 ? md : 8.5;
+        borrador.adicMaxSem = ms >= 18 && ms <= 60 ? ms : 42;
         const fuera = [...document.querySelectorAll(".adic-si")].filter((c) => !c.checked).map((c) => c.value);
         const diasSi = [...document.querySelectorAll(".adic-dia")].filter((c) => c.checked).map((c) => c.value);
         borrador.adicExcluidos = fuera;
@@ -19555,14 +19564,14 @@ function armadoPedirPremio(lunes, hist) {
 }
 function armadoMostrar(lunes, hist, premiados, sabados, modo) {
   let r;
-  const extra = { adicionales: modo === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias: modo === "con" ? window.__armadoAdicDias || null : null, feriadoMas: borrador.feriadoMas || {}, pasarse: borrador.adicPasarse ?? 1 };
+  const extra = { adicionales: modo === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias: modo === "con" ? window.__armadoAdicDias || null : null, feriadoMas: borrador.feriadoMas || {}, pasarse: borrador.adicPasarse ?? 1, maxDia: borrador.adicMaxDia ?? 8.5, maxSem: borrador.adicMaxSem ?? 42 };
   try { r = premiados ? armadoConPremio(lunes, hist, premiados, sabados, extra) : armadoSemana(lunes, hist, extra); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
   const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
   const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
   const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
   const lista = r.cambios.slice().sort((a, b) => (a.nombre + a.d).localeCompare(b.nombre + b.d))
     .map((x) => `<div><b>${borradorEsc(x.nombre)}</b> · ${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)}: ${borradorEsc(x.de)} → <b>${x.a === "L" ? "LIBRE" : borradorEsc(x.a)}</b></div>`).join("");
-  borradorModal("Armar sugerido de la semana", `<p>Semana del <b>${fc(lunes)}</b>. ${r.modoAdic ? "Cada persona con su contrato y, donde la curva lo pide, horas adicionales (hasta 42 h por semana)." : "Cada persona queda con las horas de su contrato (sin adicionales)."} Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
+  borradorModal("Armar sugerido de la semana", `<p>Semana del <b>${fc(lunes)}</b>. ${r.modoAdic ? `Cada persona con su contrato y, donde la curva lo pide, horas adicionales (hasta ${String(borrador.adicMaxSem ?? 42).replace(".", ",")} h por semana y ${String(borrador.adicMaxDia ?? 8.5).replace(".", ",")} h por día).` : "Cada persona queda con las horas de su contrato (sin adicionales)."} Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
     ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy → <b>${r1(r.despues)} h</b> con la propuesta.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se arma para tener al menos un cajero de 8 a 22.</p>`}
     ${r.modoAdic ? armadoTextoAdic(r) : ""}
     ${r.cierreFlojo && r.cierreFlojo.length ? `<p class="bm-ojo">⚠ Cierre con menos de 4 cajeros en la última hora: ${r.cierreFlojo.map((x) => `${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)} (${x.n} hasta las ${x.h})`).join(" · ")}.</p>` : `<p>Cierre: todos los días quedan al menos 4 cajeros hasta el final (para carros, devoluciones y limpieza).</p>`}
@@ -19737,7 +19746,7 @@ window.armarMes = async function (yElegido, mElegido) {
   for (let d = new Date(semanas[0] + "T00:00:00"); formatDate(d) <= finSem(semanas[semanas.length - 1]); d = addDays(d, 1)) todasF.push(formatDate(d));
   const ferMes = armadoFeriadosEn(todasF);
   if (ferMes.length && !(await armadoElegirFeriado(ferMes))) return;
-  const extra = { adicionales: conAdic === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias, feriadoMas: borrador.feriadoMas || {}, pasarse: borrador.adicPasarse ?? 1 };
+  const extra = { adicionales: conAdic === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias, feriadoMas: borrador.feriadoMas || {}, pasarse: borrador.adicPasarse ?? 1, maxDia: borrador.adicMaxDia ?? 8.5, maxSem: borrador.adicMaxSem ?? 42 };
   // Que la grilla tenga todo el borrador de esas semanas (y la anterior y la siguiente) a mano
   const desde = formatDate(addDays(new Date(semanas[0] + "T00:00:00"), -7)), hasta = formatDate(addDays(new Date(semanas[semanas.length - 1] + "T00:00:00"), 13));
   Object.entries(borrador.docs || {}).forEach(([k, o]) => { const f = k.slice(-10); if (f >= desde && f <= hasta && !(k in state.planning)) state.planning[k] = JSON.parse(JSON.stringify(o)); });
