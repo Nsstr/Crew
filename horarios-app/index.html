@@ -723,11 +723,9 @@
     #borradorFranja button:hover { background: rgba(245, 158, 11, 0.15); }
     #borradorFranja button.bf-real { background: transparent; color: #fca5a5; border: 1px dashed #dc2626; }
     #borradorFranja .bf-sep { flex: 1 1 40px; min-width: 40px; }
-    #borradorFranja .bf-sep2 { width: 1px; height: 18px; background: rgba(194, 96, 63, 0.35); margin: 0 2px; }
-    #borradorFranja .bf-mas { position: relative; display: inline-flex; }
-    #borradorFranja .bf-mas-menu { display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 99999; flex-direction: column; gap: 2px; min-width: 250px; padding: 6px; border-radius: 8px; background: #fbf8f2; border: 1px solid rgba(194, 96, 63, 0.45); box-shadow: 0 10px 24px rgba(59, 51, 40, 0.2); }
-    #borradorFranja .bf-mas-menu.abierto { display: flex; }
-    #borradorFranja .bf-mas-menu button { text-align: left; border: none !important; width: 100%; }
+    #borradorFranja .bf-candado { display: inline-flex; align-items: center; justify-content: center; padding: 4px 8px !important; }
+    html.modo-borrador #borradorFranja #borradorNombre { font-weight: 700; color: var(--terracota); border-color: transparent; background: transparent; }
+    html.modo-borrador #borradorFranja #borradorNombre:hover, html.modo-borrador #borradorFranja #borradorNombre:focus { border-color: rgba(194, 96, 63, 0.4); background: #fff; }
     #borradorFranja button.bf-trabada { background: #15803d; border-color: #15803d; color: #fff; }
     #borradorModal .bm-pie button:disabled { opacity: 0.4; cursor: not-allowed; }
     #borradorModal .bm-confirma { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 8px 10px; border: 1px solid rgba(220, 38, 38, 0.45); border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
@@ -3773,7 +3771,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.116
+            Versión: v1.7.117
           </div>
         </div>
       </div>
@@ -5032,7 +5030,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.116";
+  const APP_VERSION = "v1.7.117";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -19319,7 +19317,8 @@ window.armarSinAdicionales = async function (decidido, modo) {
     const claves = new Set([...Object.keys(borrador.docs || {}), ...Object.keys(borrador.original || {})]);
     const cambiadas = [...claves].filter((k) => diasW.includes(k.slice(-10)) && ids.has(k.slice(0, -11)) && JSON.stringify(borrador.docs[k] || null) !== JSON.stringify(borrador.original[k] || null));
     if (cambiadas.length) {
-      borradorModal("Armar sugerido", `<p>Esta semana ya tiene <b>${cambiadas.length} ${cambiadas.length === 1 ? "cambio" : "cambios"}</b> en el borrador (de un armado anterior o hechos a mano).</p>
+      const hAdic = cambiadas.reduce((t, k) => t + ((borrador.docs[k] && Number(borrador.docs[k].adicManual)) || 0), 0);
+      borradorModal("Armar sugerido", `<p>Esta semana ya tiene <b>${cambiadas.length} ${cambiadas.length === 1 ? "cambio" : "cambios"}</b> en el borrador (de un armado anterior o hechos a mano).</p>${hAdic ? `<p class="bm-ojo">Tiene <b>${String(Math.round(hAdic * 10) / 10).replace(".", ",")} h adicionales</b> cargadas: si la volvés a armar, se recalculan.</p>` : ""}
         <p><b>Armar sobre lo que hay:</b> respeta los francos y libres que pusiste a mano.</p>
         <p><b>Empezar de cero:</b> vuelve la semana a los horarios reales y arma desde ahí. Se pierden los cambios de esta semana en el borrador (los pedidos fijados en lo real se respetan).</p>`,
         [{ txt: "Cancelar" }, { txt: "Empezar de cero", fn: async () => {
@@ -19539,8 +19538,26 @@ window.armarMes = async function () {
   const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
   const finSem = (l) => formatDate(addDays(new Date(l + "T00:00:00"), 6));
   const trabadas = semanas.filter((l) => borradorSemanaTrabada(l));
-  const aArmar = semanas.filter((l) => !borradorSemanaTrabada(l));
+  let aArmar = semanas.filter((l) => !borradorSemanaTrabada(l));
   if (!aArmar.length) { showToast("Nada para armar", "Todas las semanas del mes están trabadas.", "info"); return; }
+  // Semanas que ya tienen horas adicionales cargadas en el borrador: preguntar antes de pisarlas
+  const idsCaj = new Set(cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => c.id));
+  const adicDe = (l) => { let t = 0; for (let i = 0; i < 7; i++) { const f = formatDate(addDays(new Date(l + "T00:00:00"), i)); Object.entries(borrador.docs || {}).forEach(([k, o]) => { if (k.slice(-10) === f && idsCaj.has(k.slice(0, -11)) && o) t += Number(o.adicManual) || 0; }); } return t; };
+  const conAdicW = aArmar.map((l) => ({ l, h: adicDe(l) })).filter((x) => x.h > 0);
+  if (conAdicW.length) {
+    const quePasa = await new Promise((resolve) => {
+      borradorModal("Hay semanas con adicionales", `<p>${conAdicW.length === 1 ? "Esta semana ya tiene" : "Estas semanas ya tienen"} horas adicionales cargadas en el borrador:</p>
+        <ul>${conAdicW.map((x) => `<li><b>${fc(x.l)} al ${fc(finSem(x.l))}</b> · ${String(Math.round(x.h * 10) / 10).replace(".", ",")} h adicionales</li>`).join("")}</ul>
+        <p>Si las volvés a armar, se recalculan y se pierde lo que acomodaste a mano en ellas.</p>`,
+        [{ txt: "Cancelar", fn: () => resolve(null) }, { txt: "Volver a armarlas", fn: () => resolve("todas") }, { txt: "Saltearlas", clase: "bm-prin", fn: () => resolve("saltear") }]);
+    });
+    if (!quePasa) return;
+    if (quePasa === "saltear") {
+      const salt = new Set(conAdicW.map((x) => x.l));
+      aArmar = aArmar.filter((l) => !salt.has(l));
+      if (!aArmar.length) { showToast("Nada para armar", "Todas las semanas que quedaban ya tienen adicionales.", "info"); return; }
+    }
+  }
   // ¿Qué semanas ya tienen cambios en el borrador?
   const ids = new Set(cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => c.id));
   const claves = [...new Set([...Object.keys(borrador.docs || {}), ...Object.keys(borrador.original || {})])];
@@ -19748,19 +19765,10 @@ window.borradorPintarFranja = function () {
   let fr = document.getElementById("borradorFranja");
   if (!fr) {
     fr = document.createElement("div"); fr.id = "borradorFranja";
-    fr.innerHTML = `<span class="bf-tag">BORRADOR</span>
-      <input id="borradorNombre" title="Nombre del borrador" maxlength="40">
-      <span class="bf-n" id="borradorN"></span>
+    fr.innerHTML = `<input id="borradorNombre" title="Nombre del borrador (tocá para cambiarlo)" maxlength="40">
       <button type="button" onclick="window.armarSinAdicionales()" title="Arma la semana que se ve: cada persona con las horas de su contrato, cuidando la curva y los descansos">Armar sugerido</button>
       <button type="button" onclick="window.armarMes()" title="Arma todas las semanas del mes que se ve, en orden, con todas las reglas">Armar el mes</button>
-      <button type="button" id="borradorTrabaBtn" onclick="window.borradorTrabar()" title="Marcar la semana que se ve como cargada en el reloj: Armar sugerido no la toca">Trabar semana</button>
-      <span class="bf-sep2"></span>
-      <button type="button" onclick="window.borradorDescargar()" title="PDF y Excel de este borrador: Desglose, Distribución diaria, Horario estilo TAW, Excel Horarios Cajas">Descargar</button>
-      <span class="bf-mas"><button type="button" onclick="window.borradorMasMenu(event)" title="Copias de respaldo">Más ▾</button>
-        <span class="bf-mas-menu" id="borradorMasMenu">
-          <button type="button" onclick="window.borradorGuardarArchivo()">Bajar copia de respaldo (.json)</button>
-          <button type="button" onclick="window.borradorAbrirArchivo()">Abrir una copia como borrador nuevo</button>
-        </span></span>
+      <button type="button" id="borradorTrabaBtn" class="bf-candado" onclick="window.borradorTrabar()"></button>
       <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>
       <span class="bf-sep"></span>
       <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales (pide confirmación)">Pasar a real…</button>`;
@@ -19774,12 +19782,15 @@ window.borradorPintarFranja = function () {
   const tb = fr.querySelector("#borradorTrabaBtn");
   if (tb) {
     const tr = borradorSemanaTrabada();
-    tb.textContent = tr ? "🔒 Semana en el reloj" : "Trabar semana";
+    // Candado dibujado: cerrado si la semana está trabada, abierto si no
+    tb.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>${tr ? '<path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>' : '<path d="M8 10.5V7.5a4 4 0 0 1 7.6-1.7"/>'}</svg>`;
+    tb.setAttribute("aria-label", tr ? "Semana trabada" : "Trabar semana");
     tb.classList.toggle("bf-trabada", tr);
     tb.title = tr ? "Esta semana está trabada (cargada en el reloj): Armar sugerido no la toca. Tocá para destrabarla" : "Marcar la semana que se ve como cargada en el reloj: Armar sugerido no la toca";
   }
   const n = borradorCambios().length;
-  fr.querySelector("#borradorN").textContent = n ? `${n} ${n === 1 ? "cambio" : "cambios"}` : "sin cambios";
+  const inpN = fr.querySelector("#borradorNombre");
+  if (inpN) inpN.title = `Borrador · ${n ? `${n} ${n === 1 ? "cambio" : "cambios"}` : "sin cambios"} · tocá para cambiarle el nombre`;
   const t = document.getElementById("borradorNavTxt");
   if (t) t.textContent = "Salir del borrador";
 };
