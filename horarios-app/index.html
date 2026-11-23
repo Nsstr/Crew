@@ -3886,7 +3886,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.135
+            Versión: v1.7.136
           </div>
         </div>
       </div>
@@ -3998,6 +3998,10 @@
           <p id="covDescReporte" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Por cada día, el gráfico de cobertura por hora y debajo las horas pedidas, las que tenemos y la diferencia. Al final, los totales del período.</p>
           <p id="covDescDias" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una hoja por día con los turnos de 7 a 23 h, la cobertura por hora, los comparativos, francos, vacaciones y observaciones. Se abre para imprimir o guardar como PDF.</p>
           <p id="covDescTaw" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Como la planificación de horarios del sistema: cada persona del sector con sus semanas, el horario de cada día y el total de la semana. Se abre para imprimir o guardar como PDF.</p>
+          <div id="diasModoRow" style="display: none; gap: 1rem; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="diasModo" value="full" checked><span>Completo (PDF)</span></label>
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="diasModo" value="simple"><span>Simple (Excel de los rollers, por semana)</span></label>
+          </div>
           <div id="tawAdicRow" style="display: none; gap: 1rem; flex-wrap: wrap;">
             <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="tawAdic" value="sin"><span>Sin adicionales (para el reloj)</span></label>
             <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="tawAdic" value="con"><span>Con adicionales</span></label>
@@ -5167,7 +5171,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.135";
+  const APP_VERSION = "v1.7.136";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15123,6 +15127,7 @@ function covActualizarTipo() {
   const porPeriodo = tipo === "cobertura" || tipo === "dias" || tipo === "planilla" || tipo === "reporte" || tipo === "grilla";
   document.getElementById("covDescTaw").style.display = tipo === "grilla" ? "block" : "none";
   document.getElementById("tawAdicRow").style.display = tipo === "grilla" ? "flex" : "none";
+  document.getElementById("diasModoRow").style.display = tipo === "dias" ? "flex" : "none";
   // En el borrador viene marcado "con adicionales"; en los horarios reales, "sin"
   if (tipo === "grilla" && !document.querySelector('input[name="tawAdic"]:checked')) {
     const def = typeof borradorActivo === "function" && borradorActivo() ? "con" : "sin";
@@ -15189,6 +15194,12 @@ pdfForm.addEventListener("submit", async (e) => {
     const dias = Math.round((new Date(hasta + "T00:00:00") - new Date(desde + "T00:00:00")) / 86400000) + 1;
     if (dias > 62) {
       showToast("Muchos días", "Para imprimir, hasta 62 días (dos meses).", "warning");
+      return;
+    }
+    if ((document.querySelector('input[name="diasModo"]:checked') || {}).value === "simple") {
+      pdfModal.style.display = "none";
+      try { await distSimpleExcel(desde, hasta); }
+      catch (err) { console.error("Error al armar el Excel simple:", err); showToast("No se pudo armar", "Volvé a intentar.", "error"); }
       return;
     }
     // La ventana se abre ya, dentro del clic, para que el navegador no la bloquee
@@ -16758,6 +16769,201 @@ async function covReporteSimplePDF(desde, hasta) {
   showToast("Listo", "Reporte descargado.", "success");
 }
 window.covReporteSimplePDF = covReporteSimplePDF;
+
+// ===== Distribución diaria simple: la planilla semanal de los rollers (Excel), igual a la que usan =====
+// Se arma sobre una plantilla (plantillas/distribucion_rollers.xlsx) para que el formato sea idéntico:
+// una hoja por día, "Comparativo Planificacion" y "Publicado". Un archivo por semana (lunes a domingo).
+let excelJsCarga = null;
+function cargarExcelJS() {
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if (!excelJsCarga) excelJsCarga = new Promise((ok, mal) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
+    sc.onload = () => ok(window.ExcelJS); sc.onerror = () => { excelJsCarga = null; mal(new Error("No cargó ExcelJS")); };
+    document.head.appendChild(sc);
+  });
+  return excelJsCarga;
+}
+async function distSimpleExcel(desde, hasta) {
+  showToast("Preparando", "Armando la planilla de los rollers…", "info");
+  const ExcelJS = await cargarExcelJS();
+  const resp = await fetch("plantillas/distribucion_rollers.xlsx", { cache: "no-store" });
+  if (!resp.ok) throw new Error("Falta la plantilla");
+  const plantilla = await resp.arrayBuffer();
+  // Semanas (lunes a domingo) que tocan el rango
+  const lunes = [];
+  for (let l = getStartOfWeek(new Date(desde + "T00:00:00")); formatDate(l) <= hasta; l = addDays(l, 7)) lunes.push(formatDate(l));
+  const { planning, demanda } = await covTraerPeriodo(lunes[0], formatDate(addDays(new Date(lunes[lunes.length - 1] + "T00:00:00"), 6)));
+  const planOrig = state.planning, demOrig = state.demandaCajas;
+  state.planning = planning; state.demandaCajas = demanda;
+  try {
+    for (const l of lunes) {
+      const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(l + "T00:00:00"), i)));
+      const buf = await distSimpleSemana(ExcelJS, plantilla, dias, demanda);
+      const dm = (f) => f.slice(8, 10) + "-" + f.slice(5, 7);
+      const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = `Sem ${dm(dias[0])} al ${dm(dias[6])}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  } finally { state.planning = planOrig; state.demandaCajas = demOrig; }
+  showToast("Listo", lunes.length === 1 ? "Planilla descargada." : `${lunes.length} planillas descargadas (una por semana).`, "success");
+}
+async function distSimpleSemana(ExcelJS, plantilla, dias, demanda) {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(plantilla);
+  const base = wb.getWorksheet("DIA");
+  const est = (ws, a) => structuredClone(ws.getCell(a).style || {});
+  const fila = (ws, r) => "ABCDEFGHI".split("").map((c) => est(ws, c + r));
+  // Estilos de la plantilla: encabezado de bloque, fila con gente y fila vacía (por bloque); columna J
+  const S = {
+    head: fila(base, 2),
+    lleno: [fila(base, 3), fila(base, 10), fila(base, 22), fila(base, 27)],
+    vacio: [fila(base, 8), fila(base, 20), fila(base, 25), fila(base, 34)],
+    jHead: est(base, "J2"), jItem: est(base, "J3"), jVacio: est(base, "J8"), jTesItem: est(base, "J10"),
+    jVac: est(base, "J23"), jOtras: est(base, "J27"), jObs: est(base, "J31"),
+  };
+  const headTxt = ["Entrada", "Salida", "Break", "Break", "Control Arqueo", "", "Control TK", ""];
+  const titulos = ["ROLLER", "APERTURA", "SIESTA", "CIERRE"];
+  const MIN = [6, 11, 4, 8]; // filas de cada bloque en la plantilla
+  const hdec = (h) => { const hh = Math.floor(h + 1e-9), mm = Math.round((h - hh) * 60); return mm ? Math.round((hh + mm / 100) * 100) / 100 : hh; };
+  const utc = (f) => new Date(Date.UTC(+f.slice(0, 4), +f.slice(5, 7) - 1, +f.slice(8, 10)));
+  const norm = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const TES = [["lucero", "santiago"], ["perez ros"], ["alcaraz", "noelia"], ["castro", "marisol"]];
+  const esTes = (nombre) => TES.some((p) => p.every((x) => norm(nombre).includes(x)));
+  const hojas = [];
+  dias.forEach((dStr, di) => {
+    const ws = wb.addWorksheet(dStr.slice(8, 10) + "-" + dStr.slice(5, 7));
+    const m = structuredClone(base.model); m.name = ws.name; m.id = ws.id; m.orderNo = di; ws.model = m;
+    Object.keys(base._merges).forEach((k) => { try { ws.mergeCells(base._merges[k].range); } catch (e) {} });
+    hojas.push(ws);
+    const cerrada = !!(state.eventos && state.eventos[dStr] && state.eventos[dStr].tiendaCerrada);
+    const { bloques, listas, notas } = cdvArmarDia(dStr);
+    // Filas por bloque: un renglón por tramo (los cortados, uno por tramo, en el bloque de su hora)
+    const bl = [[], [], [], []];
+    if (!cerrada) {
+      (bloques.roller || []).forEach((p) => p.tramos.forEach((t) => bl[0].push({ n: p.nombre, s: t.start, e: t.end })));
+      [...bloques.apertura, ...bloques.siesta, ...bloques.cierre].forEach((p) => p.tramos.forEach((t) => bl[t.start < 12 ? 1 : t.start < 16 ? 2 : 3].push({ n: p.nombre, s: t.start, e: t.end })));
+    }
+    bl.forEach((b) => b.sort((x, y) => x.s - y.s || x.e - y.e));
+    // Tamaños: los de la plantilla; si un bloque no entra, crece y se achican los otros (sin perder gente)
+    const tam = bl.map((b, i) => Math.max(b.length, MIN[i]));
+    const DISP = 33 - 4;
+    while (tam.reduce((a, b) => a + b, 0) > DISP) {
+      const k = tam.map((t, i) => t - bl[i].length).reduce((best, v, i, arr) => (v > arr[best] ? i : best), 0);
+      if (tam[k] - bl[k].length <= 0) break;
+      tam[k]--;
+    }
+    const extra = Math.max(0, tam.reduce((a, b) => a + b, 0) - DISP);
+    ["F2", "H2", "F9", "H9", "F21", "H21", "F26", "H26"].forEach((a) => { try { ws.unMergeCells(a); } catch (e) {} });
+    if (extra) {
+      try { ws.unMergeCells("A35"); } catch (e) {}
+      ws.spliceRows(35, 0, ...Array.from({ length: extra }, () => []));
+      ws.mergeCells(`A${35 + extra}:C${35 + extra}`);
+      ["B", "C"].forEach((c) => { ws.getCell(`${c}${53 + extra}`).value = { formula: `SUM(${c}${37 + extra}:${c}${52 + extra})` }; });
+    }
+    const fin = 34 + extra;
+    // Bloques
+    let r = 2;
+    const cabeceras = [];
+    bl.forEach((b, i) => {
+      cabeceras.push(r);
+      "ABCDEFGHI".split("").forEach((c, k) => { const cell = ws.getCell(c + r); cell.style = structuredClone(S.head[k]); cell.value = k === 0 ? titulos[i] : headTxt[k - 1] || null; });
+      ws.mergeCells(`F${r}:G${r}`); ws.mergeCells(`H${r}:I${r}`);
+      ws.getCell("F" + r).value = "Control Arqueo"; ws.getCell("H" + r).value = "Control TK";
+      ws.getRow(r).height = 15.75;
+      r++;
+      for (let k = 0; k < tam[i]; k++, r++) {
+        const x = b[k];
+        "ABCDEFGHI".split("").forEach((c, j) => { const cell = ws.getCell(c + r); cell.style = structuredClone((x ? S.lleno[i] : S.vacio[i])[j]); cell.value = null; });
+        if (x) { ws.getCell("A" + r).value = x.n; ws.getCell("B" + r).value = hdec(x.s); ws.getCell("C" + r).value = hdec(x.e); }
+        ws.getRow(r).height = 15.75;
+      }
+    });
+    // Columna derecha: francos, tesorería, vacaciones, otras tareas, observaciones
+    for (let k = 2; k <= fin; k++) { const c = ws.getCell("J" + k); c.style = structuredClone(S.jVacio); c.value = null; }
+    const todas = [...bl[0], ...bl[1], ...bl[2], ...bl[3]];
+    const tesoreria = [...new Set(todas.filter((x) => x.s <= 7 + 1e-9 && esTes(x.n)).map((x) => x.n))];
+    const francos = [...(listas.francos || []), ...(listas.libres || []).map((n) => `${n} (Libre)`)];
+    const obs = [...(notas || []).map((n) => `${n.nombre}: ${n.texto}`), ...(listas.noViene || []).map((n) => `${n}: no viene`), ...(listas.ausencias || [])];
+    if (cerrada) obs.unshift("Tienda cerrada");
+    const secciones = [
+      { t: "FRANCOS", st: S.jHead, it: S.jItem, desde: cabeceras[0], l: francos },
+      { t: "TESORERIA", st: S.jHead, it: S.jTesItem, desde: cabeceras[1], l: tesoreria },
+      { t: "VACACIONES", st: S.jVac, it: S.jItem, desde: cabeceras[2] + 2, l: listas.vacaciones || [] },
+      { t: "OTRAS TAREAS", st: S.jOtras, it: S.jItem, desde: cabeceras[3] + 1, l: [] },
+      { t: "OBSERVACIONES", st: S.jObs, it: S.jItem, desde: cabeceras[3] + 5, l: obs },
+    ];
+    let cur = 2;
+    secciones.forEach((sec) => {
+      let fr = Math.max(sec.desde, cur);
+      const h = ws.getCell("J" + fr); h.style = structuredClone(sec.st); h.value = sec.t;
+      sec.l.forEach((txt, k) => { const c = ws.getCell("J" + (fr + 1 + k)); c.style = structuredClone(sec.it); c.value = txt; });
+      cur = fr + 1 + sec.l.length;
+    });
+    // Fecha y planificación de Recaudaciones (cajeros por hora, de 8 a 23)
+    ws.getCell("A1").value = utc(dStr);
+    const curva = demanda[dStr] || [];
+    const real = cerrada ? Array(24).fill(0) : cdvCoberturaPorHora(dStr, bloques);
+    for (let h = 8; h <= 23; h++) {
+      const rr = 37 + extra + (h - 8);
+      ws.getCell("B" + rr).value = Number(curva[h]) || 0;
+      ws.getCell("C" + rr).value = Number(real[h]) || 0;
+    }
+  });
+  // Comparativo: de a dos filas por día (Recaudaciones y real de tienda)
+  const comp = wb.getWorksheet("Comparativo Planificacion");
+  const nomDia = ["Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"];
+  const col = (k) => String.fromCharCode(70 + k); // F..U
+  dias.forEach((dStr, i) => {
+    const r = 4 + i * 2;
+    comp.getCell("D" + r).value = utc(dStr);
+    comp.getCell("E" + r).value = nomDia[new Date(dStr + "T00:00:00").getDay()];
+    const hoja = hojas[i];
+    const extraFila = (h) => { for (let rr = 36; rr < 60; rr++) if (hoja.getCell("A" + rr).value === h && rr > 36) return rr; return null; };
+    for (let h = 8; h <= 23; h++) {
+      const rr = extraFila(h);
+      comp.getCell(col(h - 8) + r).value = rr ? hoja.getCell("B" + rr).value : 0;
+      comp.getCell(col(h - 8) + (r + 1)).value = rr ? hoja.getCell("C" + rr).value : 0;
+    }
+  });
+  // Publicado: el horario de cada uno en la semana (cajeros y después rollers, por legajo)
+  const pub = wb.getWorksheet("Publicado");
+  dias.forEach((d, i) => { pub.getCell(1, 3 + i).value = utc(d); });
+  const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado);
+  const esRol = (c) => ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller");
+  const orden = (a, b) => (Number(a.id) || 0) - (Number(b.id) || 0);
+  const lista = [...gente.filter((c) => !esRol(c)).sort(orden), ...gente.filter(esRol).sort(orden)];
+  const hhmm = (h) => `${String(Math.floor(h + 1e-9)).padStart(2, "0")}.${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
+  const textoDia = (c, d) => {
+    if (cdvEnVacaciones(c.id, d)) return "VACACIONES";
+    const v = String(getSlotEfectivo(c.id, d) || "").replace("*", "").trim();
+    const p = parseShift(v);
+    if (!p || p.type === "none") return "";
+    if (p.type === "franco") return "FRANCO";
+    if (p.type === "libre") return "LIBRE";
+    if (p.type === "vacation") return "VACACIONES";
+    if (p.type !== "work") return String(p.label || v).toUpperCase();
+    const tr = (p.isCortado ? p.tramos : [p]).map((t) => `${hhmm(t.start)}-${hhmm(t.end <= t.start ? 24 : t.end)}`).join("/");
+    return p.isNV ? `${p.ausencia || "NV"} ${tr}` : tr;
+  };
+  const estPub = "ABCDEFGHI".split("").map((c) => structuredClone(pub.getCell(c + 2).style || {}));
+  const ult = Math.max(pub.rowCount, lista.length + 1);
+  for (let r = 2; r <= ult; r++) {
+    const c = lista[r - 2];
+    "ABCDEFGHI".split("").forEach((k, j) => { const cell = pub.getCell(k + r); if (c) cell.style = structuredClone(estPub[j]); cell.value = null; });
+    if (!c) continue;
+    pub.getCell("A" + r).value = Number(c.id) || c.id;
+    pub.getCell("B" + r).value = String(c.name || "").split("(")[0].trim();
+    dias.forEach((d, i) => { pub.getCell(r, 3 + i).value = textoDia(c, d); });
+  }
+  // Orden de las hojas: los días, el comparativo y lo publicado
+  comp.orderNo = 100; pub.orderNo = 101;
+  wb.removeWorksheet(base.id);
+  return wb.xlsx.writeBuffer();
+}
 
 async function covImprimirDias(desde, hasta, win) {
   const { planning, demanda } = await covTraerPeriodo(desde, hasta);
