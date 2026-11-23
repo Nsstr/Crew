@@ -1664,6 +1664,16 @@
 
     /* Contenedor de pestañas: en escritorio no altera nada; en celular va en su propio renglón deslizable */
     .app-tabs-list { display: contents; }
+    .adic-dash-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.85rem; }
+    .adic-dash-bar button { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; font-family: inherit; font-size: 0.8rem; cursor: pointer; }
+    .adic-dash-bar button.activo { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .adic-dash-pres { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .adic-dash-fechas { display: inline-flex; align-items: center; gap: 6px; }
+    .adic-dash-fechas input { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; font-family: inherit; color-scheme: inherit; }
+    .adic-dash-bar .adic-dash-imp { margin-left: auto; border-radius: 6px; font-weight: 700; }
+    .adic-dash-msg { padding: 0 16px; color: var(--text-muted); font-size: 0.8rem; }
+    .adic-dash-msg:not(:empty) { padding: 8px 16px; }
+    @media (max-width: 768px) { .adic-dash-bar { padding: 8px 10px; gap: 8px; } .adic-dash-bar .adic-dash-imp { margin-left: 0; } }
     @media (max-width: 768px) {
       .main-app-nav.main-app-nav-grid {
         display: grid !important;
@@ -3699,6 +3709,7 @@
       <button class="app-tab-btn" id="breakAuditNavBtn" title="Control de descansos y breaks" onclick="window.openBreakAuditModal()">Descansos</button>
       <button class="app-tab-btn" id="vacationTabBtn" title="Plan anual de vacaciones" onclick="switchTab('vacaciones')" style="display: none;">Vacaciones</button>
       <button class="app-tab-btn" id="tabNavDashboard" data-alias="metricsTabBtn" title="Dashboard de métricas" onclick="switchTab('metricas')" style="display: none;">Métricas</button>
+      <button class="app-tab-btn" id="adicionalesTabBtn" title="Horas pedidas, horas que tenemos y adicionales" onclick="switchTab('adicionales')" style="display: none;">Adicionales</button>
       </div>
     </div>
     
@@ -3771,7 +3782,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.122
+            Versión: v1.7.123
           </div>
         </div>
       </div>
@@ -4195,6 +4206,23 @@
 
     </div>
   </div>
+
+   <!-- SECCIÓN ADICIONALES (el Desglose en pantalla) -->
+   <div id="seccionAdicionales" style="display: none; flex-direction: column; height: 100%; background: var(--surface);">
+     <div class="adic-dash-bar">
+       <b style="font-size: 1rem;">Adicionales</b>
+       <span class="adic-dash-pres">
+         <button type="button" data-p="evento" onclick="window.adicDashPreset('evento')">Evento</button>
+         <button type="button" data-p="mes" onclick="window.adicDashPreset('mes')">Este mes</button>
+         <button type="button" data-p="sig" onclick="window.adicDashPreset('sig')">Mes que viene</button>
+         <button type="button" data-p="semana" onclick="window.adicDashPreset('semana')">Esta semana</button>
+       </span>
+       <span class="adic-dash-fechas"><input type="date" id="adicDashDesde" onchange="window.adicDashVer()"><span>al</span><input type="date" id="adicDashHasta" onchange="window.adicDashVer()"></span>
+       <button type="button" class="adic-dash-imp" onclick="window.adicDashImprimir()" title="Imprimir o guardar en PDF">Imprimir</button>
+     </div>
+     <div id="adicDashMsg" class="adic-dash-msg"></div>
+     <iframe id="adicDashFrame" title="Adicionales" style="flex: 1 1 auto; width: 100%; border: 0; background: #fff;"></iframe>
+   </div>
 
    <!-- SECCIÓN MÉTRICAS Y AUDITORÍA -->
    <div id="seccionMetricas" class="metrics-container" style="display: none; padding: 20px; background: var(--surface); height: 100%; overflow-y: auto;">
@@ -5030,7 +5058,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.122";
+  const APP_VERSION = "v1.7.123";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -10766,8 +10794,7 @@ function renderPresuBarra() {
     <span style="white-space: nowrap;">Usadas <b>${presuR(r.usado)}</b> de ${presuR(p.total)} · ${pasa ? `<b style="color: #fca5a5;">te pasaste ${presuR(-r.queda)} h</b>` : `quedan <b style="color: ${acento};">${presuR(r.queda)}</b>`}</span>` : ""}
     ${r.fuera > 0 ? `<span style="color: var(--text-muted); white-space: nowrap;" title="Horas que pasan del contrato en días que no son del evento">+${presuR(r.fuera)} h extra fuera del evento</span>` : ""}
     ${(() => { const n = conHoras ? adicPendientes().length : 0; return n ? `<span style="white-space: nowrap; color: #fbbf24; font-weight: 700; text-decoration: underline; text-underline-offset: 3px;" title="Semanas donde las adicionales marcadas no coinciden con lo que pasa del contrato" onclick="event.stopPropagation(); window.abrirAvisos()">⚠ ${n} ${n === 1 ? "semana" : "semanas"} con adicionales sin cerrar</span>` : ""; })()}
-    <span style="margin-left: auto; color: var(--text-muted); white-space: nowrap;">Ver detalle ›</span>
-    ${presuLineaSemana(p, r)}`;
+    <span style="margin-left: auto; color: var(--text-muted); white-space: nowrap;">Ver detalle ›</span>`;
 
   // Celular: una sola línea; al tocarla se despliega el resto (y se recuerda abierta o cerrada)
   if (window.innerWidth <= 768) {
@@ -12335,6 +12362,8 @@ window.updateAreaVisibility = function() {
     productividadTabBtn.style.display = isCajas ? "inline-block" : "none";
   }
   
+  const adicTabBtn = document.getElementById("adicionalesTabBtn");
+  if (adicTabBtn) adicTabBtn.style.display = isCajas ? "inline-block" : "none";
   const tabDashboard = document.getElementById("tabNavDashboard") || document.getElementById("metricsTabBtn");
   // Métricas está en todas las áreas (cada una ve solo a su gente)
   if (tabDashboard) tabDashboard.style.display = "inline-block";
@@ -12355,6 +12384,7 @@ window.switchTab = function (tabId) {
   else if (tabId === "metricas") btnId = document.getElementById("tabNavDashboard") ? "tabNavDashboard" : "metricsTabBtn";
   else if (tabId === "sugeridos") btnId = "suggestedTabBtn";
   else if (tabId === "productividad") btnId = "productividadTabBtn";
+  else if (tabId === "adicionales") btnId = "adicionalesTabBtn";
 
   const btn = document.getElementById(btnId);
   if (btn) btn.classList.add("active");
@@ -12371,6 +12401,8 @@ window.switchTab = function (tabId) {
   if (seccionMetricas) seccionMetricas.style.display = "none";
   if (seccionSugeridos) seccionSugeridos.style.display = "none";
   if (seccionProductividad) seccionProductividad.style.display = "none";
+  const seccionAdicionales = document.getElementById("seccionAdicionales");
+  if (seccionAdicionales) seccionAdicionales.style.display = "none";
 
   if (navCenter) {
     navCenter.style.visibility = tabId === "horarios" ? "visible" : "hidden";
@@ -12392,6 +12424,9 @@ window.switchTab = function (tabId) {
   } else if (tabId === "productividad") {
     if (seccionProductividad) seccionProductividad.style.display = "flex";
     if (typeof window.renderProductividad === "function") window.renderProductividad();
+  } else if (tabId === "adicionales") {
+    if (seccionAdicionales) seccionAdicionales.style.display = "flex";
+    window.adicDashAbrir();
   } else if (tabId === "horarios" || tabId === "grid") {
     if (seccionHorarios) seccionHorarios.style.display = "flex";
     renderUI();
@@ -15477,6 +15512,52 @@ function desCalcularCon(desde, hasta, planning, demanda) {
   const semanas = [...new Set(dias.map((x) => x.semana))].map((l) => { const ds = dias.filter((x) => x.semana === l); return { lunes: l, desde: ds[0].fecha, hasta: ds[ds.length - 1].fecha, ...sumarDias(ds) }; });
   return { dias, total: sumarDias(dias), semanas };
 }
+// ===== Pestaña Adicionales: el Desglose en pantalla, con fechas y botón de imprimir =====
+let adicDashPres = null;
+window.adicDashPreset = function (cual) {
+  const hoy = new Date();
+  let d, h;
+  if (cual === "evento") { const p = typeof presuActivo === "function" ? presuActivo() : null; if (!p) { showToast("Sin evento", "No hay un evento con horas adicionales activo.", "info"); return; } d = p.inicio; h = p.fin; }
+  else if (cual === "mes" || cual === "sig") { const base = cual === "mes" ? hoy : new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1); d = formatDate(new Date(base.getFullYear(), base.getMonth(), 1)); h = formatDate(new Date(base.getFullYear(), base.getMonth() + 1, 0)); }
+  else { const l = getStartOfWeek(new Date(state.currentWeekStart)); d = formatDate(l); h = formatDate(addDays(l, 6)); }
+  adicDashPres = cual;
+  document.getElementById("adicDashDesde").value = d;
+  document.getElementById("adicDashHasta").value = h;
+  window.adicDashVer(true);
+};
+window.adicDashAbrir = function () {
+  const de = document.getElementById("adicDashDesde");
+  if (de && de.value) { window.adicDashVer(true); return; }
+  const p = typeof presuActivo === "function" ? presuActivo() : null;
+  window.adicDashPreset(p ? "evento" : "mes");
+};
+let adicDashTurno = 0;
+window.adicDashVer = async function (dePreset) {
+  if (dePreset !== true) adicDashPres = null;
+  document.querySelectorAll(".adic-dash-pres button").forEach((b) => b.classList.toggle("activo", b.dataset.p === adicDashPres));
+  const desde = document.getElementById("adicDashDesde").value, hasta = document.getElementById("adicDashHasta").value;
+  const msg = document.getElementById("adicDashMsg"), fr = document.getElementById("adicDashFrame");
+  if (!desde || !hasta || desde > hasta) { msg.textContent = "Elegí desde y hasta qué día."; return; }
+  const dias = Math.round((new Date(hasta + "T00:00:00") - new Date(desde + "T00:00:00")) / 86400000) + 1;
+  if (dias > 62) { msg.textContent = "Elegí hasta 62 días."; return; }
+  const turno = ++adicDashTurno;
+  msg.textContent = "Calculando…";
+  try {
+    const datos = await desCalcular(desde, hasta);
+    if (turno !== adicDashTurno) return;
+    msg.textContent = datos.dias.some((x) => x.conDemanda) ? "" : "Recaudaciones no cargó lo que piden en esas fechas: se ven solo las horas que tenemos.";
+    fr.srcdoc = desArmarDoc(datos, desde, hasta, true);
+  } catch (e) {
+    console.error(e);
+    if (turno === adicDashTurno) msg.textContent = "No se pudo calcular. Volvé a intentar.";
+  }
+};
+window.adicDashImprimir = function () {
+  const fr = document.getElementById("adicDashFrame");
+  if (!fr || !fr.contentWindow || !fr.srcdoc) { showToast("Todavía no", "Esperá a que termine de calcular.", "info"); return; }
+  fr.contentWindow.focus(); fr.contentWindow.print();
+};
+
 async function desExportar(desde, hasta, formato, win) {
   const datos = await desCalcular(desde, hasta);
   if (!datos.dias.some((x) => x.conDemanda)) showToast("Sin demanda", "Recaudaciones no cargó nada en esas fechas: se muestran solo las horas que tenemos.", "warning");
@@ -15555,7 +15636,7 @@ function desDetallePersonas(dias, semanas, total, fc2, flujoDe) {
   });
   return html;
 }
-function desImprimir({ dias, total, semanas }, desde, hasta, win) {
+function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
   const fc = (f) => f.split("-").reverse().join("/");
   const fc2 = (f) => f.split("-").reverse().slice(0, 2).join("/");
   const hayAdic = desHayAdic(total);
@@ -15871,6 +15952,27 @@ function desImprimir({ dias, total, semanas }, desde, hasta, win) {
     ${detallePersonas}
     <section class="salto">${apoyo}</section>
   </body></html>`;
+  let html = doc;
+  if (pantalla) {
+    // En pantalla: tablas con scroll lateral en el celular y sin saltos de página
+    html = html.replace(/<table/g, '<div class="scroll"><table').replace(/<\/table>/g, "</table></div>");
+    html = html.replace("</style></head>", `
+    .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    @media screen { body { padding: 16px; max-width: 1150px; margin: 0 auto; background: #fff; } .salto { page-break-before: auto; margin-top: 30px; } }
+    @media screen and (max-width: 720px) {
+      body { padding: 10px; } header { flex-direction: column; align-items: flex-start; gap: 4px; } h1 { font-size: 17px; }
+      .flow { grid-template-columns: 1fr 1fr; gap: 8px; } .flow .fo { display: none; }
+      .pk { grid-template-columns: 1fr 1fr; } .pk-h { flex-direction: column; align-items: flex-start; }
+      table.rt { min-width: 560px; } table.mosaico { min-width: 760px; } table.pp { min-width: 760px; }
+      table.rt td.l { white-space: nowrap; }
+    }
+    @media print { .scroll { overflow: visible; } }
+  </style></head>`);
+  }
+  return html;
+}
+function desImprimir(datos, desde, hasta, win) {
+  const doc = desArmarDoc(datos, desde, hasta, false);
   let destino = win && !win.closed ? win : null, marco = null;
   if (!destino) {
     marco = document.createElement("iframe");
