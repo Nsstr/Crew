@@ -1,0 +1,6 @@
+# No hace falta subir esto en cada publicación (la app usa Firebase desde internet)
+horarios-app/node_modules
+horarios-app/package-lock.json
+*.py
+*.gs
+*.mjs
