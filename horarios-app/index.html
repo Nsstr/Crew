@@ -3771,7 +3771,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.120
+            Versión: v1.7.121
           </div>
         </div>
       </div>
@@ -5030,7 +5030,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.120";
+  const APP_VERSION = "v1.7.121";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18815,7 +18815,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const dow = (i) => new Date(dias[i] + "T00:00:00").getDay();
     const castigoDia = (i) => (dow(i) === 6 ? 40 : dow(i) === 5 ? 6 : 0);
     const sabadoPT = (i) => pl.contrato < 24 && dow(i) === 6; // los de 18 h trabajan el sábado (no franco ni libre)
-    const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) - 0.1 * gente(i) + castigoDia(i) - (i === 6 ? (pl.domingo === "libre" ? 15 : pl.domNecesidad >= 0.5 ? 8 : pl.domDisp > 0 ? 3 : 0) : 0) - (pl.feriadoPegar.includes(i) ? 10 : 0);
+    const puntajeFranco = (i) => faltaDia(i) + 1.5 * francos(i) + 3 * Math.max(0, francos(i) - 1) ** 2 - 0.1 * gente(i) + castigoDia(i) - (i === 6 ? (pl.domingo === "libre" ? 15 : pl.domNecesidad >= 0.5 ? 8 : pl.domDisp > 0 ? 3 : 0) : 0) - (pl.feriadoPegar.includes(i) ? 10 : 0);
     // Día que más conviene trabajar: donde más falta; a igualdad, donde hay menos gente
     const puntajeTrabajo = (i) => faltaDia(i) - 0.3 * gente(i) + 0.5 * francos(i) + castigoDia(i) * 0.5 + (i === 6 && pl.domingo === "trabaja" ? 100 : 0) + (sabadoPT(i) ? 100 : 0) + (i === pl.tcDia ? 300 : 0) + (pl.feriadoMas.includes(i) ? 200 : 0);
     let trabaja = flex.filter((i) => pl.tipo[i] !== "vacio");
@@ -18824,7 +18824,9 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     pl.francoDia = null;
     if (pl.necesitaF) {
       const permitido = (i) => !diasFrancoOk || diasFrancoOk.includes(new Date(dias[i] + "T00:00:00").getDay());
-      let base = vacios.length ? vacios : trabaja; // primero en un día vacío; si no hay, en uno que trabajaba
+      // primero en un día vacío; si no hay, en uno que trabajaba. Si tenía un franco a mano que se puede mover,
+      // se elige entre todos sus días (si no, siempre volvería al mismo día, el único vacío)
+      let base = pl.fMovido && pl.fMovido.length ? [...new Set([...vacios, ...trabaja])] : vacios.length ? vacios : trabaja;
       if (!pl.premio && pl.feriadoPegar.length) base = [...new Set([...base, ...pl.feriadoPegar.filter((i) => flex.includes(i) && i !== pl.tcDia)])]; // vino el feriado: franco pegado como premio
       if (pl.premio) base = pl.premioOpc; // premio: pegado al día de tienda cerrada
       if (pl.premio && sabadoOk && sabadoOk.has(pl.c.id)) { const s6 = base.filter((i) => dow(i) === 6); if (s6.length) base = s6; }
