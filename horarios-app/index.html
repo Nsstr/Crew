@@ -783,6 +783,13 @@
     html.tema-claro:not(.modo-borrador) table#planningTable th.week-separator-border, html.tema-claro:not(.modo-borrador) table#planningTable td.week-separator-border { border-right: 2px solid #cbd5e1 !important; }
     html.tema-claro:not(.modo-borrador) .weekly-totals-container .hour-box.hb-adic { background: #cffafe !important; }
     html.tema-claro:not(.modo-borrador) .weekly-totals-container .hour-box.hb-falta { background: #fef3c7 !important; }
+    /* Menú desplegable (está dentro de la barra oscura): blanco y sólido */
+    html.tema-claro:not(.modo-borrador) .main-app-nav #navDropdownMenu {
+      --bg: #eef2f6; --surface: #ffffff; --surface-hover: #f1f5f9; --text: #1e293b; --text-muted: #64748b; --border: #e2e8f0; color-scheme: light;
+      background: #ffffff !important; color: #1e293b; border-color: #e2e8f0 !important; box-shadow: 0 14px 40px rgba(15, 23, 42, 0.18) !important;
+    }
+    html.tema-claro:not(.modo-borrador) .main-app-nav #navDropdownMenu .nav-dropdown-item, html.tema-claro:not(.modo-borrador) .main-app-nav #navDropdownMenu button { color: #1e293b !important; }
+    html.tema-claro:not(.modo-borrador) .main-app-nav #navDropdownMenu .nav-dropdown-item:hover, html.tema-claro:not(.modo-borrador) .main-app-nav #navDropdownMenu button:hover { background: #f1f5f9 !important; }
     /* Celular: lista del día y barra de días de abajo */
     html.tema-claro:not(.modo-borrador) .cmv .cell-input { color: #1e293b !important; }
     html.tema-claro:not(.modo-borrador) .cmv-row { border-top-color: #eef2f6; }
@@ -3864,7 +3871,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.133
+            Versión: v1.7.134
           </div>
         </div>
       </div>
@@ -5145,7 +5152,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.133";
+  const APP_VERSION = "v1.7.134";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
