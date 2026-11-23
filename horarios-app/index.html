@@ -783,6 +783,21 @@
     html.tema-claro:not(.modo-borrador) table#planningTable th.week-separator-border, html.tema-claro:not(.modo-borrador) table#planningTable td.week-separator-border { border-right: 2px solid #cbd5e1 !important; }
     html.tema-claro:not(.modo-borrador) .weekly-totals-container .hour-box.hb-adic { background: #cffafe !important; }
     html.tema-claro:not(.modo-borrador) .weekly-totals-container .hour-box.hb-falta { background: #fef3c7 !important; }
+    /* Más parecido a la maqueta: la grilla en una tarjeta, turnos en cajitas, panel en tarjetas */
+    html.tema-claro:not(.modo-borrador) #tab-horarios > .grid-container { margin: 12px 0 12px 12px; border-radius: 12px; background: #ffffff !important; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 0 0 1px #e2e8f0; }
+    html.tema-claro:not(.modo-borrador) table#planningTable th, html.tema-claro:not(.modo-borrador) table#planningTable td { border-color: #eef2f6 !important; }
+    html.tema-claro:not(.modo-borrador) table#planningTable td.day-cell { border-left-color: transparent !important; border-right-color: transparent !important; }
+    html.tema-claro:not(.modo-borrador) table#planningTable thead th { background-color: #f1f5f9 !important; color: #64748b !important; }
+    html.tema-claro:not(.modo-borrador) table#planningTable thead th.day-col span:nth-child(2) { font-size: 17px !important; color: #1e293b; font-weight: 700 !important; }
+    html.tema-claro:not(.modo-borrador) table#planningTable thead th.today-col span:nth-child(2) { color: #047857 !important; }
+    html.tema-claro:not(.modo-borrador) table#planningTable td.collab-cell { box-shadow: none !important; border-right: 1px solid #e2e8f0 !important; }
+    html.tema-claro:not(.modo-borrador) table#planningTable td.day-cell .shift-cell { height: 30px !important; width: calc(100% - 8px) !important; margin: 0 auto !important; background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-radius: 7px !important; box-sizing: border-box !important; }
+    html.tema-claro:not(.modo-borrador) table#planningTable td.day-cell .shift-cell.input-franco { background: #eef2f6 !important; border-color: #eef2f6 !important; }
+    html.tema-claro:not(.modo-borrador) table#planningTable td.day-cell .shift-cell.input-libre { background: #f8fafc !important; border: 1px dashed #cbd5e1 !important; }
+    html.tema-claro:not(.modo-borrador) table#planningTable td.day-cell.roller-day-cell .shift-cell.input-work { border-color: #ddd6fe !important; background: #faf8ff !important; }
+    html.tema-claro:not(.modo-borrador) table#planningTable td.day-cell.today-col .shift-cell.input-work { border-color: #a7f3d0 !important; }
+    html.tema-claro:not(.modo-borrador) #cajasDayView { background: #eef2f6; border-left: none !important; }
+    html.tema-claro:not(.modo-borrador) #cajasDayView .cdv-body > div:not(.cdv-side), html.tema-claro:not(.modo-borrador) #cajasDayView .cdv-side { background: #ffffff; border-radius: 12px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 0 0 1px #e2e8f0; padding: 12px 14px; }
     /* Menú desplegable (está dentro de la barra oscura): blanco y sólido */
     html.tema-claro:not(.modo-borrador) .main-app-nav #navDropdownMenu {
       --bg: #eef2f6; --surface: #ffffff; --surface-hover: #f1f5f9; --text: #1e293b; --text-muted: #64748b; --border: #e2e8f0; color-scheme: light;
@@ -3871,7 +3886,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.134
+            Versión: v1.7.135
           </div>
         </div>
       </div>
@@ -5152,7 +5167,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.134";
+  const APP_VERSION = "v1.7.135";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
