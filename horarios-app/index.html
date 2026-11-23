@@ -3782,7 +3782,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.127
+            Versión: v1.7.128
           </div>
         </div>
       </div>
@@ -3893,6 +3893,11 @@
           <p id="covDescPlanilla" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una fila por persona del sector y una columna por día, como la grilla. Los días de vacaciones dicen VACACIONES en lugar del horario. En Línea de Cajas trae una segunda hoja con lo que pide Recaudaciones contra los cajeros que tenemos, hora por hora, y debajo los rollers.</p>
           <p id="covDescReporte" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Por cada día, el gráfico de cobertura por hora y debajo las horas pedidas, las que tenemos y la diferencia. Al final, los totales del período.</p>
           <p id="covDescDias" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Una hoja por día con los turnos de 7 a 23 h, la cobertura por hora, los comparativos, francos, vacaciones y observaciones. Se abre para imprimir o guardar como PDF.</p>
+          <p id="covDescTaw" style="display: none; color: var(--text-muted); font-size: 0.8rem; margin: 0;">Como la planificación de horarios del sistema: cada persona del sector con sus semanas, el horario de cada día y el total de la semana. Se abre para imprimir o guardar como PDF.</p>
+          <div id="tawAdicRow" style="display: none; gap: 1rem; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="tawAdic" value="sin"><span>Sin adicionales (para el reloj)</span></label>
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="tawAdic" value="con"><span>Con adicionales</span></label>
+          </div>
           <div id="covFormatoRow" style="display: flex; gap: 1rem;">
             <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="covFormato" value="pdf" checked><span>PDF</span></label>
             <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;"><input type="radio" name="covFormato" value="xlsx"><span>Excel</span></label>
@@ -5058,7 +5063,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.127";
+  const APP_VERSION = "v1.7.128";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15007,7 +15012,14 @@ pdfRadios.forEach((radio) => {
 
 function covActualizarTipo() {
   const tipo = (document.querySelector('input[name="pdfTipo"]:checked') || {}).value;
-  const porPeriodo = tipo === "cobertura" || tipo === "dias" || tipo === "planilla" || tipo === "reporte";
+  const porPeriodo = tipo === "cobertura" || tipo === "dias" || tipo === "planilla" || tipo === "reporte" || tipo === "grilla";
+  document.getElementById("covDescTaw").style.display = tipo === "grilla" ? "block" : "none";
+  document.getElementById("tawAdicRow").style.display = tipo === "grilla" ? "flex" : "none";
+  // En el borrador viene marcado "con adicionales"; en los horarios reales, "sin"
+  if (tipo === "grilla" && !document.querySelector('input[name="tawAdic"]:checked')) {
+    const def = typeof borradorActivo === "function" && borradorActivo() ? "con" : "sin";
+    const r = document.querySelector(`input[name="tawAdic"][value="${def}"]`); if (r) r.checked = true;
+  }
   document.getElementById("pdfCoberturaOpts").style.display = porPeriodo ? "flex" : "none";
   document.getElementById("pdfGrillaOpts").style.display = porPeriodo ? "none" : "flex";
   document.getElementById("covFormatoRow").style.display = tipo === "cobertura" ? "flex" : "none";
@@ -15043,6 +15055,20 @@ pdfForm.addEventListener("submit", async (e) => {
     showToast("Preparando", "Armando el reporte…", "info");
     try { await covReporteSimplePDF(desde, hasta); }
     catch (err) { console.error("Error al armar el reporte:", err); showToast("No se pudo armar", "El reporte falló. Volvé a intentar.", "error"); }
+    return;
+  }
+  if (tipoExport === "grilla") {
+    const desde = document.getElementById("covDesde").value;
+    const hasta = document.getElementById("covHasta").value;
+    if (!desde || !hasta || hasta < desde) { showToast("Revisá las fechas", "Elegí Desde y Hasta.", "warning"); return; }
+    const dias = Math.round((new Date(hasta + "T00:00:00") - new Date(desde + "T00:00:00")) / 86400000) + 1;
+    if (dias > 62) { showToast("Muchos días", "Hasta 62 días (dos meses).", "warning"); return; }
+    const conAdic = (document.querySelector('input[name="tawAdic"]:checked') || {}).value === "con";
+    const win = window.open("", "_blank");
+    if (win) win.document.write('<p style="font-family:sans-serif;padding:20px">Armando la planificación…</p>');
+    pdfModal.style.display = "none";
+    try { await tawImprimir(desde, hasta, conAdic, win); }
+    catch (err) { console.error("Error al armar el horario:", err); if (win) win.close(); showToast("No se pudo armar", "Volvé a intentar.", "error"); }
     return;
   }
   if (tipoExport === "dias") {
@@ -15126,6 +15152,87 @@ pdfForm.addEventListener("submit", async (e) => {
     showToast("No se pudo armar", "El PDF falló. Volvé a intentar.", "error");
   }
 });
+
+// ===== PDF Horario estilo TAW: planificación por persona y semana, con o sin adicionales =====
+async function tawImprimir(desde, hasta, conAdic, win) {
+  const { planning } = await covTraerPeriodo(desde, hasta);
+  const area = state.currentArea || "Disponibilidad";
+  const gente = (state.collaborators || []).filter((c) => (c.area || "Disponibilidad") === area)
+    .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0) || String(a.id).localeCompare(String(b.id)));
+  const hhmm = (x) => `${String(Math.floor(x)).padStart(2, "0")}:${x % 1 ? "30" : "00"}`;
+  const rangos = (ms) => { if (!ms.length) return []; const r = []; let a = ms[0], b = ms[0]; ms.slice(1).forEach((m) => { if (m === b + 1) b = m; else { r.push([a, b]); a = b = m; } }); r.push([a, b]); return r.map(([x, y]) => `${hhmm(x / 2)}-${hhmm((y + 1) / 2)}`); };
+  const ETQ = { franco: "Franco", libre: "Libre", vacation: "Vacaciones" };
+  const celda = (c, d) => {
+    if (cdvEnVacaciones(c.id, d)) return { txt: "Vacaciones", h: 0 };
+    const raw = planning[`${c.id}_${d}`];
+    const obj = raw && typeof raw === "object" ? raw : raw ? { slot: raw } : {};
+    const val = String(obj.slot || "").replace("*", "").trim();
+    if (!val) return { txt: "", h: 0 };
+    const p = parseShift(val);
+    if (!p || p.type === "none") return { txt: val, h: 0 };
+    if (ETQ[p.type]) return { txt: ETQ[p.type], h: 0 };
+    if (p.type !== "work" || p.isNV) { const etq = p.label === "NV" || p.isNV ? "No viene" : p.label === "E" ? "Enfermo" : /^susp/i.test(p.label || val) ? "Suspensión" : (p.label || val); return { txt: etq, h: 0 }; }
+    const tramos = (p.isCortado ? p.tramos : [p]).map((t) => ({ start: t.start, end: t.end <= t.start ? 24 : t.end }));
+    let ms = desMedias(tramos);
+    if (conAdic) {
+      const ad = turnoAdicionalInfo(obj);
+      if (ad) ms = [...new Set([...ms, ...desMedias([{ start: ad.start, end: ad.end }])])].sort((a, b) => a - b);
+    } else {
+      const marca = Math.round((Number(obj.adicManual) || 0) * 2);
+      if (marca > 0) ms = ms.slice(0, Math.max(0, ms.length - marca));
+    }
+    if (!ms.length) return { txt: "Franco", h: 0 };
+    return { txt: rangos(ms).join("<br>"), h: ms.length / 2 };
+  };
+  // Semanas de lunes a domingo; los días fuera del rango quedan en blanco
+  const semanas = [];
+  for (let l = getStartOfWeek(new Date(desde + "T00:00:00")); formatDate(l) <= hasta; l = addDays(l, 7)) semanas.push(Array.from({ length: 7 }, (_, i) => formatDate(addDays(l, i))));
+  const fc = (f) => f.split("-").reverse().join("/");
+  const fc2 = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const nombre = (c) => { const n = String(c.name || "").split("(")[0].trim(); const i = n.indexOf(","); return i > 0 ? `${n.slice(0, i).toUpperCase()},${n.slice(i + 1)}` : n.toUpperCase(); };
+  const num = (h) => h.toFixed(2);
+  const ahora = new Date();
+  const bloques = gente.map((c) => {
+    const filas = semanas.map((sem) => {
+      let tot = 0;
+      const tds = sem.map((d) => {
+        if (d < desde || d > hasta) return `<td></td>`;
+        const x = celda(c, d); tot += x.h;
+        return `<td><span class="f">${fc2(d)}</span> <span class="h">${x.txt}</span></td>`;
+      }).join("");
+      return `<tr>${tds}<td class="t">${num(tot)}</td></tr>`;
+    }).join("");
+    return `<div class="per"><div class="nom">${borradorEsc ? borradorEsc(String(c.id)) : c.id} ${borradorEsc ? borradorEsc(nombre(c)) : nombre(c)}</div><table>${filas}</table></div>`;
+  }).join("");
+  const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Planificación de Horarios · ${fc(desde)} al ${fc(hasta)}</title><style>
+    @page { size: A4 landscape; margin: 9mm; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #000; font-size: 10.5px; margin: 0; }
+    .cab { display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; margin-bottom: 8px; }
+    .cab .izq { font-size: 10.5px; line-height: 1.5; } .cab .der { text-align: right; font-size: 10.5px; line-height: 1.5; }
+    .cab h1 { margin: 0; font-size: 17px; text-align: center; font-weight: 700; } .cab h2 { margin: 2px 0 0; font-size: 15px; text-align: center; font-weight: 700; }
+    .tit { display: grid; grid-template-columns: 9% repeat(7, 1fr) 6%; font-weight: 700; font-size: 11px; margin-top: 8px; }
+    .tit span { text-align: center; } .tit span:first-child { text-align: left; }
+    .barra { background: #e5e5e5; font-size: 14px; padding: 2px 4px; margin: 4px 0 6px; }
+    .per { page-break-inside: avoid; margin-bottom: 4px; }
+    .nom { font-size: 11px; margin: 0 0 2px; }
+    table { border-collapse: collapse; width: 90%; margin-left: 9%; table-layout: fixed; }
+    td { border: 1px solid #000; padding: 3px 4px; font-size: 10.5px; vertical-align: middle; white-space: nowrap; overflow: hidden; }
+    td .f { display: inline-block; min-width: 36px; } td .h { display: inline-block; vertical-align: middle; line-height: 1.25; }
+    td.t { width: 6%; text-align: right; }
+  </style></head><body>
+    <div class="cab"><div class="izq">${borradorEsc(area)}<br>${typeof borradorActivo === "function" && borradorActivo() ? `Borrador: ${borradorEsc(borrador.nombre || "")}` : "Horarios reales"}</div>
+      <div><h1>Planificación de Horarios</h1><h2>Entre los días ${fc(desde)} y ${fc(hasta)}</h2></div>
+      <div class="der">${ahora.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}<br>Hora ${ahora.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</div></div>
+    <div style="font-size:11px;font-weight:700">Legajo&nbsp;&nbsp; Apellido y Nombre <span style="font-weight:400;margin-left:18px">${conAdic ? "Con horas adicionales" : "Sin horas adicionales (horario de contrato)"}</span></div>
+    <div class="tit"><span></span><span>Lunes</span><span>Martes</span><span>Miércoles</span><span>Jueves</span><span>Viernes</span><span>Sábado</span><span>Domingo</span><span>Total</span></div>
+    <div class="barra">Número de legajo</div>
+    ${bloques}
+  </body></html>`;
+  let destino = win && !win.closed ? win : null, marco = null;
+  if (!destino) { marco = document.createElement("iframe"); marco.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;"; document.body.appendChild(marco); destino = marco.contentWindow; }
+  destino.document.open(); destino.document.write(doc); destino.document.close();
+  setTimeout(() => { destino.focus(); destino.print(); if (marco) setTimeout(() => marco.remove(), 60000); }, 400);
+}
 
 async function buildAndDownloadPDF(startDate, endDate) {
   const totalDays = [];
