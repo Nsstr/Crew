@@ -805,7 +805,7 @@
       border: 1.5px solid #f59e0b !important; background: #fffbeb !important; border-radius: 7px !important; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14) !important;
     }
     html.tema-claro table#planningTable td.day-cell.cell-wrapper.is-fixed::after, html.modo-borrador table#planningTable td.day-cell.cell-wrapper.is-fixed::after {
-      content: "" !important; display: block !important; visibility: visible !important; position: absolute; top: 4px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; z-index: 3; pointer-events: none;
+      content: "" !important; display: block !important; visibility: visible !important; position: absolute; top: 4px; right: 7px; width: 6px; height: 6px; border: 0 !important; border-width: 0 !important; border-radius: 50% !important; background: #f59e0b !important; z-index: 3; pointer-events: none;
     }
     /* Menú desplegable (está dentro de la barra oscura): blanco y sólido */
     html.tema-claro:not(.modo-borrador) .main-app-nav #navDropdownMenu {
@@ -3900,7 +3900,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.139
+            Versión: v1.7.140
           </div>
         </div>
       </div>
@@ -5185,7 +5185,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.139";
+  const APP_VERSION = "v1.7.140";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
