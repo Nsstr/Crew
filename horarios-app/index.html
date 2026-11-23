@@ -723,6 +723,11 @@
     #borradorFranja button:hover { background: rgba(245, 158, 11, 0.15); }
     #borradorFranja button.bf-real { background: transparent; color: #fca5a5; border: 1px dashed #dc2626; }
     #borradorFranja .bf-sep { flex: 1 1 40px; min-width: 40px; }
+    #borradorFranja .bf-sep2 { width: 1px; height: 18px; background: rgba(194, 96, 63, 0.35); margin: 0 2px; }
+    #borradorFranja .bf-mas { position: relative; display: inline-flex; }
+    #borradorFranja .bf-mas-menu { display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 99999; flex-direction: column; gap: 2px; min-width: 250px; padding: 6px; border-radius: 8px; background: #fbf8f2; border: 1px solid rgba(194, 96, 63, 0.45); box-shadow: 0 10px 24px rgba(59, 51, 40, 0.2); }
+    #borradorFranja .bf-mas-menu.abierto { display: flex; }
+    #borradorFranja .bf-mas-menu button { text-align: left; border: none !important; width: 100%; }
     #borradorFranja button.bf-trabada { background: #15803d; border-color: #15803d; color: #fff; }
     #borradorModal .bm-pie button:disabled { opacity: 0.4; cursor: not-allowed; }
     #borradorModal .bm-confirma { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 8px 10px; border: 1px solid rgba(220, 38, 38, 0.45); border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
@@ -3768,7 +3773,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.115
+            Versión: v1.7.116
           </div>
         </div>
       </div>
@@ -5027,7 +5032,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.115";
+  const APP_VERSION = "v1.7.116";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18331,11 +18336,29 @@ window.borradorSeguirNube = async function (id) {
     borradorActivar(await borradorDesdeNube(id, snap.data()));
   } catch (e) { console.error(e); showToast("No se pudo abrir", "Revisá la conexión y volvé a intentar.", "error"); }
 };
+// Borrar no borra: lo manda a la papelera, de donde se puede recuperar
 window.borradorBorrarNube = function (id, nombre) {
-  borradorModal("Borrar borrador", `<p>¿Borrar <b>${borradorEsc(nombre)}</b>? Se borra en todas las compus. Los horarios reales no se tocan.</p>`, [
+  borradorModal("Mandar a la papelera", `<p>¿Mandar <b>${borradorEsc(nombre)}</b> a la papelera?</p><p style="color: var(--text-muted);">No se pierde: lo podés recuperar desde la papelera, abajo de la lista de borradores. Los horarios reales no se tocan.</p>`, [
     { txt: "Cancelar" },
-    { txt: "Borrar", clase: "bm-peligro", fn: async () => {
-      try { await fsDeleteDoc(doc(db, "borradores", id)); showToast("Listo", "Borrador borrado.", "success"); }
+    { txt: "A la papelera", clase: "bm-peligro", fn: async () => {
+      try { await fsSetDoc(doc(db, "borradores", id), { papelera: new Date().toISOString() }, { merge: true }); showToast("Listo", "Borrador en la papelera.", "success"); }
+      catch (e) { showToast("No se pudo", "Volvé a intentar.", "error"); }
+      setTimeout(() => window.borradorMenu(), 300);
+    } },
+  ]);
+};
+window.borradorRecuperar = async function (id) {
+  try { await fsSetDoc(doc(db, "borradores", id), { papelera: null }, { merge: true }); showToast("Recuperado", "El borrador volvió a la lista.", "success"); }
+  catch (e) { showToast("No se pudo", "Volvé a intentar.", "error"); }
+  setTimeout(() => window.borradorMenu(), 300);
+};
+window.borradorBorrarDefinitivo = function (id, nombre) {
+  borradorModal("Borrar para siempre", `<p>¿Borrar <b>${borradorEsc(nombre)}</b> para siempre? Esto no se puede deshacer.</p><p>Escribí <b>BORRAR</b> para confirmar:</p><input id="bmBorrarTxt" autocomplete="off" style="width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit;">`, [
+    { txt: "Cancelar" },
+    { txt: "Borrar para siempre", clase: "bm-peligro", fn: async () => {
+      const t = (document.getElementById("bmBorrarTxt") || {}).value || "";
+      if (t.trim().toUpperCase() !== "BORRAR") { showToast("No se borró", "Tenés que escribir BORRAR.", "warning"); setTimeout(() => window.borradorMenu(), 300); return; }
+      try { await fsDeleteDoc(doc(db, "borradores", id)); showToast("Listo", "Borrado para siempre.", "success"); }
       catch (e) { showToast("No se borró", "Volvé a intentar.", "error"); }
       setTimeout(() => window.borradorMenu(), 300);
     } },
@@ -18348,15 +18371,19 @@ window.borradorMenu = function () {
   const g = borradorGuardado();
   const intro = `<p>Es una copia de los horarios para probar otra alternativa. Funciona todo igual (reglas, avisos, presupuesto, cobertura, planilla), pero <b>no toca los horarios reales</b>. Se guarda aparte, en la nube, y lo podés seguir desde cualquier compu.</p><p style="color: var(--text-muted);">Vacaciones, eventos y colaboradores siguen siendo los reales.</p>`;
   if (!isMockMode) {
-    borradorListaNube().then((lista) => {
+    borradorListaNube().then((todos) => {
+      const lista = todos.filter((b) => !b.papelera), tacho = todos.filter((b) => b.papelera);
       const fh = (iso) => { try { const d = new Date(iso); return `${d.toLocaleDateString("es-AR")} ${d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}`; } catch (e) { return ""; } };
       const filas = lista.map((b) => {
         const n = Object.keys(b.cambios || {}).length;
         return `<div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px;"><div style="flex: 1; min-width: 0;"><b>${borradorEsc(b.nombre || "Borrador")}</b><div style="font-size: 0.75rem; color: var(--text-muted);">${n} ${n === 1 ? "cambio" : "cambios"} · ${fh(b.actualizado)}</div></div>
           <button type="button" class="bm-mini" onclick="document.getElementById('borradorModal').remove(); window.borradorSeguirNube('${b.id}')">Seguir</button>
-          <button type="button" class="bm-mini" title="Borrar este borrador" onclick="window.borradorBorrarNube('${b.id}', ${JSON.stringify(b.nombre || "Borrador").replace(/"/g, "&quot;")})">Borrar</button></div>`;
+          <button type="button" class="bm-mini" title="Mandar este borrador a la papelera" onclick="window.borradorBorrarNube('${b.id}', ${JSON.stringify(b.nombre || "Borrador").replace(/"/g, "&quot;")})">Borrar</button></div>`;
       }).join("");
-      borradorModal("Modo borrador", `${intro}${lista.length ? `<p style="margin-top: 10px;"><b>Borradores guardados</b></p><div class="bm-lista">${filas}</div>` : ""}`, [
+      const filasTacho = tacho.map((b) => `<div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; opacity: .8;"><div style="flex: 1; min-width: 0;">${borradorEsc(b.nombre || "Borrador")}<div style="font-size: 0.72rem; color: var(--text-muted);">en la papelera desde ${fh(b.papelera)}</div></div>
+          <button type="button" class="bm-mini" onclick="window.borradorRecuperar('${b.id}')">Recuperar</button>
+          <button type="button" class="bm-mini" title="Borrar para siempre" onclick="window.borradorBorrarDefinitivo('${b.id}', ${JSON.stringify(b.nombre || "Borrador").replace(/"/g, "&quot;")})">Borrar</button></div>`).join("");
+      borradorModal("Modo borrador", `${intro}${lista.length ? `<p style="margin-top: 10px;"><b>Borradores guardados</b></p><div class="bm-lista">${filas}</div>` : ""}${tacho.length ? `<details style="margin-top: 10px;"><summary style="cursor: pointer; color: var(--text-muted);">Papelera (${tacho.length})</summary><div class="bm-lista">${filasTacho}</div></details>` : ""}`, [
         { txt: "Cancelar" },
         { txt: "Empezar uno nuevo", clase: lista.length ? "" : "bm-prin", fn: () => borradorNuevo() },
       ]);
@@ -18422,7 +18449,10 @@ window.borradorAbrirArchivo = function () {
     b.actualizado = new Date().toISOString();
     const n = borradorCambios(b).length;
     const actual = borradorActivo() ? borradorCambios().length : 0;
-    borradorModal("Abrir borrador", `<p>Vas a abrir <b>${borradorEsc(b.nombre)}</b> (${n} ${n === 1 ? "cambio" : "cambios"}).</p>${actual ? `<p class="bm-ojo">El borrador que tenés abierto tiene ${actual} ${actual === 1 ? "cambio" : "cambios"}. Si no lo guardaste como archivo, se pierde.</p>` : ""}`, [
+    // Se abre como un borrador nuevo: nunca pisa al que está abierto ni a otro guardado
+    b.nubeId = borradorNuevoId();
+    b.nombre = `${b.nombre || "Borrador"} (copia)`;
+    borradorModal("Abrir copia", `<p>Vas a abrir <b>${borradorEsc(b.nombre)}</b> (${n} ${n === 1 ? "cambio" : "cambios"}) como un borrador nuevo.</p>${actual ? `<p style="color: var(--text-muted);">El borrador que tenés abierto queda guardado en la nube, sin cambios.</p>` : ""}`, [
       { txt: "Cancelar" },
       { txt: "Abrir", clase: "bm-prin", fn: () => borradorActivar(b) },
     ]);
@@ -19701,6 +19731,15 @@ window.borradorPlanilla = function () {
   const r = document.querySelector('input[name="pdfTipo"][value="planilla"]');
   if (r) { r.checked = true; r.dispatchEvent(new Event("change")); }
 };
+window.borradorDescargar = function () { const b = document.getElementById("pdfBtn"); if (b) b.click(); };
+window.borradorMasMenu = function (ev) {
+  ev.stopPropagation();
+  const m = document.getElementById("borradorMasMenu");
+  if (!m) return;
+  const abrir = !m.classList.contains("abierto");
+  m.classList.toggle("abierto", abrir);
+  if (abrir) setTimeout(() => document.addEventListener("click", function cerrar() { m.classList.remove("abierto"); document.removeEventListener("click", cerrar); }), 0);
+};
 window.borradorPintarFranja = function () {
   if (!borradorActivo()) return;
   if (!document.getElementById("borradorMarco")) {
@@ -19712,12 +19751,16 @@ window.borradorPintarFranja = function () {
     fr.innerHTML = `<span class="bf-tag">BORRADOR</span>
       <input id="borradorNombre" title="Nombre del borrador" maxlength="40">
       <span class="bf-n" id="borradorN"></span>
-      <button type="button" onclick="window.borradorPlanilla()" title="Bajar la planilla de Excel con los horarios de este borrador (para cargar en el reloj)">Planilla Excel</button>
-      <button type="button" onclick="window.borradorGuardarArchivo()" title="Bajar una copia de respaldo del borrador (.json). No hace falta: el borrador ya se guarda solo en la nube">Copia</button>
-      <button type="button" onclick="window.borradorAbrirArchivo()" title="Abrir una copia (.json) de un borrador">Abrir</button>
       <button type="button" onclick="window.armarSinAdicionales()" title="Arma la semana que se ve: cada persona con las horas de su contrato, cuidando la curva y los descansos">Armar sugerido</button>
       <button type="button" onclick="window.armarMes()" title="Arma todas las semanas del mes que se ve, en orden, con todas las reglas">Armar el mes</button>
       <button type="button" id="borradorTrabaBtn" onclick="window.borradorTrabar()" title="Marcar la semana que se ve como cargada en el reloj: Armar sugerido no la toca">Trabar semana</button>
+      <span class="bf-sep2"></span>
+      <button type="button" onclick="window.borradorDescargar()" title="PDF y Excel de este borrador: Desglose, Distribución diaria, Horario estilo TAW, Excel Horarios Cajas">Descargar</button>
+      <span class="bf-mas"><button type="button" onclick="window.borradorMasMenu(event)" title="Copias de respaldo">Más ▾</button>
+        <span class="bf-mas-menu" id="borradorMasMenu">
+          <button type="button" onclick="window.borradorGuardarArchivo()">Bajar copia de respaldo (.json)</button>
+          <button type="button" onclick="window.borradorAbrirArchivo()">Abrir una copia como borrador nuevo</button>
+        </span></span>
       <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>
       <span class="bf-sep"></span>
       <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales (pide confirmación)">Pasar a real…</button>`;
