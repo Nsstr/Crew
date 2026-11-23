@@ -3782,7 +3782,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.128
+            Versión: v1.7.129
           </div>
         </div>
       </div>
@@ -5063,7 +5063,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.128";
+  const APP_VERSION = "v1.7.129";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15192,7 +15192,7 @@ async function tawImprimir(desde, hasta, conAdic, win) {
   const nombre = (c) => { const n = String(c.name || "").split("(")[0].trim(); const i = n.indexOf(","); return i > 0 ? `${n.slice(0, i).toUpperCase()},${n.slice(i + 1)}` : n.toUpperCase(); };
   const num = (h) => h.toFixed(2);
   const ahora = new Date();
-  const bloques = gente.map((c) => {
+  const bloquesDe = (lista) => lista.map((c) => {
     const filas = semanas.map((sem) => {
       let tot = 0;
       const tds = sem.map((d) => {
@@ -15202,8 +15202,11 @@ async function tawImprimir(desde, hasta, conAdic, win) {
       }).join("");
       return `<tr>${tds}<td class="t">${num(tot)}</td></tr>`;
     }).join("");
-    return `<div class="per"><div class="nom">${borradorEsc ? borradorEsc(String(c.id)) : c.id} ${borradorEsc ? borradorEsc(nombre(c)) : nombre(c)}</div><table>${filas}</table></div>`;
+    return `<div class="per"><div class="nom">${borradorEsc(String(c.id))} ${borradorEsc(nombre(c))}</div><table>${filas}</table></div>`;
   }).join("");
+  // Rollers en hoja aparte (solo en Línea de Cajas)
+  const esRol = (c) => typeof presuEsRoller === "function" && presuEsRoller(c);
+  const grupos = [["", gente.filter((c) => !esRol(c))], ["Rollers", gente.filter(esRol)]].filter((g) => g[1].length);
   const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Planificación de Horarios · ${fc(desde)} al ${fc(hasta)}</title><style>
     @page { size: A4 landscape; margin: 9mm; }
     body { font-family: Arial, Helvetica, sans-serif; color: #000; font-size: 10.5px; margin: 0; }
@@ -15219,14 +15222,17 @@ async function tawImprimir(desde, hasta, conAdic, win) {
     td { border: 1px solid #000; padding: 3px 4px; font-size: 10.5px; vertical-align: middle; white-space: nowrap; overflow: hidden; }
     td .f { display: inline-block; min-width: 36px; } td .h { display: inline-block; vertical-align: middle; line-height: 1.25; }
     td.t { width: 6%; text-align: right; }
+    .hoja { page-break-before: always; }
   </style></head><body>
-    <div class="cab"><div class="izq">${borradorEsc(area)}<br>${typeof borradorActivo === "function" && borradorActivo() ? `Borrador: ${borradorEsc(borrador.nombre || "")}` : "Horarios reales"}</div>
+    ${grupos.map(([tit, lista], gi) => `<section${gi ? ' class="hoja"' : ""}>
+    <div class="cab"><div class="izq">${borradorEsc(area)}${tit ? ` · <b>${tit}</b>` : grupos.length > 1 ? " · <b>Cajeros</b>" : ""}<br>${typeof borradorActivo === "function" && borradorActivo() ? `Borrador: ${borradorEsc(borrador.nombre || "")}` : "Horarios reales"}</div>
       <div><h1>Planificación de Horarios</h1><h2>Entre los días ${fc(desde)} y ${fc(hasta)}</h2></div>
       <div class="der">${ahora.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}<br>Hora ${ahora.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</div></div>
     <div style="font-size:11px;font-weight:700">Legajo&nbsp;&nbsp; Apellido y Nombre <span style="font-weight:400;margin-left:18px">${conAdic ? "Con horas adicionales" : "Sin horas adicionales (horario de contrato)"}</span></div>
     <div class="tit"><span></span><span>Lunes</span><span>Martes</span><span>Miércoles</span><span>Jueves</span><span>Viernes</span><span>Sábado</span><span>Domingo</span><span>Total</span></div>
     <div class="barra">Número de legajo</div>
-    ${bloques}
+    ${bloquesDe(lista)}
+    </section>`).join("")}
   </body></html>`;
   let destino = win && !win.closed ? win : null, marco = null;
   if (!destino) { marco = document.createElement("iframe"); marco.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;"; document.body.appendChild(marco); destino = marco.contentWindow; }
