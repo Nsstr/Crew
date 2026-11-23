@@ -3771,7 +3771,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.121
+            Versión: v1.7.122
           </div>
         </div>
       </div>
@@ -4892,7 +4892,7 @@ function borradorGuardarNube() {
       await fsSetDoc(doc(db, "borradores", borrador.nubeId), JSON.parse(JSON.stringify({
         nombre: borrador.nombre || "Borrador", creado: borrador.creado || new Date().toISOString(),
         actualizado: borrador.actualizado || new Date().toISOString(), cambios,
-        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [], adicExcluidos: Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null, feriadoMas: borrador.feriadoMas || null, semanasReloj: Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : null,
+        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [], adicExcluidos: Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null, feriadoMas: borrador.feriadoMas || null, semanasReloj: Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : null, adicPasarse: Number.isFinite(borrador.adicPasarse) ? borrador.adicPasarse : null,
       })));
     } catch (e) {
       console.warn("No se pudo guardar el borrador en la nube", e);
@@ -5030,7 +5030,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.121";
+  const APP_VERSION = "v1.7.122";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18318,7 +18318,7 @@ async function borradorDesdeNube(id, datos) {
     if (c.o === null) delete original[k]; else original[k] = c.o;
     if (c.d === null) { borrados[k] = docs[k] || null; delete docs[k]; } else docs[k] = c.d;
   });
-  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [], ...(Array.isArray(datos.adicExcluidos) ? { adicExcluidos: datos.adicExcluidos } : {}), ...(datos.feriadoMas ? { feriadoMas: datos.feriadoMas } : {}), ...(Array.isArray(datos.semanasReloj) ? { semanasReloj: datos.semanasReloj } : {}) };
+  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [], ...(Array.isArray(datos.adicExcluidos) ? { adicExcluidos: datos.adicExcluidos } : {}), ...(datos.feriadoMas ? { feriadoMas: datos.feriadoMas } : {}), ...(Array.isArray(datos.semanasReloj) ? { semanasReloj: datos.semanasReloj } : {}), ...(Number.isFinite(datos.adicPasarse) ? { adicPasarse: datos.adicPasarse } : {}) };
 }
 async function borradorListaNube() {
   if (isMockMode) return [];
@@ -18937,6 +18937,12 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const adicPor = {};
   if (opts.adicionales) {
     const TOPE_SEM = 42;
+    // Cuánto se puede pasar de lo pedido por hora para tapar más faltante (lo elige el usuario)
+    const PASARSE = Math.max(0, Number(opts.pasarse) || 0);
+    // Con tolerancia: vale agregar si tapa algo de faltante (aunque sobre en otras horas, hasta el tope);
+    // sin tolerancia: cada hora agregada tiene que tapar casi una hora de faltante
+    const UMBRAL = PASARSE > 0 ? 0.3 : 0.9;
+    const pasaTope = (i, tr) => tr.some((t) => { for (let h = Math.floor(t.s); h < Math.ceil(t.e); h++) if (h >= 0 && h < 24 && covC[i][h] > dem[i][h] + PASARSE + 1e-9 && !(finLimpieza[i] && h === finLimpieza[i] - 1)) return true; return false; });
     const capAd = (pl) => (pl.esRoller ? 9 : 8.5);
     const usado = new Map();
     const lims = new Map();
@@ -18987,11 +18993,12 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
             const prueba = pl.plan.slice(); prueba[i] = o.tr;
             if (!valido(pl, prueba, lim)) return;
             aplicar(pl, i, o.tr, 1);
+            const pasa = PASARSE > 0 && pasaTope(i, o.tr);
             let g = (k0 - costoDia(i)) / o.h;
             // los de 18 h son los primeros para las adicionales, sobre todo con doble turno
-            if (pl.contrato <= 18 && g > 0.9) g += o.tr.length > 1 ? 0.8 : 0.3;
+            if (pl.contrato <= 18 && g > UMBRAL) g += o.tr.length > 1 ? 0.8 : 0.3;
             aplicar(pl, i, o.tr, -1);
-            if (g > 0.9 && (!best || g > best.g + 1e-9)) best = { pl, i, o, g };
+            if (!pasa && g > UMBRAL && (!best || g > best.g + 1e-9)) best = { pl, i, o, g };
           });
           if (tr) aplicar(pl, i, tr, 1);
         });
@@ -19261,8 +19268,14 @@ function armadoElegirAdicionales(fechas) {
       <p style="margin-top:10px"><b>¿Quiénes?</b> Tildá a los que pueden hacer horas adicionales. Los destildados quedan solo con su contrato. Los de 48 h no aparecen porque no hacen.</p>
       <div style="margin:6px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.adic-si').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.adic-si').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
       <div class="bm-lista">${filas}</div>
+      <p style="margin-top:10px"><b>¿Cuánto se puede pasar de lo pedido?</b> Para tapar más horas donde falta gente, se aceptan horas de más en otras franjas, con este tope por hora.</p>
+      <select id="adicPasarse" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit">
+        ${[[0, "Nada: solo donde falta gente"], [1, "Hasta 1 persona de más por hora"], [2, "Hasta 2 personas de más por hora"], [3, "Hasta 3 personas de más por hora"]].map(([v, t]) => `<option value="${v}"${(borrador.adicPasarse ?? 1) === v ? " selected" : ""}>${t}</option>`).join("")}
+      </select>
       <p style="color: var(--text-muted); font-size: 0.8rem">Queda guardado en el borrador para la próxima vez.</p>`,
       [{ txt: "Cancelar", fn: () => resolve(null) }, { txt: "Armar", clase: "bm-prin", fn: () => {
+        const ps = Number((document.getElementById("adicPasarse") || {}).value) || 0;
+        borrador.adicPasarse = ps;
         const fuera = [...document.querySelectorAll(".adic-si")].filter((c) => !c.checked).map((c) => c.value);
         const diasSi = [...document.querySelectorAll(".adic-dia")].filter((c) => c.checked).map((c) => c.value);
         borrador.adicExcluidos = fuera;
@@ -19433,7 +19446,7 @@ function armadoPedirPremio(lunes, hist) {
 }
 function armadoMostrar(lunes, hist, premiados, sabados, modo) {
   let r;
-  const extra = { adicionales: modo === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias: modo === "con" ? window.__armadoAdicDias || null : null, feriadoMas: borrador.feriadoMas || {} };
+  const extra = { adicionales: modo === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias: modo === "con" ? window.__armadoAdicDias || null : null, feriadoMas: borrador.feriadoMas || {}, pasarse: borrador.adicPasarse ?? 1 };
   try { r = premiados ? armadoConPremio(lunes, hist, premiados, sabados, extra) : armadoSemana(lunes, hist, extra); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
   const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
   const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
@@ -19615,7 +19628,7 @@ window.armarMes = async function (yElegido, mElegido) {
   for (let d = new Date(semanas[0] + "T00:00:00"); formatDate(d) <= finSem(semanas[semanas.length - 1]); d = addDays(d, 1)) todasF.push(formatDate(d));
   const ferMes = armadoFeriadosEn(todasF);
   if (ferMes.length && !(await armadoElegirFeriado(ferMes))) return;
-  const extra = { adicionales: conAdic === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias, feriadoMas: borrador.feriadoMas || {} };
+  const extra = { adicionales: conAdic === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias, feriadoMas: borrador.feriadoMas || {}, pasarse: borrador.adicPasarse ?? 1 };
   // Que la grilla tenga todo el borrador de esas semanas (y la anterior y la siguiente) a mano
   const desde = formatDate(addDays(new Date(semanas[0] + "T00:00:00"), -7)), hasta = formatDate(addDays(new Date(semanas[semanas.length - 1] + "T00:00:00"), 13));
   Object.entries(borrador.docs || {}).forEach(([k, o]) => { const f = k.slice(-10); if (f >= desde && f <= hasta && !(k in state.planning)) state.planning[k] = JSON.parse(JSON.stringify(o)); });
