@@ -1665,6 +1665,12 @@
     .cdv-note { font-size: 0.78rem; margin: 0 0 6px; line-height: 1.35; }
     .cdv-note b { font-weight: 600; }
     .cdv-empty { font-size: 0.78rem; color: var(--text-muted); }
+    #armadoEsperaCartel { position: fixed; inset: 0; z-index: 100000; display: none; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.35); backdrop-filter: blur(2px); }
+    #armadoEsperaCartel .ae-caja { background: #fff; color: #1e293b; border-radius: 14px; padding: 22px 28px; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3); text-align: center; max-width: 360px; font-family: inherit; }
+    #armadoEsperaCartel .ae-tit { font-weight: 700; font-size: 1.05rem; margin-top: 12px; }
+    #armadoEsperaCartel .ae-sub { color: #64748b; font-size: 0.82rem; margin-top: 4px; }
+    #armadoEsperaCartel .ae-rueda { width: 34px; height: 34px; margin: 0 auto; border-radius: 50%; border: 4px solid #e2e8f0; border-top-color: #10b981; animation: aeGira 0.8s linear infinite; }
+    @keyframes aeGira { to { transform: rotate(360deg); } }
     .cdv-cov-fija { position: sticky; top: 0; z-index: 5; background: var(--surface); padding: 6px 0 8px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
     .cdv-alert { padding: 14px; border-radius: 8px; border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.1); color: #fca5a5; font-weight: 700; text-align: center; margin-top: 16px; }
     @media (max-width: 1100px) { .cdv-body { grid-template-columns: minmax(0, 1fr); } .cdv-side { position: static; } }
@@ -3903,7 +3909,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.143
+            Versión: v1.7.144
           </div>
         </div>
       </div>
@@ -5214,7 +5220,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.143";
+  const APP_VERSION = "v1.7.144";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -18846,7 +18852,23 @@ if (btnUploadYearFile && yearModalFileInput) {
 
 // ── Modo borrador: pantalla ─────────────────────────────────────────────────
 function borradorEsc(t) { return String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
+// Cartel de "estoy trabajando" mientras se arma (el cálculo bloquea la pantalla unos segundos)
+function armadoEspera(sub) {
+  let e = document.getElementById("armadoEsperaCartel");
+  if (!e) {
+    e = document.createElement("div");
+    e.id = "armadoEsperaCartel";
+    e.innerHTML = `<div class="ae-caja"><div class="ae-rueda"></div><div class="ae-tit">Banca un toque, que esto es un quilombo…</div><div class="ae-sub"></div></div>`;
+    document.body.appendChild(e);
+  }
+  e.querySelector(".ae-sub").textContent = sub || "Armando los horarios";
+  e.style.display = "flex";
+  // dar tiempo a que se dibuje antes de que el cálculo ocupe la pantalla
+  return new Promise((r) => requestAnimationFrame(() => setTimeout(r, 60)));
+}
+function armadoEsperaFin() { const e = document.getElementById("armadoEsperaCartel"); if (e) e.style.display = "none"; }
 function borradorModal(titulo, cuerpo, botones) {
+  armadoEsperaFin();
   document.getElementById("borradorModal")?.remove();
   const m = document.createElement("div");
   m.id = "borradorModal";
@@ -19981,7 +20003,9 @@ function armadoPedirPremio(lunes, hist) {
   return new Promise(async (resolve) => {
     // Semana con tienda cerrada: elegir a quién se le da el franco pegado al cierre (todos tildados)
     let cand = [], r0 = null;
+    await armadoEspera("Mirando la semana…");
     try { r0 = armadoSemana(lunes, hist, { premiados: new Set() }); cand = r0.candidatosPremio; } catch (e) { console.error(e); }
+    armadoEsperaFin();
     if (!cand.length) { resolve({ premiados: null }); return; }
     const fcP = (f) => f.split("-").reverse().slice(0, 2).join("/");
     const otra = await armadoTuvoOtraFiesta(r0.cerrados[0], cand);
@@ -20063,10 +20087,13 @@ function armadoPedirPremio(lunes, hist) {
     }, 30);
   });
 }
-function armadoMostrar(lunes, hist, premiados, sabados, modo) {
+async function armadoMostrar(lunes, hist, premiados, sabados, modo) {
   let r;
+  const fcW = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  await armadoEspera(`Semana del ${fcW(lunes)} al ${fcW(formatDate(addDays(new Date(lunes + "T00:00:00"), 6)))}${modo === "con" ? " · con adicionales" : ""}`);
   const extra = { adicionales: modo === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias: modo === "con" ? window.__armadoAdicDias || null : null, feriadoMas: borrador.feriadoMas || {}, pasarse: borrador.adicPasarse ?? 1, maxDia: borrador.adicMaxDia ?? 8.5, maxSem: borrador.adicMaxSem ?? 42 };
-  try { r = premiados ? armadoConPremio(lunes, hist, premiados, sabados, extra) : armadoSemana(lunes, hist, extra); } catch (e) { console.error(e); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
+  try { r = premiados ? armadoConPremio(lunes, hist, premiados, sabados, extra) : armadoSemana(lunes, hist, extra); } catch (e) { console.error(e); armadoEsperaFin(); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
+  armadoEsperaFin();
   const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
   const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
   const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
@@ -20270,11 +20297,13 @@ window.armarMes = async function (yElegido, mElegido) {
     const pr = await armadoPedirPremio(lunes, hist);
     if (pr === null) { resumen.push({ lunes, cancelada: true }); continue; }
     let r;
+    await armadoEspera(`Armando el mes · semana ${n + 1} de ${aArmar.length} (del ${fc(lunes)} al ${fc(finSem(lunes))})`);
     try { r = pr.premiados ? armadoConPremio(lunes, hist, pr.premiados, pr.sabados, extra) : armadoSemana(lunes, hist, extra); }
     catch (e) { console.error(e); resumen.push({ lunes, error: true }); continue; }
     await armadoAplicar(lunes, r, previos);
     resumen.push({ lunes, r });
   }
+  armadoEsperaFin();
   borradorPersistir();
   renderUI();
   // Resumen del mes
