@@ -3909,7 +3909,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.144
+            Versión: v1.7.145
           </div>
         </div>
       </div>
@@ -5220,7 +5220,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.144";
+  const APP_VERSION = "v1.7.145";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -20007,6 +20007,27 @@ function armadoPedirPremio(lunes, hist) {
     try { r0 = armadoSemana(lunes, hist, { premiados: new Set() }); cand = r0.candidatosPremio; } catch (e) { console.error(e); }
     armadoEsperaFin();
     if (!cand.length) { resolve({ premiados: null }); return; }
+    // Si en la base ya está el franco pegado al cierre (F el día antes o después, o marcado como premio),
+    // no se pregunta: se respeta lo que ya está asignado
+    if (r0 && r0.cerrados && r0.cerrados.length) {
+      const pegados = new Set(), sabYa = new Set();
+      const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado);
+      r0.cerrados.forEach((c) => {
+        [-1, 1].forEach((k) => {
+          const d = formatDate(addDays(new Date(c + "T00:00:00"), k));
+          gente.forEach((g) => {
+            const o = getPlanningObj(g.id, d) || {};
+            const p = parseShift(String(getSlotEfectivo(g.id, d) || "").replace("*", ""));
+            if (o.premioFiesta || (p && p.type === "franco")) { pegados.add(g.id); if (new Date(d + "T00:00:00").getDay() === 6) sabYa.add(g.id); }
+          });
+        });
+      });
+      if (pegados.size) {
+        showToast("Franco pegado ya asignado", `${pegados.size} ${pegados.size === 1 ? "persona ya tiene" : "personas ya tienen"} el franco pegado al cierre en la base: se respeta y no te pregunto.`, "info");
+        resolve({ premiados: [...pegados], sabados: [...sabYa] });
+        return;
+      }
+    }
     const fcP = (f) => f.split("-").reverse().slice(0, 2).join("/");
     const otra = await armadoTuvoOtraFiesta(r0.cerrados[0], cand);
     const filasP = cand.slice().sort((a, b) => a.nombre.localeCompare(b.nombre))
