@@ -3929,7 +3929,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.161
+            Versión: v1.7.162
           </div>
         </div>
       </div>
@@ -5254,7 +5254,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.161";
+  const APP_VERSION = "v1.7.162";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -16106,6 +16106,15 @@ function evCalcular(dias, clave) {
   for (let k = 1; k <= maxTodo; k++) { const cub = porDia.reduce((a, d) => a + d.turnos.slice(0, k).reduce((s, t) => s + t.cubre, 0), 0); curva.push({ k, cub, pct: faltaTot ? cub / faltaTot : 1, dias: porDia.filter((d) => d.todo > k).length }); }
   return { porDia, maxRec, maxTodo, faltaTot, curva };
 }
+// Cobertura por hora del personal eventual de cada día: el cargado en el borrador si hay, si no el recomendado
+function evCobMapa(dias) {
+  const cargados = dias.some((x) => x.ev && x.ev.some((v) => v > 0));
+  const m = {};
+  if (cargados) { dias.forEach((x) => { m[x.fecha] = x.ev.slice(); }); return { m, cargados, etq: "+ Eventuales (cargados)" }; }
+  const E = evCalcular(dias, "caj_a");
+  E.porDia.forEach((d) => { const a = Array(24).fill(0); d.turnos.slice(0, d.rec).forEach((t) => t.t.forEach(([p, q]) => { for (let h = p; h < q; h++) a[h]++; })); m[d.x.fecha] = a; });
+  return { m, cargados, etq: `+ Eventuales necesarios (${E.maxRec})` };
+}
 const evTxtTurno = (t) => t.map(([a, b]) => `${a}–${b}`).join(" y ");
 function evResumenTurnos(turnos) {
   const c = {}; turnos.forEach((t) => { const k = evTxtTurno(t.t); c[k] = (c[k] || 0) + 1; });
@@ -16395,16 +16404,17 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
   }).join("");
   const filaH = (lbl, vals, cls) => `<tr class="${cls || ""}"><td class="l">${lbl}</td>${vals.map((v) => `<td>${v === "" ? "" : desH(v)}</td>`).join("")}<td class="k">${vals.every((v) => v === "") ? "" : desH(vals.reduce((a, b) => a + (Number(b) || 0), 0))}</td></tr>`;
   const cabH = `<thead><tr><th class="l">Día</th>${AX.horas.map((h) => `<th>${h}</th>`).join("")}<th class="k">Total</th></tr></thead>`;
+  const EVC = evCobMapa(dias);
   const anexoCob = `<section class="salto"><h2>Hora por hora · lo que piden contra lo que tenemos</h2>
-    <p class="sub">Cajeros por hora. Con vendedores = cajeros con adicionales más vendedores con fallo de caja. Los rollers van aparte, abajo.</p>
+    <p class="sub">Personas por hora, sumando de a un paso: cajeros normales, con adicionales, con el personal eventual necesario y, como opcional, los vendedores con fallo de caja (por el ausentismo, mejor no contar con ellos en lo real). Los rollers van aparte, abajo.</p>
     <table class="ax axh">${cabH}<tbody>
     ${dias.map((x) => x.cerrada ? `<tr class="axd"><td class="l">${etqA(x)}</td><td colspan="${AX.horas.length + 1}">Tienda cerrada</td></tr>` :
       `<tr class="axd"><td class="l" colspan="${AX.horas.length + 2}">${etqA(x)}${x.feriado ? " · feriado" : ""}</td></tr>` +
       filaH("Piden", AX.horas.map((h) => (x.conDemanda ? x.r[h] : "")), "pd") +
       filaH("Normal", AX.horas.map((h) => x.cnt.caj_n[h])) +
       (hayAdic ? filaH("Con adicionales", AX.horas.map((h) => x.cnt.caj_a[h]), "ad") : "") +
-      filaH(x.vendSinCargar ? "Con vendedores (sin cargar)" : "Con vendedores", AX.horas.map((h) => x.cnt.vend_a[h]), "vd") +
-      (F.ev ? filaH("+ Eventuales", AX.horas.map((h) => x.cnt.vend_a[h] + x.ev[h]), "evr") : "")).join("")}
+      filaH(EVC.etq, AX.horas.map((h) => x.cnt.caj_a[h] + EVC.m[x.fecha][h]), "evr") +
+      filaH(x.vendSinCargar ? "+ Vendedores · opcional (sin cargar)" : "+ Vendedores · opcional", AX.horas.map((h) => x.cnt.vend_a[h] + EVC.m[x.fecha][h]), "vd")).join("")}
     </tbody></table>
     <h2 style="margin-top:14px">Rollers</h2>
     <table class="ax axh">${cabH}<tbody>
@@ -16797,8 +16807,9 @@ async function desExcel(datos, desde, hasta, nombre) {
   // ===== Cobertura hora por hora =====
   const wsC = wb.addWorksheet("Cobertura", { views: [{ state: "frozen", xSplit: 2, ySplit: 4, showGridLines: false }], properties: { tabColor: { argb: "FFEF4444" } } });
   const hs = AX.horas;
-  wsC.columns = [{ width: 16 }, { width: 26 }, ...hs.map(() => ({ width: 6 })), { width: 2 }, { width: 12 }, { width: 12 }];
-  titulo(wsC, "Hora por hora · lo que piden contra lo que tenemos", "Cada celda: personas en esa hora. Verde = alcanza, amarillo = falta 1, rojo = faltan 2 o más. Diferencia = horas del día − pedido.", hs.length + 5);
+  wsC.columns = [{ width: 16 }, { width: 34 }, ...hs.map(() => ({ width: 6 })), { width: 2 }, { width: 12 }, { width: 12 }];
+  titulo(wsC, "Hora por hora · lo que piden contra lo que tenemos", "Personas por hora, sumando de a un paso: normales, con adicionales, con el personal eventual necesario y, como opcional, los vendedores (por el ausentismo, mejor no contar con ellos en lo real). Verde = alcanza, amarillo = falta 1, rojo = faltan 2 o más.", hs.length + 5);
+  const EVC = evCobMapa(dias);
   const cabC = wsC.getRow(4); cabC.values = ["Día", "", ...hs.map((h) => `${String(h).padStart(2, "0")}h`), "", "Horas del día", "Diferencia"]; cabecera(cabC); cabC.getCell(hs.length + 3).fill = fill("FFFFFFFF");
   fila = 5;
   const colorVs = (v, r) => (r === "" || r == null ? null : v >= r ? [C.verdeC, C.verdeT] : r - v <= 1 ? [C.amaC, C.amaT] : [C.rojoC, C.rojoT]);
@@ -16808,8 +16819,8 @@ async function desExcel(datos, desde, hasta, nombre) {
     const tp = ped.every((v) => v === "") ? null : ped.reduce((a, b) => a + (Number(b) || 0), 0);
     const filasDia = [["Pedido", ped, null], ["Normal", hs.map((h) => x.cnt.caj_n[h]), C.verdeT]];
     if (hayAdic) filasDia.push(["Con adicionales", hs.map((h) => x.cnt.caj_a[h]), C.celT]);
-    filasDia.push([x.vendSinCargar ? "Con vendedores (sin cargar)" : "Con vendedores", hs.map((h) => x.cnt.vend_a[h]), C.narT]);
-    if (R.ev) filasDia.push(["+ Eventuales", hs.map((h) => x.cnt.vend_a[h] + x.ev[h]), C.rojoT]);
+    filasDia.push([EVC.etq, hs.map((h) => x.cnt.caj_a[h] + EVC.m[x.fecha][h]), C.rojoT]);
+    filasDia.push([x.vendSinCargar ? "+ Vendedores · opcional (sin cargar)" : "+ Vendedores · opcional", hs.map((h) => x.cnt.vend_a[h] + EVC.m[x.fecha][h]), C.narT]);
     filasDia.forEach(([lbl, vals, colorT], k) => {
       const row = wsC.getRow(fila);
       const t = vals.every((v) => v === "") ? null : r1(vals.reduce((a, b) => a + (Number(b) || 0), 0));
