@@ -3927,7 +3927,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.151
+            Versión: v1.7.152
           </div>
         </div>
       </div>
@@ -5238,7 +5238,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.151";
+  const APP_VERSION = "v1.7.152";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5852,6 +5852,67 @@ function getSlotEfectivo(collabId, dateStr) {
   }
   return val;
 }
+
+
+// Cuadrito al pasar el mouse por una celda de la grilla: ordenado en filas "dato: valor", fácil de leer
+(function () {
+  let box = null, el = null;
+  const css = document.createElement("style");
+  css.textContent = `#crewTip{position:fixed;z-index:99999;pointer-events:none;max-width:340px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:10px;padding:10px 12px;font:13px/1.35 inherit;font-family:inherit;box-shadow:0 10px 30px rgba(0,0,0,.35);display:none}
+  #crewTip .tt-f{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;align-items:baseline}
+  #crewTip .tt-l{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+  #crewTip .tt-v{font-weight:600}
+  #crewTip .tt-v span{display:block;white-space:nowrap}
+  #crewTip .tt-l{padding-top:2px}
+  #crewTip .tt-f>.tt-l:not(:first-child),#crewTip .tt-f>.tt-l:not(:first-child)+.tt-v{margin-top:5px}
+  #crewTip .tt-v.tt-turno{font-size:15px;font-weight:800}
+  #crewTip .tt-v.tt-orig{color:#fbbf24}
+  #crewTip .tt-x{grid-column:1/-1;margin-top:4px;padding-top:6px;border-top:1px solid #334155}
+  #crewTip .tt-w{color:#fca5a5;font-weight:700}
+  html.tema-claro #crewTip,html.modo-borrador #crewTip{background:#fff;color:#1e293b;border-color:#e2e8f0;box-shadow:0 10px 30px rgba(15,23,42,.18)}
+  html.tema-claro #crewTip .tt-l,html.modo-borrador #crewTip .tt-l{color:#64748b}
+  html.tema-claro #crewTip .tt-x,html.modo-borrador #crewTip .tt-x{border-top-color:#e2e8f0}
+  html.tema-claro #crewTip .tt-v.tt-orig,html.modo-borrador #crewTip .tt-v.tt-orig{color:#b45309}
+  html.tema-claro #crewTip .tt-w,html.modo-borrador #crewTip .tt-w{color:#b91c1c}`;
+  document.head.appendChild(css);
+  const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+  const armar = (txt) => {
+    const filas = txt.split(/\n|\s\|\s/).map((x) => x.trim()).filter(Boolean);
+    let h = "";
+    for (const f of filas) {
+      const m = f.match(/^([^:]{2,22}):\s(.+)$/);
+      if (f.startsWith("⚠")) h += `<div class="tt-x tt-w">${esc(f)}</div>`;
+      else if (m && !/^Turno fijado/.test(f)) {
+        const cls = m[1] === "Turno" ? " tt-turno" : m[1] === "Original" && m[2] !== "sin cambios" ? " tt-orig" : "";
+        const val = m[1] === "Turno" || m[1] === "Original" ? esc(m[2]) : m[2].split(" · ").map((x) => `<span>${esc(x)}</span>`).join("");
+        h += `<div class="tt-l">${esc(m[1])}</div><div class="tt-v${cls}">${val}</div>`;
+      } else h += `<div class="tt-x">${esc(f)}</div>`;
+    }
+    return `<div class="tt-f">${h}</div>`;
+  };
+  const ubicar = (e) => {
+    const w = box.offsetWidth, hh = box.offsetHeight;
+    let x = e.clientX + 14, y = e.clientY + 16;
+    if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+    if (y + hh > innerHeight - 8) y = e.clientY - hh - 12;
+    box.style.left = Math.max(8, x) + "px"; box.style.top = Math.max(8, y) + "px";
+  };
+  const ocultar = () => { if (box) box.style.display = "none"; if (el) { if (el.dataset.tt && !el.title) el.title = el.dataset.tt; el = null; } };
+  document.addEventListener("mouseover", (e) => {
+    const t = e.target.closest && e.target.closest("#planningTable td.day-cell [title], #planningTable td.day-cell[title], #planningTable td.day-cell [data-tt]");
+    if (!t) { if (el) ocultar(); return; }
+    if (t === el) return;
+    ocultar();
+    const txt = t.getAttribute("title") || t.dataset.tt;
+    if (!txt) return;
+    t.dataset.tt = txt; t.removeAttribute("title"); el = t;
+    if (!box) { box = document.createElement("div"); box.id = "crewTip"; document.body.appendChild(box); }
+    box.innerHTML = armar(txt); box.style.display = "block"; ubicar(e);
+  });
+  document.addEventListener("mousemove", (e) => { if (el && box) ubicar(e); });
+  document.addEventListener("scroll", ocultar, true);
+  document.addEventListener("keydown", ocultar);
+})();
 
 function getPlanningObj(collabId, dateStr) {
   const obj = state.planning[`${collabId}_${dateStr}`];
@@ -9609,10 +9670,16 @@ function renderDesktopView() {
             const conDia = Math.max(0, hDia - adT);
             const contratoT = presuContrato(collab);
             if (adT > 0) wrapperClass += obj && obj.horaExtraValidada ? " has-overtime-validated" : " has-overtime-pending";
-            const lineas = [
-              `Este día ${r1t(hDia)} h: ${r1t(conDia)} de contrato${adT > 0 ? ` + ${r1t(adT)} adicionales` : " · sin adicionales"}`,
-              `Hasta este día: contrato ${r1t(accCon)}${contratoT ? ` de ${r1t(contratoT)} h` : " h"} · adicionales ${r1t(accAd)} h · total ${r1t(accCon + accAd)} h`,
-            ];
+            const slotTxt = (o) => { const v = o == null ? "" : typeof o === "string" ? o : (o.slot || ""); return v ? v.replace(/\//g, " / ").replace(/[<>"&]/g, "") : "vacío"; };
+            const lineas = [`Turno: ${slotTxt(obj)} · ${r1t(hDia)} h`];
+            // En el borrador: cómo estaba en lo real antes de tocarlo
+            if (typeof borradorActivo === "function" && borradorActivo() && borrador && borrador.original) {
+              const kT = `${collab.id}_${dStr}`;
+              const tocado = Object.prototype.hasOwnProperty.call(borrador.original, kT) && slotTxt(borrador.original[kT]) !== slotTxt(obj);
+              lineas.push(`Original: ${tocado ? slotTxt(borrador.original[kT]) : "sin cambios"}`);
+            }
+            lineas.push(`Este día: contrato ${r1t(conDia)} h · adicionales ${r1t(adT)} h`);
+            lineas.push(`Semana hasta hoy: contrato ${r1t(accCon)}${contratoT ? ` de ${r1t(contratoT)}` : ""} h · adicionales ${r1t(accAd)} h · total ${r1t(accCon + accAd)} h`);
             if (contratoT > 0 && contratoT < 48 && accCon > contratoT + 0.05) lineas.push(`⚠ Pasó su contrato ${r1t(accCon - contratoT)} h sin marcar como adicionales`);
             const resumen = lineas.join("&#10;");
             titleAttr = titleAttr ? titleAttr.replace('title="', `title="${resumen}&#10;`) : `title="${resumen}"`;
