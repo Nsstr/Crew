@@ -713,6 +713,8 @@
     html.modo-borrador #borradorModal .bm-pie button.bm-prin { background: var(--terracota); border-color: var(--terracota); color: #fbf8f2; }
 
     /* Tema claro "pizarra" (como el Desglose): blanco, grises azulados y barra de arriba oscura */
+    /* Línea punteada del requerido: oscura sobre fondo claro (tema claro y borrador) */
+    html.tema-claro, html.modo-borrador { --req-linea: rgba(30, 41, 59, 0.85); --req-ancho: 2px; }
     html.tema-claro:not(.modo-borrador) {
       color-scheme: light;
       --bg: #eef2f6;
@@ -3909,7 +3911,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.149
+            Versión: v1.7.150
           </div>
         </div>
       </div>
@@ -5220,7 +5222,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.149";
+  const APP_VERSION = "v1.7.150";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -8309,7 +8311,7 @@ function renderCajasDayView() {
     if (ro > 0) covBars += `<div style="left:${left};width:${colW};bottom:${(c / maxVal) * 100}%;height:${(ro / maxVal) * 100}%;background:#8b5cf6;opacity:0.55"></div>`;
     if (demanda && r > 0) {
       // El contorno va encima para que se vea aunque sobre gente
-      covBars += `<div style="left:${left};width:${colW};height:${(r / maxVal) * 100}%;border:1.5px dashed rgba(255,255,255,0.85)"></div>`;
+      covBars += `<div style="left:${left};width:${colW};height:${(r / maxVal) * 100}%;border:var(--req-ancho,1.5px) dashed var(--req-linea,rgba(255,255,255,0.85))"></div>`;
     }
     covNums += `<span style="left:${pct(h + 0.5)};color:${falta ? "#fca5a5" : "var(--text-muted)"}" title="${h} a ${h + 1}: ${c} cajeros${demanda ? ` / ${r} requeridos` : ""}${ro ? ` · ${ro} roller` : ""}">${c}${demanda ? `<br>${r}` : ""}<br><em class="cdv-rolnum">${ro || "·"}</em></span>`;
   }
@@ -8326,7 +8328,7 @@ function renderCajasDayView() {
   const coberturaBarras = `<div class="cdv-cov-fija">
     <div class="cdv-block-head" style="justify-content:flex-start;margin-top:0">
       <span class="cdv-legend">
-        ${demanda ? `<span><i style="border:1.5px dashed rgba(255,255,255,0.85)"></i>Requerido</span>` : ""}
+        ${demanda ? `<span><i style="border:var(--req-ancho,1.5px) dashed var(--req-linea,rgba(255,255,255,0.85))"></i>Requerido</span>` : ""}
         <span><i style="background:#10b981"></i>Cajeros</span>
         ${demanda ? `<span><i style="background:#fbbf24"></i>Falta 1</span><span><i style="background:#ef4444"></i>Faltan 2 o más</span>` : ""}
         ${totalRol ? `<span><i style="background:#8b5cf6;opacity:0.55"></i>Rollers (aparte)</span>` : ""}
@@ -8443,7 +8445,7 @@ function renderCajasMobileView() {
     const left = `calc(${pct(h)} + 1px)`, w = `calc(${ancho(0, 1)} - 2px)`;
     barras += `<div style="left:${left};width:${w};height:${(c / maxVal) * 100}%;background:${falta ? (r - c <= 1 ? "#fbbf24" : "#ef4444") : "#10b981"};opacity:0.85"></div>`;
     if (ro > 0) barras += `<div style="left:${left};width:${w};bottom:${(c / maxVal) * 100}%;height:${(ro / maxVal) * 100}%;background:#8b5cf6;opacity:0.55"></div>`;
-    if (demanda && r > 0) barras += `<div style="left:${left};width:${w};height:${(r / maxVal) * 100}%;border:1px dashed rgba(255,255,255,0.8)"></div>`;
+    if (demanda && r > 0) barras += `<div style="left:${left};width:${w};height:${(r / maxVal) * 100}%;border:var(--req-ancho,1px) dashed var(--req-linea,rgba(255,255,255,0.8))"></div>`;
     // Una hora por columna, alineada con su barra, como en la vista de escritorio
     eje += `<span style="left:${pct(h + 0.5)}">${h}</span>`;
     numsPlan += `<span style="left:${pct(h + 0.5)}" class="${falta ? "falta" : ""}">${c}</span>`;
@@ -8476,7 +8478,7 @@ function renderCajasMobileView() {
         ${demanda ? `<span class="cmv-cov-lbl">Req.</span><div class="cmv-nums">${numsReq}</div>` : ""}
         ${totalRol ? `<span class="cmv-cov-lbl cmv-rol">Roller</span><div class="cmv-nums cmv-nums-rol">${numsRol}</div>` : ""}
       </div>
-      ${demanda ? `<div class="cmv-cov-legend cmv-cov-mas"><span><i style="border:1px dashed rgba(255,255,255,0.8)"></i>Requerido</span><span><i style="background:#10b981"></i>Cajeros</span><span><i style="background:#fbbf24"></i>Falta 1</span><span><i style="background:#ef4444"></i>Faltan 2+</span>${totalRol ? `<span><i style="background:#8b5cf6;opacity:0.55"></i>Rollers (aparte)</span>` : ""}</div>` : ""}
+      ${demanda ? `<div class="cmv-cov-legend cmv-cov-mas"><span><i style="border:var(--req-ancho,1px) dashed var(--req-linea,rgba(255,255,255,0.8))"></i>Requerido</span><span><i style="background:#10b981"></i>Cajeros</span><span><i style="background:#fbbf24"></i>Falta 1</span><span><i style="background:#ef4444"></i>Faltan 2+</span>${totalRol ? `<span><i style="background:#8b5cf6;opacity:0.55"></i>Rollers (aparte)</span>` : ""}</div>` : ""}
     </div>`;
 
   const celda = (id, valor) =>
