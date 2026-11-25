@@ -3909,7 +3909,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.146
+            Versión: v1.7.147
           </div>
         </div>
       </div>
@@ -5220,7 +5220,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.146";
+  const APP_VERSION = "v1.7.147";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -19235,7 +19235,9 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       pl.orig[i] = val;
       // Lo que dejó un armado anterior (y nadie tocó después) se puede volver a armar
       const deArmado = !!o.armadoSlot && String(o.armadoSlot).replace("*", "").trim().toUpperCase() === val.toUpperCase();
-      if (deArmado && !enVac(c.id, d) && !cerrado[i] && !o.fijado && p && (p.type === "franco" || p.type === "libre")) { pl.tipo[i] = "vacio"; pl.plan[i] = null; return; }
+      // Con adicionales se arma ARRIBA de la base: los francos (F) quedan donde están; solo se pueden usar los libres (L)
+      const fBase = opts.adicionales && p && p.type === "franco";
+      if (deArmado && !fBase && !enVac(c.id, d) && !cerrado[i] && !o.fijado && p && (p.type === "franco" || p.type === "libre")) { pl.tipo[i] = "vacio"; pl.plan[i] = null; return; }
       // Francos y libres cargados a mano de lunes a viernes, sin fijar: el armado los puede mover a donde
       // menos falta la gente. No se mueven los fijados, los premios de fiestas, los sábados ni los domingos
       // (así nadie se queda sin el domingo que le toca)
@@ -19244,7 +19246,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       // domingo, sin fijar, quedan disponibles para sumar horas
       const libreUsable = opts.adicionales && i !== 6 && p && p.type === "libre";
       // (con adicionales también se usan los L que quedaron como premio de la fiesta: el franco F se respeta)
-      if ((i < 5 || (i === 5 && contrato < 24) || libreUsable) && !enVac(c.id, d) && !cerrado[i] && !o.fijado && !(o.premioFiesta && !libreUsable) && p && (p.type === "franco" || p.type === "libre")) { pl.tipo[i] = "vacio"; pl.plan[i] = null; pl.fMovido = (pl.fMovido || []).concat(i); return; }
+      if (!fBase && (i < 5 || (i === 5 && contrato < 24) || libreUsable) && !enVac(c.id, d) && !cerrado[i] && !o.fijado && !(o.premioFiesta && !libreUsable) && p && (p.type === "franco" || p.type === "libre")) { pl.tipo[i] = "vacio"; pl.plan[i] = null; pl.fMovido = (pl.fMovido || []).concat(i); return; }
       if (enVac(c.id, d)) { pl.tipo[i] = "fijo"; pl.plan[i] = null; tieneVac = true; return; }
       if (cerrado[i]) { pl.tipo[i] = "cerrado"; pl.plan[i] = null; if (p && p.type === "franco" && !deArmado) fCerrado = true; return; }
       if (!val || !p || p.type === "none") { pl.tipo[i] = "vacio"; pl.plan[i] = null; return; }
