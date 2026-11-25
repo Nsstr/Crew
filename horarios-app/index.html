@@ -3909,7 +3909,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.147
+            Versión: v1.7.148
           </div>
         </div>
       </div>
@@ -5220,7 +5220,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.147";
+  const APP_VERSION = "v1.7.148";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -19985,6 +19985,7 @@ window.armarSinAdicionales = async function (decidido, modo) {
         <p><b>Armar sobre lo que hay:</b> respeta los francos y libres que pusiste a mano.</p>
         <p><b>Empezar de cero:</b> vuelve la semana a los horarios reales y arma desde ahí. Se pierden los cambios de esta semana en el borrador (los pedidos fijados en lo real se respetan).</p>`,
         [{ txt: "Cancelar" }, { txt: "Empezar de cero", fn: async () => {
+          await armadoEspera("Volviendo la semana a lo real…");
           for (const k of cambiadas) {
             const o = borrador.original[k];
             if (o) { await setDoc(doc(db, "planificacion", k), JSON.parse(JSON.stringify(o))); state.planning[k] = JSON.parse(JSON.stringify(o)); }
@@ -19993,12 +19994,13 @@ window.armarSinAdicionales = async function (decidido, modo) {
           borradorPersistir();
           renderUI();
           setTimeout(() => window.armarSinAdicionales(true, modo), 50);
-        } }, { txt: "Armar sobre lo que hay", clase: "bm-prin", fn: () => { setTimeout(() => window.armarSinAdicionales(true, modo), 0); } }]);
+        } }, { txt: "Armar sobre lo que hay", clase: "bm-prin", fn: () => { armadoEspera("Armando los horarios"); setTimeout(() => window.armarSinAdicionales(true, modo), 0); } }]);
       return;
     }
   }
+  await armadoEspera("Armando los horarios");
   const hist = await armadoTraerCurvas(lunes);
-  armadoPedirPremio(lunes, hist).then((pr) => { if (pr) armadoMostrar(lunes, hist, pr.premiados, pr.sabados, modo); });
+  armadoPedirPremio(lunes, hist).then((pr) => { if (pr) armadoMostrar(lunes, hist, pr.premiados, pr.sabados, modo); else armadoEsperaFin(); });
 };
 // Semana con tienda cerrada: pide a quién se le da el franco pegado al cierre. Devuelve
 // { premiados, sabados } (premiados null si no hay cierre) o null si se canceló
@@ -20008,7 +20010,6 @@ function armadoPedirPremio(lunes, hist) {
     let cand = [], r0 = null;
     await armadoEspera("Mirando la semana…");
     try { r0 = armadoSemana(lunes, hist, { premiados: new Set() }); cand = r0.candidatosPremio; } catch (e) { console.error(e); }
-    armadoEsperaFin();
     if (!cand.length) { resolve({ premiados: null }); return; }
     // Si en la base ya está el franco pegado al cierre (F el día antes o después, o marcado como premio),
     // no se pregunta: se respeta lo que ya está asignado
@@ -20123,7 +20124,8 @@ async function armadoMostrar(lunes, hist, premiados, sabados, modo) {
   const dn = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
   const lista = r.cambios.slice().sort((a, b) => (a.nombre + a.d).localeCompare(b.nombre + b.d))
     .map((x) => `<div><b>${borradorEsc(x.nombre)}</b> · ${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)}: ${borradorEsc(x.de)} → <b>${x.a === "L" ? "LIBRE" : borradorEsc(x.a)}</b></div>`).join("");
-  borradorModal("Armar sugerido de la semana", `<p>Semana del <b>${fc(lunes)}</b>. ${r.modoAdic ? `Cada persona con su contrato y, donde la curva lo pide, horas adicionales (hasta ${String(borrador.adicMaxSem ?? 42).replace(".", ",")} h por semana y ${String(borrador.adicMaxDia ?? 8.5).replace(".", ",")} h por día).` : "Cada persona queda con las horas de su contrato (sin adicionales)."} Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
+  // Se aplica directo (sin confirmar): el resultado se ve en la grilla; el detalle queda a un clic y se puede deshacer
+  const detalle = `<p>Semana del <b>${fc(lunes)}</b>. ${r.modoAdic ? `Cada persona con su contrato y, donde la curva lo pide, horas adicionales (hasta ${String(borrador.adicMaxSem ?? 42).replace(".", ",")} h por semana y ${String(borrador.adicMaxDia ?? 8.5).replace(".", ",")} h por día).` : "Cada persona queda con las horas de su contrato (sin adicionales)."} Se respetan los francos y pedidos cargados, vacaciones y ausencias, 4 h mínimo, el tope por día y los descansos de 12 h y 35 h.</p>
     ${r.conDemanda ? `<p>Horas que faltan contra la curva de Recaudaciones: <b>${r1(r.antes)} h</b> hoy → <b>${r1(r.despues)} h</b> con la propuesta.</p>` : `<p class="bm-ojo">Esta semana no tiene demanda de Recaudaciones cargada: se arma para tener al menos un cajero de 8 a 22.</p>`}
     ${r.modoAdic ? armadoTextoAdic(r) : ""}
     ${r.cierreFlojo && r.cierreFlojo.length ? `<p class="bm-ojo">⚠ Cierre con menos de 4 cajeros en la última hora: ${r.cierreFlojo.map((x) => `${dn[new Date(x.d + "T00:00:00").getDay()]} ${fc(x.d)} (${x.n} hasta las ${x.h})`).join(" · ")}.</p>` : `<p>Cierre: todos los días quedan al menos 4 cajeros hasta el final (para carros, devoluciones y limpieza).</p>`}
@@ -20145,20 +20147,24 @@ async function armadoMostrar(lunes, hist, premiados, sabados, modo) {
 
     ${r.sinSol.length ? `<p class="bm-ojo">Sin cambios para ${r.sinSol.map(borradorEsc).join(", ")}: con sus descansos no se pudo armar otra opción.</p>` : ""}
     ${r.cambios.length ? `<p>${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"} en ${r.personas} ${r.personas === 1 ? "persona" : "personas"}:</p><div class="bm-lista">${lista}</div>` : `<p>Ya está lo mejor que encuentro: no hay cambios para hacer.</p>`}
-    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Es solo en el borrador. Después lo revisás con la cobertura y lo ajustás a mano. Podés deshacerlo.</p>`,
-    [{ txt: "Cancelar" }, ...(r.cambios.length || r.adicTotal ? [{ txt: `Aplicar ${r.cambios.length} ${r.cambios.length === 1 ? "cambio" : "cambios"}`, clase: "bm-prin", fn: async () => {
-      const previos = {};
-      await armadoAplicar(lunes, r, previos);
-      borradorPersistir();
-      renderUI();
-      const t = showToast("Listo", r.modoAdic ? `Semana armada con ${armadoR1(r.adicTotal)} h de adicionales (${r.cambios.length} cambios).` : `Semana armada sin adicionales (${r.cambios.length} cambios).`, "success");
-      if (t) {
-        const b = document.createElement("button");
-        b.className = "toast-ver"; b.type = "button"; b.textContent = "Deshacer";
-        b.onclick = async () => { t.remove(); await armadoDeshacer(previos); showToast("Deshecho", "La semana volvió como estaba.", "info"); };
-        t.querySelector(".toast-desc").after(b);
-      }
-    } }] : [])]);
+    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Es solo en el borrador. Después lo revisás con la cobertura y lo ajustás a mano. Podés deshacerlo.</p>`;
+  if (!(r.cambios.length || r.adicTotal)) { armadoEsperaFin(); showToast("Sin cambios", "Ya está lo mejor que encuentro para esta semana.", "info"); return; }
+  await armadoEspera("Aplicando los cambios…");
+  const previos = {};
+  await armadoAplicar(lunes, r, previos);
+  borradorPersistir();
+  renderUI();
+  armadoEsperaFin();
+  const t = showToast("Listo", r.modoAdic ? `Semana armada con ${armadoR1(r.adicTotal)} h de adicionales (${r.cambios.length} cambios).` : `Semana armada sin adicionales (${r.cambios.length} cambios).`, "success");
+  if (t) {
+    const b = document.createElement("button");
+    b.className = "toast-ver"; b.type = "button"; b.textContent = "Deshacer";
+    b.onclick = async () => { t.remove(); await armadoDeshacer(previos); showToast("Deshecho", "La semana volvió como estaba.", "info"); };
+    const v = document.createElement("button");
+    v.className = "toast-ver"; v.type = "button"; v.textContent = "Ver detalle";
+    v.onclick = () => { t.remove(); borradorModal("Armado de la semana", detalle, [{ txt: "Cerrar", clase: "bm-prin" }]); };
+    t.querySelector(".toast-desc").after(b, v);
+  }
 };
 // Escribe en el borrador lo que propuso el armado de una semana (guarda lo anterior en previos para deshacer)
 async function armadoAplicar(lunes, r, previos) {
