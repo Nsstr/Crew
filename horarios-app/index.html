@@ -673,6 +673,8 @@
     html.modo-borrador table#planningTable th, html.modo-borrador table#planningTable td { border-color: #e3d9c8 !important; }
     html.modo-borrador table#planningTable td.collab-cell { background-color: #f4efe6 !important; }
     html.modo-borrador table#planningTable td.collab-cell, html.modo-borrador table#planningTable td.collab-cell span:not(.hour-box), html.modo-borrador .collab-name { color: var(--text) !important; }
+    html.modo-borrador table#planningTable td.collab-cell.eventual-collab-cell { background-color: #fbe4e0 !important; border-left: 3px solid #b91c1c !important; }
+    html.modo-borrador table#planningTable td.collab-cell.eventual-collab-cell .collab-name { color: #991b1b !important; }
     html.modo-borrador table#planningTable td.collab-cell.roller-collab-cell { background-color: #efe3f2 !important; border-left-color: #9b6bb3 !important; }
     html.modo-borrador table#planningTable td.day-cell.roller-day-cell { background-color: #f6eef7 !important; }
     html.modo-borrador table#planningTable td.collab-cell.cruzado-collab-cell { background-color: #e3eeef !important; border-left-color: #4f8f95 !important; }
@@ -3927,7 +3929,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.160
+            Versión: v1.7.161
           </div>
         </div>
       </div>
@@ -5058,6 +5060,15 @@ if (borrador) {
   document.head.appendChild(fuente);
 }
 window.borradorActivo = borradorActivo;
+// Personal eventual: personas que viven solo en el borrador (no existen en la base). Se suman a la lista
+// de colaboradores mientras el borrador está abierto, con sus turnos en el borrador.
+const evEsId = (id) => String(id || "").startsWith("EV-");
+function evInyectar() {
+  if (!borrador || typeof state === "undefined" || !state) return;
+  const evs = Array.isArray(borrador.eventuales) ? borrador.eventuales : [];
+  state.collaborators = (state.collaborators || []).filter((c) => !c.eventual).concat(evs.map((e) => ({ ...e })));
+}
+window.evInyectar = evInyectar;
 const borradorOyentes = new Set();
 let borradorGuardarTimer = null;
 let borradorNubeTimer = null, borradorNubeAvisado = false;
@@ -5074,7 +5085,7 @@ function borradorGuardarNube() {
       await fsSetDoc(doc(db, "borradores", borrador.nubeId), JSON.parse(JSON.stringify({
         nombre: borrador.nombre || "Borrador", creado: borrador.creado || new Date().toISOString(),
         actualizado: borrador.actualizado || new Date().toISOString(), cambios,
-        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [], adicExcluidos: Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null, feriadoMas: borrador.feriadoMas || null, semanasReloj: Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : null, adicPasarse: Number.isFinite(borrador.adicPasarse) ? borrador.adicPasarse : null, adicMaxDia: Number.isFinite(borrador.adicMaxDia) ? borrador.adicMaxDia : null, adicMaxSem: Number.isFinite(borrador.adicMaxSem) ? borrador.adicMaxSem : null,
+        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [], adicExcluidos: Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null, feriadoMas: borrador.feriadoMas || null, semanasReloj: Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : null, adicPasarse: Number.isFinite(borrador.adicPasarse) ? borrador.adicPasarse : null, adicMaxDia: Number.isFinite(borrador.adicMaxDia) ? borrador.adicMaxDia : null, adicMaxSem: Number.isFinite(borrador.adicMaxSem) ? borrador.adicMaxSem : null, eventuales: Array.isArray(borrador.eventuales) ? borrador.eventuales : null,
       })));
     } catch (e) {
       console.warn("No se pudo guardar el borrador en la nube", e);
@@ -5191,7 +5202,10 @@ function borradorCambio(id) {
   borradorPersistir();
   setTimeout(() => borradorOyentes.forEach((fn) => { try { fn([id]); } catch (e) { console.warn(e); } }), 0);
 }
+const evRefColab = (ref) => !!ref && typeof ref.path === "string" && ref.path.indexOf("colaboradores/") === 0 && evEsId(ref.id);
+function evNoGuardar() { showToast("Personal eventual", "Vive solo en el borrador: no se guarda en la base de colaboradores.", "info"); return Promise.resolve(); }
 function setDoc(ref, datos, opciones) {
+  if (evRefColab(ref)) return evNoGuardar();
   if (borradorActivo() && esPlan(ref)) {
     const previo = borrador.docs[ref.id];
     borrador.docs[ref.id] = opciones && opciones.merge && previo ? { ...previo, ...datos } : { ...datos };
@@ -5212,6 +5226,7 @@ function presuCacheLocal(ref, datos, merge) {
   } catch (e) {}
 }
 function updateDoc(ref, datos) {
+  if (evRefColab(ref)) return evNoGuardar();
   if (borradorActivo() && esPlan(ref)) {
     borrador.docs[ref.id] = { ...(borrador.docs[ref.id] || {}), ...datos };
     borradorCambio(ref.id);
@@ -5221,6 +5236,7 @@ function updateDoc(ref, datos) {
   return fsUpdateDoc(ref, datos);
 }
 function deleteDoc(ref) {
+  if (evRefColab(ref)) { if (borrador && Array.isArray(borrador.eventuales)) { borrador.eventuales = borrador.eventuales.filter((e) => e.id !== ref.id); borradorPersistir(); evInyectar(); } return Promise.resolve(); }
   if (borradorActivo() && esPlan(ref)) {
     if (!borrador.borrados) borrador.borrados = {};
     borrador.borrados[ref.id] = borrador.docs[ref.id] || null;
@@ -5238,7 +5254,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.160";
+  const APP_VERSION = "v1.7.161";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6081,6 +6097,7 @@ async function loadInitialData() {
             ...d.data(),
           }));
           state.collaborators.sort((a, b) => a.id.localeCompare(b.id));
+          if (borradorActivo()) evInyectar();
           if (document.getElementById("tableBody")) renderUI();
           resolve();
         });
@@ -8037,6 +8054,7 @@ function nombreCortoAutomatico(nombreCompleto) {
 
 function nombreCortoCelular(collab) {
   if (!collab) return "";
+  if (collab.eventual) return `Eventual ${String(collab.id).replace("EV-", "")}`;
   return (collab.nombreCorto || "").trim() || nombreCortoAutomatico(collab.name);
 }
 
@@ -9376,7 +9394,7 @@ function renderDesktopView() {
       // Mismo nombre corto que en el celular ("Noelia.A", o el cargado a mano en el perfil)
       const shortName = cdvEsc(nombreCortoCelular(authenticCollab) || rawName);
       
-      const collabCellClass = isCruzado ? 'cruzado-collab-cell' : (isRoller ? 'roller-collab-cell' : '');
+      const collabCellClass = isCruzado ? 'cruzado-collab-cell' : collab.eventual ? 'eventual-collab-cell' : (isRoller ? 'roller-collab-cell' : '');
       const collabCellTitle = isCruzado 
         ? `${rawName} (Legajo: ${collab.id} - Refuerzo de ${collab.area || 'Externo'})` 
         : `${rawName} (Legajo: ${collab.id}${isRoller ? ' - Roller' : ''})`;
@@ -15833,6 +15851,7 @@ function desPlanReal(planning) {
   if (!(typeof borradorActivo === "function" && borradorActivo()) || !borrador || !borrador.original) return null;
   const real = { ...planning };
   Object.entries(borrador.original).forEach(([k, v]) => { if (v) real[k] = v; else delete real[k]; });
+  Object.keys(real).forEach((k) => { if (evEsId(k.slice(0, -11))) delete real[k]; });
   return real;
 }
 // Mismo cálculo sin ir a la nube (con lo que ya está cargado en pantalla)
@@ -15858,7 +15877,7 @@ function desCalcularCon(desde, hasta, planning, demanda, planReal) {
       const curva = demanda[dStr] || null;
       const dia = { fecha: dStr, semana: lun, etiqueta: `${diasLargos[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
         feriado: (state.holidays || []).includes(dStr), cerrada: !!(evento && evento.tiendaCerrada), conDemanda: !!curva, req: 0,
-        r: Array(24).fill(0), cnt: {}, adicPers: [], pers: {}, aus: {} };
+        r: Array(24).fill(0), cnt: {}, adicPers: [], pers: {}, aus: {}, ev: Array(24).fill(0) };
       DES_GRUPOS.forEach((g) => { dia.cnt[g.key + "_n"] = Array(24).fill(0); dia.cnt[g.key + "_a"] = Array(24).fill(0); });
       if (curva) for (let h = 0; h < 24; h++) { dia.r[h] = Number(curva[h]) || 0; dia.req += dia.r[h]; }
       if (!dia.cerrada) {
@@ -15892,6 +15911,13 @@ function desCalcularCon(desde, hasta, planning, demanda, planReal) {
         Object.assign(dia.aus, con.aus);
         const ids = new Set([...Object.keys(con.gente), ...(base ? Object.keys(base.gente) : [])]);
         ids.forEach((id) => {
+          // Personal eventual (solo existe en el borrador): va aparte, no suma a cajeros ni adicionales
+          if (evEsId(id)) {
+            const c = con.gente[id];
+            if (c) { c.todas.forEach((m) => { dia.ev[m >> 1] += 0.5; }); dia.pers[id] = { n: 0, a: 0, e: c.todas.length / 2, hn: "", ha: "", ht: desRangosMedias(c.todas), rc: false, ev: true }; }
+            delete dia.aus[id];
+            return;
+          }
           const c = con.gente[id], b = base ? base.gente[id] : c;
           const normales = b ? b.normales : [];
           const todas = c ? c.todas : [];
@@ -16028,14 +16054,16 @@ function desHayAdic(sum) { return DES_GRUPOS.some((g) => Math.round(((sum.t[g.ke
 // lo que piden contra lo que tenemos: normal, con adicionales, con vendedores; los rollers aparte abajo.
 function desAnexoDatos(dias) {
   const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => ({
-    id: c.id, nombre: (c.name || "").split("(")[0].split("-")[0].trim(),
-    roller: ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller"),
-  })).sort((a, b) => Number(a.roller) - Number(b.roller) || a.nombre.localeCompare(b.nombre));
+    id: c.id, nombre: c.eventual ? c.name : (c.name || "").split("(")[0].split("-")[0].trim(), ev: !!c.eventual,
+    roller: !c.eventual && ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller"),
+  })).filter((g) => !g.ev || dias.some((x) => x.pers[g.id]))
+    .sort((a, b) => Number(a.ev) - Number(b.ev) || Number(a.roller) - Number(b.roller) || a.nombre.localeCompare(b.nombre, undefined, { numeric: true }));
   const ausTxt = (e) => (!e ? "" : e === "F" ? "FRANCO" : e === "V" ? "VACACIONES" : /^libre$/i.test(e) ? "LIBRE" : String(e).replace(/^Revisar: /, "").toUpperCase());
   const turno = (x, id, v) => {
     if (x.cerrada) return "CERRADA";
     const p = x.pers[id];
-    if (p) { const t = v === "n" ? p.hn : p.ht; return (t || (v === "n" && p.a ? "solo adic." : "")).replace(/–/g, "-"); }
+    if (!p && evEsId(id)) return "";
+    if (p) { if (p.ev && v === "n") return ""; const t = v === "n" ? p.hn : p.ht; return (t || (v === "n" && p.a ? "solo adic." : "")).replace(/–/g, "-"); }
     return ausTxt(x.aus[id]);
   };
   const horas = desRangoHoras(dias);
@@ -16047,10 +16075,12 @@ function desAnexoDatos(dias) {
 function evTurnosDia(def, L = 8) {
   const hs = def.map((v, h) => (v > 0 ? h : -1)).filter((h) => h >= 0);
   if (!hs.length) return [];
-  const a0 = Math.max(0, hs[0] - 2), b0 = Math.min(24, hs[hs.length - 1] + 3), m = L / 2;
+  const ult = hs[hs.length - 1];
+  const a0 = Math.max(0, hs[0] - 2), b0 = Math.min(Math.max(23, ult + 1), ult + 3), m = L / 2;
   const cand = [];
-  for (let s = a0; s + L <= b0; s++) cand.push([[s, s + L]]);
-  for (let s = a0; s + m <= b0; s++) for (let u = s + m + 1; u + m <= b0; u++) cand.push([[s, s + m], [u, u + m]]);
+  for (let s = Math.max(0, Math.min(a0, b0 - L)); s + L <= b0; s++) cand.push([[s, s + L]]);
+  // Cortado en dos bloques iguales, solo para turnos de 6 h o más (bloques de 3 o 4 h)
+  if (L >= 6) for (let s = a0; s + m <= b0; s++) for (let u = s + m + 1; u + m <= b0; u++) cand.push([[s, s + m], [u, u + m]]);
   const rem = def.slice(), out = [];
   for (let k = 0; k < 40; k++) {
     let best = null, bs = 0;
@@ -16082,7 +16112,7 @@ function evResumenTurnos(turnos) {
   return Object.entries(c).map(([k, n]) => `${n}× ${k}`).join(" · ");
 }
 function desDetallePersonas(dias, semanas, total, fc2, flujoDe) {
-  const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => {
+  const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado && !c.eventual).map((c) => {
     const roller = ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller");
     const h = parseFloat(c.hours) || parseFloat(c.cargaHoraria) || parseFloat(c.contractHours) || 0;
     return { id: c.id, nombre: (c.name || "").split("(")[0].split("-")[0].trim(), roller, contrato: h };
@@ -16291,13 +16321,13 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
   // Piso de venta = vendedores con fallo de caja, contando todo su turno. "Faltan" suma hora por hora lo que no se
   // cubre (lo que sobra a las 10 no tapa lo que falta a las 19), que son las horas que habría que pedir.
   const faltaDe = (lista) => {
-    let req = 0, a = 0, pv = 0, fa = 0, ft = 0;
+    let req = 0, a = 0, pv = 0, fa = 0, ft = 0, ev = 0;
     lista.forEach((x) => {
       if (x.cerrada) return;
-      a += x.t.caj_a.tengo; pv += x.t.vend_a.tengo - x.t.caj_a.tengo;
-      if (x.conDemanda) { req += x.req; fa += x.t.caj_a.falta; ft += x.t.vend_a.falta; }
+      a += x.t.caj_a.tengo; pv += x.t.vend_a.tengo - x.t.caj_a.tengo; ev += x.ev.reduce((s2, v) => s2 + v, 0);
+      if (x.conDemanda) { req += x.req; fa += x.t.caj_a.falta; for (let h = 0; h < 24; h++) ft += Math.max(0, x.r[h] - x.cnt.vend_a[h] - x.ev[h]); }
     });
-    return { req, a, pv, todo: a + pv, fa, ft };
+    return { req, a, pv, ev, todo: a + pv + ev, fa, ft };
   };
   const F = faltaDe(dias);
   const sinVend = dias.filter((x) => !x.cerrada && x.vendSinCargar);
@@ -16306,27 +16336,27 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
   const avisoVend = sinVend.length ? `<div class="aviso-v"><b>Faltan cargar horarios de vendedores</b> en ${sinVend.length} día${sinVend.length === 1 ? "" : "s"} (${(() => { const r = []; let a = null, b = null; sinVend.forEach((x) => { if (b && addDays(new Date(b.fecha + "T00:00:00"), 1).getTime() === new Date(x.fecha + "T00:00:00").getTime()) b = x; else { if (a) r.push([a, b]); a = b = x; } }); if (a) r.push([a, b]); return r.map(([p, q]) => p === q ? fc2(p.fecha) : `${fc2(p.fecha)} al ${fc2(q.fecha)}`).join(", "); })()}). Esos días el piso de venta da 0 porque no está cargado, no porque no haya gente: lo que falta puede ser menos.</div>` : "";
   const fChip = (n) => n > 0.05 ? `<span class="dif falta">Faltan ${desH(n)} h</span>` : `<span class="dif justo">Cubierto</span>`;
   const fCelda = (n) => n > 0.05 ? `<span class="dif falta">${desH(n)}</span>` : `<span class="gr">—</span>`;
-  const bloqueFalta = `<section class="blq cf"><h2>¿Cuánto falta para lo que pide Recaudaciones?</h2>
+  const bloqueFalta = `<section class="blq cf${F.ev ? " conev" : ""}"><h2>¿Cuánto falta para lo que pide Recaudaciones?</h2>
     <p class="sub">Con todo lo que tenemos: cajeros, sus horas adicionales y la gente del piso de venta que puede cobrar (vendedores con fallo de caja, todo su turno). Lo que falta se cuenta hora por hora: son las horas a pedir.</p>
     <div class="flow">
       <div class="fk"><small>Piden</small><b>${desH(F.req)} h</b><div class="fn">Recaudaciones</div></div><div class="fo">→</div>
       <div class="fk cj"><small>Cajeros con adicionales</small><b>${desH(F.a)} h</b><div class="fn">Sin cubrir: ${desH(F.fa)} h</div></div><div class="fo">+</div>
-      <div class="fk pv"><small>Piso de venta</small><b>${desH(F.pv)} h</b><div class="fn">${sinVend.length ? `Faltan cargar ${sinVend.length} día${sinVend.length === 1 ? "" : "s"}` : "Vendedores con fallo de caja"}</div></div><div class="fo">=</div>
+      <div class="fk pv"><small>Piso de venta</small><b>${desH(F.pv)} h</b><div class="fn">${sinVend.length ? `Faltan cargar ${sinVend.length} día${sinVend.length === 1 ? "" : "s"}` : "Vendedores con fallo de caja"}</div></div>${F.ev ? `<div class="fo">+</div><div class="fk evk"><small>Personal eventual</small><b>${desH(F.ev)} h</b><div class="fn">Cargado en el borrador</div></div>` : ""}<div class="fo">=</div>
       <div class="fk ft"><small>Faltan (horas a pedir)</small><b>${desH(F.ft)} h</b><div class="fn">Con todo: ${desH(F.todo)} h${sinVend.length ? " · sin vendedores de algunos días" : ""}</div></div>
     </div>${avisoVend}
-    <table class="rt"><thead><tr><th class="l">Semana</th><th>Piden</th><th class="cj">Cajeros con adic.</th><th class="pv">+ Piso de venta</th><th class="ca">Con todo</th><th class="ft">Faltan</th></tr></thead><tbody>
+    <table class="rt"><thead><tr><th class="l">Semana</th><th>Piden</th><th class="cj">Cajeros con adic.</th><th class="pv">+ Piso de venta</th>${F.ev ? '<th class="evd">+ Eventuales</th>' : ""}<th class="ca">Con todo</th><th class="ft">Faltan</th></tr></thead><tbody>
     ${semanas.map((w) => { const ds = dias.filter((x) => x.fecha >= w.desde && x.fecha <= w.hasta); const r = faltaDe(ds);
-      return `<tr><td class="l">${w.desde === w.hasta ? fc2(w.desde) : `${fc2(w.desde)} al ${fc2(w.hasta)}`}</td><td>${desH(r.req)}</td><td class="cj">${desH(r.a)}</td><td class="pv">${r.pv ? "+" + desH(r.pv) : ""}${sinVendSem(ds) ? `${r.pv ? " " : ""}${tagSC(sinVendSem(ds) === ds.filter((x) => !x.cerrada).length ? "sin cargar" : `${sinVendSem(ds)} día${sinVendSem(ds) === 1 ? "" : "s"} sin cargar`)}` : r.pv ? "" : "—"}</td><td class="ca">${desH(r.todo)}</td><td>${r.req ? fCelda(r.ft) : "—"}</td></tr>`; }).join("")}
-    <tr class="tot"><td class="l">Total</td><td>${desH(F.req)}</td><td>${desH(F.a)}</td><td>${F.pv ? "+" + desH(F.pv) : "—"}</td><td>${desH(F.todo)}</td><td>${F.req ? fChip(F.ft) : "—"}</td></tr></tbody></table>
+      return `<tr><td class="l">${w.desde === w.hasta ? fc2(w.desde) : `${fc2(w.desde)} al ${fc2(w.hasta)}`}</td><td>${desH(r.req)}</td><td class="cj">${desH(r.a)}</td><td class="pv">${r.pv ? "+" + desH(r.pv) : ""}${sinVendSem(ds) ? `${r.pv ? " " : ""}${tagSC(sinVendSem(ds) === ds.filter((x) => !x.cerrada).length ? "sin cargar" : `${sinVendSem(ds)} día${sinVendSem(ds) === 1 ? "" : "s"} sin cargar`)}` : r.pv ? "" : "—"}</td>${F.ev ? `<td class="evd">${r.ev ? "+" + desH(r.ev) : "—"}</td>` : ""}<td class="ca">${desH(r.todo)}</td><td>${r.req ? fCelda(r.ft) : "—"}</td></tr>`; }).join("")}
+    <tr class="tot"><td class="l">Total</td><td>${desH(F.req)}</td><td>${desH(F.a)}</td><td>${F.pv ? "+" + desH(F.pv) : "—"}</td>${F.ev ? `<td class="evd">${F.ev ? "+" + desH(F.ev) : "—"}</td>` : ""}<td>${desH(F.todo)}</td><td>${F.req ? fChip(F.ft) : "—"}</td></tr></tbody></table>
     <h2 style="margin-top:12px">Por día</h2>
-    <table class="rt"><thead><tr><th class="l">Día</th><th>Piden</th><th class="cj">Cajeros con adic.</th><th class="pv">+ Piso de venta</th><th class="ca">Con todo</th><th class="ft">Faltan</th></tr></thead><tbody>
+    <table class="rt"><thead><tr><th class="l">Día</th><th>Piden</th><th class="cj">Cajeros con adic.</th><th class="pv">+ Piso de venta</th>${F.ev ? '<th class="evd">+ Eventuales</th>' : ""}<th class="ca">Con todo</th><th class="ft">Faltan</th></tr></thead><tbody>
     ${dias.map((x) => {
       const et = `${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}`;
-      if (x.cerrada) return `<tr class="cerr"><td class="l">${et}</td><td colspan="5" class="l">Tienda cerrada</td></tr>`;
+      if (x.cerrada) return `<tr class="cerr"><td class="l">${et}</td><td colspan="${F.ev ? 6 : 5}" class="l">Tienda cerrada</td></tr>`;
       const r = faltaDe([x]);
-      return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${et}</td><td>${x.conDemanda ? desH(x.req) : "—"}</td><td class="cj">${desH(r.a)}</td><td class="pv">${x.vendSinCargar ? tagSC("sin cargar") : r.pv ? "+" + desH(r.pv) : "—"}</td><td class="ca">${desH(r.todo)}</td><td>${x.conDemanda ? fCelda(r.ft) : '<span class="gr">sin pedido</span>'}</td></tr>`;
+      return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${et}</td><td>${x.conDemanda ? desH(x.req) : "—"}</td><td class="cj">${desH(r.a)}</td><td class="pv">${x.vendSinCargar ? tagSC("sin cargar") : r.pv ? "+" + desH(r.pv) : "—"}</td>${F.ev ? `<td class="evd">${r.ev ? "+" + desH(r.ev) : "—"}</td>` : ""}<td class="ca">${desH(r.todo)}</td><td>${x.conDemanda ? fCelda(r.ft) : '<span class="gr">sin pedido</span>'}</td></tr>`;
     }).join("")}
-    <tr class="tot"><td class="l">Total</td><td>${desH(F.req)}</td><td>${desH(F.a)}</td><td>${F.pv ? "+" + desH(F.pv) : "—"}</td><td>${desH(F.todo)}</td><td>${F.req ? fChip(F.ft) : "—"}</td></tr></tbody></table>
+    <tr class="tot"><td class="l">Total</td><td>${desH(F.req)}</td><td>${desH(F.a)}</td><td>${F.pv ? "+" + desH(F.pv) : "—"}</td>${F.ev ? `<td class="evd">${F.ev ? "+" + desH(F.ev) : "—"}</td>` : ""}<td>${desH(F.todo)}</td><td>${F.req ? fChip(F.ft) : "—"}</td></tr></tbody></table>
   </section>`;
   // ===== Personal eventual: lo necesario para cubrir lo que falta, y cuánto cubre cada cantidad que autoricen =====
   const EVs = evCalcular(dias, "caj_a"), EVv = evCalcular(dias, "vend_a");
@@ -16339,6 +16369,7 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
       <div class="fk"><small>Falta cubrir (sin vendedores)</small><b>${desH(EVs.faltaTot)} h</b><div class="fn">Hora por hora, después de adicionales</div></div>
       <div class="fk ft"><small>Recomendado</small><b>${EVs.maxRec} persona${EVs.maxRec === 1 ? "" : "s"}</b><div class="fn">De 8 h · cubre ${pctTxt((EVs.curva[EVs.maxRec - 1] || { pct: 1 }).pct)} de lo que falta</div></div>
       <div class="fk"><small>Para cubrir el 100 %</small><b>${EVs.maxTodo} persona${EVs.maxTodo === 1 ? "" : "s"}</b><div class="fn">Las últimas tapan pocas horas sueltas</div></div>
+      ${F.ev ? `<div class="fk evk"><small>Ya cargados en el borrador</small><b>${desH(F.ev)} h</b><div class="fn">${new Set(dias.flatMap((x) => Object.keys(x.pers).filter((id) => x.pers[id].ev))).size} personas eventuales</div></div>` : ""}
       ${hayVendEv ? `<div class="fk pv"><small>Contando vendedores</small><b>${EVv.maxRec} persona${EVv.maxRec === 1 ? "" : "s"}</b><div class="fn">Falta ${desH(EVv.faltaTot)} h${sinVend.length ? " · hay días sin cargar" : ""}</div></div>` : ""}
     </div>
     <h2>Si autorizan…</h2><p class="sub">Cuánto de lo que falta se cubre con cada cantidad de personas eventuales en todo el período.</p>
@@ -16353,7 +16384,7 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
   const dnA = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
   const etqA = (x) => `${dnA[new Date(x.fecha + "T00:00:00").getDay()]} ${fc2(x.fecha)}`;
   const gridSem = (ds, v) => `<table class="ax"><thead><tr><th class="l">Persona</th>${ds.map((x) => `<th>${etqA(x)}</th>`).join("")}</tr></thead><tbody>
-    ${AX.gente.map((g, i) => `${g.roller && (i === 0 || !AX.gente[i - 1].roller) ? `<tr class="axs"><td class="l" colspan="${ds.length + 1}">Rollers</td></tr>` : ""}<tr><td class="l">${g.nombre}</td>${ds.map((x) => { const t = AX.turno(x, g.id, v); const p = x.pers[g.id]; const cls = !p ? "au" : v === "a" && p.a ? "ad" : ""; return `<td class="${cls}">${t}</td>`; }).join("")}</tr>`).join("")}
+    ${AX.gente.filter((g) => v === "a" || !g.ev).map((g, i, G) => `${g.roller && (i === 0 || !G[i - 1].roller) ? `<tr class="axs"><td class="l" colspan="${ds.length + 1}">Rollers</td></tr>` : ""}${g.ev && (i === 0 || !G[i - 1].ev) ? `<tr class="axs axe"><td class="l" colspan="${ds.length + 1}">Personal eventual (solo en el borrador)</td></tr>` : ""}<tr><td class="l">${g.nombre}</td>${ds.map((x) => { const t = AX.turno(x, g.id, v); const p = x.pers[g.id]; const cls = !p ? "au" : p.ev ? (v === "a" ? "evc" : "au") : v === "a" && p.a ? "ad" : ""; return `<td class="${cls}">${t}</td>`; }).join("")}</tr>`).join("")}
     </tbody></table>`;
   const anexoHorarios = semanas.map((w) => {
     const ds = dias.filter((x) => x.fecha >= w.desde && x.fecha <= w.hasta);
@@ -16372,7 +16403,8 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
       filaH("Piden", AX.horas.map((h) => (x.conDemanda ? x.r[h] : "")), "pd") +
       filaH("Normal", AX.horas.map((h) => x.cnt.caj_n[h])) +
       (hayAdic ? filaH("Con adicionales", AX.horas.map((h) => x.cnt.caj_a[h]), "ad") : "") +
-      filaH(x.vendSinCargar ? "Con vendedores (sin cargar)" : "Con vendedores", AX.horas.map((h) => x.cnt.vend_a[h]), "vd")).join("")}
+      filaH(x.vendSinCargar ? "Con vendedores (sin cargar)" : "Con vendedores", AX.horas.map((h) => x.cnt.vend_a[h]), "vd") +
+      (F.ev ? filaH("+ Eventuales", AX.horas.map((h) => x.cnt.vend_a[h] + x.ev[h]), "evr") : "")).join("")}
     </tbody></table>
     <h2 style="margin-top:14px">Rollers</h2>
     <table class="ax axh">${cabH}<tbody>
@@ -16466,7 +16498,10 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     .fn { font-size: 8.5px; color: #94a3b8; margin-top: 3px; } .fk.tt .fn { color: #cbd5e1; }
     .fk.pv { background: #fff7ed; border-color: #fed7aa; } .fk.pv b { color: #c2410c; }
     .fk.ft { background: #b91c1c; border-color: #b91c1c; color: #fff; } .fk.ft small, .fk.ft .fn { color: #fee2e2; }
-    .flow.ev3 { grid-template-columns: repeat(${hayVendEv ? 4 : 3}, 1fr); gap: 8px; }
+    .flow.ev3 { grid-template-columns: repeat(${3 + (hayVendEv ? 1 : 0) + (F.ev ? 1 : 0)}, 1fr); gap: 8px; }
+    .cf.conev .flow { grid-template-columns: 1fr 16px 1fr 16px 1fr 16px 1fr 16px 1.1fr; }
+    .fk.evk { background: #fef2f2; border-color: #fecaca; } .fk.evk b { color: #b91c1c; }
+    .rt th.evd, .rt td.evd { color: #b91c1c; font-weight: 600; }
     .rt tr.rec td { background: #fef2f2 !important; font-weight: 700; }
     .tag-rec { font-size: 8px; font-weight: 800; color: #fff; background: #b91c1c; border-radius: 6px; padding: 1px 6px; margin-left: 4px; text-transform: uppercase; }
     .pbar { position: relative; background: #f1f5f9; border-radius: 6px; height: 14px; min-width: 120px; overflow: hidden; }
@@ -16482,10 +16517,11 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     .ax td.l, .ax th.l { text-align: left; white-space: nowrap; }
     .ax td.au { color: #94a3b8; font-size: 7.5px; } .ax td.ad { background: #ecfeff; color: #0e7490; font-weight: 700; }
     .ax tr.axs td { background: #f3e8ff; color: #6d28d9; font-weight: 700; }
+    .ax tr.axe td { background: #fee2e2; color: #b91c1c; } .ax td.evc { background: #fef2f2; color: #b91c1c; font-weight: 700; }
     .axt { font-size: 11px; margin: 8px 0 3px; color: #334155; }
     .axh td { padding: 2px 2px; } .axh td.k, .axh th.k { font-weight: 700; border-left: 1px solid #e2e8f0; }
     .axh tr.axd td { background: #f1f5f9; font-weight: 700; color: #1e293b; text-align: left; padding-top: 4px; }
-    .axh tr.pd td { font-weight: 700; } .axh tr.ad td { color: #0e7490; } .axh tr.vd td { color: #c2410c; }
+    .axh tr.pd td { font-weight: 700; } .axh tr.ad td { color: #0e7490; } .axh tr.vd td { color: #c2410c; } .axh tr.evr td { color: #b91c1c; }
     .axh tr { page-break-inside: avoid; }
     .fsp { margin-top: 3px; } .fsp span { display: inline-block; white-space: nowrap; font-size: 9px; color: #0e7490; background: #cffafe; border-radius: 6px; padding: 0 6px; margin: 0 3px 2px 0; }
     .rt { font-size: 11px; } .rt th { font-size: 9px; } .rt td { padding: 5px 8px; }
@@ -16641,15 +16677,15 @@ async function desExcel(datos, desde, hasta, nombre) {
 
   // Cálculos (los mismos que el PDF)
   const resumenDe = (lista) => {
-    let req = 0, n = 0, a = 0, nD = 0, aD = 0, rolA = 0, pv = 0, fa = 0, ft = 0, sinV = 0;
+    let req = 0, n = 0, a = 0, nD = 0, aD = 0, rolA = 0, pv = 0, fa = 0, ft = 0, sinV = 0, ev = 0;
     lista.forEach((x) => {
       if (x.cerrada) return;
-      n += x.t.caj_n.tengo; a += x.t.caj_a.tengo; pv += x.t.vend_a.tengo - x.t.caj_a.tengo;
+      n += x.t.caj_n.tengo; a += x.t.caj_a.tengo; pv += x.t.vend_a.tengo - x.t.caj_a.tengo; ev += x.ev.reduce((s2, v) => s2 + v, 0);
       if (x.vendSinCargar) sinV++;
-      if (x.conDemanda) { req += x.req; nD += x.t.caj_n.tengo; aD += x.t.caj_a.tengo; fa += x.t.caj_a.falta; ft += x.t.vend_a.falta; }
+      if (x.conDemanda) { req += x.req; nD += x.t.caj_n.tengo; aD += x.t.caj_a.tengo; fa += x.t.caj_a.falta; for (let h = 0; h < 24; h++) ft += Math.max(0, x.r[h] - x.cnt.vend_a[h] - x.ev[h]); }
       Object.entries(x.pers).forEach(([id, p]) => { if (idsRoller.has(id) && !p.rc) rolA += p.a; });
     });
-    return { req, n, a, adic: a - n, rolA, difN: nD - req, difA: aD - req, pv, todo: a + pv, fa, ft, sinV };
+    return { req, n, a, adic: a - n, rolA, difN: nD - req, difA: aD - req, pv, ev, todo: a + pv + ev, fa, ft, sinV };
   };
   const R = resumenDe(dias);
 
@@ -16665,6 +16701,7 @@ async function desExcel(datos, desde, hasta, nombre) {
     ["Total adicionales (presupuesto)", R.adic + R.rolA, "", C.celC, C.celT],
     ["Cajeros con adicionales", R.a, R.req ? (R.difA < 0 ? `Faltan ${desH(-R.difA)} h` : `Sobran ${desH(R.difA)} h`) : "", C.osc, "FFFFFFFF"],
     ["Piso de venta (vendedores con fallo de caja)", R.pv, R.sinV ? `Faltan cargar ${R.sinV} día${R.sinV === 1 ? "" : "s"}` : "Todo el turno", C.narC, C.narT],
+    ...(R.ev ? [["Personal eventual (cargado en el borrador)", R.ev, "No es dotación: personas para días puntuales", C.rojoC, C.rojoT]] : []),
     ["Con todo", R.todo, "", C.zebra, C.osc],
     ["FALTAN (horas a pedir)", R.ft, R.sinV ? "Puede ser menos: faltan cargar vendedores" : "Horas sin cubrir, hora por hora", "FFB91C1C", "FFFFFFFF"],
   ];
@@ -16730,18 +16767,25 @@ async function desExcel(datos, desde, hasta, nombre) {
     dias.forEach((x, i) => { if (x.feriado) cab.getCell(3 + i).fill = fill("FFB45309"); });
     fila++;
     AX.gente.forEach((g, j) => {
+      if (g.ev && v === "n") return;
       if (g.roller && (j === 0 || !AX.gente[j - 1].roller)) {
         const rr = wsH.getRow(fila); rr.getCell(2).value = "ROLLERS";
         for (let c = 1; c <= totCols; c++) { rr.getCell(c).fill = fill(C.lilaC); rr.getCell(c).font = { bold: true, color: { argb: C.lilaT } }; }
         fila++;
       }
+      if (g.ev && (j === 0 || !AX.gente[j - 1].ev)) {
+        const rr = wsH.getRow(fila); rr.getCell(2).value = "PERSONAL EVENTUAL (solo en el borrador)";
+        for (let c = 1; c <= totCols; c++) { rr.getCell(c).fill = fill(C.rojoC); rr.getCell(c).font = { bold: true, color: { argb: C.rojoT } }; }
+        fila++;
+      }
       const row = wsH.getRow(fila);
-      row.values = [Number(g.id) || g.id, g.nombre, ...dias.map((x) => AX.turno(x, g.id, v))];
+      row.values = [g.ev ? "—" : Number(g.id) || g.id, g.nombre, ...dias.map((x) => AX.turno(x, g.id, v))];
       row.eachCell({ includeEmpty: true }, (c, col) => {
         c.border = borde; c.alignment = { horizontal: col <= 2 ? "left" : "center", vertical: "middle" };
         if (col <= 2) { c.font = { bold: col === 2, size: 10 }; if (j % 2) c.fill = fill(C.zebra); return; }
         const x = dias[col - 3]; const p = x && x.pers[g.id];
         if (!p) { c.font = { size: 8, color: { argb: "FF94A3B8" } }; c.fill = fill(j % 2 ? C.zebra : "FFFFFFFF"); }
+        else if (p.ev) { c.font = { bold: true, color: { argb: C.rojoT } }; c.fill = fill(C.rojoC); }
         else if (v === "a" && p.a) { c.font = { bold: true, color: { argb: C.celT } }; c.fill = fill("FFCFFAFE"); }
         else { c.font = { size: 10 }; if (j % 2) c.fill = fill(C.zebra); }
       });
@@ -16765,6 +16809,7 @@ async function desExcel(datos, desde, hasta, nombre) {
     const filasDia = [["Pedido", ped, null], ["Normal", hs.map((h) => x.cnt.caj_n[h]), C.verdeT]];
     if (hayAdic) filasDia.push(["Con adicionales", hs.map((h) => x.cnt.caj_a[h]), C.celT]);
     filasDia.push([x.vendSinCargar ? "Con vendedores (sin cargar)" : "Con vendedores", hs.map((h) => x.cnt.vend_a[h]), C.narT]);
+    if (R.ev) filasDia.push(["+ Eventuales", hs.map((h) => x.cnt.vend_a[h] + x.ev[h]), C.rojoT]);
     filasDia.forEach(([lbl, vals, colorT], k) => {
       const row = wsC.getRow(fila);
       const t = vals.every((v) => v === "") ? null : r1(vals.reduce((a, b) => a + (Number(b) || 0), 0));
@@ -17582,7 +17627,7 @@ async function distSimpleSemana(ExcelJS, plantilla, dias, demanda) {
   // Publicado: el horario de cada uno en la semana (cajeros y después rollers, por legajo)
   const pub = wb.getWorksheet("Publicado");
   dias.forEach((d, i) => { pub.getCell(1, 3 + i).value = utc(d); });
-  const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado);
+  const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado && !c.eventual);
   const esRol = (c) => ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller");
   const orden = (a, b) => (Number(a.id) || 0) - (Number(b.id) || 0);
   const lista = [...gente.filter((c) => !esRol(c)).sort(orden), ...gente.filter(esRol).sort(orden)];
@@ -19532,7 +19577,7 @@ async function borradorDesdeNube(id, datos) {
     if (c.o === null) delete original[k]; else original[k] = c.o;
     if (c.d === null) { borrados[k] = docs[k] || null; delete docs[k]; } else docs[k] = c.d;
   });
-  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [], ...(Array.isArray(datos.adicExcluidos) ? { adicExcluidos: datos.adicExcluidos } : {}), ...(datos.feriadoMas ? { feriadoMas: datos.feriadoMas } : {}), ...(Array.isArray(datos.semanasReloj) ? { semanasReloj: datos.semanasReloj } : {}), ...(Number.isFinite(datos.adicPasarse) ? { adicPasarse: datos.adicPasarse } : {}), ...(Number.isFinite(datos.adicMaxDia) ? { adicMaxDia: datos.adicMaxDia } : {}), ...(Number.isFinite(datos.adicMaxSem) ? { adicMaxSem: datos.adicMaxSem } : {}) };
+  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [], ...(Array.isArray(datos.adicExcluidos) ? { adicExcluidos: datos.adicExcluidos } : {}), ...(datos.feriadoMas ? { feriadoMas: datos.feriadoMas } : {}), ...(Array.isArray(datos.semanasReloj) ? { semanasReloj: datos.semanasReloj } : {}), ...(Number.isFinite(datos.adicPasarse) ? { adicPasarse: datos.adicPasarse } : {}), ...(Number.isFinite(datos.adicMaxDia) ? { adicMaxDia: datos.adicMaxDia } : {}), ...(Number.isFinite(datos.adicMaxSem) ? { adicMaxSem: datos.adicMaxSem } : {}), ...(Array.isArray(datos.eventuales) ? { eventuales: datos.eventuales } : {}) };
 }
 async function borradorListaNube() {
   if (isMockMode) return [];
@@ -19623,6 +19668,7 @@ function borradorCambios(b = borrador) {
   return (b.tocados || [])
     .map((id) => ({ id, antes: (b.original || {})[id] || null, despues: b.docs[id] || null }))
     .filter((x) => JSON.stringify(x.antes) !== JSON.stringify(x.despues))
+    .filter((x) => !evEsId(x.id.slice(0, -11))) // el personal eventual queda solo en el borrador
     .map((x) => ({ ...x, slotAntes: slotDe(x.antes), slotDespues: slotDe(x.despues) }));
 }
 function borradorEtiqueta(id) {
@@ -19809,8 +19855,8 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const cov = pl.rolDia[i] ? covR : covC;
     tr.forEach((t) => { for (let h = Math.floor(t.s); h < Math.ceil(t.e); h++) if (h >= 0 && h < 24) cov[i][h] += signo * (Math.min(t.e, h + 1) - Math.max(t.s, h)); });
   };
-  // Personas
-  const todos = cdvColaboradoresCajas().filter((c) => !c._isCruzado);
+  // Personas (el personal eventual no se arma acá: tiene su propio armado; sus turnos cuentan como cobertura fija)
+  const todos = cdvColaboradoresCajas().filter((c) => !c._isCruzado && !c.eventual);
   const personas = [];
   todos.forEach((c) => {
     const contrato = presuContrato(c);
@@ -19938,6 +19984,10 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
   const cuotaDom = Math.max(candDom.filter((pl) => pl.domNecesidad >= 1).length, Math.round(candDom.reduce((t, pl) => t + Math.min(1, pl.domNecesidad), 0)));
   candDom.sort((a, b) => b.domNecesidad - a.domNecesidad || b.contrato - a.contrato).slice(0, cuotaDom).forEach((pl) => { pl.domForzar = true; });
   personas.forEach((pl) => pl.plan.forEach((tr, i) => { if (tr) aplicar(pl, i, tr, 1); }));
+  cdvColaboradoresCajas().filter((c) => c.eventual).forEach((c) => dias.forEach((d, i) => {
+    const p = parseShift(String(getSlotEfectivo(c.id, d) || "").replace("*", "").trim());
+    if (p && p.type === "work" && !p.isNV) tramosDe(p).forEach((t) => { for (let h = Math.floor(t.s); h < Math.ceil(t.e); h++) if (h >= 0 && h < 24) covC[i][h] += Math.min(t.e, h + 1) - Math.max(t.s, h); });
+  }));
   const antes = faltanH(), costoAntes = costoTotal();
   // Descansos (como las alertas): 12 h entre días seguidos; 35 h si hay un día de descanso en el medio
   const limites = (pl) => {
@@ -20566,7 +20616,7 @@ window.armarSinAdicionales = async function (decidido, modo) {
   // o volver a empezar desde los horarios reales
   if (decidido !== true) {
     try { const n = await borradorRefrescarBase(lunes, formatDate(addDays(new Date(lunes + "T00:00:00"), 6))); if (n) showToast("Al día con lo real", `${n} ${n === 1 ? "día cambió" : "días cambiaron"} en los horarios reales: el borrador los tomó.`, "info"); } catch (e) { console.warn("No se pudo actualizar con lo real", e); }
-    const ids = new Set(cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => c.id));
+    const ids = new Set(cdvColaboradoresCajas().filter((c) => !c._isCruzado && !c.eventual).map((c) => c.id));
     const diasW = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), i)));
     const claves = new Set([...Object.keys(borrador.docs || {}), ...Object.keys(borrador.original || {})]);
     const cambiadas = [...claves].filter((k) => diasW.includes(k.slice(-10)) && ids.has(k.slice(0, -11)) && JSON.stringify(borrador.docs[k] || null) !== JSON.stringify(borrador.original[k] || null));
@@ -20813,6 +20863,119 @@ async function armadoDeshacer(previos) {
 // ===== Armar el mes: todas las semanas del mes que se ve, en orden (cada una mira cómo quedó la anterior:
 // descansos, rotación, domingos del mes, Navidad/Año Nuevo). Las semanas trabadas no se tocan.
 // Un solo botón: pregunta si se arma la semana que se ve (con sus fechas) o un mes entero
+// ===== Personal eventual en el borrador =====
+// Suma personas eventuales (solo viven en el borrador) y les arma turnos en los huecos que quedan después de
+// cajeros y adicionales. No toca a nadie más. Al pasar a real, los eventuales no se pasan.
+function evPeriodo(modo) {
+  const lunes = borradorLunesVisible();
+  if (modo === "semana") return { desde: lunes, hasta: formatDate(addDays(new Date(lunes + "T00:00:00"), 6)) };
+  const [y, m] = modo.split("-").map(Number);
+  return { desde: formatDate(new Date(y, m, 1)), hasta: formatDate(new Date(y, m + 1, 0)) };
+}
+window.evModal = async function () {
+  if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
+  const lunes = borradorLunesVisible();
+  const ref = addDays(new Date(lunes + "T00:00:00"), 3);
+  const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const fc2 = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const ops = [`<option value="semana">La semana que se ve (${fc2(lunes)} al ${fc2(formatDate(addDays(new Date(lunes + "T00:00:00"), 6)))})</option>`];
+  for (let k = 0; k <= 2; k++) { const d = new Date(ref.getFullYear(), ref.getMonth() + k, 1); ops.push(`<option value="${d.getFullYear()}-${d.getMonth()}"${k === 0 ? " selected" : ""}>Todo ${meses[d.getMonth()]} ${d.getFullYear()}</option>`); }
+  const evs = borrador.eventuales || [];
+  const inp = "padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;font-size:0.9rem";
+  borradorModal("Personal eventual", `<p>Suma personas para días puntuales y les arma turnos donde todavía falta gente, <b>sin tocar a nadie más</b>. Viven solo en el borrador: no se pasan a real.</p>
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin:10px 0">
+      <label>Período</label><select id="evPer" style="${inp}">${ops.join("")}</select>
+      <label>Personas</label><div><input id="evCant" type="number" min="1" max="30" value="${evs.length || 8}" style="${inp};width:70px"> <span id="evRec" style="color:var(--text-muted);font-size:0.85rem">calculando lo recomendado…</span></div>
+      <label>Turno</label><select id="evL" style="${inp}"><option value="8">8 h (corrido o cortado 4 + 4)</option><option value="6">6 h (corrido o cortado 3 + 3)</option><option value="4">4 h corrido</option></select>
+      <label>Máx. por semana</label><div><input id="evMax" type="number" min="4" max="48" value="48" style="${inp};width:70px"> h por persona (6 días como mucho)</div>
+      <label></label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="evVend"> Contar a los vendedores como ayuda</label>
+    </div>
+    <p style="color:var(--text-muted);font-size:0.8rem">Si en el período ya había turnos de eventuales, se rearman. El Desglose los muestra aparte, como "Personal eventual".</p>`,
+    [{ txt: "Cancelar" },
+      ...(evs.length ? [{ txt: "Quitar eventuales", fn: () => { setTimeout(() => window.evQuitar(), 50); } }] : []),
+      { txt: "Armar", clase: "bm-prin", fn: () => {
+        const per = evPeriodo(document.getElementById("evPer").value);
+        const n = Math.max(1, Math.min(30, parseInt(document.getElementById("evCant").value, 10) || 1));
+        const L = Number(document.getElementById("evL").value) || 8;
+        const mx = Math.max(L, Math.min(48, Number(document.getElementById("evMax").value) || 48));
+        const vend = document.getElementById("evVend").checked;
+        setTimeout(() => window.evArmar(per.desde, per.hasta, n, L, mx, vend), 50);
+      } }]);
+  // Recomendado según el período y el turno elegidos
+  const calc = async () => {
+    const el = document.getElementById("evRec"); if (!el) return;
+    el.textContent = "calculando lo recomendado…";
+    try {
+      const per = evPeriodo(document.getElementById("evPer").value);
+      const L = Number(document.getElementById("evL").value) || 8;
+      const vend = document.getElementById("evVend").checked;
+      const datos = await desCalcular(per.desde, per.hasta);
+      const clave = vend ? "vend_a" : "caj_a";
+      let maxRec = 0, faltaTot = 0;
+      datos.dias.forEach((x) => { const def = evDeficit(x, clave); faltaTot += def.reduce((a, b) => a + b, 0); const t = evTurnosDia(def, L); let r = t.findIndex((u) => u.cubre < L / 2); if (r < 0) r = t.length; maxRec = Math.max(maxRec, r); });
+      if (!document.getElementById("evRec")) return;
+      el.textContent = faltaTot ? `recomendado: ${maxRec} (faltan ${desH(faltaTot)} h)` : "no falta gente en ese período";
+      if (!evs.length && maxRec) document.getElementById("evCant").value = maxRec;
+    } catch (e) { el.textContent = ""; }
+  };
+  ["evPer", "evL", "evVend"].forEach((id) => { const e = document.getElementById(id); if (e) e.onchange = calc; });
+  calc();
+};
+window.evArmar = async function (desde, hasta, n, L, maxSem, conVend) {
+  if (!borradorActivo()) return;
+  armadoEspera("Sumando personal eventual…");
+  try {
+    const evs = Array.isArray(borrador.eventuales) ? borrador.eventuales.slice() : [];
+    for (let k = evs.length + 1; evs.length < n; k++) if (!evs.some((e) => e.id === `EV-${k}`)) evs.push({ id: `EV-${k}`, name: `EVENTUAL ${k}`, hours: 0, area: "Linea de Cajas", pasillo: "Cajas", eventual: true });
+    borrador.eventuales = evs;
+    evInyectar();
+    const usar = evs.slice(0, n);
+    // Se rearman: primero se sacan los turnos de eventuales del período
+    for (let d = new Date(desde + "T00:00:00"); formatDate(d) <= hasta; d = addDays(d, 1)) {
+      const f = formatDate(d);
+      for (const e of evs) { const k = `${e.id}_${f}`; if (borrador.docs[k]) await deleteDoc(doc(db, "planificacion", k)); }
+    }
+    const datos = await desCalcular(desde, hasta);
+    const hSem = {}, dSem = {};
+    let turnosN = 0, horas = 0, sinGente = 0;
+    for (const x of datos.dias) {
+      const def = evDeficit(x, conVend ? "vend_a" : "caj_a");
+      const t = evTurnosDia(def, L);
+      let rec = t.findIndex((u) => u.cubre < L / 2); if (rec < 0) rec = t.length;
+      const hoy = new Set();
+      for (const u of t.slice(0, rec)) {
+        const lun = x.semana;
+        const cand = usar.filter((e) => !hoy.has(e.id) && (hSem[lun + e.id] || 0) + L <= maxSem + 1e-9 && (dSem[lun + e.id] || 0) < 6)
+          .sort((a, b) => (hSem[lun + a.id] || 0) - (hSem[lun + b.id] || 0) || a.id.localeCompare(b.id, undefined, { numeric: true }));
+        if (!cand.length) { sinGente += u.cubre; continue; }
+        const e = cand[0];
+        hoy.add(e.id);
+        const slot = u.t.map(([a, b]) => `${a}a${b}`).join("/");
+        await setDoc(doc(db, "planificacion", `${e.id}_${x.fecha}`), { colaboradorId: e.id, fecha: x.fecha, slot, eventual: true });
+        hSem[lun + e.id] = (hSem[lun + e.id] || 0) + L; dSem[lun + e.id] = (dSem[lun + e.id] || 0) + 1;
+        turnosN++; horas += L;
+      }
+    }
+    borradorPersistir();
+    renderUI();
+    armadoEsperaFin();
+    showToast("Personal eventual", `${turnosN} turnos de ${L} h para ${n} persona${n === 1 ? "" : "s"} (${desH(horas)} h).${sinGente ? ` Con esa cantidad quedan ${desH(sinGente)} h sin cubrir.` : ""} Los demás horarios no se tocaron.`, "success");
+  } catch (e) {
+    armadoEsperaFin();
+    console.warn(e);
+    showToast("No se pudo", "No se pudo armar el personal eventual. Volvé a intentar.", "error");
+  }
+};
+window.evQuitar = async function () {
+  if (!borradorActivo() || !borrador.eventuales || !borrador.eventuales.length) return;
+  const ids = new Set(borrador.eventuales.map((e) => e.id));
+  for (const k of Object.keys(borrador.docs)) if (ids.has(k.slice(0, -11))) await deleteDoc(doc(db, "planificacion", k));
+  borrador.eventuales = [];
+  evInyectar();
+  borradorPersistir();
+  renderUI();
+  showToast("Listo", "Se quitó el personal eventual del borrador.", "success");
+};
 window.armarElegir = function () {
   if (!borradorActivo()) { showToast("Solo en borrador", "Esto se usa dentro del modo borrador.", "info"); return; }
   const lunes = borradorLunesVisible();
@@ -20866,7 +21029,7 @@ window.armarMes = async function (yElegido, mElegido) {
     }
   }
   // ¿Qué semanas ya tienen cambios en el borrador?
-  const ids = new Set(cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => c.id));
+  const ids = new Set(cdvColaboradoresCajas().filter((c) => !c._isCruzado && !c.eventual).map((c) => c.id));
   const claves = [...new Set([...Object.keys(borrador.docs || {}), ...Object.keys(borrador.original || {})])];
   const cambiadasDe = (l) => {
     const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(l + "T00:00:00"), i)));
@@ -21076,6 +21239,7 @@ window.borradorPintarFranja = function () {
     fr = document.createElement("div"); fr.id = "borradorFranja";
     fr.innerHTML = `<input id="borradorNombre" title="Nombre del borrador (tocá para cambiarlo)" maxlength="40">
       <button type="button" class="bf-solo-pc" onclick="window.armarElegir()" title="Armar la semana que se ve o un mes entero">Armar sugerido</button>
+      <button type="button" class="bf-solo-pc" onclick="window.evModal()" title="Sumar personal eventual para cubrir lo que falta, sin tocar a nadie más">Eventuales</button>
       <button type="button" id="borradorTrabaBtn" class="bf-candado bf-solo-pc" onclick="window.borradorTrabar()"></button>
       <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el borrador queda guardado)">Salir</button>
       <span class="bf-sep"></span>
