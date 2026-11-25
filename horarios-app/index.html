@@ -3927,7 +3927,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.158
+            Versión: v1.7.159
           </div>
         </div>
       </div>
@@ -5238,7 +5238,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.158";
+  const APP_VERSION = "v1.7.159";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -16002,7 +16002,7 @@ async function desExportar(desde, hasta, formato, win) {
   const datos = await desCalcular(desde, hasta);
   if (!datos.dias.some((x) => x.conDemanda)) showToast("Sin demanda", "Recaudaciones no cargó nada en esas fechas: se muestran solo las horas que tenemos.", "warning");
   const nombre = `Desglose_horario_${desde}_al_${hasta}`;
-  if (formato === "xlsx") desExcel(datos, desde, hasta, nombre);
+  if (formato === "xlsx") await desExcel(datos, desde, hasta, nombre);
   else desImprimir(datos, desde, hasta, win);
 }
 const desN = (n) => Math.round(n).toLocaleString("es-AR");
@@ -16531,7 +16531,229 @@ function desImprimir(datos, desde, hasta, win) {
   destino.document.open(); destino.document.write(doc); destino.document.close();
   setTimeout(() => { destino.focus(); destino.print(); if (marco) setTimeout(() => marco.remove(), 60000); }, 400);
 }
-function desExcel({ dias, total, semanas }, desde, hasta, nombre) {
+// Excel del Desglose con formato: encabezados de color, tablas con filtro, colores según falte o sobre,
+// barras en lo que falta, paneles fijos. Si no carga ExcelJS, sale el Excel básico.
+async function desExcel(datos, desde, hasta, nombre) {
+  let ExcelJS;
+  try { ExcelJS = await cargarExcelJS(); } catch (e) { return desExcelBasico(datos, desde, hasta, nombre); }
+  const { dias, total, semanas } = datos;
+  const fc = (f) => f.split("-").reverse().join("/");
+  const fc2 = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const r1 = (n) => Math.round(n * 10) / 10;
+  const hayAdic = desHayAdic(total);
+  const AX = desAnexoDatos(dias);
+  const idsRoller = new Set(AX.gente.filter((g) => g.roller).map((g) => g.id));
+  const C = { osc: "FF1E293B", gris: "FF64748B", borde: "FFE2E8F0", cab: "FF1E293B", verde: "FF10B981", verdeC: "FFDCFCE7", verdeT: "FF15803D",
+    rojoC: "FFFEE2E2", rojoT: "FFB91C1C", amaC: "FFFEF3C7", amaT: "FF92400E", celC: "FFECFEFF", celT: "FF0E7490", narC: "FFFFF7ED", narT: "FFC2410C",
+    lilaC: "FFF3E8FF", lilaT: "FF6D28D9", zebra: "FFF8FAFC", fer: "FFFFFBEB", cerr: "FFF1F5F9" };
+  const fill = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+  const borde = { top: { style: "thin", color: { argb: C.borde } }, bottom: { style: "thin", color: { argb: C.borde } }, left: { style: "thin", color: { argb: C.borde } }, right: { style: "thin", color: { argb: C.borde } } };
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Crew Retail"; wb.created = new Date();
+  const titulo = (ws, txt, sub, cols) => {
+    ws.mergeCells(1, 1, 1, cols); ws.mergeCells(2, 1, 2, cols);
+    const t = ws.getCell(1, 1); t.value = txt; t.font = { bold: true, size: 15, color: { argb: "FFFFFFFF" } }; t.fill = fill(C.osc); t.alignment = { vertical: "middle", indent: 1 };
+    ws.getRow(1).height = 28;
+    const u = ws.getCell(2, 1); u.value = sub; u.font = { italic: true, size: 9, color: { argb: C.gris } }; u.alignment = { wrapText: true, vertical: "top", indent: 1 };
+    ws.getRow(2).height = 30;
+  };
+  const cabecera = (row, color) => { row.eachCell((c) => { c.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 }; c.fill = fill(color || C.cab); c.alignment = { horizontal: "center", vertical: "middle", wrapText: true }; c.border = borde; }); row.height = 30; };
+  // Tabla de Excel (con filtro y bandas) a partir de una fila
+  const tabla = (ws, nombreT, fila, cols, filas, estilo) => {
+    ws.addTable({ name: nombreT, ref: ws.getCell(fila, 1).address, headerRow: true, totalsRow: false, style: { theme: estilo || "TableStyleMedium2", showRowStripes: true },
+      columns: cols.map((c) => ({ name: c, filterButton: true })), rows: filas });
+    cabecera(ws.getRow(fila));
+  };
+  const difCF = (ws, ref) => ws.addConditionalFormatting({ ref, rules: [
+    { type: "cellIs", operator: "lessThan", formulae: ["-0.05"], priority: 1, style: { fill: fill(C.rojoC), font: { color: { argb: C.rojoT }, bold: true } } },
+    { type: "cellIs", operator: "greaterThan", formulae: ["0.05"], priority: 2, style: { fill: fill(C.verdeC), font: { color: { argb: C.verdeT }, bold: true } } },
+  ] });
+  const barras = (ws, ref, color) => ws.addConditionalFormatting({ ref, rules: [{ type: "dataBar", priority: 3, minLength: 0, maxLength: 100, cfvo: [{ type: "num", value: 0 }, { type: "max" }], color: { argb: color } }] });
+  const numFmt = (ws, col, desdeF, hastaF) => { for (let r = desdeF; r <= hastaF; r++) ws.getCell(r, col).numFmt = "#,##0.#;-#,##0.#;0"; };
+
+  // Cálculos (los mismos que el PDF)
+  const resumenDe = (lista) => {
+    let req = 0, n = 0, a = 0, nD = 0, aD = 0, rolA = 0, pv = 0, fa = 0, ft = 0, sinV = 0;
+    lista.forEach((x) => {
+      if (x.cerrada) return;
+      n += x.t.caj_n.tengo; a += x.t.caj_a.tengo; pv += x.t.vend_a.tengo - x.t.caj_a.tengo;
+      if (x.vendSinCargar) sinV++;
+      if (x.conDemanda) { req += x.req; nD += x.t.caj_n.tengo; aD += x.t.caj_a.tengo; fa += x.t.caj_a.falta; ft += x.t.vend_a.falta; }
+      Object.entries(x.pers).forEach(([id, p]) => { if (idsRoller.has(id) && !p.rc) rolA += p.a; });
+    });
+    return { req, n, a, adic: a - n, rolA, difN: nD - req, difA: aD - req, pv, todo: a + pv, fa, ft, sinV };
+  };
+  const R = resumenDe(dias);
+
+  // ===== Resumen =====
+  const ws1 = wb.addWorksheet("Resumen", { views: [{ showGridLines: false }], properties: { tabColor: { argb: C.osc } } });
+  ws1.columns = [{ width: 38 }, { width: 16 }, { width: 46 }];
+  titulo(ws1, `Desglose de horario · Línea de Cajas · ${fc(desde)} al ${fc(hasta)}`, "Horas de cajeros que vienen (sin francos, libres, vacaciones, NV ni ausencias). Lo que falta se cuenta hora por hora: lo que sobra en una hora no cubre otra.", 3);
+  const filasRes = [
+    ["Piden (Recaudaciones)", R.req, "", C.zebra, C.osc],
+    ["Cajeros · horas normales", R.n, R.req ? (R.difN < 0 ? `Faltan ${desH(-R.difN)} h` : `Sobran ${desH(R.difN)} h`) : "", C.verdeC, C.verdeT],
+    ["Horas adicionales cajeros", R.adic, "", C.celC, C.celT],
+    ["Horas adicionales rollers", R.rolA, "Cuentan para el presupuesto, no para la cobertura", C.celC, C.celT],
+    ["Total adicionales (presupuesto)", R.adic + R.rolA, "", C.celC, C.celT],
+    ["Cajeros con adicionales", R.a, R.req ? (R.difA < 0 ? `Faltan ${desH(-R.difA)} h` : `Sobran ${desH(R.difA)} h`) : "", C.osc, "FFFFFFFF"],
+    ["Piso de venta (vendedores con fallo de caja)", R.pv, R.sinV ? `Faltan cargar ${R.sinV} día${R.sinV === 1 ? "" : "s"}` : "Todo el turno", C.narC, C.narT],
+    ["Con todo", R.todo, "", C.zebra, C.osc],
+    ["FALTAN (horas a pedir)", R.ft, R.sinV ? "Puede ser menos: faltan cargar vendedores" : "Horas sin cubrir, hora por hora", "FFB91C1C", "FFFFFFFF"],
+  ];
+  ws1.getRow(4).values = ["Concepto", "Horas", "Nota"]; cabecera(ws1.getRow(4));
+  filasRes.forEach(([a, b, c, bg, fg], i) => {
+    const row = ws1.getRow(5 + i); row.values = [a, r1(b), c]; row.height = 22;
+    row.eachCell({ includeEmpty: true }, (cell, col) => { cell.fill = fill(bg); cell.font = { color: { argb: fg }, bold: col !== 3, size: col === 2 ? 13 : 10 }; cell.border = borde; cell.alignment = { vertical: "middle", horizontal: col === 2 ? "right" : "left", indent: col === 2 ? 0 : 1, wrapText: col === 3 }; });
+    row.getCell(2).numFmt = "#,##0.#";
+  });
+
+  // ===== Por semana =====
+  const colsF = ["Semana", "Días", "Piden", "Normal", "Dif. normal", "Adic. cajeros", "Con adicionales", "Dif. con adic.", "Adic. rollers", "Piso de venta", "Con todo", "Faltan (a pedir)", "Nota"];
+  const filaDe = (etq, nd, r, nota) => [etq, nd, r1(r.req), r1(r.n), r.req ? r1(r.difN) : null, r1(r.adic), r1(r.a), r.req ? r1(r.difA) : null, r1(r.rolA), r1(r.pv), r1(r.todo), r.req ? r1(r.ft) : null, nota || ""];
+  const ws2 = wb.addWorksheet("Por semana", { views: [{ state: "frozen", ySplit: 4, xSplit: 1, showGridLines: false }], properties: { tabColor: { argb: C.verde } } });
+  ws2.columns = [22, 7, 10, 11, 12, 13, 15, 14, 13, 13, 11, 15, 30].map((w) => ({ width: w }));
+  titulo(ws2, "Por semana", "Dif. = tenemos − piden (rojo = faltan, verde = sobran). Faltan (a pedir) = horas sin cubrir hora por hora, con cajeros, adicionales y piso de venta.", colsF.length);
+  const fSem = semanas.map((w) => { const ds = dias.filter((x) => x.fecha >= w.desde && x.fecha <= w.hasta); const r = resumenDe(ds); return filaDe(w.desde === w.hasta ? fc2(w.desde) : `${fc2(w.desde)} al ${fc2(w.hasta)}`, ds.length, r, r.sinV ? `Vendedores sin cargar ${r.sinV} día${r.sinV === 1 ? "" : "s"}` : ""); });
+  fSem.push(filaDe("TOTAL", dias.length, R, ""));
+  tabla(ws2, "PorSemana", 4, colsF, fSem);
+  const ultS = 4 + fSem.length;
+  ws2.getRow(ultS).eachCell((c) => { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = fill(C.osc); });
+  difCF(ws2, `E5:E${ultS - 1}`); difCF(ws2, `H5:H${ultS - 1}`); barras(ws2, `L5:L${ultS - 1}`, "FFEF4444");
+  for (let c = 3; c <= 12; c++) numFmt(ws2, c, 5, ultS);
+  for (let r = 5; r < ultS; r++) { ws2.getCell(r, 7).font = { bold: true }; ws2.getCell(r, 10).font = { color: { argb: C.narT } }; if (ws2.getCell(r, 13).value) ws2.getCell(r, 13).font = { color: { argb: C.amaT }, bold: true }; }
+
+  // ===== Por día =====
+  const ws3 = wb.addWorksheet("Por día", { views: [{ state: "frozen", ySplit: 4, xSplit: 1, showGridLines: false }], properties: { tabColor: { argb: C.verde } } });
+  ws3.columns = [22, 7, 10, 11, 12, 13, 15, 14, 13, 13, 11, 15, 30].map((w) => ({ width: w }));
+  titulo(ws3, "Por día", "Rojo = faltan, verde = sobran. Amarillo = feriado. Nota avisa tienda cerrada, días sin pedido o sin vendedores cargados.", colsF.length);
+  const fDia = dias.map((x) => {
+    const nota = x.cerrada ? "Tienda cerrada" : [!x.conDemanda ? "Sin pedido" : "", x.feriado ? "Feriado" : "", x.vendSinCargar ? "Vendedores sin cargar" : ""].filter(Boolean).join(" · ");
+    if (x.cerrada) return [x.etiqueta, 1, null, null, null, null, null, null, null, null, null, null, nota];
+    return filaDe(x.etiqueta, 1, resumenDe([x]), nota);
+  });
+  fDia.push(filaDe("TOTAL", dias.length, R, ""));
+  tabla(ws3, "PorDia", 4, ["Día", ...colsF.slice(1)], fDia);
+  ws3.getColumn(2).hidden = true;
+  const ultD = 4 + fDia.length;
+  ws3.getRow(ultD).eachCell((c) => { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = fill(C.osc); });
+  difCF(ws3, `E5:E${ultD - 1}`); difCF(ws3, `H5:H${ultD - 1}`); barras(ws3, `L5:L${ultD - 1}`, "FFEF4444");
+  for (let c = 3; c <= 12; c++) numFmt(ws3, c, 5, ultD);
+  dias.forEach((x, i) => {
+    const row = ws3.getRow(5 + i);
+    if (x.feriado) row.getCell(1).fill = fill(C.fer);
+    if (x.cerrada) row.eachCell({ includeEmpty: true }, (c) => { c.fill = fill(C.cerr); c.font = { color: { argb: C.gris }, italic: true }; });
+    row.getCell(7).font = { bold: true };
+    if (row.getCell(13).value) row.getCell(13).font = { color: { argb: C.amaT }, bold: true };
+  });
+
+  // ===== Horarios (sin y con adicionales) =====
+  const wsH = wb.addWorksheet("Horarios", { views: [{ state: "frozen", xSplit: 2, ySplit: 4, showGridLines: false }], properties: { tabColor: { argb: C.celT } } });
+  wsH.columns = [{ width: 10 }, { width: 26 }, ...dias.map(() => ({ width: 13 }))];
+  const totCols = 2 + dias.length;
+  titulo(wsH, "Horarios", `Primero sin adicionales (lo real) y debajo con adicionales: en celeste los días que suman horas. Gris = no viene.`, Math.min(totCols, 14));
+  const dnA = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const etqA = (x) => `${dnA[new Date(x.fecha + "T00:00:00").getDay()]} ${fc2(x.fecha)}`;
+  let fila = 4;
+  (hayAdic ? [["n", "SIN ADICIONALES", C.verde], ["a", "CON ADICIONALES", C.celT]] : [["n", "HORARIOS", C.verde]]).forEach(([v, tit, color]) => {
+    wsH.mergeCells(fila, 1, fila, Math.min(totCols, 14));
+    const t = wsH.getCell(fila, 1); t.value = tit; t.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } }; t.fill = fill(color); t.alignment = { indent: 1, vertical: "middle" }; wsH.getRow(fila).height = 22;
+    fila++;
+    const cab = wsH.getRow(fila); cab.values = ["Legajo", "Colaborador", ...dias.map(etqA)]; cabecera(cab);
+    dias.forEach((x, i) => { if (x.feriado) cab.getCell(3 + i).fill = fill("FFB45309"); });
+    fila++;
+    AX.gente.forEach((g, j) => {
+      if (g.roller && (j === 0 || !AX.gente[j - 1].roller)) {
+        const rr = wsH.getRow(fila); rr.getCell(2).value = "ROLLERS";
+        for (let c = 1; c <= totCols; c++) { rr.getCell(c).fill = fill(C.lilaC); rr.getCell(c).font = { bold: true, color: { argb: C.lilaT } }; }
+        fila++;
+      }
+      const row = wsH.getRow(fila);
+      row.values = [Number(g.id) || g.id, g.nombre, ...dias.map((x) => AX.turno(x, g.id, v))];
+      row.eachCell({ includeEmpty: true }, (c, col) => {
+        c.border = borde; c.alignment = { horizontal: col <= 2 ? "left" : "center", vertical: "middle" };
+        if (col <= 2) { c.font = { bold: col === 2, size: 10 }; if (j % 2) c.fill = fill(C.zebra); return; }
+        const x = dias[col - 3]; const p = x && x.pers[g.id];
+        if (!p) { c.font = { size: 8, color: { argb: "FF94A3B8" } }; c.fill = fill(j % 2 ? C.zebra : "FFFFFFFF"); }
+        else if (v === "a" && p.a) { c.font = { bold: true, color: { argb: C.celT } }; c.fill = fill("FFCFFAFE"); }
+        else { c.font = { size: 10 }; if (j % 2) c.fill = fill(C.zebra); }
+      });
+      fila++;
+    });
+    fila += 2;
+  });
+
+  // ===== Cobertura hora por hora =====
+  const wsC = wb.addWorksheet("Cobertura", { views: [{ state: "frozen", xSplit: 2, ySplit: 4, showGridLines: false }], properties: { tabColor: { argb: "FFEF4444" } } });
+  const hs = AX.horas;
+  wsC.columns = [{ width: 16 }, { width: 26 }, ...hs.map(() => ({ width: 6 })), { width: 2 }, { width: 12 }, { width: 12 }];
+  titulo(wsC, "Hora por hora · lo que piden contra lo que tenemos", "Cada celda: personas en esa hora. Verde = alcanza, amarillo = falta 1, rojo = faltan 2 o más. Diferencia = horas del día − pedido.", hs.length + 5);
+  const cabC = wsC.getRow(4); cabC.values = ["Día", "", ...hs.map((h) => `${String(h).padStart(2, "0")}h`), "", "Horas del día", "Diferencia"]; cabecera(cabC); cabC.getCell(hs.length + 3).fill = fill("FFFFFFFF");
+  fila = 5;
+  const colorVs = (v, r) => (r === "" || r == null ? null : v >= r ? [C.verdeC, C.verdeT] : r - v <= 1 ? [C.amaC, C.amaT] : [C.rojoC, C.rojoT]);
+  dias.forEach((x, di) => {
+    if (x.cerrada) { const row = wsC.getRow(fila); row.values = [etqA(x), "Tienda cerrada"]; row.eachCell((c) => { c.fill = fill(C.cerr); c.font = { italic: true, color: { argb: C.gris } }; }); fila += 2; return; }
+    const ped = hs.map((h) => (x.conDemanda ? x.r[h] : ""));
+    const tp = ped.every((v) => v === "") ? null : ped.reduce((a, b) => a + (Number(b) || 0), 0);
+    const filasDia = [["Pedido", ped, null], ["Normal", hs.map((h) => x.cnt.caj_n[h]), C.verdeT]];
+    if (hayAdic) filasDia.push(["Con adicionales", hs.map((h) => x.cnt.caj_a[h]), C.celT]);
+    filasDia.push([x.vendSinCargar ? "Con vendedores (sin cargar)" : "Con vendedores", hs.map((h) => x.cnt.vend_a[h]), C.narT]);
+    filasDia.forEach(([lbl, vals, colorT], k) => {
+      const row = wsC.getRow(fila);
+      const t = vals.every((v) => v === "") ? null : r1(vals.reduce((a, b) => a + (Number(b) || 0), 0));
+      row.values = [k === 0 ? `${etqA(x)}${x.feriado ? " · fer." : ""}` : "", lbl, ...vals.map((v) => (v === "" ? null : r1(v))), null, t, k === 0 || tp == null || t == null ? null : r1(t - tp)];
+      row.eachCell({ includeEmpty: true }, (c, col) => {
+        if (col === hs.length + 3) return;
+        c.border = borde; c.alignment = { horizontal: col <= 2 ? "left" : "center", vertical: "middle" };
+        if (col === 1) { c.font = { bold: true }; c.fill = fill(di % 2 ? "FFEEF2F6" : "FFF8FAFC"); return; }
+        if (col === 2) { c.font = { bold: k === 0, color: { argb: colorT || C.osc } }; c.fill = fill(di % 2 ? "FFEEF2F6" : "FFF8FAFC"); return; }
+        if (k === 0) { c.font = { bold: true }; c.fill = fill(di % 2 ? "FFEEF2F6" : "FFF8FAFC"); return; }
+        if (col <= hs.length + 2) { const cv = colorVs(vals[col - 3], ped[col - 3]); if (cv && (vals[col - 3] || ped[col - 3])) { c.fill = fill(cv[0]); c.font = { color: { argb: cv[1] }, bold: true }; } }
+        else c.font = { bold: true };
+      });
+      if (k === 0) row.border = { top: { style: "medium", color: { argb: C.osc } } };
+      fila++;
+    });
+    wsC.getRow(fila - filasDia.length).eachCell({ includeEmpty: true }, (c) => { c.border = { ...borde, top: { style: "medium", color: { argb: C.osc } } }; });
+  });
+  difCF(wsC, `${wsC.getColumn(hs.length + 5).letter}5:${wsC.getColumn(hs.length + 5).letter}${fila}`);
+  // Rollers aparte
+  fila += 2;
+  wsC.mergeCells(fila, 1, fila, hs.length + 2);
+  const tR = wsC.getCell(fila, 1); tR.value = "ROLLERS (aparte, no son dotación)"; tR.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } }; tR.fill = fill(C.lilaT); tR.alignment = { indent: 1 };
+  fila++;
+  const cabR = wsC.getRow(fila); cabR.values = ["Día", "", ...hs.map((h) => `${String(h).padStart(2, "0")}h`), "", "Horas del día"]; cabecera(cabR, C.lilaT); cabR.getCell(hs.length + 3).fill = fill("FFFFFFFF");
+  fila++;
+  const iniR = fila;
+  dias.filter((x) => !x.cerrada).forEach((x) => {
+    const vals = hs.map((h) => Math.max(0, x.cnt.rol_a[h] - x.cnt.caj_a[h]));
+    const row = wsC.getRow(fila); row.values = [etqA(x), "Rollers", ...vals.map(r1), null, r1(vals.reduce((a, b) => a + b, 0))];
+    row.eachCell((c, col) => { c.border = borde; c.alignment = { horizontal: col <= 2 ? "left" : "center" }; if (col === 2) c.font = { color: { argb: C.lilaT } }; });
+    fila++;
+  });
+  if (fila > iniR) wsC.addConditionalFormatting({ ref: `C${iniR}:${wsC.getColumn(hs.length + 2).letter}${fila - 1}`, rules: [{ type: "colorScale", priority: 4, cfvo: [{ type: "num", value: 0 }, { type: "max" }], color: [{ argb: "FFFFFFFF" }, { argb: "FFC4B5FD" }] }] });
+
+  // ===== Grupos (cajeros, + vendedores, + rollers, todos) =====
+  const wsG = wb.addWorksheet("Grupos", { views: [{ state: "frozen", ySplit: 4, xSplit: 1, showGridLines: false }], properties: { tabColor: { argb: C.gris } } });
+  const vers = hayAdic ? [["n", "normal"], ["a", "con adic."]] : [["n", "normal"]];
+  const colsG = ["Día", "Piden", ...vers.flatMap(([v, t]) => DES_GRUPOS.flatMap((g) => [`${g.titulo} · ${t}`, `Dif.`]))];
+  wsG.columns = [{ width: 22 }, { width: 9 }, ...colsG.slice(2).map((c, i) => ({ width: i % 2 ? 8 : 16 }))];
+  titulo(wsG, "Todos los grupos", "Cuánto tendríamos sumando otros que pueden cobrar. Dif. = tenemos − piden.", colsG.length);
+  const fG = dias.filter((x) => !x.cerrada).map((x) => [x.etiqueta, x.conDemanda ? r1(x.req) : null, ...vers.flatMap(([v]) => DES_GRUPOS.flatMap((g) => { const t = x.t[g.key + "_" + v]; return [r1(t.tengo), x.conDemanda ? r1(t.tengo - x.req) : null]; }))]);
+  tabla(wsG, "Grupos", 4, colsG, fG, "TableStyleLight9");
+  colsG.forEach((c, i) => { if (c === "Dif.") difCF(wsG, `${wsG.getColumn(i + 1).letter}5:${wsG.getColumn(i + 1).letter}${4 + fG.length}`); });
+
+  // Impresión prolija en todas las hojas
+  wb.eachSheet((ws) => { ws.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } }; });
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `${nombre}.xlsx`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  showToast("Listo", "Excel descargado.", "success");
+  return buf;
+}
+function desExcelBasico({ dias, total, semanas }, desde, hasta, nombre) {
   if (typeof XLSX === "undefined") { showToast("No se pudo armar", "El Excel no cargó. Recargá la página.", "error"); return; }
   const fc = (f) => f.split("-").reverse().join("/");
   const r0 = (n) => Math.round(n);
