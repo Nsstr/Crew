@@ -3909,7 +3909,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.145
+            Versión: v1.7.146
           </div>
         </div>
       </div>
@@ -5220,7 +5220,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.145";
+  const APP_VERSION = "v1.7.146";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -19243,7 +19243,8 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       // Armando con adicionales (época de eventos) alcanza con el franco: los libres (L) de cualquier día menos el
       // domingo, sin fijar, quedan disponibles para sumar horas
       const libreUsable = opts.adicionales && i !== 6 && p && p.type === "libre";
-      if ((i < 5 || (i === 5 && contrato < 24) || libreUsable) && !enVac(c.id, d) && !cerrado[i] && !o.fijado && !o.premioFiesta && p && (p.type === "franco" || p.type === "libre")) { pl.tipo[i] = "vacio"; pl.plan[i] = null; pl.fMovido = (pl.fMovido || []).concat(i); return; }
+      // (con adicionales también se usan los L que quedaron como premio de la fiesta: el franco F se respeta)
+      if ((i < 5 || (i === 5 && contrato < 24) || libreUsable) && !enVac(c.id, d) && !cerrado[i] && !o.fijado && !(o.premioFiesta && !libreUsable) && p && (p.type === "franco" || p.type === "libre")) { pl.tipo[i] = "vacio"; pl.plan[i] = null; pl.fMovido = (pl.fMovido || []).concat(i); return; }
       if (enVac(c.id, d)) { pl.tipo[i] = "fijo"; pl.plan[i] = null; tieneVac = true; return; }
       if (cerrado[i]) { pl.tipo[i] = "cerrado"; pl.plan[i] = null; if (p && p.type === "franco" && !deArmado) fCerrado = true; return; }
       if (!val || !p || p.type === "none") { pl.tipo[i] = "vacio"; pl.plan[i] = null; return; }
