@@ -1885,6 +1885,8 @@
     /* Grilla aliviada de Línea de Cajas: 1 o 2 semanas visibles, horario en una línea */
     #planningTable.cajas-semanas-1 .day-beyond-1,
     #planningTable.cajas-semanas-2 .day-beyond-2,
+    #planningTable.cajas-semanas-3 .day-beyond-3,
+    #planningTable.cajas-semanas-3 [id^="desktop-hours-w4-"],
     #planningTable.cajas-semanas-1 [id^="desktop-hours-w2-"],
     #planningTable.cajas-semanas-1 [id^="desktop-hours-w3-"],
     #planningTable.cajas-semanas-1 [id^="desktop-hours-w4-"],
@@ -1893,8 +1895,11 @@
     #planningTable.cajas-grilla th[data-header-date] { cursor: pointer; }
     /* Contexto: domingo anterior y lunes siguiente, tenues y de solo lectura */
     #planningTable.cajas-semanas-1 .ctx-next,
-    #planningTable.cajas-semanas-2 .ctx-next { display: table-cell !important; }
+    #planningTable.cajas-semanas-2 .ctx-next,
+    #planningTable.cajas-semanas-3 .ctx-next { display: table-cell !important; }
     /* Más angostas que un día: son solo de referencia */
+    table#planningTable.grilla-sem th.ctx-dia,
+    table#planningTable.grilla-sem td.ctx-dia,
     table#planningTable.cajas-grilla th.ctx-dia,
     table#planningTable.cajas-grilla td.ctx-dia { width: 58px !important; min-width: 58px !important; max-width: 58px !important; }
     #planningTable .ctx-dia { pointer-events: none; opacity: 0.5;
@@ -1906,27 +1911,38 @@
     #planningTable .ctx-txt .ctx-linea.ctx-largo { font-size: 0.6rem; letter-spacing: -0.02em; }
     #planningTable .ctx-adic { color: #22d3ee; font-size: 0.62rem; }
     /* Columna de nombres más angosta (nombres cortos y domingos solo "1/1") */
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) th:first-child,
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) td:first-child { width: 200px !important; min-width: 200px !important; max-width: 200px !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) th:first-child,
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) td:first-child { width: 200px !important; min-width: 200px !important; max-width: 200px !important; }
+    #planningTable.grilla-sem:not(.cajas-grilla) th:first-child,
+    #planningTable.grilla-sem:not(.cajas-grilla) td:first-child { width: 250px !important; min-width: 250px !important; max-width: 250px !important; }
     .collab-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; width: 100%; padding: 0 6px; box-sizing: border-box; }
     .collab-head-tags { display: flex; gap: 6px; font-size: 0.55rem; font-weight: 600; color: var(--text-muted); text-transform: none; letter-spacing: 0; white-space: nowrap; }
     #planningTable.cajas-grilla th[data-header-date]:hover { box-shadow: inset 0 -2px 0 var(--primary); }
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) td.day-cell { height: 30px !important; }
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell { height: 30px !important; flex-direction: row !important; }
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell.shift-cell-cortado { flex-direction: column !important; gap: 2px !important; }
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell:not(.shift-cell-cortado) .shift-start::after { content: "–"; font-weight: 400; opacity: 0.6; margin: 0 2px; }
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell .shift-end { opacity: 1 !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) td.day-cell { height: 30px !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) .shift-cell { height: 30px !important; flex-direction: row !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) .shift-cell.shift-cell-cortado { flex-direction: column !important; gap: 2px !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) .shift-cell:not(.shift-cell-cortado) .shift-start::after { content: "–"; font-weight: 400; opacity: 0.6; margin: 0 2px; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) .shift-cell .shift-end { opacity: 1 !important; }
     #planningTable.cajas-semanas-1 .shift-cell .shift-start,
     #planningTable.cajas-semanas-1 .shift-cell .shift-end { font-size: 0.92rem !important; font-weight: 700 !important; line-height: 1 !important; }
     #planningTable.cajas-semanas-1 .shift-cell .shift-label { font-size: 0.85rem !important; }
     #planningTable.cajas-semanas-2 .shift-cell .shift-start,
     #planningTable.cajas-semanas-2 .shift-cell .shift-end { font-size: 0.7rem !important; font-weight: 700 !important; line-height: 1 !important; letter-spacing: -0.02em; }
     #planningTable.cajas-semanas-2 .shift-cell .shift-label { font-size: 0.75rem !important; }
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell.shift-cell-cortado .shift-start,
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) .shift-cell.shift-cell-cortado .shift-end { font-size: 0.7rem !important; }
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) th[data-header-date] > div > span:nth-of-type(1) { font-size: 0.68rem !important; }
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) th[data-header-date] > div > span:nth-of-type(2) { font-size: 0.95rem !important; }
-    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2) th[data-header-date] > div > span:nth-of-type(3) { font-size: 0.62rem !important; }
+    #planningTable.cajas-semanas-3 .shift-cell .shift-start,
+    #planningTable.cajas-semanas-3 .shift-cell .shift-end { font-size: 0.66rem !important; font-weight: 700 !important; line-height: 1 !important; letter-spacing: -0.03em; }
+    #planningTable.cajas-semanas-3 .shift-cell .shift-label { font-size: 0.72rem !important; }
+    /* Disponibilidad en 4 semanas: horarios más grandes y en negrita */
+    #planningTable.disp-4 .shift-cell .shift-start,
+    #planningTable.disp-4 .shift-cell .shift-end { font-size: 0.74rem !important; font-weight: 700 !important; line-height: 1.05 !important; opacity: 1 !important; }
+    #planningTable.disp-4 .shift-cell.shift-cell-cortado .shift-start,
+    #planningTable.disp-4 .shift-cell.shift-cell-cortado .shift-end { font-size: 0.64rem !important; }
+    #planningTable.disp-4 .shift-cell .shift-label { font-size: 0.78rem !important; font-weight: 700 !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) .shift-cell.shift-cell-cortado .shift-start,
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) .shift-cell.shift-cell-cortado .shift-end { font-size: 0.7rem !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) th[data-header-date] > div > span:nth-of-type(1) { font-size: 0.68rem !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) th[data-header-date] > div > span:nth-of-type(2) { font-size: 0.95rem !important; }
+    #planningTable:is(.cajas-semanas-1, .cajas-semanas-2, .cajas-semanas-3) th[data-header-date] > div > span:nth-of-type(3) { font-size: 0.62rem !important; }
     .tab-pane { display: none; }
     .tab-pane.active { display: block; }
     
@@ -3844,6 +3860,7 @@
       <div class="cdv-toggle" id="cajasVistaToggle" role="group" aria-label="Vista de Línea de Cajas">
         <button type="button" data-modo="1" onclick="window.setCajasVista('1')" title="Grilla de una semana con el día al costado">1 sem</button>
         <button type="button" data-modo="2" onclick="window.setCajasVista('2')" title="Grilla de dos semanas">2 sem</button>
+        <button type="button" data-modo="3" onclick="window.setCajasVista('3')" title="Grilla de tres semanas">3 sem</button>
         <button type="button" data-modo="4" onclick="window.setCajasVista('4')" title="Grilla de cuatro semanas (vista anterior)">4 sem</button>
         <button type="button" data-modo="dia" onclick="window.setCajasVista('dia')" title="Vista del día">Día</button>
       </div>
@@ -3929,7 +3946,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.163
+            Versión: v1.7.164
           </div>
         </div>
       </div>
@@ -5254,7 +5271,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.163";
+  const APP_VERSION = "v1.7.164";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -5621,7 +5638,7 @@ async function rotTraerPlanificacion(desde, hasta) {
 
 // Sección "Rotación" del detalle del colaborador: últimas semanas hasta la última visible en la grilla
 async function rotSeccionHTML(collabId) {
-  const porVista = { "1": 1, "2": 2, "4": 4 }[state.cajasVista] || 1;
+  const porVista = { "1": 1, "2": 2, "3": 3, "4": 4 }[vistaGrilla()] || 1;
   const lunesVisible = getStartOfWeek(new Date(state.currentWeekStart));
   const semanasAtras = 5;
   const primero = addDays(lunesVisible, -7 * semanasAtras);
@@ -7953,26 +7970,45 @@ const CDV_BLOQUES = [
 state.cajasVista = (function () {
   try {
     const guardado = localStorage.getItem("crew_cajas_vista");
-    return ["1", "2", "4", "dia"].includes(guardado) ? guardado : "1";
+    return ["1", "2", "3", "4", "dia"].includes(guardado) ? guardado : "1";
   } catch (e) { return "1"; }
 })();
 
+// Disponibilidad tiene su propia elección de semanas (sin panel ni vista del día)
+state.dispVista = (function () {
+  try {
+    const guardado = localStorage.getItem("crew_disp_vista");
+    return ["1", "2", "3", "4"].includes(guardado) ? guardado : "4";
+  } catch (e) { return "4"; }
+})();
+const esAreaCajas = () => (state.currentArea || "") === "Linea de Cajas";
+// Semanas que muestra la grilla en el sector actual ("1".."4", o "dia" en Cajas)
+function vistaGrilla() { return esAreaCajas() ? state.cajasVista : state.dispVista; }
+
 window.setCajasVista = function (modo) {
+  if (!esAreaCajas()) {
+    if (!["1", "2", "3", "4"].includes(modo)) return;
+    state.dispVista = modo;
+    try { localStorage.setItem("crew_disp_vista", modo); } catch (e) {}
+    window.switchTab("horarios");
+    return;
+  }
   state.cajasVista = modo;
   try { localStorage.setItem("crew_cajas_vista", modo); } catch (e) {}
   window.switchTab("horarios");
 };
+window.setDispVista = function (modo) { state.dispVista = modo; try { localStorage.setItem("crew_disp_vista", modo); } catch (e) {} };
 
 // Clases para ocultar las columnas que quedan fuera del rango de semanas elegido
 function cajasDayBeyondClass(dayIndex) {
   // El lunes siguiente a lo visible queda a la vista como contexto (solo lectura)
-  const sig = cajasContextoActivo() ? { "1": 7, "2": 14 }[state.cajasVista] : undefined;
-  return (dayIndex >= 7 ? " day-beyond-1" : "") + (dayIndex >= 14 ? " day-beyond-2" : "") + (dayIndex === sig ? " ctx-dia ctx-next" : "");
+  const sig = cajasContextoActivo() ? { "1": 7, "2": 14, "3": 21 }[vistaGrilla()] : undefined;
+  return (dayIndex >= 7 ? " day-beyond-1" : "") + (dayIndex >= 14 ? " day-beyond-2" : "") + (dayIndex >= 21 ? " day-beyond-3" : "") + (dayIndex === sig ? " ctx-dia ctx-next" : "");
 }
 
 // Domingo anterior y lunes siguiente como contexto en la grilla de 1 o 2 semanas de Línea de Cajas (PC)
 function cajasContextoActivo() {
-  return (state.currentArea || "") === "Linea de Cajas" && window.innerWidth > 768 && ["1", "2"].includes(state.cajasVista);
+  return window.innerWidth > 768 && ["1", "2", "3"].includes(vistaGrilla());
 }
 
 function ctxCeldaTexto(collab, dStr) {
@@ -8247,18 +8283,23 @@ function renderCajasDayView() {
   const isCajas = (state.currentArea || "") === "Linea de Cajas";
   const isDesktop = window.innerWidth > 768;
   if (toggle) {
-    toggle.style.display = isCajas && isDesktop ? "inline-flex" : "none";
-    toggle.querySelectorAll("button").forEach((b) =>
-      b.classList.toggle("active", b.dataset.modo === state.cajasVista));
+    toggle.style.display = isDesktop ? "inline-flex" : "none";
+    toggle.querySelectorAll("button").forEach((b) => {
+      b.classList.toggle("active", b.dataset.modo === vistaGrilla());
+      if (b.dataset.modo === "dia") b.style.display = isCajas ? "" : "none";
+    });
   }
 
   // Grilla aliviada: menos semanas visibles y horario en una sola línea
   const table = document.getElementById("planningTable");
-  const semanas = isCajas && isDesktop && ["1", "2"].includes(state.cajasVista) ? state.cajasVista : null;
+  const semanas = isDesktop && ["1", "2", "3"].includes(vistaGrilla()) ? vistaGrilla() : null;
   if (table) {
     table.classList.toggle("cajas-grilla", isCajas && isDesktop);
+    table.classList.toggle("grilla-sem", isDesktop && !!semanas);
     table.classList.toggle("cajas-semanas-1", semanas === "1");
     table.classList.toggle("cajas-semanas-2", semanas === "2");
+    table.classList.toggle("cajas-semanas-3", semanas === "3");
+    table.classList.toggle("disp-4", !isCajas && isDesktop && !semanas);
   }
   if (semanas) {
     const lunes = getStartOfWeek(new Date(state.currentWeekStart));
@@ -10788,7 +10829,7 @@ window.presuTopeSemana = presuTopeSemana;
 function presuRangoVisible() {
   const ini = getStartOfWeek(new Date(state.currentWeekStart));
   const enCajas = (state.currentArea || "") === "Linea de Cajas";
-  const n = enCajas ? ({ "1": 7, "2": 14, "4": 28, dia: 7 }[state.cajasVista] || 7) : 28;
+  const n = ({ "1": 7, "2": 14, "3": 21, "4": 28, dia: 7 }[enCajas ? state.cajasVista : state.dispVista] || (enCajas ? 7 : 28));
   return { desde: formatDate(ini), hasta: formatDate(addDays(ini, n - 1)) };
 }
 
