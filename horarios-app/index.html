@@ -3927,7 +3927,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.155
+            Versión: v1.7.156
           </div>
         </div>
       </div>
@@ -5238,7 +5238,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.155";
+  const APP_VERSION = "v1.7.156";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15868,7 +15868,7 @@ function desCalcularCon(desde, hasta, planning, demanda) {
           grupos.forEach((g) => { todas.forEach((m) => { dia.cnt[g + "_a"][m >> 1] += 0.5; }); normales.forEach((m) => { dia.cnt[g + "_n"][m >> 1] += 0.5; }); });
           if (todas.length > normales.length) dia.adicPers.push({ id: p.id, nombre: p.nombre, h: (todas.length - normales.length) / 2 });
           const extra = todas.filter((m) => !normales.includes(m));
-          dia.pers[p.id] = { n: normales.length / 2, a: extra.length / 2, hn: desRangosMedias(normales), ha: desRangosMedias(extra), rc: !!p.rollerComoCajero };
+          dia.pers[p.id] = { n: normales.length / 2, a: extra.length / 2, hn: desRangosMedias(normales), ha: desRangosMedias(extra), ht: desRangosMedias(todas), rc: !!p.rollerComoCajero };
         });
         sumar(cajeros, ["caj", "vend", "rol", "todos"]);
         sumar(respaldo, ["vend", "todos"]);
@@ -15991,6 +15991,24 @@ function desRangoHoras(dias) {
 }
 function desHayAdic(sum) { return DES_GRUPOS.some((g) => Math.round(((sum.t[g.key + "_a"] || {}).tengo || 0) - ((sum.t[g.key + "_n"] || {}).tengo || 0)) !== 0); }
 // Detalle por colaborador: total del período (columnas = semanas) y después una página por semana (columnas = días)
+// Dato extra del Desglose (PDF y Excel), como la planilla de Horarios Cajas:
+// horarios sin adicionales y con adicionales (una fila por persona, una columna por día), y hora por hora
+// lo que piden contra lo que tenemos: normal, con adicionales, con vendedores; los rollers aparte abajo.
+function desAnexoDatos(dias) {
+  const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => ({
+    id: c.id, nombre: (c.name || "").split("(")[0].split("-")[0].trim(),
+    roller: ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller"),
+  })).sort((a, b) => Number(a.roller) - Number(b.roller) || a.nombre.localeCompare(b.nombre));
+  const ausTxt = (e) => (!e ? "" : e === "F" ? "FRANCO" : e === "V" ? "VACACIONES" : /^libre$/i.test(e) ? "LIBRE" : String(e).replace(/^Revisar: /, "").toUpperCase());
+  const turno = (x, id, v) => {
+    if (x.cerrada) return "CERRADA";
+    const p = x.pers[id];
+    if (p) { const t = v === "n" ? p.hn : p.ht; return (t || (v === "n" && p.a ? "solo adic." : "")).replace(/–/g, "-"); }
+    return ausTxt(x.aus[id]);
+  };
+  const horas = desRangoHoras(dias);
+  return { gente, turno, horas };
+}
 function desDetallePersonas(dias, semanas, total, fc2, flujoDe) {
   const gente = cdvColaboradoresCajas().filter((c) => !c._isCruzado).map((c) => {
     const roller = ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller");
@@ -16234,6 +16252,36 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     }).join("")}
     <tr class="tot"><td class="l">Total</td><td>${desH(F.req)}</td><td>${desH(F.a)}</td><td>${F.pv ? "+" + desH(F.pv) : "—"}</td><td>${desH(F.todo)}</td><td>${F.req ? fChip(F.ft) : "—"}</td></tr></tbody></table>
   </section>`;
+  // ===== Dato extra: horarios (sin y con adicionales) y cobertura hora por hora =====
+  const AX = desAnexoDatos(dias);
+  const dnA = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const etqA = (x) => `${dnA[new Date(x.fecha + "T00:00:00").getDay()]} ${fc2(x.fecha)}`;
+  const gridSem = (ds, v) => `<table class="ax"><thead><tr><th class="l">Persona</th>${ds.map((x) => `<th>${etqA(x)}</th>`).join("")}</tr></thead><tbody>
+    ${AX.gente.map((g, i) => `${g.roller && (i === 0 || !AX.gente[i - 1].roller) ? `<tr class="axs"><td class="l" colspan="${ds.length + 1}">Rollers</td></tr>` : ""}<tr><td class="l">${g.nombre}</td>${ds.map((x) => { const t = AX.turno(x, g.id, v); const p = x.pers[g.id]; const cls = !p ? "au" : v === "a" && p.a ? "ad" : ""; return `<td class="${cls}">${t}</td>`; }).join("")}</tr>`).join("")}
+    </tbody></table>`;
+  const anexoHorarios = semanas.map((w) => {
+    const ds = dias.filter((x) => x.fecha >= w.desde && x.fecha <= w.hasta);
+    return `<section class="salto"><h2>Horarios · ${w.desde === w.hasta ? fc2(w.desde) : `${fc2(w.desde)} al ${fc2(w.hasta)}`}</h2>
+      <p class="sub">Arriba, los horarios normales (sin adicionales). Abajo, con las horas adicionales (en celeste los días que suman).</p>
+      <h3 class="axt">Sin adicionales</h3>${gridSem(ds, "n")}
+      ${hayAdic ? `<h3 class="axt">Con adicionales</h3>${gridSem(ds, "a")}` : ""}</section>`;
+  }).join("");
+  const filaH = (lbl, vals, cls) => `<tr class="${cls || ""}"><td class="l">${lbl}</td>${vals.map((v) => `<td>${v === "" ? "" : desH(v)}</td>`).join("")}<td class="k">${vals.every((v) => v === "") ? "" : desH(vals.reduce((a, b) => a + (Number(b) || 0), 0))}</td></tr>`;
+  const cabH = `<thead><tr><th class="l">Día</th>${AX.horas.map((h) => `<th>${h}</th>`).join("")}<th class="k">Total</th></tr></thead>`;
+  const anexoCob = `<section class="salto"><h2>Hora por hora · lo que piden contra lo que tenemos</h2>
+    <p class="sub">Cajeros por hora. Con vendedores = cajeros con adicionales más vendedores con fallo de caja. Los rollers van aparte, abajo.</p>
+    <table class="ax axh">${cabH}<tbody>
+    ${dias.map((x) => x.cerrada ? `<tr class="axd"><td class="l">${etqA(x)}</td><td colspan="${AX.horas.length + 1}">Tienda cerrada</td></tr>` :
+      `<tr class="axd"><td class="l" colspan="${AX.horas.length + 2}">${etqA(x)}${x.feriado ? " · feriado" : ""}</td></tr>` +
+      filaH("Piden", AX.horas.map((h) => (x.conDemanda ? x.r[h] : "")), "pd") +
+      filaH("Normal", AX.horas.map((h) => x.cnt.caj_n[h])) +
+      (hayAdic ? filaH("Con adicionales", AX.horas.map((h) => x.cnt.caj_a[h]), "ad") : "") +
+      filaH("Con vendedores", AX.horas.map((h) => x.cnt.vend_a[h]), "vd")).join("")}
+    </tbody></table>
+    <h2 style="margin-top:14px">Rollers</h2>
+    <table class="ax axh">${cabH}<tbody>
+    ${dias.filter((x) => !x.cerrada).map((x) => filaH(etqA(x), AX.horas.map((h) => Math.max(0, x.cnt.rol_a[h] - x.cnt.caj_a[h])))).join("")}
+    </tbody></table></section>`;
   const detallePersonas = desDetallePersonas(dias, semanas, total, fc2, (lista) => flujoDe(resumenDe(lista)));
   const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Desglose de horario · ${fc(desde)} al ${fc(hasta)}</title><style>
     @page { size: A4 portrait; margin: 9mm; }
@@ -16323,6 +16371,17 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     .fk.pv { background: #fff7ed; border-color: #fed7aa; } .fk.pv b { color: #c2410c; }
     .fk.ft { background: #b91c1c; border-color: #b91c1c; color: #fff; } .fk.ft small, .fk.ft .fn { color: #fee2e2; }
     .rt th.pv, .rt td.pv { color: #c2410c; } .rt td.pv { font-weight: 600; }
+    .ax { width: 100%; border-collapse: collapse; font-size: 8.5px; margin-bottom: 8px; }
+    .ax th { background: #eef2f6; color: #475569; font-size: 8px; padding: 3px 2px; font-weight: 700; }
+    .ax td { border-bottom: 1px solid #eef2f6; padding: 2.5px 3px; text-align: center; white-space: nowrap; }
+    .ax td.l, .ax th.l { text-align: left; white-space: nowrap; }
+    .ax td.au { color: #94a3b8; font-size: 7.5px; } .ax td.ad { background: #ecfeff; color: #0e7490; font-weight: 700; }
+    .ax tr.axs td { background: #f3e8ff; color: #6d28d9; font-weight: 700; }
+    .axt { font-size: 11px; margin: 8px 0 3px; color: #334155; }
+    .axh td { padding: 2px 2px; } .axh td.k, .axh th.k { font-weight: 700; border-left: 1px solid #e2e8f0; }
+    .axh tr.axd td { background: #f1f5f9; font-weight: 700; color: #1e293b; text-align: left; padding-top: 4px; }
+    .axh tr.pd td { font-weight: 700; } .axh tr.ad td { color: #0e7490; } .axh tr.vd td { color: #c2410c; }
+    .axh tr { page-break-inside: avoid; }
     .fsp { margin-top: 3px; } .fsp span { display: inline-block; white-space: nowrap; font-size: 9px; color: #0e7490; background: #cffafe; border-radius: 6px; padding: 0 6px; margin: 0 3px 2px 0; }
     .rt { font-size: 11px; } .rt th { font-size: 9px; } .rt td { padding: 5px 8px; }
     .rt th.cj { background: #d1f2e4; color: #065f46; } .rt td.cj { background: #eefbf5 !important; font-weight: 700; font-size: 12.5px; }
@@ -16400,6 +16459,8 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     ${porHora}
     ${detallePersonas}
     <section class="salto">${apoyo}</section>
+    ${anexoHorarios}
+    ${anexoCob}
   </body></html>`;
   let html = doc;
   if (pantalla) {
@@ -16472,6 +16533,41 @@ function desExcel({ dias, total, semanas }, desde, hasta, nombre) {
   const wsH = XLSX.utils.aoa_to_sheet(fh);
   wsH["!cols"] = [{ wch: 11 }, { wch: 11 }, ...horas.map(() => ({ wch: 11 }))];
   XLSX.utils.book_append_sheet(wb, wsH, "Por hora");
+  // Dato extra, como la planilla de Horarios Cajas
+  const AX = desAnexoDatos(dias);
+  const dnA = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const etqA = (x) => `${dnA[new Date(x.fecha + "T00:00:00").getDay()]} ${x.fecha.split("-").reverse().slice(0, 2).join("/")}`;
+  const hojaHor = [];
+  (hayAdic ? [["n", "HORARIOS SIN ADICIONALES"], ["a", "HORARIOS CON ADICIONALES"]] : [["n", "HORARIOS"]]).forEach(([v, tit], i) => {
+    if (i) hojaHor.push([]);
+    hojaHor.push([tit], ["Legajo", "Colaborador", ...dias.map(etqA)]);
+    AX.gente.forEach((g, j) => {
+      if (g.roller && (j === 0 || !AX.gente[j - 1].roller)) hojaHor.push(["", "ROLLERS"]);
+      hojaHor.push([g.id, g.nombre, ...dias.map((x) => AX.turno(x, g.id, v))]);
+    });
+  });
+  const wsHo = XLSX.utils.aoa_to_sheet(hojaHor);
+  wsHo["!cols"] = [{ wch: 10 }, { wch: 26 }, ...dias.map(() => ({ wch: 13 }))];
+  XLSX.utils.book_append_sheet(wb, wsHo, "Horarios");
+  const r1x = (n) => Math.round(n * 10) / 10;
+  const tot = (vals) => (vals.every((v) => v === "") ? "" : r1x(vals.reduce((a, b) => a + (Number(b) || 0), 0)));
+  const hc = AX.horas.map((h) => `${String(h).padStart(2, "0")}:00`);
+  const hojaCob = [["CAJEROS"], ["Día", "", ...hc, "", "Horas del día", "Diferencia"]];
+  dias.forEach((x) => {
+    if (x.cerrada) { hojaCob.push([etqA(x), "Tienda cerrada"]); return; }
+    const ped = AX.horas.map((h) => (x.conDemanda ? x.r[h] : ""));
+    const tp = tot(ped);
+    const fila = (lbl, vals, primera) => { const t = tot(vals); hojaCob.push([primera ? etqA(x) : "", lbl, ...vals.map((v) => (v === "" ? "" : r1x(v))), "", t, lbl === "Pedido" || tp === "" ? "" : r1x(t - tp)]); };
+    fila("Pedido", ped, true);
+    fila("Normal", AX.horas.map((h) => x.cnt.caj_n[h]));
+    if (hayAdic) fila("Con adicionales", AX.horas.map((h) => x.cnt.caj_a[h]));
+    fila("Con vendedores", AX.horas.map((h) => x.cnt.vend_a[h]));
+  });
+  hojaCob.push([], ["ROLLERS"], ["Día", "", ...hc, "", "Horas del día"]);
+  dias.filter((x) => !x.cerrada).forEach((x) => { const vals = AX.horas.map((h) => Math.max(0, x.cnt.rol_a[h] - x.cnt.caj_a[h])); hojaCob.push([etqA(x), "Rollers", ...vals.map(r1x), "", tot(vals)]); });
+  const wsCo = XLSX.utils.aoa_to_sheet(hojaCob);
+  wsCo["!cols"] = [{ wch: 11 }, { wch: 15 }, ...AX.horas.map(() => ({ wch: 6 })), { wch: 2 }, { wch: 12 }, { wch: 11 }];
+  XLSX.utils.book_append_sheet(wb, wsCo, "Cobertura");
   XLSX.writeFile(wb, `${nombre}.xlsx`);
   showToast("Listo", "Excel descargado.", "success");
 }
