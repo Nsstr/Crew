@@ -3927,7 +3927,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.154
+            Versión: v1.7.155
           </div>
         </div>
       </div>
@@ -5238,7 +5238,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.154";
+  const APP_VERSION = "v1.7.155";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -16197,6 +16197,43 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     ${[["vend", "+ Vendedores con fallo de caja"], ["rol", "+ Rollers"], ["todos", "Vendedores y rollers"]].map(([k, t]) => { const n = total.t[k + "_n"] || {}, a = total.t[k + "_a"] || {};
       return `<tr><td class="l">${t}</td><td>${desH(n.tengo || 0)} h</td><td>${total.req ? chipH((n.tengoConDem || 0) - total.req) : "—"}</td><td>${desH(a.tengo || 0)} h</td><td>${total.req ? chipH((a.tengoConDem || 0) - total.req) : "—"}</td></tr>`; }).join("")}
     </tbody></table></section>`;
+  // ===== Lo que pidió Carmen: con todo lo que tenemos (cajeros + adicionales + piso de venta), ¿cuánto falta? =====
+  // Piso de venta = vendedores con fallo de caja, contando todo su turno. "Faltan" suma hora por hora lo que no se
+  // cubre (lo que sobra a las 10 no tapa lo que falta a las 19), que son las horas que habría que pedir.
+  const faltaDe = (lista) => {
+    let req = 0, a = 0, pv = 0, fa = 0, ft = 0;
+    lista.forEach((x) => {
+      if (x.cerrada) return;
+      a += x.t.caj_a.tengo; pv += x.t.vend_a.tengo - x.t.caj_a.tengo;
+      if (x.conDemanda) { req += x.req; fa += x.t.caj_a.falta; ft += x.t.vend_a.falta; }
+    });
+    return { req, a, pv, todo: a + pv, fa, ft };
+  };
+  const F = faltaDe(dias);
+  const fChip = (n) => n > 0.05 ? `<span class="dif falta">Faltan ${desH(n)} h</span>` : `<span class="dif justo">Cubierto</span>`;
+  const fCelda = (n) => n > 0.05 ? `<span class="dif falta">${desH(n)}</span>` : `<span class="gr">—</span>`;
+  const bloqueFalta = `<section class="blq cf"><h2>¿Cuánto falta para lo que pide Recaudaciones?</h2>
+    <p class="sub">Con todo lo que tenemos: cajeros, sus horas adicionales y la gente del piso de venta que puede cobrar (vendedores con fallo de caja, todo su turno). Lo que falta se cuenta hora por hora: son las horas a pedir.</p>
+    <div class="flow">
+      <div class="fk"><small>Piden</small><b>${desH(F.req)} h</b><div class="fn">Recaudaciones</div></div><div class="fo">→</div>
+      <div class="fk cj"><small>Cajeros con adicionales</small><b>${desH(F.a)} h</b><div class="fn">Sin cubrir: ${desH(F.fa)} h</div></div><div class="fo">+</div>
+      <div class="fk pv"><small>Piso de venta</small><b>${desH(F.pv)} h</b><div class="fn">Vendedores con fallo de caja</div></div><div class="fo">=</div>
+      <div class="fk ft"><small>Faltan (horas a pedir)</small><b>${desH(F.ft)} h</b><div class="fn">Con todo: ${desH(F.todo)} h</div></div>
+    </div>
+    <table class="rt"><thead><tr><th class="l">Semana</th><th>Piden</th><th class="cj">Cajeros con adic.</th><th class="pv">+ Piso de venta</th><th class="ca">Con todo</th><th class="ft">Faltan</th></tr></thead><tbody>
+    ${semanas.map((w) => { const ds = dias.filter((x) => x.fecha >= w.desde && x.fecha <= w.hasta); const r = faltaDe(ds);
+      return `<tr><td class="l">${w.desde === w.hasta ? fc2(w.desde) : `${fc2(w.desde)} al ${fc2(w.hasta)}`}</td><td>${desH(r.req)}</td><td class="cj">${desH(r.a)}</td><td class="pv">${r.pv ? "+" + desH(r.pv) : "—"}</td><td class="ca">${desH(r.todo)}</td><td>${r.req ? fCelda(r.ft) : "—"}</td></tr>`; }).join("")}
+    <tr class="tot"><td class="l">Total</td><td>${desH(F.req)}</td><td>${desH(F.a)}</td><td>${F.pv ? "+" + desH(F.pv) : "—"}</td><td>${desH(F.todo)}</td><td>${F.req ? fChip(F.ft) : "—"}</td></tr></tbody></table>
+    <h2 style="margin-top:12px">Por día</h2>
+    <table class="rt"><thead><tr><th class="l">Día</th><th>Piden</th><th class="cj">Cajeros con adic.</th><th class="pv">+ Piso de venta</th><th class="ca">Con todo</th><th class="ft">Faltan</th></tr></thead><tbody>
+    ${dias.map((x) => {
+      const et = `${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}`;
+      if (x.cerrada) return `<tr class="cerr"><td class="l">${et}</td><td colspan="5" class="l">Tienda cerrada</td></tr>`;
+      const r = faltaDe([x]);
+      return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${et}</td><td>${x.conDemanda ? desH(x.req) : "—"}</td><td class="cj">${desH(r.a)}</td><td class="pv">${r.pv ? "+" + desH(r.pv) : "—"}</td><td class="ca">${desH(r.todo)}</td><td>${x.conDemanda ? fCelda(r.ft) : '<span class="gr">sin pedido</span>'}</td></tr>`;
+    }).join("")}
+    <tr class="tot"><td class="l">Total</td><td>${desH(F.req)}</td><td>${desH(F.a)}</td><td>${F.pv ? "+" + desH(F.pv) : "—"}</td><td>${desH(F.todo)}</td><td>${F.req ? fChip(F.ft) : "—"}</td></tr></tbody></table>
+  </section>`;
   const detallePersonas = desDetallePersonas(dias, semanas, total, fc2, (lista) => flujoDe(resumenDe(lista)));
   const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Desglose de horario · ${fc(desde)} al ${fc(hasta)}</title><style>
     @page { size: A4 portrait; margin: 9mm; }
@@ -16283,6 +16320,9 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     .fk.ad { background: #ecfeff; border-color: #a5f3fc; } .fk.ad b { color: #0e7490; }
     .fk.tt { background: #1e293b; border-color: #1e293b; color: #fff; } .fk.tt small { color: #cbd5e1; }
     .fn { font-size: 8.5px; color: #94a3b8; margin-top: 3px; } .fk.tt .fn { color: #cbd5e1; }
+    .fk.pv { background: #fff7ed; border-color: #fed7aa; } .fk.pv b { color: #c2410c; }
+    .fk.ft { background: #b91c1c; border-color: #b91c1c; color: #fff; } .fk.ft small, .fk.ft .fn { color: #fee2e2; }
+    .rt th.pv, .rt td.pv { color: #c2410c; } .rt td.pv { font-weight: 600; }
     .fsp { margin-top: 3px; } .fsp span { display: inline-block; white-space: nowrap; font-size: 9px; color: #0e7490; background: #cffafe; border-radius: 6px; padding: 0 6px; margin: 0 3px 2px 0; }
     .rt { font-size: 11px; } .rt th { font-size: 9px; } .rt td { padding: 5px 8px; }
     .rt th.cj { background: #d1f2e4; color: #065f46; } .rt td.cj { background: #eefbf5 !important; font-weight: 700; font-size: 12.5px; }
@@ -16356,6 +16396,7 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     ${flujo}
     <section class="blq"><h2>Por semana</h2><p class="sub">Lo que piden suma solo los días del rango elegido.</p>${tablaSem}</section>
     <section class="salto"><h2>Por día</h2>${tablaDia}</section>
+    ${F.req ? `<div class="salto">${bloqueFalta}</div>` : ""}
     ${porHora}
     ${detallePersonas}
     <section class="salto">${apoyo}</section>
