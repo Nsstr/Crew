@@ -3927,7 +3927,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.157
+            Versión: v1.7.158
           </div>
         </div>
       </div>
@@ -5238,7 +5238,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.157";
+  const APP_VERSION = "v1.7.158";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -15883,6 +15883,10 @@ function desCalcularCon(desde, hasta, planning, demanda, planReal) {
           return out;
         };
         const con = leer(planning);
+        // ¿Se cargaron los horarios de los vendedores con fallo de caja (son de otras áreas)? Si nadie tiene nada
+        // ese día, el piso de venta queda en cero porque falta cargarlo, no porque no haya gente
+        const cruz = cdvColaboradoresCajas().filter((c) => c._isCruzado);
+        if (cruz.length) dia.vendSinCargar = !cruz.some((c) => { const o = planning[`${c.id}_${dStr}`]; const v = o == null ? "" : typeof o === "string" ? o : o.slot || ""; return String(v).trim() !== "" && v !== "-"; }) && !cruz.some((c) => cdvEnVacaciones(c.id, dStr));
         // Desde el borrador: lo normal sale de lo real (lo que está armado) y lo de con adicionales, del borrador
         const base = planReal ? leer(planReal) : null;
         Object.assign(dia.aus, con.aus);
@@ -16256,6 +16260,10 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     return { req, a, pv, todo: a + pv, fa, ft };
   };
   const F = faltaDe(dias);
+  const sinVend = dias.filter((x) => !x.cerrada && x.vendSinCargar);
+  const sinVendSem = (ds) => ds.filter((x) => !x.cerrada && x.vendSinCargar).length;
+  const tagSC = (txt) => `<span class="sc-v">${txt}</span>`;
+  const avisoVend = sinVend.length ? `<div class="aviso-v"><b>Faltan cargar horarios de vendedores</b> en ${sinVend.length} día${sinVend.length === 1 ? "" : "s"} (${(() => { const r = []; let a = null, b = null; sinVend.forEach((x) => { if (b && addDays(new Date(b.fecha + "T00:00:00"), 1).getTime() === new Date(x.fecha + "T00:00:00").getTime()) b = x; else { if (a) r.push([a, b]); a = b = x; } }); if (a) r.push([a, b]); return r.map(([p, q]) => p === q ? fc2(p.fecha) : `${fc2(p.fecha)} al ${fc2(q.fecha)}`).join(", "); })()}). Esos días el piso de venta da 0 porque no está cargado, no porque no haya gente: lo que falta puede ser menos.</div>` : "";
   const fChip = (n) => n > 0.05 ? `<span class="dif falta">Faltan ${desH(n)} h</span>` : `<span class="dif justo">Cubierto</span>`;
   const fCelda = (n) => n > 0.05 ? `<span class="dif falta">${desH(n)}</span>` : `<span class="gr">—</span>`;
   const bloqueFalta = `<section class="blq cf"><h2>¿Cuánto falta para lo que pide Recaudaciones?</h2>
@@ -16263,12 +16271,12 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     <div class="flow">
       <div class="fk"><small>Piden</small><b>${desH(F.req)} h</b><div class="fn">Recaudaciones</div></div><div class="fo">→</div>
       <div class="fk cj"><small>Cajeros con adicionales</small><b>${desH(F.a)} h</b><div class="fn">Sin cubrir: ${desH(F.fa)} h</div></div><div class="fo">+</div>
-      <div class="fk pv"><small>Piso de venta</small><b>${desH(F.pv)} h</b><div class="fn">Vendedores con fallo de caja</div></div><div class="fo">=</div>
-      <div class="fk ft"><small>Faltan (horas a pedir)</small><b>${desH(F.ft)} h</b><div class="fn">Con todo: ${desH(F.todo)} h</div></div>
-    </div>
+      <div class="fk pv"><small>Piso de venta</small><b>${desH(F.pv)} h</b><div class="fn">${sinVend.length ? `Faltan cargar ${sinVend.length} día${sinVend.length === 1 ? "" : "s"}` : "Vendedores con fallo de caja"}</div></div><div class="fo">=</div>
+      <div class="fk ft"><small>Faltan (horas a pedir)</small><b>${desH(F.ft)} h</b><div class="fn">Con todo: ${desH(F.todo)} h${sinVend.length ? " · sin vendedores de algunos días" : ""}</div></div>
+    </div>${avisoVend}
     <table class="rt"><thead><tr><th class="l">Semana</th><th>Piden</th><th class="cj">Cajeros con adic.</th><th class="pv">+ Piso de venta</th><th class="ca">Con todo</th><th class="ft">Faltan</th></tr></thead><tbody>
     ${semanas.map((w) => { const ds = dias.filter((x) => x.fecha >= w.desde && x.fecha <= w.hasta); const r = faltaDe(ds);
-      return `<tr><td class="l">${w.desde === w.hasta ? fc2(w.desde) : `${fc2(w.desde)} al ${fc2(w.hasta)}`}</td><td>${desH(r.req)}</td><td class="cj">${desH(r.a)}</td><td class="pv">${r.pv ? "+" + desH(r.pv) : "—"}</td><td class="ca">${desH(r.todo)}</td><td>${r.req ? fCelda(r.ft) : "—"}</td></tr>`; }).join("")}
+      return `<tr><td class="l">${w.desde === w.hasta ? fc2(w.desde) : `${fc2(w.desde)} al ${fc2(w.hasta)}`}</td><td>${desH(r.req)}</td><td class="cj">${desH(r.a)}</td><td class="pv">${r.pv ? "+" + desH(r.pv) : ""}${sinVendSem(ds) ? `${r.pv ? " " : ""}${tagSC(sinVendSem(ds) === ds.filter((x) => !x.cerrada).length ? "sin cargar" : `${sinVendSem(ds)} día${sinVendSem(ds) === 1 ? "" : "s"} sin cargar`)}` : r.pv ? "" : "—"}</td><td class="ca">${desH(r.todo)}</td><td>${r.req ? fCelda(r.ft) : "—"}</td></tr>`; }).join("")}
     <tr class="tot"><td class="l">Total</td><td>${desH(F.req)}</td><td>${desH(F.a)}</td><td>${F.pv ? "+" + desH(F.pv) : "—"}</td><td>${desH(F.todo)}</td><td>${F.req ? fChip(F.ft) : "—"}</td></tr></tbody></table>
     <h2 style="margin-top:12px">Por día</h2>
     <table class="rt"><thead><tr><th class="l">Día</th><th>Piden</th><th class="cj">Cajeros con adic.</th><th class="pv">+ Piso de venta</th><th class="ca">Con todo</th><th class="ft">Faltan</th></tr></thead><tbody>
@@ -16276,7 +16284,7 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
       const et = `${x.etiqueta}${x.feriado ? ' <span class="tag">feriado</span>' : ""}`;
       if (x.cerrada) return `<tr class="cerr"><td class="l">${et}</td><td colspan="5" class="l">Tienda cerrada</td></tr>`;
       const r = faltaDe([x]);
-      return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${et}</td><td>${x.conDemanda ? desH(x.req) : "—"}</td><td class="cj">${desH(r.a)}</td><td class="pv">${r.pv ? "+" + desH(r.pv) : "—"}</td><td class="ca">${desH(r.todo)}</td><td>${x.conDemanda ? fCelda(r.ft) : '<span class="gr">sin pedido</span>'}</td></tr>`;
+      return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${et}</td><td>${x.conDemanda ? desH(x.req) : "—"}</td><td class="cj">${desH(r.a)}</td><td class="pv">${x.vendSinCargar ? tagSC("sin cargar") : r.pv ? "+" + desH(r.pv) : "—"}</td><td class="ca">${desH(r.todo)}</td><td>${x.conDemanda ? fCelda(r.ft) : '<span class="gr">sin pedido</span>'}</td></tr>`;
     }).join("")}
     <tr class="tot"><td class="l">Total</td><td>${desH(F.req)}</td><td>${desH(F.a)}</td><td>${F.pv ? "+" + desH(F.pv) : "—"}</td><td>${desH(F.todo)}</td><td>${F.req ? fChip(F.ft) : "—"}</td></tr></tbody></table>
   </section>`;
@@ -16304,7 +16312,7 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
       filaH("Piden", AX.horas.map((h) => (x.conDemanda ? x.r[h] : "")), "pd") +
       filaH("Normal", AX.horas.map((h) => x.cnt.caj_n[h])) +
       (hayAdic ? filaH("Con adicionales", AX.horas.map((h) => x.cnt.caj_a[h]), "ad") : "") +
-      filaH("Con vendedores", AX.horas.map((h) => x.cnt.vend_a[h]), "vd")).join("")}
+      filaH(x.vendSinCargar ? "Con vendedores (sin cargar)" : "Con vendedores", AX.horas.map((h) => x.cnt.vend_a[h]), "vd")).join("")}
     </tbody></table>
     <h2 style="margin-top:14px">Rollers</h2>
     <table class="ax axh">${cabH}<tbody>
@@ -16398,6 +16406,8 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     .fn { font-size: 8.5px; color: #94a3b8; margin-top: 3px; } .fk.tt .fn { color: #cbd5e1; }
     .fk.pv { background: #fff7ed; border-color: #fed7aa; } .fk.pv b { color: #c2410c; }
     .fk.ft { background: #b91c1c; border-color: #b91c1c; color: #fff; } .fk.ft small, .fk.ft .fn { color: #fee2e2; }
+    .sc-v { display: inline-block; font-size: 8.5px; font-weight: 700; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 6px; padding: 0 6px; white-space: nowrap; }
+    .aviso-v { background: #fffbeb; border: 1px solid #fcd34d; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 7px 10px; font-size: 10px; color: #78350f; margin: -6px 0 12px; }
     .rt th.pv, .rt td.pv { color: #c2410c; } .rt td.pv { font-weight: 600; }
     .ax { width: 100%; border-collapse: collapse; font-size: 8.5px; margin-bottom: 8px; }
     .ax th { background: #eef2f6; color: #475569; font-size: 8px; padding: 3px 2px; font-weight: 700; }
@@ -16589,7 +16599,7 @@ function desExcel({ dias, total, semanas }, desde, hasta, nombre) {
     fila("Pedido", ped, true);
     fila("Normal", AX.horas.map((h) => x.cnt.caj_n[h]));
     if (hayAdic) fila("Con adicionales", AX.horas.map((h) => x.cnt.caj_a[h]));
-    fila("Con vendedores", AX.horas.map((h) => x.cnt.vend_a[h]));
+    fila(x.vendSinCargar ? "Con vendedores (sin cargar)" : "Con vendedores", AX.horas.map((h) => x.cnt.vend_a[h]));
   });
   hojaCob.push([], ["ROLLERS"], ["Día", "", ...hc, "", "Horas del día"]);
   dias.filter((x) => !x.cerrada).forEach((x) => { const vals = AX.horas.map((h) => Math.max(0, x.cnt.rol_a[h] - x.cnt.caj_a[h])); hojaCob.push([etqA(x), "Rollers", ...vals.map(r1x), "", tot(vals)]); });
