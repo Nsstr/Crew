@@ -3929,7 +3929,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.162
+            Versión: v1.7.163
           </div>
         </div>
       </div>
@@ -5254,7 +5254,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.162";
+  const APP_VERSION = "v1.7.163";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -16422,7 +16422,7 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     </tbody></table></section>`;
   const detallePersonas = desDetallePersonas(dias, semanas, total, fc2, (lista) => flujoDe(resumenDe(lista)));
   const doc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Desglose de horario · ${fc(desde)} al ${fc(hasta)}</title><style>
-    @page { size: A4 portrait; margin: 9mm; }
+    @page { size: A4 landscape; margin: 8mm; }
     * { box-sizing: border-box; }
     body { font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif; color: #1e293b; font-size: 10.5px; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; }
@@ -16565,6 +16565,13 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     .pp .au { border-radius: 6px; height: 29px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #94a3b8; text-align: center; height: 34px !important; background: repeating-linear-gradient(45deg, #f8fafc, #f8fafc 5px, #eef2f6 5px, #eef2f6 10px); }
     .pp td.k { text-align: center; font-size: 13px; font-weight: 600; background: #eef2f6 !important; border-radius: 6px; height: 34px; }
     .pp td.k.ad { background: #ecfeff !important; color: #0e7490; } .pp td.k.tt { background: #1e293b !important; color: #fff; font-weight: 700; }
+    /* Hoja horizontal: filas más bajas para que cada semana entre en una página */
+    @media print {
+      .pp .dc, .pp .au, .pp td.k { height: 21px !important; } .pp td.nm b { display: inline !important; } .pp td.nm small { margin-left: 4px; } .pp td.nm { white-space: nowrap; } .pp { border-spacing: 2px 1px; } .pp .dc { line-height: 1.05; }
+      .pp .hh b { font-size: 11.5px; } .pp .hr { font-size: 9px; } .pp td.nm b { font-size: 10.5px; } .pp td.nm small { font-size: 8.5px; }
+      .ax { font-size: 8px; } .ax td { padding: 1.5px 3px; } .ax th { padding: 2px; }
+      .axt { margin: 4px 0 2px; }
+    }
     .pp tr.st td.nm { font-weight: 700; font-size: 9.5px; } .pp tr.st td.k { height: 19px; font-weight: 800; }
     .pk-fin { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; } .pk-fin div { border-radius: 8px; padding: 3px 12px; background: #eef2f6; display: flex; align-items: baseline; gap: 8px; }
     .pk-fin small { font-size: 9px; color: #64748b; } .pk-fin b { font-size: 13px; }
