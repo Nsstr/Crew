@@ -4031,7 +4031,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: var(--t-94a3b8, #94a3b8); text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.176
+            Versión: v1.7.177
           </div>
         </div>
       </div>
@@ -5397,7 +5397,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.176";
+  const APP_VERSION = "v1.7.177";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -8428,6 +8428,7 @@ function cdvDiferencia(personas, requeridas) {
 }
 
 function renderCajasDayView() {
+  requestAnimationFrame(() => { if (typeof window.adicBoxPintar === "function") window.adicBoxPintar(); });
   const container = document.getElementById("cajasDayView");
   const gridContainer = document.querySelector("#tab-horarios .grid-container");
   const toggle = document.getElementById("cajasVistaToggle");
@@ -8526,7 +8527,7 @@ function renderCajasDayView() {
         <span>${diasCortos[d.getDay()]}</span><b>${d.getDate()}</b></button>`;
   }
 
-  const headHTML = `
+  const headHTML = `${conPanel || diaCompleto ? `<div id="adicBox" class="adb"></div>` : ""}
     <div class="cdv-head">
       <div>
         <div class="cdv-title">${tituloDia}</div>
@@ -16366,6 +16367,84 @@ window.adicDashAbrir = function () {
   window.adicDashPreset(p ? "evento" : "mes");
 };
 let adicDashTurno = 0;
+// ===== Recuadro de adicionales arriba del panel del día (se puede plegar y elegir las fechas) =====
+(function () {
+  const LS = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } };
+  let cache = null, turno = 0;
+  const rangoDefecto = () => {
+    const p = typeof presuActivo === "function" ? presuActivo() : null;
+    if (p) return [p.inicio, p.fin];
+    const ref = new Date(state.currentWeekStart);
+    return [formatDate(new Date(ref.getFullYear(), ref.getMonth(), 1)), formatDate(new Date(ref.getFullYear(), ref.getMonth() + 1, 0))];
+  };
+  const rango = () => { const d = LS("crew_adb_desde"), h = LS("crew_adb_hasta"); return d && h && d <= h ? [d, h] : rangoDefecto(); };
+  const resumir = (datos) => {
+    const idsRoller = new Set(cdvColaboradoresCajas().filter((c) => !c._isCruzado && ((c.pasillo || "") + " " + (c.esquema || "")).toLowerCase().includes("roller")).map((c) => c.id));
+    let req = 0, n = 0, a = 0, nD = 0, aD = 0, rolA = 0;
+    datos.dias.forEach((x) => {
+      if (x.cerrada) return;
+      n += x.t.caj_n.tengo; a += x.t.caj_a.tengo;
+      if (x.conDemanda) { req += x.req; nD += x.t.caj_n.tengo; aD += x.t.caj_a.tengo; }
+      Object.entries(x.pers).forEach(([id, p]) => { if (idsRoller.has(id) && !p.rc) rolA += p.a; });
+    });
+    return { req, n, a, adicCaj: a - n, rolA, difN: nD - req, difA: aD - req };
+  };
+  const chip = (d) => { const r = Math.round(d * 10) / 10; return r < 0 ? `<span class="adb-chip f">Faltan ${desH(-r)} h</span>` : r > 0 ? `<span class="adb-chip s">Sobran ${desH(r)} h</span>` : `<span class="adb-chip j">Justo</span>`; };
+  const cartas = (R) => `<div class="adb-flow">
+      <div class="adb-k"><small>Piden</small><b>${desH(R.req)} h</b></div>
+      <div class="adb-k cj"><small>Normales</small><b>${desH(R.n)} h</b>${R.req ? chip(R.difN) : ""}</div>
+      <div class="adb-k ad"><small>Adicionales</small><b>${desH(R.adicCaj + R.rolA)} h</b><span class="adb-n">Caj. ${desH(R.adicCaj)} · Roll. ${desH(R.rolA)}</span></div>
+      <div class="adb-k tt"><small>Con adicionales</small><b>${desH(R.a)} h</b>${R.req ? chip(R.difA) : ""}</div>
+    </div>`;
+  window.adicBoxPintar = async function (forzar) {
+    const box = document.getElementById("adicBox");
+    if (!box) return;
+    const abierto = LS("crew_adb_abierto") !== "0";
+    const [d, h] = rango();
+    const clave = `${d}|${h}|${borradorActivo() ? "b" : "r"}|${state.currentArea}`;
+    box.classList.toggle("cerrado", !abierto);
+    box.innerHTML = `<div class="adb-cab">
+        <button type="button" class="adb-plegar" title="${abierto ? "Ocultar" : "Mostrar"} las horas adicionales">${abierto ? "▾" : "▸"} Adicionales</button>
+        <span class="adb-fechas"><input type="date" class="adb-d" value="${d}"><span>al</span><input type="date" class="adb-h" value="${h}"></span>
+        <button type="button" class="adb-ver" title="Ver el detalle completo">Detalle</button>
+      </div>${abierto ? `<div class="adb-cuerpo">${cache && cache.clave === clave ? cartas(cache.R) : '<div class="adb-cargando">Calculando…</div>'}</div>` : ""}`;
+    box.querySelector(".adb-plegar").onclick = () => { LS("crew_adb_abierto", abierto ? "0" : "1"); window.adicBoxPintar(); };
+    const cambio = () => { const nd = box.querySelector(".adb-d").value, nh = box.querySelector(".adb-h").value; if (nd && nh && nd <= nh) { LS("crew_adb_desde", nd); LS("crew_adb_hasta", nh); window.adicBoxPintar(true); } };
+    box.querySelector(".adb-d").onchange = cambio; box.querySelector(".adb-h").onchange = cambio;
+    box.querySelector(".adb-ver").onclick = () => { const de = document.getElementById("adicDashDesde"), ha = document.getElementById("adicDashHasta"); if (de && ha) { de.value = d; ha.value = h; } switchTab("adicionales"); };
+    if (!abierto) return;
+    if (!forzar && cache && cache.clave === clave && Date.now() - cache.t < 60000) return;
+    const mio = ++turno;
+    try {
+      const datos = await desCalcular(d, h);
+      if (mio !== turno) return;
+      cache = { clave, R: resumir(datos), t: Date.now() };
+      const cu = document.querySelector("#adicBox .adb-cuerpo");
+      if (cu) cu.innerHTML = cartas(cache.R);
+    } catch (e) { const cu = document.querySelector("#adicBox .adb-cuerpo"); if (cu) cu.innerHTML = '<div class="adb-cargando">No se pudo calcular.</div>'; }
+  };
+  const css = document.createElement("style");
+  css.textContent = `.adb{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:6px 8px;margin-bottom:10px}
+  .adb.cerrado{padding:3px 8px}
+  .adb-cab{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .adb-plegar{border:none;background:transparent;color:var(--text);font:inherit;font-size:0.8rem;font-weight:800;cursor:pointer;padding:2px 0}
+  .adb-fechas{display:inline-flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--text-muted)}
+  .adb-fechas input{border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font:inherit;font-size:0.72rem;padding:1px 4px;height:22px}
+  .adb-ver{margin-left:auto;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);font:inherit;font-size:0.7rem;padding:2px 8px;cursor:pointer}
+  .adb-cuerpo{margin-top:6px}
+  .adb-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .adb-k{border:1px solid var(--border);border-radius:8px;padding:5px 7px;background:var(--bg);display:flex;flex-direction:column;gap:2px;min-width:0}
+  .adb-k small{font-size:0.62rem;color:var(--text-muted);font-weight:700;white-space:nowrap}
+  .adb-k b{font-size:0.98rem;letter-spacing:-.2px;font-variant-numeric:tabular-nums}
+  .adb-k.cj{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.35)}
+  .adb-k.ad{background:rgba(6,182,212,.08);border-color:rgba(6,182,212,.35)} .adb-k.ad b{color:#0e7490}
+  .adb-k.tt{background:#1e293b;border-color:#1e293b} .adb-k.tt small{color:#cbd5e1} .adb-k.tt b{color:#fff}
+  .adb-n{font-size:0.6rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .adb-chip{align-self:flex-start;font-size:0.6rem;font-weight:800;border-radius:8px;padding:0 6px;white-space:nowrap}
+  .adb-chip.f{background:#fee2e2;color:#b91c1c} .adb-chip.s{background:#dcfce7;color:#15803d} .adb-chip.j{background:#f1f5f9;color:#475569}
+  .adb-cargando{font-size:0.75rem;color:var(--text-muted);padding:4px 0}`;
+  document.head.appendChild(css);
+})();
 // Vista rápida al pasar el mouse por la pestaña Adicionales: los 4 números del Desglose
 (function () {
   let cache = null, timer = null, caja = null, dentro = false;
@@ -16421,7 +16500,8 @@ let adicDashTurno = 0;
   };
   const ocultar = () => { if (!dentro && caja) caja.style.display = "none"; };
   // Solo con mouse (en el celular el toque abre la pestaña directo, sin la vista rápida)
-  const conMouse = () => { try { return window.matchMedia("(hover: hover) and (pointer: fine)").matches && window.innerWidth > 768; } catch (e) { return false; } };
+  // La vista rápida al pasar el mouse quedó reemplazada por el recuadro fijo arriba del panel del día
+  const conMouse = () => false;
   document.addEventListener("mouseover", (e) => {
     const b = e.target.closest && e.target.closest("#adicionalesTabBtn");
     if (!b || !conMouse()) return;
