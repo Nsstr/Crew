@@ -719,6 +719,20 @@
     html.tema-claro, html.modo-borrador { --req-linea: rgba(30, 41, 59, 0.85); --req-ancho: 2px; }
     /* Colores de texto claros (pensados para fondo oscuro): en fondo claro se oscurecen para que se lean */
     html.tema-claro, html.modo-borrador { --t-fb923c: #c2410c; --t-818cf8: #4338ca; --t-c084fc: #7e22ce; --t-67e8f9: #0e7490; --t-22d3ee: #0e7490; --t-f9a8d4: #be185d; --t-fdba74: #c2410c; --t-fca5a5: #b91c1c; --t-f87171: #b91c1c; --t-34d399: #047857; --t-6ee7b7: #047857; --t-4ade80: #15803d; --t-86efac: #15803d; --t-fcd34d: #92400e; --t-fde68a: #92400e; --t-fbbf24: #b45309; --t-93c5fd: #1d4ed8; --t-7dd3fc: #0369a1; --t-38bdf8: #0369a1; --t-a5b4fc: #4338ca; --t-c4b5fd: #6d28d9; --t-a78bfa: #6d28d9; --t-cbd5e1: #475569; --t-94a3b8: #64748b; }
+    /* Las placas de productividad son siempre oscuras (se exportan como imagen): ahí van los colores originales */
+    html.tema-claro #prodLienzoContainer, html.modo-borrador #prodLienzoContainer { --t-fb923c: #fb923c; --t-818cf8: #818cf8; --t-c084fc: #c084fc; --t-67e8f9: #67e8f9; --t-22d3ee: #22d3ee; --t-f9a8d4: #f9a8d4; --t-fdba74: #fdba74; --t-fca5a5: #fca5a5; --t-f87171: #f87171; --t-34d399: #34d399; --t-6ee7b7: #6ee7b7; --t-4ade80: #4ade80; --t-86efac: #86efac; --t-fcd34d: #fcd34d; --t-fde68a: #fde68a; --t-fbbf24: #fbbf24; --t-93c5fd: #93c5fd; --t-7dd3fc: #7dd3fc; --t-38bdf8: #38bdf8; --t-a5b4fc: #a5b4fc; --t-c4b5fd: #c4b5fd; --t-a78bfa: #a78bfa; --t-cbd5e1: #cbd5e1; --t-94a3b8: #94a3b8; }
+    /* Productividad en el celular: todo en columna y sin desbordar */
+    @media (max-width: 768px) {
+      #seccionProductividad { padding: 10px !important; overflow-x: hidden !important; }
+      #seccionProductividad > div:first-child { flex-direction: column; align-items: stretch !important; padding: 10px !important; box-sizing: border-box; width: 100%; min-width: 0; }
+      #seccionProductividad > div:first-child > div { width: 100%; min-width: 0; box-sizing: border-box; }
+      #seccionProductividad > div:first-child > div { flex-wrap: wrap; gap: 8px !important; }
+      #seccionProductividad > div:first-child h2 { width: 100%; font-size: 1rem !important; }
+      #seccionProductividad > div:first-child select { flex: 1 1 100%; width: 100%; max-width: 100%; box-sizing: border-box; min-width: 0; font-size: 0.9rem !important; padding: 8px 10px !important; }
+      #seccionProductividad > div:first-child button { flex: 1 1 100%; justify-content: center; padding: 10px 12px !important; font-size: 0.85rem !important; }
+      #prodLienzoContainer { min-width: 0; overflow-x: hidden; }
+      #prodLienzoContainer > * { max-width: 100% !important; box-sizing: border-box; }
+    }
     html.tema-claro:not(.modo-borrador) {
       color-scheme: light;
       --bg: #eef2f6;
@@ -1802,9 +1816,26 @@
     .cdv-tag.bra-tag-venta { color: var(--t-fca5a5, #fca5a5); border-color: rgba(239, 68, 68, 0.5); margin: 0 6px 0 0; }
     .bra-leyenda { display: inline-flex; gap: 10px; align-items: center; }
     .bra-leyenda i { display: inline-block; width: 10px; height: 5px; border-radius: 1px; margin-right: 4px; vertical-align: 1px; }
-    .bra-semana { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 70px; }
+    .bra-semana { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 70px; margin-top: 16px; }
     .bra-semana button { position: relative; height: 100%; border: none; background: transparent; padding: 0; cursor: pointer; display: flex; flex-direction: column; justify-content: flex-end; }
-    .bra-semana button > div { width: 100%; border-radius: 3px; background: rgba(148, 163, 184, 0.45); min-height: 2px; }
+    .bra-semana button > div { width: 100%; border-radius: 3px; background: rgba(59, 130, 246, 0.35); min-height: 2px; }
+    /* Resumen de cumplimiento (semana o mes) */
+    .brr-tog { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .brr-tog button { border: none; background: transparent; color: var(--text-muted); font: inherit; font-size: 0.75rem; font-weight: 700; padding: 4px 12px; cursor: pointer; }
+    .brr-tog button.activo { background: var(--primary); color: #fff; }
+    .brr-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0; }
+    .brr-kpi { border: 1px solid var(--border); border-radius: 10px; padding: 8px; background: var(--surface); text-align: center; }
+    .brr-kpi b { display: block; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+    .brr-kpi span { font-size: 0.68rem; color: var(--text-muted); }
+    .brr-kpi.ok b { color: #059669; } .brr-kpi.mal b { color: #dc2626; } .brr-kpi.ojo b { color: #d97706; }
+    .brr-tabla { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .brr-tabla th { background: transparent !important; text-align: right; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 5px 4px; border-bottom: 1px solid var(--border); font-weight: 700; }
+    .brr-tabla th:first-child, .brr-tabla td:first-child { text-align: left; }
+    .brr-tabla td { text-align: right; padding: 6px 4px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    .brr-tabla td.mal { color: #dc2626; font-weight: 700; } .brr-tabla td.ojo { color: #d97706; font-weight: 700; } .brr-tabla td.ok { color: #059669; font-weight: 700; }
+    .brr-bar { height: 6px; border-radius: 3px; background: rgba(148, 163, 184, 0.25); overflow: hidden; margin-top: 3px; }
+    .brr-bar i { display: block; height: 100%; background: #10b981; }
+    @media (max-width: 768px) { .brr-kpis { grid-template-columns: repeat(2, 1fr); } .brr-tabla .brr-sm { display: none; } }
     .bra-semana button.activo > div { background: var(--primary); }
     .bra-semana button span { position: absolute; left: 0; right: 0; text-align: center; font-size: 0.65rem; font-weight: 700; color: var(--t-f87171, #f87171); }
     .bra-semana-dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; font-size: 0.65rem; color: var(--text-muted); margin-top: 3px; }
@@ -3986,7 +4017,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: var(--t-94a3b8, #94a3b8); text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.171
+            Versión: v1.7.172
           </div>
         </div>
       </div>
@@ -5352,7 +5383,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.171";
+  const APP_VERSION = "v1.7.172";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -8854,8 +8885,9 @@ window.renderAnalisisDescansos = async function (container, fechaId, opciones = 
 
   if (!dia.length) {
     html += `<p class="cdv-empty" style="padding: 12px 0;">No hay descansos cargados para este día. Se cargan desde la compu, en Descansos → Ingesta de Reportes.</p>`;
-    container.innerHTML = html + semanaHTML + `</div>`;
+    container.innerHTML = html + semanaHTML + `<div class="brr" data-fecha="${fechaId}"></div></div>`;
     braEnlazarSemana(container, opciones);
+    braResumen(container.querySelector(".brr"), fechaId);
     return;
   }
 
@@ -8947,9 +8979,75 @@ window.renderAnalisisDescansos = async function (container, fechaId, opciones = 
       </div>`;
   });
 
-  container.innerHTML = html + semanaHTML + `</div>`;
+  container.innerHTML = html + semanaHTML + `<div class="brr" data-fecha="${fechaId}"></div></div>`;
   braEnlazarSemana(container, opciones);
+  braResumen(container.querySelector(".brr"), fechaId);
 };
+
+// Resumen de cumplimiento por persona, de la semana o del mes del día elegido:
+// cumple = fichó el reloj (TAW) y el Reporte 25, sin pasarse del tope; no ficha = le falta alguna de las dos marcas;
+// se pasa = el descanso superó el tope permitido.
+let braResumenModo = "semana";
+async function braResumen(box, fechaId) {
+  if (!box) return;
+  const area = state.currentArea || "Linea de Cajas";
+  const f0 = new Date(fechaId + "T00:00:00");
+  let dias;
+  if (braResumenModo === "mes") {
+    const ult = new Date(f0.getFullYear(), f0.getMonth() + 1, 0).getDate();
+    dias = Array.from({ length: ult }, (_, i) => formatDate(new Date(f0.getFullYear(), f0.getMonth(), i + 1)));
+  } else {
+    const l = getStartOfWeek(f0);
+    dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(l, i)));
+  }
+  const hoy = formatDate(new Date());
+  dias = dias.filter((d) => d <= hoy);
+  const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const fc = (d) => d.split("-").reverse().slice(0, 2).join("/");
+  const titulo = braResumenModo === "mes" ? `${meses[f0.getMonth()]} ${f0.getFullYear()}` : dias.length ? `semana del ${fc(dias[0])}` : "semana";
+  const cab = `<div class="bra-sec" style="align-items:center"><b>Cumplimiento · ${titulo}</b><span class="brr-tog"><button type="button" data-m="semana" class="${braResumenModo === "semana" ? "activo" : ""}">Semana</button><button type="button" data-m="mes" class="${braResumenModo === "mes" ? "activo" : ""}">Mes</button></span></div>`;
+  box.innerHTML = cab + `<p class="cdv-empty" style="padding:8px 0">Calculando…</p>`;
+  const enlazar = () => box.querySelectorAll(".brr-tog button").forEach((b) => b.addEventListener("click", () => { braResumenModo = b.dataset.m; braResumen(box, fechaId); }));
+  enlazar();
+  const filasPorDia = await Promise.all(dias.map(braLeerDia));
+  if (box.dataset.fecha !== fechaId || !box.isConnected) return;
+  const gente = new Map();
+  let tot = 0, cumple = 0, sinReloj = 0, sin25 = 0, exceso = 0, minExceso = 0, diasConDatos = 0;
+  filasPorDia.forEach((filas) => {
+    const p = braProcesar(filas, area);
+    if (p.length) diasConDatos++;
+    p.forEach((x) => {
+      const k = x.legajo || x.nombre;
+      if (!gente.has(k)) gente.set(k, { nombre: x.nombre || k, legajo: x.legajo, n: 0, cumple: 0, sinReloj: 0, sin25: 0, exceso: 0, minEx: 0 });
+      const g = gente.get(k);
+      const pasa = x.semaforo === "exceso";
+      const ex = pasa ? Math.max(0, x.dur - (x.tope || 0)) : 0;
+      g.n++; tot++;
+      if (!x.taw) { g.sinReloj++; sinReloj++; }
+      if (!x.r25) { g.sin25++; sin25++; }
+      if (pasa) { g.exceso++; exceso++; g.minEx += ex; minExceso += ex; }
+      if (x.taw && x.r25 && !pasa) { g.cumple++; cumple++; }
+    });
+  });
+  if (!tot) { box.innerHTML = cab + `<p class="cdv-empty" style="padding:8px 0">No hay descansos cargados en este período.</p>`; enlazar(); return; }
+  const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+  const lista = [...gente.values()].map((g) => ({ ...g, pct: pct(g.cumple, g.n) }))
+    .sort((a, b) => a.pct - b.pct || b.exceso - a.exceso || b.sinReloj - a.sinReloj || a.nombre.localeCompare(b.nombre));
+  const nombreDe = (g) => { const c = (state.collaborators || []).find((x) => String(x.id) === String(g.legajo)); return cdvEsc(c && window.innerWidth <= 768 ? nombreCortoCelular(c) : g.nombre); };
+  const celda = (v, cls) => `<td class="${v ? cls : ""}">${v || "—"}</td>`;
+  box.innerHTML = cab + `
+    <div class="brr-kpis">
+      <div class="brr-kpi ${pct(cumple, tot) >= 90 ? "ok" : pct(cumple, tot) >= 70 ? "ojo" : "mal"}"><b>${pct(cumple, tot)}%</b><span>cumplen (${cumple} de ${tot})</span></div>
+      <div class="brr-kpi ${sinReloj ? "mal" : "ok"}"><b>${sinReloj}</b><span>sin fichar el reloj</span></div>
+      <div class="brr-kpi ${sin25 ? "ojo" : "ok"}"><b>${sin25}</b><span>sin marca en el 25</span></div>
+      <div class="brr-kpi ${exceso ? "mal" : "ok"}"><b>${exceso}</b><span>se pasaron${minExceso ? ` · ${minExceso}' de más` : ""}</span></div>
+    </div>
+    <p class="cdv-empty" style="padding:0 0 6px;font-size:0.72rem">${diasConDatos} ${diasConDatos === 1 ? "día" : "días"} con datos · cumple = fichó el reloj y el 25 sin pasarse del tope. Los que tienen más problemas, arriba.</p>
+    <table class="brr-tabla"><thead><tr><th>Colaborador</th><th>Descansos</th><th>Cumple</th><th>Sin reloj</th><th>Sin 25</th><th>Se pasó</th><th class="brr-sm">Min. de más</th></tr></thead><tbody>
+    ${lista.map((g) => `<tr><td>${nombreDe(g)}<div class="brr-bar"><i style="width:${g.pct}%;background:${g.pct >= 90 ? "#10b981" : g.pct >= 70 ? "#f59e0b" : "#ef4444"}"></i></div></td><td>${g.n}</td><td class="${g.pct >= 90 ? "ok" : g.pct >= 70 ? "ojo" : "mal"}">${g.pct}%</td>${celda(g.sinReloj, "mal")}${celda(g.sin25, "ojo")}${celda(g.exceso, "mal")}<td class="brr-sm ${g.minEx ? "mal" : ""}">${g.minEx ? g.minEx + "'" : "—"}</td></tr>`).join("")}
+    </tbody></table>`;
+  enlazar();
+}
 
 function braEnlazarSemana(container, opciones) {
   if (typeof opciones.onDia !== "function") return;
