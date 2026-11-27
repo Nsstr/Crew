@@ -718,9 +718,9 @@
     /* Línea punteada del requerido: oscura sobre fondo claro (tema claro y borrador) */
     html.tema-claro, html.modo-borrador { --req-linea: rgba(30, 41, 59, 0.85); --req-ancho: 2px; }
     /* Colores de texto claros (pensados para fondo oscuro): en fondo claro se oscurecen para que se lean */
-    html.tema-claro, html.modo-borrador { --t-fb923c: #c2410c; --t-818cf8: #4338ca; --t-c084fc: #7e22ce; --t-67e8f9: #0e7490; --t-22d3ee: #0e7490; --t-f9a8d4: #be185d; --t-fdba74: #c2410c; --t-fca5a5: #b91c1c; --t-f87171: #b91c1c; --t-34d399: #047857; --t-6ee7b7: #047857; --t-4ade80: #15803d; --t-86efac: #15803d; --t-fcd34d: #92400e; --t-fde68a: #92400e; --t-fbbf24: #b45309; --t-93c5fd: #1d4ed8; --t-7dd3fc: #0369a1; --t-38bdf8: #0369a1; --t-a5b4fc: #4338ca; --t-c4b5fd: #6d28d9; --t-a78bfa: #6d28d9; --t-cbd5e1: #475569; --t-94a3b8: #64748b; }
+    html.tema-claro, html.modo-borrador { --t-fecaca: #991b1b; --t-a7f3d0: #065f46; --t-fed7aa: #9a3412; --t-bfdbfe: #1e40af; --t-ddd6fe: #5b21b6; --t-e9d5ff: #6b21a8; --t-bae6fd: #075985; --t-fef3c7: #92400e; --t-d1fae5: #065f46; --t-fb923c: #c2410c; --t-818cf8: #4338ca; --t-c084fc: #7e22ce; --t-67e8f9: #0e7490; --t-22d3ee: #0e7490; --t-f9a8d4: #be185d; --t-fdba74: #c2410c; --t-fca5a5: #b91c1c; --t-f87171: #b91c1c; --t-34d399: #047857; --t-6ee7b7: #047857; --t-4ade80: #15803d; --t-86efac: #15803d; --t-fcd34d: #92400e; --t-fde68a: #92400e; --t-fbbf24: #b45309; --t-93c5fd: #1d4ed8; --t-7dd3fc: #0369a1; --t-38bdf8: #0369a1; --t-a5b4fc: #4338ca; --t-c4b5fd: #6d28d9; --t-a78bfa: #6d28d9; --t-cbd5e1: #475569; --t-94a3b8: #64748b; }
     /* Las placas de productividad son siempre oscuras (se exportan como imagen): ahí van los colores originales */
-    html.tema-claro #prodLienzoContainer, html.modo-borrador #prodLienzoContainer { --t-fb923c: #fb923c; --t-818cf8: #818cf8; --t-c084fc: #c084fc; --t-67e8f9: #67e8f9; --t-22d3ee: #22d3ee; --t-f9a8d4: #f9a8d4; --t-fdba74: #fdba74; --t-fca5a5: #fca5a5; --t-f87171: #f87171; --t-34d399: #34d399; --t-6ee7b7: #6ee7b7; --t-4ade80: #4ade80; --t-86efac: #86efac; --t-fcd34d: #fcd34d; --t-fde68a: #fde68a; --t-fbbf24: #fbbf24; --t-93c5fd: #93c5fd; --t-7dd3fc: #7dd3fc; --t-38bdf8: #38bdf8; --t-a5b4fc: #a5b4fc; --t-c4b5fd: #c4b5fd; --t-a78bfa: #a78bfa; --t-cbd5e1: #cbd5e1; --t-94a3b8: #94a3b8; }
+    html.tema-claro #prodLienzoContainer, html.modo-borrador #prodLienzoContainer { --t-fecaca: #fecaca; --t-a7f3d0: #a7f3d0; --t-fed7aa: #fed7aa; --t-bfdbfe: #bfdbfe; --t-ddd6fe: #ddd6fe; --t-e9d5ff: #e9d5ff; --t-bae6fd: #bae6fd; --t-fef3c7: #fef3c7; --t-d1fae5: #d1fae5; --t-fb923c: #fb923c; --t-818cf8: #818cf8; --t-c084fc: #c084fc; --t-67e8f9: #67e8f9; --t-22d3ee: #22d3ee; --t-f9a8d4: #f9a8d4; --t-fdba74: #fdba74; --t-fca5a5: #fca5a5; --t-f87171: #f87171; --t-34d399: #34d399; --t-6ee7b7: #6ee7b7; --t-4ade80: #4ade80; --t-86efac: #86efac; --t-fcd34d: #fcd34d; --t-fde68a: #fde68a; --t-fbbf24: #fbbf24; --t-93c5fd: #93c5fd; --t-7dd3fc: #7dd3fc; --t-38bdf8: #38bdf8; --t-a5b4fc: #a5b4fc; --t-c4b5fd: #c4b5fd; --t-a78bfa: #a78bfa; --t-cbd5e1: #cbd5e1; --t-94a3b8: #94a3b8; }
     /* Productividad en el celular: todo en columna y sin desbordar */
     @media (max-width: 768px) {
       #seccionProductividad { padding: 10px !important; overflow-x: hidden !important; }
@@ -1808,8 +1808,10 @@
     .bra-track { position: relative; height: 7px; margin: 2px 0; border-radius: 2px; background-color: rgba(255, 255, 255, 0.04); background-image: linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px); background-size: calc(100% / var(--bra-n, 12)) 100%; }
     .bra-track i { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
     .bra-aviso { padding: 8px 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.78rem; line-height: 1.35; border: 1px solid; }
-    .bra-aviso.alerta { border-color: rgba(239, 68, 68, 0.55); background: rgba(239, 68, 68, 0.1); color: #fecaca; }
-    .bra-aviso.ok { border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.08); color: #a7f3d0; }
+    .bra-aviso.alerta { border-color: rgba(239, 68, 68, 0.55); background: rgba(239, 68, 68, 0.1); color: var(--t-fecaca, #fecaca); }
+    .bra-aviso.ok { border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.08); color: var(--t-a7f3d0, #a7f3d0); }
+    html.tema-claro .bra-aviso.alerta, html.modo-borrador .bra-aviso.alerta { color: #991b1b; background: #fef2f2; border-color: #fca5a5; }
+    html.tema-claro .bra-aviso.ok, html.modo-borrador .bra-aviso.ok { color: #065f46; background: #ecfdf5; border-color: #6ee7b7; }
     .bra-franja { position: absolute; top: 0; bottom: 0; background: rgba(239, 68, 68, 0.13); pointer-events: none; }
     .bra-bars .bra-franja { border-radius: 2px; }
     .bra-punto { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ef4444; margin-right: 5px; vertical-align: 1px; }
@@ -1929,7 +1931,7 @@
     #planningTable .shift-cell.input-libre:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) {
       background-color: rgba(56, 189, 248, 0.11) !important;
     }
-    #planningTable .shift-cell.input-libre:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) .shift-label { color: #bae6fd !important; }
+    #planningTable .shift-cell.input-libre:not(.franco-error):not(.franco-warning):not(.input-holiday-absence):not(.shift-cell-vacation) .shift-label { color: var(--t-bae6fd, #bae6fd) !important; }
     /* Turno fijado (pedido por el colaborador): borde ámbar y esquina más grande */
     #planningTable td.day-cell.is-fixed { outline: 2px solid rgba(245, 158, 11, 0.9); outline-offset: -2px; }
     #planningTable td.day-cell.is-fixed::before { border-width: 10px 10px 0 0 !important; border-color: #f59e0b transparent transparent transparent !important; z-index: 2; }
@@ -3180,7 +3182,7 @@
     .shift-cell-vacation .shift-start,
     .shift-cell-vacation .shift-end,
     .shift-cell-vacation .shift-label {
-      color: #bae6fd !important;
+      color: var(--t-bae6fd, #bae6fd) !important;
     }
 
     .shift-cell-vacation {
@@ -4017,7 +4019,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: var(--t-94a3b8, #94a3b8); text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.172
+            Versión: v1.7.173
           </div>
         </div>
       </div>
@@ -5383,7 +5385,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.172";
+  const APP_VERSION = "v1.7.173";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -24997,7 +24999,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <!-- PESTAÑA 2: INGESTA DE REPORTES (REPORTE 25 Y TAW) -->
         <div id="breakTabContentIngesta" style="display: none; flex-direction: column; gap: 10px;">
-          <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 12px; font-size: 0.76rem; color: #bae6fd; line-height: 1.4;">
+          <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 12px; font-size: 0.76rem; color: var(--t-bae6fd, #bae6fd); line-height: 1.4;">
             💡 <strong>Ingesta Independiente y Cruce Inteligente:</strong><br>
             • <strong>Parte Diario TAW (Mensual):</strong> Se procesa una única vez para todo el mes e indexa todas las fichadas en una base global (`taw_mensual`).<br>
             • <strong>Reporte 25 (Diario):</strong> Se carga por día operativo. Al procesarlo, cruza automáticamente con las fichadas de la fecha seleccionada en el TAW mensual.
