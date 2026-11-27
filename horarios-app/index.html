@@ -3946,7 +3946,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.166
+            Versión: v1.7.167
           </div>
         </div>
       </div>
@@ -5102,7 +5102,7 @@ function borradorGuardarNube() {
       await fsSetDoc(doc(db, "borradores", borrador.nubeId), JSON.parse(JSON.stringify({
         nombre: borrador.nombre || "Borrador", creado: borrador.creado || new Date().toISOString(),
         actualizado: borrador.actualizado || new Date().toISOString(), cambios,
-        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [], adicExcluidos: Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null, feriadoMas: borrador.feriadoMas || null, semanasReloj: Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : null, adicPasarse: Number.isFinite(borrador.adicPasarse) ? borrador.adicPasarse : null, adicMaxDia: Number.isFinite(borrador.adicMaxDia) ? borrador.adicMaxDia : null, adicMaxSem: Number.isFinite(borrador.adicMaxSem) ? borrador.adicMaxSem : null, eventuales: Array.isArray(borrador.eventuales) ? borrador.eventuales : null,
+        paraReloj: !!borrador.paraReloj, trabadas: borrador.trabadas || [], adicExcluidos: Array.isArray(borrador.adicExcluidos) ? borrador.adicExcluidos : null, feriadoMas: borrador.feriadoMas || null, semanasReloj: Array.isArray(borrador.semanasReloj) ? borrador.semanasReloj : null, adicPasarse: Number.isFinite(borrador.adicPasarse) ? borrador.adicPasarse : null, adicMaxDia: Number.isFinite(borrador.adicMaxDia) ? borrador.adicMaxDia : null, adicMaxSem: Number.isFinite(borrador.adicMaxSem) ? borrador.adicMaxSem : null, adicMaxTotal: Number.isFinite(borrador.adicMaxTotal) ? borrador.adicMaxTotal : null, eventuales: Array.isArray(borrador.eventuales) ? borrador.eventuales : null,
       })));
     } catch (e) {
       console.warn("No se pudo guardar el borrador en la nube", e);
@@ -5271,7 +5271,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.166";
+  const APP_VERSION = "v1.7.167";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -19672,7 +19672,7 @@ async function borradorDesdeNube(id, datos) {
     if (c.o === null) delete original[k]; else original[k] = c.o;
     if (c.d === null) { borrados[k] = docs[k] || null; delete docs[k]; } else docs[k] = c.d;
   });
-  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [], ...(Array.isArray(datos.adicExcluidos) ? { adicExcluidos: datos.adicExcluidos } : {}), ...(datos.feriadoMas ? { feriadoMas: datos.feriadoMas } : {}), ...(Array.isArray(datos.semanasReloj) ? { semanasReloj: datos.semanasReloj } : {}), ...(Number.isFinite(datos.adicPasarse) ? { adicPasarse: datos.adicPasarse } : {}), ...(Number.isFinite(datos.adicMaxDia) ? { adicMaxDia: datos.adicMaxDia } : {}), ...(Number.isFinite(datos.adicMaxSem) ? { adicMaxSem: datos.adicMaxSem } : {}), ...(Array.isArray(datos.eventuales) ? { eventuales: datos.eventuales } : {}) };
+  return { nubeId: id, nombre: datos.nombre || "Borrador", creado: datos.creado || "", actualizado: datos.actualizado || "", rangos: [[desde, hasta]], docs, original, tocados: Object.keys(cambios), borrados, paraReloj: !!datos.paraReloj, trabadas: datos.trabadas || [], ...(Array.isArray(datos.adicExcluidos) ? { adicExcluidos: datos.adicExcluidos } : {}), ...(datos.feriadoMas ? { feriadoMas: datos.feriadoMas } : {}), ...(Array.isArray(datos.semanasReloj) ? { semanasReloj: datos.semanasReloj } : {}), ...(Number.isFinite(datos.adicPasarse) ? { adicPasarse: datos.adicPasarse } : {}), ...(Number.isFinite(datos.adicMaxDia) ? { adicMaxDia: datos.adicMaxDia } : {}), ...(Number.isFinite(datos.adicMaxSem) ? { adicMaxSem: datos.adicMaxSem } : {}), ...(Number.isFinite(datos.adicMaxTotal) ? { adicMaxTotal: datos.adicMaxTotal } : {}), ...(Array.isArray(datos.eventuales) ? { eventuales: datos.eventuales } : {}) };
 }
 async function borradorListaNube() {
   if (isMockMode) return [];
@@ -20323,10 +20323,14 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
     const hiDe = (i) => Math.min(24, Math.max(cierra[i], 0));
     const faltaEnDia = (i) => { if (finLimpieza[i] && covC[i][finLimpieza[i] - 1] < 5 - 1e-9) return true; for (let h = 0; h < 24; h++) if (dem[i][h] - (covC[i][h]) > 0.5) return true; return false; };
     const loDe = (pl, i) => Math.max(6, pl.tes ? Math.min(abre[i], TES_HORA) : abre[i]);
+    // Tope de horas adicionales autorizadas para esta semana (si lo hay)
+    const CAP_TOT = Number.isFinite(opts.maxAdicTotal) ? Math.max(0, opts.maxAdicTotal) : Infinity;
+    let totAd = 0;
     for (let vuelta = 0; vuelta < 600; vuelta++) {
+      if (totAd >= CAP_TOT - 0.25) break;
       let best = null;
       cand.forEach((pl) => {
-        const resto = TOPE_SEM - pl.contrato - usado.get(pl);
+        const resto = Math.min(TOPE_SEM - pl.contrato - usado.get(pl), CAP_TOT - totAd);
         if (resto < 0.5 - 1e-9) return;
         const lim = lims.get(pl);
         dias.forEach((d, i) => {
@@ -20379,6 +20383,7 @@ function armadoSemana(lunesStr, hist = {}, opts = {}) {
       if (pl.plan[i]) aplicar(pl, i, pl.plan[i], -1);
       pl.plan[i] = o.tr; aplicar(pl, i, o.tr, 1);
       usado.set(pl, usado.get(pl) + o.h);
+      totAd += o.h;
       adicPor[pl.c.id] = adicPor[pl.c.id] || {};
       adicPor[pl.c.id][dias[i]] = (adicPor[pl.c.id][dias[i]] || 0) + o.h;
     }
@@ -20641,7 +20646,11 @@ function armadoElegirAdicionales(fechas) {
         <label>Máximo por día <input id="adicMaxDia" type="number" min="4" max="12" step="0.5" value="${borrador.adicMaxDia ?? 8.5}" style="width:64px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit"> h</label>
         <label>Máximo por semana <input id="adicMaxSem" type="number" min="18" max="60" step="0.5" value="${borrador.adicMaxSem ?? 42}" style="width:64px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit"> h</label>
       </div>
-      <p style="margin:4px 0 0;color:var(--text-muted);font-size:0.78rem">Topes que da Recursos Humanos para el evento (contrato + adicionales). Los de 48 h no hacen adicionales.</p></div>
+      <p style="margin:4px 0 0;color:var(--text-muted);font-size:0.78rem">Topes que da Recursos Humanos para el evento (contrato + adicionales). Los de 48 h no hacen adicionales.</p>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+        <label><b>Horas adicionales autorizadas</b> <input id="adicMaxTotal" type="number" min="0" step="0.5" placeholder="sin tope" value="${Number.isFinite(borrador.adicMaxTotal) ? borrador.adicMaxTotal : ""}" style="width:90px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit"> h en total</label>
+        <p style="margin:4px 0 0;color:var(--text-muted);font-size:0.78rem">Lo que autorizaron para lo que vas a armar (la semana o el mes). El armado no pasa de ese número: pone las horas donde más tapan y, en el mes, las reparte entre las semanas según cuánto falta en cada una. Vacío = sin tope.</p>
+      </div></div>
       <p><b>¿Qué días?</b> Destildá los días en que no se usan adicionales.</p>
       <div style="margin:4px 0"><a href="#" style="color:inherit" onclick="document.querySelectorAll('.adic-dia').forEach((c)=>c.checked=true);return false">Todos</a> · <a href="#" style="color:inherit" onclick="document.querySelectorAll('.adic-dia').forEach((c)=>c.checked=false);return false">Ninguno</a></div>
       <div>${grilla}</div>
@@ -20655,6 +20664,9 @@ function armadoElegirAdicionales(fechas) {
         const md = Number((document.getElementById("adicMaxDia") || {}).value), ms = Number((document.getElementById("adicMaxSem") || {}).value);
         borrador.adicMaxDia = md >= 4 && md <= 12 ? md : 8.5;
         borrador.adicMaxSem = ms >= 18 && ms <= 60 ? ms : 42;
+        const mtRaw = String((document.getElementById("adicMaxTotal") || {}).value || "").trim().replace(",", ".");
+        const mt = Number(mtRaw);
+        borrador.adicMaxTotal = mtRaw !== "" && mt >= 0 ? mt : null;
         const fuera = [...document.querySelectorAll(".adic-si")].filter((c) => !c.checked).map((c) => c.value);
         const diasSi = [...document.querySelectorAll(".adic-dia")].filter((c) => c.checked).map((c) => c.value);
         borrador.adicExcluidos = fuera;
@@ -20852,7 +20864,7 @@ async function armadoMostrar(lunes, hist, premiados, sabados, modo) {
   let r;
   const fcW = (f) => f.split("-").reverse().slice(0, 2).join("/");
   await armadoEspera(`Semana del ${fcW(lunes)} al ${fcW(formatDate(addDays(new Date(lunes + "T00:00:00"), 6)))}${modo === "con" ? " · con adicionales" : ""}`);
-  const extra = { adicionales: modo === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias: modo === "con" ? window.__armadoAdicDias || null : null, feriadoMas: borrador.feriadoMas || {}, pasarse: borrador.adicPasarse ?? 1, maxDia: borrador.adicMaxDia ?? 8.5, maxSem: borrador.adicMaxSem ?? 42 };
+  const extra = { adicionales: modo === "con", adicExcluidos: borrador.adicExcluidos || [], adicDias: modo === "con" ? window.__armadoAdicDias || null : null, feriadoMas: borrador.feriadoMas || {}, pasarse: borrador.adicPasarse ?? 1, maxDia: borrador.adicMaxDia ?? 8.5, maxSem: borrador.adicMaxSem ?? 42, ...(modo === "con" && Number.isFinite(borrador.adicMaxTotal) ? { maxAdicTotal: borrador.adicMaxTotal } : {}) };
   try { r = premiados ? armadoConPremio(lunes, hist, premiados, sabados, extra) : armadoSemana(lunes, hist, extra); } catch (e) { console.error(e); armadoEsperaFin(); showToast("No se pudo armar", "Volvé a intentar.", "error"); return; }
   armadoEsperaFin();
   const r1 = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
@@ -21169,15 +21181,30 @@ window.armarMes = async function (yElegido, mElegido) {
   }
   const resumen = [];
   let hist = {};
+  // Tope del mes: se reparte entre las semanas según cuántas adicionales pediría cada una sin tope
+  const capSem = {};
+  if (extra.adicionales && Number.isFinite(borrador.adicMaxTotal)) {
+    await armadoEspera("Calculando cómo repartir las horas autorizadas entre las semanas…");
+    const quiere = {};
+    let hp = {};
+    for (const lunes of aArmar) {
+      hp = await armadoTraerCurvas(lunes, hp);
+      try { const r0 = armadoSemana(lunes, hp, extra); quiere[lunes] = r0 && r0.modoAdic ? r0.adicTotal : 0; } catch (e) { quiere[lunes] = 0; }
+    }
+    const sum = Object.values(quiere).reduce((a, b) => a + b, 0);
+    aArmar.forEach((l) => { capSem[l] = sum > borrador.adicMaxTotal ? Math.floor((borrador.adicMaxTotal * quiere[l] / sum) * 2) / 2 : Infinity; });
+    armadoEsperaFin();
+  }
   for (let n = 0; n < aArmar.length; n++) {
     const lunes = aArmar[n];
+    const extraW = Number.isFinite(capSem[lunes]) ? { ...extra, maxAdicTotal: capSem[lunes] } : extra;
     showToast("Armando el mes", `Semana ${n + 1} de ${aArmar.length}: del ${fc(lunes)} al ${fc(finSem(lunes))}…`, "info");
     hist = await armadoTraerCurvas(lunes, hist);
     const pr = await armadoPedirPremio(lunes, hist);
     if (pr === null) { resumen.push({ lunes, cancelada: true }); continue; }
     let r;
     await armadoEspera(`Armando el mes · semana ${n + 1} de ${aArmar.length} (del ${fc(lunes)} al ${fc(finSem(lunes))})`);
-    try { r = pr.premiados ? armadoConPremio(lunes, hist, pr.premiados, pr.sabados, extra) : armadoSemana(lunes, hist, extra); }
+    try { r = pr.premiados ? armadoConPremio(lunes, hist, pr.premiados, pr.sabados, extraW) : armadoSemana(lunes, hist, extraW); }
     catch (e) { console.error(e); resumen.push({ lunes, error: true }); continue; }
     await armadoAplicar(lunes, r, previos);
     resumen.push({ lunes, r });
@@ -21208,7 +21235,7 @@ window.armarMes = async function (yElegido, mElegido) {
   const total = resumen.reduce((t, x) => t + (x.r ? x.r.cambios.length : 0), 0);
   const totAdic = resumen.reduce((t, x) => t + (x.r && x.r.modoAdic ? x.r.adicTotal : 0), 0);
   borradorModal(`${meses[mIdx][0].toUpperCase() + meses[mIdx].slice(1)} armado`, `<p>${total} cambios en ${resumen.filter((x) => x.r).length} semanas, ya cargados en el borrador.</p>
-    ${extra.adicionales ? `<p style="font-size:1rem"><b>Adicionales a pedir en el mes: ${armadoR1(totAdic)} h</b> (marcadas día por día en la fila de horas adicionales).</p>` : ""}
+    ${extra.adicionales ? `<p style="font-size:1rem"><b>Adicionales a pedir en el mes: ${armadoR1(totAdic)} h</b>${Number.isFinite(borrador.adicMaxTotal) ? ` de ${armadoR1(borrador.adicMaxTotal)} h autorizadas` : ""} (marcadas día por día en la fila de horas adicionales).</p>` : ""}
     <div class="bm-lista">${filas}</div>
     <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Revisalo semana por semana con la cobertura y ajustá a mano lo que haga falta. Es solo en el borrador.</p>`,
     [{ txt: "Deshacer todo", fn: async () => { await armadoDeshacer(previos); showToast("Deshecho", "El mes volvió como estaba.", "info"); } }, { txt: "Listo", clase: "bm-prin" }]);
