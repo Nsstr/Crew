@@ -844,7 +844,7 @@
     #borradorFranja .bf-candado { display: inline-flex; align-items: center; justify-content: center; padding: 4px 8px !important; }
     html.modo-borrador #borradorFranja #borradorNombre { font-weight: 700; color: var(--terracota); border-color: transparent; background: transparent; }
     html.modo-borrador #borradorFranja #borradorNombre:hover, html.modo-borrador #borradorFranja #borradorNombre:focus { border-color: rgba(194, 96, 63, 0.4); background: #fff; }
-    #borradorFranja button.bf-trabada { background: #15803d; border-color: #15803d; color: #fff; }
+    #borradorFranja button.bf-trabada { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
     #borradorModal .bm-pie button:disabled { opacity: 0.4; cursor: not-allowed; }
     #borradorModal .bm-confirma { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 8px 10px; border: 1px solid rgba(220, 38, 38, 0.45); border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
     #borradorModal { position: fixed; inset: 0; z-index: 100002; background: rgba(2, 6, 23, 0.7); display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -2435,6 +2435,9 @@
     .weekly-totals-container .hour-box.hb-cero { color: #475569 !important; }
     .weekly-totals-container .hour-box.hb-vac { color: #94a3b8 !important; }
     td.day-cell.dia-cerrado .cell-input { cursor: not-allowed; }
+    td.day-cell.dia-trabado .cell-input { cursor: not-allowed; }
+    table#planningTable td.day-cell.dia-trabado { background-image: repeating-linear-gradient(135deg, rgba(245,158,11,0.16) 0 4px, transparent 4px 9px) !important; }
+    table#planningTable td.day-cell.dia-trabado .cell-input { opacity: 0.85; }
     .armado-badge {
       display: inline-flex;
       align-items: center;
@@ -3904,6 +3907,7 @@
         </svg>
       </button>
       <button id="temaBtn" type="button" title="Cambiar entre tema claro y oscuro" onclick="window.cambiarTema()" style="background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); padding: 0 0.55rem; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer;"></button>
+      <button id="realTrabaBtn" type="button" title="Trabar semanas: no se pueden cambiar sin querer" onclick="window.realTrabar()" style="background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); padding: 0 0.55rem; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer;"></button>
       <button id="pdfBtn" title="Exportar a PDF" style="display: none; background: rgba(30, 41, 59, 1); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; color: var(--text-muted); padding: 0 0.5rem; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer;">📄</button>
       
       <button id="updateAppBtn" class="top-action-btn" onclick="window.forceHardRefresh()" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--success); padding: 0 0.75rem; height: 100%; border-radius: 0.25rem; cursor: pointer; align-items: center; justify-content: center; gap: 6px; font-weight: 600; font-size: 0.75rem; margin-right: 8px; transition: all 0.2s; animation: pulseUpdate 2s infinite; position: relative;">
@@ -3946,7 +3950,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.167
+            Versión: v1.7.168
           </div>
         </div>
       </div>
@@ -5221,8 +5225,47 @@ function borradorCambio(id) {
 }
 const evRefColab = (ref) => !!ref && typeof ref.path === "string" && ref.path.indexOf("colaboradores/") === 0 && evEsId(ref.id);
 function evNoGuardar() { showToast("Personal eventual", "Vive solo en el borrador: no se guarda en la base de colaboradores.", "info"); return Promise.resolve(); }
+// ===== Semanas trabadas: no se pueden cambiar a mano =====
+// En el borrador: las que trabás con el candado de la franja. En lo real: las que trabás con el candado de arriba
+// (se guardan para todos, por sector). Para cambiarlas, primero hay que destrabarlas.
+function semanaLunesDe(dStr) { return formatDate(getStartOfWeek(new Date(String(dStr).slice(0, 10) + "T00:00:00"))); }
+function semanaBloqueada(dStr, area) {
+  if (!dStr) return false;
+  const lunes = semanaLunesDe(dStr);
+  if (borradorActivo()) return !!(borrador && (borrador.trabadas || []).includes(lunes));
+  const a = area || (typeof state !== "undefined" && state ? state.currentArea : "") || "";
+  return !!(typeof state !== "undefined" && state && state.realTrabadas && (state.realTrabadas[a] || []).includes(lunes));
+}
+window.semanaBloqueada = semanaBloqueada;
+let avisoTrabadaUltimo = 0;
+function avisarSemanaTrabada(dStr) {
+  if (Date.now() - avisoTrabadaUltimo < 2500) return;
+  avisoTrabadaUltimo = Date.now();
+  const f = semanaLunesDe(dStr).split("-").reverse().slice(0, 2).join("/");
+  showToast("Semana trabada 🔒", `La semana del ${f} está trabada${borradorActivo() ? " en el borrador" : ""}: no se puede cambiar. Para editarla, destrabala con el candado.`, "info");
+}
+window.avisarSemanaTrabada = avisarSemanaTrabada;
+// Si una escritura cae en una semana trabada, se frena y la celda vuelve a como estaba
+function trabaFrena(ref) {
+  if (!esPlan(ref) || window.__saltarTraba) return false;
+  const k = ref.id, f = k.slice(-10), cid = k.slice(0, -11);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) return false;
+  const c = (typeof state !== "undefined" && state && state.collaborators || []).find((x) => x.id === cid);
+  if (!semanaBloqueada(f, c && c.area)) return false;
+  avisarSemanaTrabada(f);
+  try {
+    if (borradorActivo()) {
+      if (borrador.docs[k]) state.planning[k] = JSON.parse(JSON.stringify(borrador.docs[k])); else delete state.planning[k];
+      setTimeout(() => { if (typeof renderUI === "function") renderUI(); }, 0);
+    } else if (!isMockMode && db) {
+      getDoc(ref).then((sn) => { if (sn.exists()) state.planning[k] = sn.data(); else delete state.planning[k]; if (typeof renderUI === "function") renderUI(); }).catch(() => {});
+    }
+  } catch (e) {}
+  return true;
+}
 function setDoc(ref, datos, opciones) {
   if (evRefColab(ref)) return evNoGuardar();
+  if (trabaFrena(ref)) return Promise.resolve();
   if (borradorActivo() && esPlan(ref)) {
     const previo = borrador.docs[ref.id];
     borrador.docs[ref.id] = opciones && opciones.merge && previo ? { ...previo, ...datos } : { ...datos };
@@ -5244,6 +5287,7 @@ function presuCacheLocal(ref, datos, merge) {
 }
 function updateDoc(ref, datos) {
   if (evRefColab(ref)) return evNoGuardar();
+  if (trabaFrena(ref)) return Promise.resolve();
   if (borradorActivo() && esPlan(ref)) {
     borrador.docs[ref.id] = { ...(borrador.docs[ref.id] || {}), ...datos };
     borradorCambio(ref.id);
@@ -5253,6 +5297,7 @@ function updateDoc(ref, datos) {
   return fsUpdateDoc(ref, datos);
 }
 function deleteDoc(ref) {
+  if (trabaFrena(ref)) return Promise.resolve();
   if (evRefColab(ref)) { if (borrador && Array.isArray(borrador.eventuales)) { borrador.eventuales = borrador.eventuales.filter((e) => e.id !== ref.id); borradorPersistir(); evInyectar(); } return Promise.resolve(); }
   if (borradorActivo() && esPlan(ref)) {
     if (!borrador.borrados) borrador.borrados = {};
@@ -5271,7 +5316,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.167";
+  const APP_VERSION = "v1.7.168";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -6053,6 +6098,7 @@ function getSundaysOfMonth(date) {
 // 6. CARGA DE DATOS (Optimizada para plan Spark)
 async function loadInitialData() {
   avisosConfirmadosCargar();
+  setTimeout(() => { try { realTrabadasEscuchar(); } catch (e) { console.warn(e); } }, 0);
   // Cargar feriados nacionales desde API pública (Nager Date) multiaño (año actual y siguiente)
   const year = new Date().getFullYear();
   const nextYear = year + 1;
@@ -8962,6 +9008,7 @@ function actualizarOpcionesArea() {
 }
 
 window.renderUI = function renderUI() {
+  try { if (typeof realTrabaPintar === "function") realTrabaPintar(); } catch (e) {}
   if (typeof adicSemanaMemo !== "undefined") adicSemanaMemo = new Map(); // los horarios pudieron cambiar
   actualizarOpcionesArea();
   try { renderPresuBarra(); } catch (e) { console.warn("Barra de horas adicionales:", e); }
@@ -9148,6 +9195,12 @@ function attachScheduleEventListeners() {
         const todoSel = a === 0 && b === n && n > 0;
         if (!todoSel && e.key === "ArrowLeft" && !(a === 0 && b === 0)) return;
         if (!todoSel && e.key === "ArrowRight" && !(a === n && b === n)) return;
+      }
+      const enTrabada = e.target.closest && e.target.closest('.cell-input[data-trabada="1"]');
+      if (enTrabada && (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete")) {
+        e.preventDefault();
+        avisarSemanaTrabada(enTrabada.getAttribute("data-date"));
+        return;
       }
       const enCerrada = e.target.closest && e.target.closest('.cell-input[data-cerrado="1"]');
       if (enCerrada && (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete")) {
@@ -9908,14 +9961,14 @@ function renderDesktopView() {
         if (/has-overtime/.test(finalWrapperClass)) dotMarcas.push("#3b82f6");
         const dotEstilo = dotMarcas.length ? ` --dot: conic-gradient(${dotMarcas.map((c, i) => `${c} ${(i * 360) / dotMarcas.length}deg ${((i + 1) * 360) / dotMarcas.length}deg`).join(", ")});` : "";
         html += `
-            <td class="${isHoliday ? "holiday-col" : ""} ${finalWrapperClass}${dotMarcas.length ? " has-dot" : ""} ${additionalCellClass} day-cell${(state.cerradoDates || []).includes(dStr) ? " dia-cerrado" : ""}" ${titleAttr} data-collab="${collab.id}" data-date="${dStr}" style="position: relative; ${eventoCellStyle}${dotEstilo}">
+            <td class="${isHoliday ? "holiday-col" : ""} ${finalWrapperClass}${dotMarcas.length ? " has-dot" : ""} ${additionalCellClass} day-cell${(state.cerradoDates || []).includes(dStr) ? " dia-cerrado" : ""}${semanaBloqueada(dStr, collab.area) ? " dia-trabado" : ""}" ${titleAttr} data-collab="${collab.id}" data-date="${dStr}" style="position: relative; ${eventoCellStyle}${dotEstilo}">
               <div class="ot-indicator"></div>
               
               <!-- Presentación visual (Apilada) -->
               ${displayHtml}
               
               <!-- Sistema transaccional intacto (Invisible hasta hacer focus) -->
-              <input type="text" class="cell-input ${finalInputClass} cell-input-hidden" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" data-row="${currentRowIndex}" data-col="${dayIndex}" value="${displayVal}" ${isDisabled ? 'disabled data-disabled="true"' : ""}${!isDisabled && (state.cerradoDates || []).includes(dStr) ? ' readonly data-cerrado="1"' : ""} placeholder="-">
+              <input type="text" class="cell-input ${finalInputClass} cell-input-hidden" style="${styleStr}" data-collab="${collab.id}" data-date="${dStr}" data-row="${currentRowIndex}" data-col="${dayIndex}" value="${displayVal}" ${isDisabled ? 'disabled data-disabled="true"' : ""}${!isDisabled && (state.cerradoDates || []).includes(dStr) ? ' readonly data-cerrado="1"' : ""}${!isDisabled && semanaBloqueada(dStr, collab.area) ? ' readonly data-trabada="1"' : ""} placeholder="-">
             </td>
           `;
       });
@@ -10681,6 +10734,60 @@ var avisosConfirmados = {};
 try { avisosConfirmados = JSON.parse(localStorage.getItem("avisosConfirmados") || "{}") || {}; } catch (e) { avisosConfirmados = {}; }
 const avisoFirma = (x) => `${x.clave || ""}|${x.titulo || ""}|${x.msg || ""}`;
 const avisoConfirmado = (x) => !!avisosConfirmados[avisoFirma(x)];
+// Semanas trabadas de lo real (compartidas): notas_globales/semanas_trabadas = { porArea: { "Linea de Cajas": [lunes, ...] } }
+function realTrabaPintar() {
+  const b = document.getElementById("realTrabaBtn");
+  if (!b) return;
+  if (borradorActivo()) { b.style.display = "none"; return; }
+  b.style.display = "flex";
+  const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
+  const n = ({ "1": 1, "2": 2, "3": 3, "4": 4 }[typeof vistaGrilla === "function" ? vistaGrilla() : "4"]) || 1;
+  const vis = Array.from({ length: n }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), 7 * i)));
+  const lista = (state.realTrabadas && state.realTrabadas[state.currentArea || ""]) || [];
+  const cuantas = vis.filter((l) => lista.includes(l)).length;
+  const cerrado = cuantas > 0;
+  b.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>${cerrado ? '<path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>' : '<path d="M8 10.5V7.5a4 4 0 0 1 7.6-1.7"/>'}</svg>`;
+  b.style.color = cerrado ? "#b45309" : "";
+  b.style.background = cerrado ? "#fef3c7" : "";
+  b.style.borderColor = cerrado ? "#f59e0b" : "";
+  b.title = cerrado ? `${cuantas === vis.length ? "Semana trabada" : `${cuantas} de ${vis.length} semanas trabadas`}: no se pueden cambiar. Tocá para elegir` : "Trabar semanas: no se pueden cambiar sin querer";
+}
+window.realTrabaPintar = realTrabaPintar;
+function realTrabadasEscuchar() {
+  state.realTrabadas = state.realTrabadas || {};
+  try { const g = JSON.parse(localStorage.getItem("crew_real_trabadas") || "null"); if (g && typeof g === "object") state.realTrabadas = g; } catch (e) {}
+  if (isMockMode || !db) { realTrabaPintar(); return; }
+  try {
+    fsOnSnapshot(doc(db, "notas_globales", "semanas_trabadas"), (sn) => {
+      state.realTrabadas = sn.exists() ? (sn.data().porArea || {}) : {};
+      try { localStorage.setItem("crew_real_trabadas", JSON.stringify(state.realTrabadas)); } catch (e) {}
+      realTrabaPintar();
+      if (!borradorActivo() && typeof renderUI === "function" && document.getElementById("tableBody")) renderUI();
+    }, (e) => console.warn("No se pudieron leer las semanas trabadas", e));
+  } catch (e) { console.warn(e); }
+}
+window.realTrabar = function () {
+  if (borradorActivo()) return;
+  const area = state.currentArea || "";
+  const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
+  const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
+  const lista = new Set((state.realTrabadas && state.realTrabadas[area]) || []);
+  // Las semanas que se ven y las 4 siguientes, para trabar de una
+  const sem = Array.from({ length: 8 }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), 7 * (i - 2))));
+  const filas = sem.map((l) => `<label style="display:flex;gap:8px;align-items:center;padding:4px 0;cursor:pointer"><input type="checkbox" class="rt-sem" value="${l}"${lista.has(l) ? " checked" : ""}> Semana del <b>${fc(l)}</b> al ${fc(formatDate(addDays(new Date(l + "T00:00:00"), 6)))}${l === lunes ? ' <span style="color:var(--text-muted)">· la que se ve</span>' : ""}</label>`).join("");
+  borradorModal("Trabar semanas", `<p>Las semanas trabadas de <b>${area}</b> <b>no se pueden cambiar</b> (por ejemplo, las ya publicadas), así no se toca nada sin querer. Queda para todos los que usan la app. Para cambiar algo, primero la destrabás acá.</p><div class="bm-lista">${filas}</div>`,
+    [{ txt: "Cancelar" }, { txt: "Guardar", clase: "bm-prin", fn: async () => {
+      const marc = new Set([...document.querySelectorAll(".rt-sem")].filter((c) => c.checked).map((c) => c.value));
+      const nueva = [...new Set([...[...lista].filter((l) => !sem.includes(l)), ...marc])].sort();
+      state.realTrabadas = { ...(state.realTrabadas || {}), [area]: nueva };
+      try { localStorage.setItem("crew_real_trabadas", JSON.stringify(state.realTrabadas)); } catch (e) {}
+      realTrabaPintar(); renderUI();
+      if (!isMockMode && db) {
+        try { await fsSetDoc(doc(db, "notas_globales", "semanas_trabadas"), { porArea: { [area]: nueva } }, { merge: true }); showToast("Listo", nueva.length ? "Semanas trabadas guardadas." : "No quedan semanas trabadas.", "success"); }
+        catch (e) { console.warn(e); showToast("No se pudo guardar", "Quedó trabado solo en esta compu. Revisá la conexión y volvé a intentar.", "error"); }
+      }
+    } }]);
+};
 async function avisosConfirmadosCargar() {
   try {
     if (typeof isMockMode !== "undefined" && isMockMode) return;
@@ -20575,7 +20682,7 @@ window.borradorTrabar = function () {
   const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
   if (borradorSemanaTrabada(lunes)) {
     borradorModal("Destrabar semana", `<p>¿Destrabar la semana del <b>${fc(lunes)}</b>? "Armar sugerido" la va a poder cambiar de nuevo.</p>`,
-      [{ txt: "Cancelar" }, { txt: "Destrabar", clase: "bm-prin", fn: () => { borrador.trabadas = (borrador.trabadas || []).filter((x) => x !== lunes); borradorPersistir(); window.borradorPintarFranja(); } }]);
+      [{ txt: "Cancelar" }, { txt: "Destrabar", clase: "bm-prin", fn: () => { borrador.trabadas = (borrador.trabadas || []).filter((x) => x !== lunes); borradorPersistir(); window.borradorPintarFranja(); renderUI(); } }]);
     return;
   }
   const dias = Array.from({ length: 7 }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), i)));
@@ -20594,7 +20701,7 @@ window.borradorTrabar = function () {
     renderUI();
     showToast("Semana trabada", `La semana del ${fc(lunes)} queda como cargada en el reloj.${sacar ? " Se sacaron las marcas de adicionales." : ""}`, "success");
   };
-  borradorModal("Trabar semana", `<p>La semana del <b>${fc(lunes)}</b> queda como <b>cargada en el reloj</b>: "Armar sugerido" no la toca. Podés seguir cambiándola a mano.</p>
+  borradorModal("Trabar semana", `<p>La semana del <b>${fc(lunes)}</b> queda como <b>cargada en el reloj</b>: "Armar sugerido" no la toca y <b>no se puede cambiar a mano</b> hasta que la destrabes.</p>
     ${marcas.length ? `<p>Tiene <b>${marcas.length}</b> ${marcas.length === 1 ? "día" : "días"} con horas adicionales marcadas. Para el reloj van sin adicionales: ¿las saco?</p>` : ""}`,
     [{ txt: "Cancelar" }, ...(marcas.length ? [{ txt: "Solo trabar", fn: () => trabar(false) }, { txt: "Trabar y sacar adicionales", clase: "bm-prin", fn: () => trabar(true) }] : [{ txt: "Trabar", clase: "bm-prin", fn: () => trabar(false) }])]);
 };
@@ -21040,12 +21147,14 @@ window.evArmar = async function (desde, hasta, n, L, maxSem, conVend) {
     // Se rearman: primero se sacan los turnos de eventuales del período
     for (let d = new Date(desde + "T00:00:00"); formatDate(d) <= hasta; d = addDays(d, 1)) {
       const f = formatDate(d);
+      if (semanaBloqueada(f)) continue;
       for (const e of evs) { const k = `${e.id}_${f}`; if (borrador.docs[k]) await deleteDoc(doc(db, "planificacion", k)); }
     }
     const datos = await desCalcular(desde, hasta);
     const hSem = {}, dSem = {};
     let turnosN = 0, horas = 0, sinGente = 0;
     for (const x of datos.dias) {
+      if (semanaBloqueada(x.fecha)) continue; // semana trabada: no se toca
       const def = evDeficit(x, conVend ? "vend_a" : "caj_a");
       const t = evTurnosDia(def, L);
       let rec = t.findIndex((u) => u.cubre < 3); if (rec < 0) rec = t.length;
@@ -21380,7 +21489,7 @@ window.borradorPintarFranja = function () {
     tb.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>${tr ? '<path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>' : '<path d="M8 10.5V7.5a4 4 0 0 1 7.6-1.7"/>'}</svg>`;
     tb.setAttribute("aria-label", tr ? "Semana trabada" : "Trabar semana");
     tb.classList.toggle("bf-trabada", tr);
-    tb.title = tr ? "Esta semana está trabada (cargada en el reloj): Armar sugerido no la toca. Tocá para destrabarla" : "Marcar la semana que se ve como cargada en el reloj: Armar sugerido no la toca";
+    tb.title = tr ? "Esta semana está trabada (cargada en el reloj): no se puede cambiar ni la toca Armar sugerido. Tocá para destrabarla" : "Trabar la semana que se ve: no se puede cambiar a mano ni la toca Armar sugerido";
   }
   const n = borradorCambios().length;
   const inpN = fr.querySelector("#borradorNombre");
