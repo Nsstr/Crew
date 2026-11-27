@@ -3946,7 +3946,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.165
+            Versión: v1.7.166
           </div>
         </div>
       </div>
@@ -5271,7 +5271,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.165";
+  const APP_VERSION = "v1.7.166";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -16116,22 +16116,29 @@ function desAnexoDatos(dias) {
 // ===== Personal eventual: cuántas personas de 8 h (corrido o cortado 4 + 4) hacen falta para tapar lo que falta =====
 // Por día, elige turnos uno por uno: cada uno el que más horas faltantes tapa. "Recomendadas" corta cuando una
 // persona más taparía menos de medio turno (4 h): de ahí en adelante sale caro para lo poco que cubre.
+// Turnos para tapar el faltante sin pasarse de lo pedido: corridos de 4 h hasta el largo elegido, o cortado en
+// dos bloques iguales. Cada turno se elige por lo que tapa menos lo que sobraría (horas donde ya hay gente).
 function evTurnosDia(def, L = 8) {
   const hs = def.map((v, h) => (v > 0 ? h : -1)).filter((h) => h >= 0);
   if (!hs.length) return [];
   const ult = hs[hs.length - 1];
   const a0 = Math.max(0, hs[0] - 2), b0 = Math.min(Math.max(23, ult + 1), ult + 3), m = L / 2;
+  const MIN = Math.min(4, L);
   const cand = [];
-  for (let s = Math.max(0, Math.min(a0, b0 - L)); s + L <= b0; s++) cand.push([[s, s + L]]);
-  // Cortado en dos bloques iguales, solo para turnos de 6 h o más (bloques de 3 o 4 h)
+  for (let largo = MIN; largo <= L; largo++) for (let s = a0; s + largo <= b0; s++) cand.push([[s, s + largo]]);
   if (L >= 6) for (let s = a0; s + m <= b0; s++) for (let u = s + m + 1; u + m <= b0; u++) cand.push([[s, s + m], [u, u + m]]);
   const rem = def.slice(), out = [];
   for (let k = 0; k < 40; k++) {
-    let best = null, bs = 0;
-    cand.forEach((c) => { let sc = 0; c.forEach(([a, b]) => { for (let h = a; h < b; h++) if (rem[h] > 0) sc++; }); if (c.length === 1) sc += 0.01; if (sc > bs) { bs = sc; best = c; } });
-    if (!best || bs < 1) break;
+    let best = null, bs = -1, bc = 0;
+    cand.forEach((c) => {
+      let cub = 0, sobra = 0, largo = 0;
+      c.forEach(([a, b]) => { for (let h = a; h < b; h++) { largo++; if (rem[h] > 0) cub++; else sobra++; } });
+      const sc = cub - sobra + largo * 0.01; // a igual balance, el turno más largo (menos gente)
+      if (sc > bs) { bs = sc; best = c; bc = cub; }
+    });
+    if (!best || bc < MIN - 1 || bs < MIN - 1.5) break;
     best.forEach(([a, b]) => { for (let h = a; h < b; h++) rem[h]--; });
-    out.push({ t: best, cubre: Math.floor(bs) });
+    out.push({ t: best, cubre: bc, largo: best.reduce((t2, [a, b]) => t2 + b - a, 0) });
   }
   return out;
 }
@@ -16141,7 +16148,7 @@ function evCalcular(dias, clave) {
     const def = evDeficit(x, clave);
     const turnos = evTurnosDia(def);
     const falta = def.reduce((a, b) => a + b, 0);
-    let rec = turnos.findIndex((t) => t.cubre < 4); if (rec < 0) rec = turnos.length;
+    let rec = turnos.findIndex((t) => t.cubre < 3); if (rec < 0) rec = turnos.length;
     return { x, def, falta, turnos, rec, todo: turnos.length };
   });
   const maxRec = Math.max(0, ...porDia.map((d) => d.rec)), maxTodo = Math.max(0, ...porDia.map((d) => d.todo));
@@ -16389,6 +16396,29 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
   const avisoVend = sinVend.length ? `<div class="aviso-v"><b>Faltan cargar horarios de vendedores</b> en ${sinVend.length} día${sinVend.length === 1 ? "" : "s"} (${(() => { const r = []; let a = null, b = null; sinVend.forEach((x) => { if (b && addDays(new Date(b.fecha + "T00:00:00"), 1).getTime() === new Date(x.fecha + "T00:00:00").getTime()) b = x; else { if (a) r.push([a, b]); a = b = x; } }); if (a) r.push([a, b]); return r.map(([p, q]) => p === q ? fc2(p.fecha) : `${fc2(p.fecha)} al ${fc2(q.fecha)}`).join(", "); })()}). Esos días el piso de venta da 0 porque no está cargado, no porque no haya gente: lo que falta puede ser menos.</div>` : "";
   const fChip = (n) => n > 0.05 ? `<span class="dif falta">Faltan ${desH(n)} h</span>` : `<span class="dif justo">Cubierto</span>`;
   const fCelda = (n) => n > 0.05 ? `<span class="dif falta">${desH(n)}</span>` : `<span class="gr">—</span>`;
+  // Balance contra lo pedido: de cada capa (normales, adicionales, eventuales recomendados), cuánto cae dentro
+  // de lo que pide Recaudaciones y cuánto queda por encima (horas donde ya había gente)
+  const EVB = evCobMapa(dias);
+  const bal = { n: [0, 0], a: [0, 0], e: [0, 0], sp: 0 };
+  dias.forEach((x) => {
+    if (x.cerrada) return;
+    for (let h = 0; h < 24; h++) {
+      const c0 = x.cnt.caj_n[h], c1 = x.cnt.caj_a[h], c2 = c1 + (EVB.m[x.fecha] ? EVB.m[x.fecha][h] : 0);
+      if (!x.conDemanda) { bal.sp += c2; continue; }
+      const r = x.r[h], dn = (c) => Math.min(r, c);
+      bal.n[0] += dn(c0); bal.n[1] += c0 - dn(c0);
+      bal.a[0] += dn(c1) - dn(c0); bal.a[1] += (c1 - c0) - (dn(c1) - dn(c0));
+      bal.e[0] += dn(c2) - dn(c1); bal.e[1] += (c2 - c1) - (dn(c2) - dn(c1));
+    }
+  });
+  const balTot = [bal.n[0] + bal.a[0] + bal.e[0], bal.n[1] + bal.a[1] + bal.e[1]];
+  const balFila = (etq, v, cls) => `<tr${cls ? ` class="${cls}"` : ""}><td class="l">${etq}</td><td>${desH(v[0] + v[1])} h</td><td>${desH(v[0])} h</td><td>${v[1] > 0.05 ? `<span class="dif sobre">${desH(v[1])} h</span>` : '<span class="gr">—</span>'}</td></tr>`;
+  const bloqueBalance = F.req ? `<h2 style="margin-top:14px">Balance contra lo pedido</h2>
+    <p class="sub">De cada parte, cuánto cae dentro de lo que pide Recaudaciones y cuánto queda por encima, en horas donde ya había gente. Lo de los normales es el horario de contrato; lo de adicionales y eventuales se puede recortar armando las adicionales con "Nada: solo donde falta gente".</p>
+    <table class="rt"><thead><tr><th class="l">Parte</th><th>Horas</th><th>Dentro de lo pedido</th><th>Por encima</th></tr></thead><tbody>
+    ${balFila("Cajeros · normales", bal.n)}${balFila("Horas adicionales", bal.a)}${balFila(EVB.cargados ? "Personal eventual (cargado)" : "Personal eventual (recomendado)", bal.e)}
+    <tr class="tot"><td class="l">Total</td><td>${desH(balTot[0] + balTot[1])} h</td><td>${desH(balTot[0])} h de ${desH(F.req)} h pedidas</td><td>${balTot[1] > 0.05 ? desH(balTot[1]) + " h" : "—"}</td></tr></tbody></table>
+    ${bal.sp > 0.05 ? `<p class="sub">Además hay ${desH(bal.sp)} h en días sin pedido cargado.</p>` : ""}` : "";
   const bloqueFalta = `<section class="blq cf${F.ev ? " conev" : ""}"><h2>¿Cuánto falta para lo que pide Recaudaciones?</h2>
     <p class="sub">Con todo lo que tenemos: cajeros, sus horas adicionales y la gente del piso de venta que puede cobrar (vendedores con fallo de caja, todo su turno). Lo que falta se cuenta hora por hora: son las horas a pedir.</p>
     <div class="flow">
@@ -16410,6 +16440,7 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
       return `<tr${x.feriado ? ' class="fer"' : ""}><td class="l">${et}</td><td>${x.conDemanda ? desH(x.req) : "—"}</td><td class="cj">${desH(r.a)}</td><td class="pv">${x.vendSinCargar ? tagSC("sin cargar") : r.pv ? "+" + desH(r.pv) : "—"}</td>${F.ev ? `<td class="evd">${r.ev ? "+" + desH(r.ev) : "—"}</td>` : ""}<td class="ca">${desH(r.todo)}</td><td>${x.conDemanda ? fCelda(r.ft) : '<span class="gr">sin pedido</span>'}</td></tr>`;
     }).join("")}
     <tr class="tot"><td class="l">Total</td><td>${desH(F.req)}</td><td>${desH(F.a)}</td><td>${F.pv ? "+" + desH(F.pv) : "—"}</td>${F.ev ? `<td class="evd">${F.ev ? "+" + desH(F.ev) : "—"}</td>` : ""}<td>${desH(F.todo)}</td><td>${F.req ? fChip(F.ft) : "—"}</td></tr></tbody></table>
+    ${bloqueBalance}
   </section>`;
   // ===== Personal eventual: lo necesario para cubrir lo que falta, y cuánto cubre cada cantidad que autoricen =====
   const EVs = evCalcular(dias, "caj_a"), EVv = evCalcular(dias, "vend_a");
@@ -16417,11 +16448,13 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
   const pctTxt = (p) => `${Math.round(p * 100)} %`;
   const curvaFila = (k) => { const a = EVs.curva[k - 1], b = EVv.curva[k - 1]; return `<tr${k === EVs.maxRec ? ' class="rec"' : ""}><td class="l"><b>${k}</b> persona${k === 1 ? "" : "s"}${k === EVs.maxRec ? ' <span class="tag-rec">recomendado</span>' : ""}</td><td>${a ? desH(a.cub) + " h" : "—"}</td><td>${a ? `<div class="pbar"><i style="width:${Math.round(a.pct * 100)}%"></i><span>${pctTxt(a.pct)}</span></div>` : "—"}</td><td>${a ? desH(EVs.faltaTot - a.cub) + " h" : "—"}</td>${hayVendEv ? `<td>${b ? pctTxt(b.pct) : "100 %"}</td>` : ""}</tr>`; };
   const bloqueEventual = EVs.faltaTot > 0 ? `<section class="salto blq ev"><h2>Personal eventual · para días puntuales</h2>
-    <p class="sub">Después de cajeros y adicionales, cuántas personas de 8 h (corrido o cortado en dos bloques de 4 h) hacen falta para tapar lo que falta. Son las mismas personas, que vienen los días que se necesitan. "Recomendado" deja afuera a quien taparía menos de medio turno.</p>
+    <p class="sub">Después de cajeros y adicionales, cuántas personas hacen falta para tapar lo que falta, con turnos de 4 a 8 h (corridos, o cortados 4 + 4) ajustados para no pasarse de lo pedido. Son las mismas personas, que vienen los días que se necesitan. "Recomendado" deja afuera a quien taparía menos de 3 h.</p>
     <div class="flow ev3">
       <div class="fk"><small>Falta cubrir (sin vendedores)</small><b>${desH(EVs.faltaTot)} h</b><div class="fn">Hora por hora, después de adicionales</div></div>
-      <div class="fk ft"><small>Recomendado</small><b>${EVs.maxRec} persona${EVs.maxRec === 1 ? "" : "s"}</b><div class="fn">De 8 h · cubre ${pctTxt((EVs.curva[EVs.maxRec - 1] || { pct: 1 }).pct)} de lo que falta</div></div>
-      <div class="fk"><small>Para cubrir el 100 %</small><b>${EVs.maxTodo} persona${EVs.maxTodo === 1 ? "" : "s"}</b><div class="fn">Las últimas tapan pocas horas sueltas</div></div>
+      <div class="fk ft"><small>Recomendado</small><b>${EVs.maxRec} persona${EVs.maxRec === 1 ? "" : "s"}</b><div class="fn">De 4 a 8 h · cubre ${pctTxt((EVs.curva[EVs.maxRec - 1] || { pct: 1 }).pct)} de lo que falta</div></div>
+      ${(() => { const u = EVs.curva[EVs.curva.length - 1]; return u && u.pct >= 0.99
+        ? `<div class="fk"><small>Para cubrir el 100 %</small><b>${EVs.maxTodo} persona${EVs.maxTodo === 1 ? "" : "s"}</b><div class="fn">Las últimas tapan pocas horas sueltas</div></div>`
+        : `<div class="fk"><small>Hasta dónde se llega sin pasarse</small><b>${pctTxt(u ? u.pct : 0)}</b><div class="fn">Lo demás son huecos sueltos de 1 o 2 h: un turno sobraría</div></div>`; })()}
       ${F.ev ? `<div class="fk evk"><small>Ya cargados en el borrador</small><b>${desH(F.ev)} h</b><div class="fn">${new Set(dias.flatMap((x) => Object.keys(x.pers).filter((id) => x.pers[id].ev))).size} personas eventuales</div></div>` : ""}
       ${hayVendEv ? `<div class="fk pv"><small>Contando vendedores</small><b>${EVv.maxRec} persona${EVv.maxRec === 1 ? "" : "s"}</b><div class="fn">Falta ${desH(EVv.faltaTot)} h${sinVend.length ? " · hay días sin cargar" : ""}</div></div>` : ""}
     </div>
@@ -16430,7 +16463,7 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     ${EVs.curva.map((c) => curvaFila(c.k)).join("")}</tbody></table>
     <h2 style="margin-top:12px">Por día · turnos sugeridos</h2>
     <table class="rt"><thead><tr><th class="l">Día</th><th>Falta</th><th>Personas</th><th class="l">Turnos (las recomendadas)</th>${hayVendEv ? "<th>Con vend.</th>" : ""}</tr></thead><tbody>
-    ${EVs.porDia.filter((d) => d.falta > 0).map((d, i) => { const dv = EVv.porDia[EVs.porDia.indexOf(d)]; return `<tr${d.x.feriado ? ' class="fer"' : ""}><td class="l">${d.x.etiqueta}${d.x.feriado ? ' <span class="tag">feriado</span>' : ""}</td><td>${desH(d.falta)} h</td><td><b>${d.rec}</b>${d.todo > d.rec ? ` <span class="gr">(${d.todo} para el 100 %)</span>` : ""}</td><td class="l tur">${evResumenTurnos(d.turnos.slice(0, d.rec)) || '<span class="gr">sueltas: menos de 4 h</span>'}</td>${hayVendEv ? `<td>${dv.rec}${d.x.vendSinCargar ? ' <span class="sc-v">sin cargar</span>' : ""}</td>` : ""}</tr>`; }).join("")}
+    ${EVs.porDia.filter((d) => d.falta > 0).map((d, i) => { const dv = EVv.porDia[EVs.porDia.indexOf(d)]; return `<tr${d.x.feriado ? ' class="fer"' : ""}><td class="l">${d.x.etiqueta}${d.x.feriado ? ' <span class="tag">feriado</span>' : ""}</td><td>${desH(d.falta)} h</td><td><b>${d.rec}</b>${d.todo > d.rec ? ` <span class="gr">(${d.todo} para el 100 %)</span>` : ""}</td><td class="l tur">${evResumenTurnos(d.turnos.slice(0, d.rec)) || '<span class="gr">sueltas: menos de 3 h</span>'}</td>${hayVendEv ? `<td>${dv.rec}${d.x.vendSinCargar ? ' <span class="sc-v">sin cargar</span>' : ""}</td>` : ""}</tr>`; }).join("")}
     </tbody></table></section>` : "";
   // ===== Dato extra: horarios (sin y con adicionales) y cobertura hora por hora =====
   const AX = desAnexoDatos(dias);
@@ -16494,7 +16527,7 @@ function desArmarDoc({ dias, total, semanas }, desde, hasta, pantalla) {
     .l { text-align: left; } .fuerte { font-weight: 700; }
     .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
     .dif { display: inline-block; padding: 1px 7px; border-radius: 10px; font-weight: 700; font-size: 9.5px; white-space: nowrap; }
-    .falta { background: #fee2e2; color: #b91c1c; } .sobra { background: #dcfce7; color: #15803d; } .justo { background: #f1f5f9; color: #475569; }
+    .falta { background: #fee2e2; color: #b91c1c; } .sobra { background: #dcfce7; color: #15803d; } .justo { background: #f1f5f9; color: #475569; } .dif.sobre { background: #fef3c7; color: #92400e; }
     .det th.grp { text-align: center; color: #334155; text-transform: none; font-size: 10px; border-left: 1px solid #e2e8f0; }
     .det td.ini { border-left: 1px solid #e2e8f0; } .det td.fr { color: #b91c1c; font-size: 9.5px; }
     .tot td { font-weight: 700; background: #f8fafc; border-top: 1px solid #cbd5e1; }
@@ -16912,7 +16945,7 @@ async function desExcel(datos, desde, hasta, nombre) {
   if (EVs.faltaTot > 0) {
     const wsE = wb.addWorksheet("Personal eventual", { views: [{ showGridLines: false }], properties: { tabColor: { argb: "FFB91C1C" } } });
     wsE.columns = [{ width: 30 }, { width: 14 }, { width: 16 }, { width: 16 }, { width: 16 }, { width: 50 }];
-    titulo(wsE, "Personal eventual · para días puntuales", `Personas de 8 h (corrido o cortado 4 + 4) para tapar lo que falta después de cajeros y adicionales. Recomendado: ${EVs.maxRec} (deja afuera a quien taparía menos de medio turno). Para el 100 %: ${EVs.maxTodo}.`, 6);
+    titulo(wsE, "Personal eventual · para días puntuales", `Personas con turnos de 4 a 8 h (corridos o cortados 4 + 4), ajustados para no pasarse de lo pedido, para tapar lo que falta después de cajeros y adicionales. Recomendado: ${EVs.maxRec} (deja afuera a quien taparía menos de 3 h). Para el 100 %: ${EVs.maxTodo}.`, 6);
     wsE.getRow(4).values = ["Personas", "Horas que cubren", "% de lo que falta", "Quedan sin cubrir", "Con vendedores", ""]; cabecera(wsE.getRow(4)); wsE.getCell(4, 6).fill = fill("FFFFFFFF");
     EVs.curva.forEach((c, i) => {
       const v = EVv.curva[i];
@@ -16928,7 +16961,7 @@ async function desExcel(datos, desde, hasta, nombre) {
     EVs.porDia.forEach((d, i) => {
       if (!d.falta) return;
       const row = wsE.getRow(fe++);
-      row.values = [d.x.etiqueta + (d.x.feriado ? " · feriado" : ""), d.falta, d.rec, d.todo, EVv.porDia[i].rec + (d.x.vendSinCargar ? " (sin cargar)" : ""), evResumenTurnos(d.turnos.slice(0, d.rec)) || "sueltas: menos de 4 h"];
+      row.values = [d.x.etiqueta + (d.x.feriado ? " · feriado" : ""), d.falta, d.rec, d.todo, EVv.porDia[i].rec + (d.x.vendSinCargar ? " (sin cargar)" : ""), evResumenTurnos(d.turnos.slice(0, d.rec)) || "sueltas: menos de 3 h"];
       row.eachCell({ includeEmpty: true }, (ce, col) => { ce.border = borde; ce.alignment = { horizontal: col === 1 || col === 6 ? "left" : "center", wrapText: col === 6 }; });
       if (d.x.feriado) row.getCell(1).fill = fill(C.fer);
     });
@@ -20974,7 +21007,7 @@ window.evModal = async function () {
       const datos = await desCalcular(per.desde, per.hasta);
       const clave = vend ? "vend_a" : "caj_a";
       let maxRec = 0, faltaTot = 0;
-      datos.dias.forEach((x) => { const def = evDeficit(x, clave); faltaTot += def.reduce((a, b) => a + b, 0); const t = evTurnosDia(def, L); let r = t.findIndex((u) => u.cubre < L / 2); if (r < 0) r = t.length; maxRec = Math.max(maxRec, r); });
+      datos.dias.forEach((x) => { const def = evDeficit(x, clave); faltaTot += def.reduce((a, b) => a + b, 0); const t = evTurnosDia(def, L); let r = t.findIndex((u) => u.cubre < 3); if (r < 0) r = t.length; maxRec = Math.max(maxRec, r); });
       if (!document.getElementById("evRec")) return;
       el.textContent = faltaTot ? `recomendado: ${maxRec} (faltan ${desH(faltaTot)} h)` : "no falta gente en ese período";
       if (!evs.length && maxRec) document.getElementById("evCant").value = maxRec;
@@ -21003,25 +21036,25 @@ window.evArmar = async function (desde, hasta, n, L, maxSem, conVend) {
     for (const x of datos.dias) {
       const def = evDeficit(x, conVend ? "vend_a" : "caj_a");
       const t = evTurnosDia(def, L);
-      let rec = t.findIndex((u) => u.cubre < L / 2); if (rec < 0) rec = t.length;
+      let rec = t.findIndex((u) => u.cubre < 3); if (rec < 0) rec = t.length;
       const hoy = new Set();
       for (const u of t.slice(0, rec)) {
         const lun = x.semana;
-        const cand = usar.filter((e) => !hoy.has(e.id) && (hSem[lun + e.id] || 0) + L <= maxSem + 1e-9 && (dSem[lun + e.id] || 0) < 6)
+        const cand = usar.filter((e) => !hoy.has(e.id) && (hSem[lun + e.id] || 0) + u.largo <= maxSem + 1e-9 && (dSem[lun + e.id] || 0) < 6)
           .sort((a, b) => (hSem[lun + a.id] || 0) - (hSem[lun + b.id] || 0) || a.id.localeCompare(b.id, undefined, { numeric: true }));
         if (!cand.length) { sinGente += u.cubre; continue; }
         const e = cand[0];
         hoy.add(e.id);
         const slot = u.t.map(([a, b]) => `${a}a${b}`).join("/");
         await setDoc(doc(db, "planificacion", `${e.id}_${x.fecha}`), { colaboradorId: e.id, fecha: x.fecha, slot, eventual: true });
-        hSem[lun + e.id] = (hSem[lun + e.id] || 0) + L; dSem[lun + e.id] = (dSem[lun + e.id] || 0) + 1;
-        turnosN++; horas += L;
+        hSem[lun + e.id] = (hSem[lun + e.id] || 0) + u.largo; dSem[lun + e.id] = (dSem[lun + e.id] || 0) + 1;
+        turnosN++; horas += u.largo;
       }
     }
     borradorPersistir();
     renderUI();
     armadoEsperaFin();
-    showToast("Personal eventual", `${turnosN} turnos de ${L} h para ${n} persona${n === 1 ? "" : "s"} (${desH(horas)} h).${sinGente ? ` Con esa cantidad quedan ${desH(sinGente)} h sin cubrir.` : ""} Los demás horarios no se tocaron.`, "success");
+    showToast("Personal eventual", `${turnosN} turnos (de 4 a ${L} h) para ${n} persona${n === 1 ? "" : "s"} (${desH(horas)} h).${sinGente ? ` Con esa cantidad quedan ${desH(sinGente)} h sin cubrir.` : ""} Los demás horarios no se tocaron.`, "success");
   } catch (e) {
     armadoEsperaFin();
     console.warn(e);
