@@ -826,6 +826,11 @@
     html.tema-claro:not(.modo-borrador) .main-app-nav #navDropdownMenu .nav-dropdown-item:hover, html.tema-claro:not(.modo-borrador) .main-app-nav #navDropdownMenu button:hover { background: #f1f5f9 !important; }
     /* Celular: lista del día y barra de días de abajo */
     html.tema-claro:not(.modo-borrador) .cmv .cell-input { color: #1e293b !important; }
+    html.modo-borrador .cmv .cell-input { color: #3b3328 !important; -webkit-text-fill-color: #3b3328 !important; }
+    html.modo-borrador .cmv-chip .cell-input { color: #857a68 !important; -webkit-text-fill-color: #857a68 !important; }
+    html.modo-borrador .cmv-row { border-top-color: #e9dfcf; }
+    html.modo-borrador .cmv-row:active { background: #efe7da; }
+    html.modo-borrador .cmv-track { background-color: #efe7da; background-image: linear-gradient(to right, rgba(59, 51, 40, 0.08) 1px, transparent 1px); }
     html.tema-claro:not(.modo-borrador) .cmv-row { border-top-color: #eef2f6; }
     html.tema-claro:not(.modo-borrador) .cmv-row:active { background: #f1f5f9; }
     html.tema-claro:not(.modo-borrador) .cmv-track { background-color: #f1f5f9; background-image: linear-gradient(to right, rgba(15, 23, 42, 0.07) 1px, transparent 1px); }
@@ -3981,7 +3986,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: var(--t-94a3b8, #94a3b8); text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.170
+            Versión: v1.7.171
           </div>
         </div>
       </div>
@@ -5347,7 +5352,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.170";
+  const APP_VERSION = "v1.7.171";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -16235,9 +16240,11 @@ let adicDashTurno = 0;
     } catch (e) { caja.innerHTML = `<div class="aq-cargando">No se pudo calcular.</div>`; }
   };
   const ocultar = () => { if (!dentro && caja) caja.style.display = "none"; };
+  // Solo con mouse (en el celular el toque abre la pestaña directo, sin la vista rápida)
+  const conMouse = () => { try { return window.matchMedia("(hover: hover) and (pointer: fine)").matches && window.innerWidth > 768; } catch (e) { return false; } };
   document.addEventListener("mouseover", (e) => {
     const b = e.target.closest && e.target.closest("#adicionalesTabBtn");
-    if (!b) return;
+    if (!b || !conMouse()) return;
     if (dentro) return;
     dentro = true;
     clearTimeout(timer); timer = setTimeout(mostrar, 450);
