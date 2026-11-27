@@ -838,6 +838,26 @@
     #borradorFranja { position: fixed; left: 12px; bottom: 12px; z-index: 99991; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; max-width: calc(100vw - 24px); background: #1c1405; border: 1px solid #f59e0b; border-radius: 12px; padding: 8px 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-size: 0.8rem; color: var(--t-fde68a, #fde68a); }
     #borradorFranja.bf-arriba { position: static; flex: 0 0 auto; max-width: none; border-radius: 0; border: none; border-bottom: 1px solid #f59e0b; box-shadow: none; padding: 6px 14px; }
     html.modo-borrador #borradorFranja.bf-arriba { border-bottom-color: var(--terracota); background: #f6ece0; box-shadow: none; }
+    /* En la barra de arriba: chico y discreto, sin nombre ni "Salir" (eso lo hace el selector Real / Adicionales) */
+    #borradorFranja.bf-nav { position: static; display: inline-flex; flex-wrap: nowrap; gap: 4px; padding: 0; margin-right: 8px; background: transparent !important; border: none; box-shadow: none; max-width: none; }
+    #borradorFranja.bf-nav .bf-modo, #borradorFranja.bf-nav #borradorNombre, #borradorFranja.bf-nav .bf-salir, #borradorFranja.bf-nav .bf-sep { display: none !important; }
+    #borradorFranja.bf-nav button { height: 26px; padding: 0 8px; font-size: 0.72rem; border-radius: 6px; font-family: inherit; }
+    #borradorFranja.bf-nav, #modoToggle { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    #borradorFranja button { display: inline-flex; align-items: center; gap: 5px; }
+    #borradorFranja .bf-ic { display: none; }
+    #borradorFranja.bf-nav .bf-ic { display: inline-block; }
+    /* En pantallas angostas, solo íconos (el nombre aparece al pasar el mouse) */
+    @media (max-width: 1599px) { #borradorFranja.bf-nav .bf-txt { display: none; } #borradorFranja.bf-nav button { padding: 0 7px; } }
+    html.modo-borrador #borradorFranja.bf-nav button { color: var(--terracota); border-color: rgba(194, 96, 63, 0.45); background: #fff; }
+    html.modo-borrador #borradorFranja.bf-nav button:hover { background: #f6e3da; }
+    html.modo-borrador #borradorFranja.bf-nav button.bf-real { color: #b91c1c; border: 1px dashed #dc2626; background: #fff; }
+    html.modo-borrador #borradorFranja.bf-nav button.bf-trabada { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+    /* Selector Real / Adicionales: dos caras de la misma grilla */
+    #modoToggle { display: inline-flex; margin-right: 8px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; height: 26px; flex: 0 0 auto; }
+    #modoToggle button { border: none; background: transparent; color: var(--text-muted); font-family: inherit; font-size: 0.72rem; font-weight: 700; padding: 0 10px; cursor: pointer; white-space: nowrap; }
+    #modoToggle button.activo[data-m="real"] { background: #1e293b; color: #fff; }
+    #modoToggle button.activo[data-m="adic"] { background: #c2603f; color: #fff; }
+    @media (max-width: 768px) { #modoToggle { display: none; } }
     #borradorFranja .bf-tag { background: #f59e0b; color: #1c1405; font-weight: 800; border-radius: 6px; padding: 2px 7px; letter-spacing: 0.04em; font-size: 0.7rem; }
     #borradorFranja input { background: transparent; border: 1px dashed rgba(253, 230, 138, 0.4); border-radius: 6px; color: var(--t-fde68a, #fde68a); font-family: inherit; font-weight: 700; font-size: 0.8rem; padding: 3px 6px; width: 160px; }
     #borradorFranja .bf-n { color: var(--t-fbbf24, #fbbf24); opacity: 0.85; white-space: nowrap; }
@@ -3887,6 +3907,10 @@
     </div>
     
     <div class="main-app-nav-center date-nav-container" id="dateNavigationContainer">
+      <div id="modoToggle" role="group" aria-label="Horarios reales o modo adicionales">
+        <button type="button" data-m="real" onclick="window.modoIr('real')" title="Los horarios reales (lo publicado)">Real</button>
+        <button type="button" data-m="adic" onclick="window.modoIr('adic')" title="Modo adicionales: la misma grilla con las horas adicionales, sin tocar lo real">Adicionales</button>
+      </div>
       <!-- Días de la semana al pie (solo celular, Línea de Cajas), al alcance del pulgar -->
       <div id="mobileDayChips" class="mdc" style="display: none;"></div>
       <div class="date-nav" style="display: flex; align-items: center; gap: 0.25rem;">
@@ -3957,7 +3981,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: var(--t-94a3b8, #94a3b8); text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.169
+            Versión: v1.7.170
           </div>
         </div>
       </div>
@@ -5323,7 +5347,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.169";
+  const APP_VERSION = "v1.7.170";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -9015,6 +9039,7 @@ function actualizarOpcionesArea() {
 }
 
 window.renderUI = function renderUI() {
+  try { if (typeof modoTogglePintar === "function") modoTogglePintar(); } catch (e) {}
   try { if (typeof realTrabaPintar === "function") realTrabaPintar(); } catch (e) {}
   if (typeof adicSemanaMemo !== "undefined") adicSemanaMemo = new Map(); // los horarios pudieron cambiar
   actualizarOpcionesArea();
@@ -19912,42 +19937,29 @@ window.borradorBorrarDefinitivo = function (id, nombre) {
     } },
   ]);
 };
-window.borradorMenu = function () {
+// Modo adicionales: una sola versión, siempre la misma (la cara "con adicionales" de los horarios).
+// Entrar abre directo la última guardada; si no hay ninguna, se crea copiando lo real.
+window.borradorMenu = async function () {
   document.getElementById("navDropdownMenu") && (document.getElementById("navDropdownMenu").style.display = "none");
   if (borradorActivo()) { window.borradorSalir(); return; }
   const g = borradorGuardado();
-  const intro = `<p>Es una copia de los horarios para probar otra alternativa. Funciona todo igual (reglas, avisos, presupuesto, cobertura, planilla), pero <b>no toca los horarios reales</b>. Se guarda aparte, en la nube, y lo podés seguir desde cualquier compu.</p><p style="color: var(--text-muted);">Vacaciones, eventos y colaboradores siguen siendo los reales.</p>`;
-  if (!isMockMode) {
-    borradorListaNube().then((todos) => {
-      const lista = todos.filter((b) => !b.papelera), tacho = todos.filter((b) => b.papelera);
-      const fh = (iso) => { try { const d = new Date(iso); return `${d.toLocaleDateString("es-AR")} ${d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}`; } catch (e) { return ""; } };
-      const filas = lista.map((b) => {
-        const n = Object.keys(b.cambios || {}).length;
-        return `<div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px;"><div style="flex: 1; min-width: 0;"><b>${borradorEsc(b.nombre || "Borrador")}</b><div style="font-size: 0.75rem; color: var(--text-muted);">${n} ${n === 1 ? "cambio" : "cambios"} · ${fh(b.actualizado)}</div></div>
-          <button type="button" class="bm-mini" onclick="document.getElementById('borradorModal').remove(); window.borradorSeguirNube('${b.id}')">Seguir</button>
-          <button type="button" class="bm-mini" title="Mandar esta versión a la papelera" onclick="window.borradorBorrarNube('${b.id}', ${JSON.stringify(b.nombre || "Borrador").replace(/"/g, "&quot;")})">Borrar</button></div>`;
-      }).join("");
-      const filasTacho = tacho.map((b) => `<div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; opacity: .8;"><div style="flex: 1; min-width: 0;">${borradorEsc(b.nombre || "Borrador")}<div style="font-size: 0.72rem; color: var(--text-muted);">en la papelera desde ${fh(b.papelera)}</div></div>
-          <button type="button" class="bm-mini" onclick="window.borradorRecuperar('${b.id}')">Recuperar</button>
-          <button type="button" class="bm-mini" title="Borrar para siempre" onclick="window.borradorBorrarDefinitivo('${b.id}', ${JSON.stringify(b.nombre || "Borrador").replace(/"/g, "&quot;")})">Borrar</button></div>`).join("");
-      borradorModal("Modo adicionales", `${intro}${lista.length ? `<p style="margin-top: 10px;"><b>Versiones guardadas</b></p><div class="bm-lista">${filas}</div>` : ""}${tacho.length ? `<details style="margin-top: 10px;"><summary style="cursor: pointer; color: var(--text-muted);">Papelera (${tacho.length})</summary><div class="bm-lista">${filasTacho}</div></details>` : ""}`, [
-        { txt: "Cancelar" },
-        { txt: "Empezar uno nuevo", clase: lista.length ? "" : "bm-prin", fn: () => borradorNuevo() },
-      ]);
-    });
-    return;
-  }
-  if (g && g.docs) {
-    const n = borradorCambios(g).length;
-    borradorModal("Modo adicionales", `${intro}<p>Tenés una versión de adicionales guardado: <b>${borradorEsc(g.nombre)}</b> · ${n} ${n === 1 ? "cambio" : "cambios"}.</p>`, [
-      { txt: "Cancelar" },
-      { txt: "Empezar uno nuevo", fn: () => borradorNuevo() },
-      { txt: "Seguir con el guardado", clase: "bm-prin", fn: () => borradorActivar(g) },
-    ]);
-  } else {
-    borradorModal("Modo adicionales", intro, [{ txt: "Cancelar" }, { txt: "Empezar", clase: "bm-prin", fn: () => borradorNuevo() }]);
-  }
+  if (isMockMode) { if (g && g.docs) borradorActivar(g); else borradorNuevo(); return; }
+  showToast("Modo adicionales", "Abriendo…", "info");
+  const lista = (await borradorListaNube()).filter((b) => !b.papelera);
+  const propia = g && g.nubeId ? lista.find((b) => b.id === g.nubeId) : null;
+  const elegido = propia || lista[0];
+  if (elegido) { window.borradorSeguirNube(elegido.id); return; }
+  if (g && g.docs) { borradorActivar(g); return; }
+  borradorNuevo();
 };
+window.modoIr = function (m) {
+  if (m === "adic" && !borradorActivo()) window.borradorMenu();
+  else if (m === "real" && borradorActivo()) window.borradorSalir();
+};
+function modoTogglePintar() {
+  document.querySelectorAll("#modoToggle button").forEach((b) => b.classList.toggle("activo", (b.dataset.m === "adic") === borradorActivo()));
+}
+window.modoTogglePintar = modoTogglePintar;
 window.borradorSalir = function () {
   try { localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador)); localStorage.setItem(BORRADOR_ACTIVO_KEY, "0"); } catch (e) {}
   location.reload();
@@ -21558,15 +21570,17 @@ window.borradorPintarFranja = function () {
   if (!fr) {
     fr = document.createElement("div"); fr.id = "borradorFranja";
     fr.innerHTML = `<span class="bf-modo" title="Acá se arman las horas adicionales sin tocar los horarios reales">Modo adicionales</span><input id="borradorNombre" title="Nombre de esta versión (tocá para cambiarlo)" maxlength="40">
-      <button type="button" class="bf-solo-pc" onclick="window.armarElegir()" title="Armar la semana que se ve o un mes entero">Armar sugerido</button>
-      <button type="button" class="bf-solo-pc" onclick="window.evModal()" title="Sumar personal eventual para cubrir lo que falta, sin tocar a nadie más">Eventuales</button>
+      <button type="button" class="bf-solo-pc" onclick="window.armarElegir()" title="Armar sugerido: la semana que se ve o un mes entero"><svg class="bf-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg><span class="bf-txt">Armar</span></button>
+      <button type="button" class="bf-solo-pc" onclick="window.evModal()" title="Personal eventual: sumar gente para cubrir lo que falta, sin tocar a nadie más"><svg class="bf-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg><span class="bf-txt">Eventuales</span></button>
       <button type="button" id="borradorTrabaBtn" class="bf-candado bf-solo-pc" onclick="window.borradorTrabar()"></button>
-      <button type="button" onclick="window.borradorSalir()" title="Volver a los horarios reales (el modo adicionales queda guardado)">Salir</button>
+      <button type="button" class="bf-salir" onclick="window.borradorSalir()" title="Volver a los horarios reales (el modo adicionales queda guardado)">Salir</button>
       <span class="bf-sep"></span>
-      <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Copiar los cambios a los horarios reales (pide confirmación)">Pasar a real…</button>`;
-    // Va arriba de la grilla, ocupando su lugar (no flota sobre los horarios)
+      <button type="button" class="bf-real" onclick="window.borradorPasarAReal()" title="Pasar a real: copiar los cambios a los horarios reales (pide confirmación)"><svg class="bf-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg><span class="bf-txt">Pasar a real…</span></button>`;
+    // En la compu va en la barra de arriba, al lado de la fecha (no empuja la grilla); en el celular, arriba de la grilla
+    const nav = document.getElementById("dateNavigationContainer");
     const host = document.getElementById("seccionHorarios");
-    if (host) { fr.classList.add("bf-arriba"); host.insertBefore(fr, host.firstChild); } else document.body.appendChild(fr);
+    if (nav && window.innerWidth > 768) { fr.classList.add("bf-nav"); nav.insertBefore(fr, nav.querySelector(".date-nav")); }
+    else if (host) { fr.classList.add("bf-arriba"); host.insertBefore(fr, host.firstChild); } else document.body.appendChild(fr);
     const inp = fr.querySelector("#borradorNombre");
     inp.value = borrador.nombre || "";
     inp.oninput = () => { borrador.nombre = inp.value; borradorPersistir(); };
