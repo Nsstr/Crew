@@ -858,15 +858,17 @@
     #borradorFranja.bf-arriba { position: static; flex: 0 0 auto; max-width: none; border-radius: 0; border: none; border-bottom: 1px solid #f59e0b; box-shadow: none; padding: 6px 14px; }
     html.modo-borrador #borradorFranja.bf-arriba { border-bottom-color: var(--terracota); background: #f6ece0; box-shadow: none; }
     /* En la barra de arriba: chico y discreto, sin nombre ni "Salir" (eso lo hace el selector Real / Adicionales) */
-    #borradorFranja.bf-nav { position: static; display: inline-flex; flex-wrap: nowrap; gap: 4px; padding: 0; margin-right: 8px; background: transparent !important; border: none; box-shadow: none; max-width: none; }
-    #borradorFranja.bf-nav .bf-modo, #borradorFranja.bf-nav #borradorNombre, #borradorFranja.bf-nav .bf-salir, #borradorFranja.bf-nav .bf-sep { display: none !important; }
-    #borradorFranja.bf-nav button { height: 26px; padding: 0 8px; font-size: 0.72rem; border-radius: 6px; font-family: inherit; }
+    /* En la compu: menú que se despliega al pasar el mouse por "Adicionales" */
+    #borradorFranja.bf-nav { position: fixed; bottom: auto; right: auto; height: auto; display: none; flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 4px; padding: 6px; background: #fff !important; border: 1px solid #e3d9c8; border-radius: 10px; box-shadow: 0 12px 30px rgba(59, 51, 40, 0.18); max-width: none; z-index: 99995; min-width: 170px; }
+    #borradorFranja.bf-nav.abierto { display: flex; }
+    #borradorFranja.bf-nav .bf-modo, #borradorFranja.bf-nav #borradorNombre, #borradorFranja.bf-nav .bf-salir, #borradorFranja.bf-nav .bf-sep, #borradorFranja.bf-nav .bf-candado { display: none !important; }
+    #borradorFranja.bf-nav button { height: 30px; padding: 0 10px; font-size: 0.78rem; border-radius: 6px; font-family: inherit; justify-content: flex-start; width: 100%; border-color: transparent !important; }
     #borradorFranja.bf-nav, #modoToggle { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
     #borradorFranja button { display: inline-flex; align-items: center; gap: 5px; }
     #borradorFranja .bf-ic { display: none; }
     #borradorFranja.bf-nav .bf-ic { display: inline-block; }
     /* En pantallas angostas, solo íconos (el nombre aparece al pasar el mouse) */
-    @media (max-width: 1599px) { #borradorFranja.bf-nav .bf-txt { display: none; } #borradorFranja.bf-nav button { padding: 0 7px; } }
+
     html.modo-borrador #borradorFranja.bf-nav button { color: var(--terracota); border-color: rgba(194, 96, 63, 0.45); background: #fff; }
     html.modo-borrador #borradorFranja.bf-nav button:hover { background: #f6e3da; }
     html.modo-borrador #borradorFranja.bf-nav button.bf-real { color: #b91c1c; border: 1px dashed #dc2626; background: #fff; }
@@ -876,6 +878,7 @@
     #modoToggle button { border: none; background: transparent; color: var(--text-muted); font-family: inherit; font-size: 0.72rem; font-weight: 700; padding: 0 10px; cursor: pointer; white-space: nowrap; }
     #modoToggle button.activo[data-m="real"] { background: #1e293b; color: #fff; }
     #modoToggle button.activo[data-m="adic"] { background: #c2603f; color: #fff; }
+    #modoToggle button.activo[data-m="adic"]::after { content: " ▾"; font-size: 0.6rem; opacity: 0.85; }
     @media (max-width: 768px) { #modoToggle { display: none; } }
     #borradorFranja .bf-tag { background: #f59e0b; color: #1c1405; font-weight: 800; border-radius: 6px; padding: 2px 7px; letter-spacing: 0.04em; font-size: 0.7rem; }
     #borradorFranja input { background: transparent; border: 1px dashed rgba(253, 230, 138, 0.4); border-radius: 6px; color: var(--t-fde68a, #fde68a); font-family: inherit; font-weight: 700; font-size: 0.8rem; padding: 3px 6px; width: 160px; }
@@ -4019,7 +4022,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: var(--t-94a3b8, #94a3b8); text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.174
+            Versión: v1.7.175
           </div>
         </div>
       </div>
@@ -5385,7 +5388,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.174";
+  const APP_VERSION = "v1.7.175";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -10910,8 +10913,15 @@ const avisoConfirmado = (x) => !!avisosConfirmados[avisoFirma(x)];
 function realTrabaPintar() {
   const b = document.getElementById("realTrabaBtn");
   if (!b) return;
-  if (borradorActivo()) { b.style.display = "none"; return; }
-  b.style.display = "flex";
+  b.style.display = window.innerWidth > 768 || !borradorActivo() ? "flex" : "none";
+  if (borradorActivo()) {
+    // En modo adicionales, el mismo candado traba la semana que se ve en esa versión
+    const tr = typeof borradorSemanaTrabada === "function" && borradorSemanaTrabada();
+    b.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>${tr ? '<path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>' : '<path d="M8 10.5V7.5a4 4 0 0 1 7.6-1.7"/>'}</svg>`;
+    b.style.color = tr ? "#b45309" : ""; b.style.background = tr ? "#fef3c7" : ""; b.style.borderColor = tr ? "#f59e0b" : "";
+    b.title = tr ? "Semana trabada en modo adicionales: no se puede cambiar ni la toca Armar. Tocá para destrabarla" : "Trabar la semana que se ve (modo adicionales)";
+    return;
+  }
   const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
   const n = ({ "1": 1, "2": 2, "3": 3, "4": 4 }[typeof vistaGrilla === "function" ? vistaGrilla() : "4"]) || 1;
   const vis = Array.from({ length: n }, (_, i) => formatDate(addDays(new Date(lunes + "T00:00:00"), 7 * i)));
@@ -10939,7 +10949,7 @@ function realTrabadasEscuchar() {
   } catch (e) { console.warn(e); }
 }
 window.realTrabar = function () {
-  if (borradorActivo()) return;
+  if (borradorActivo()) { window.borradorTrabar(); return; }
   const area = state.currentArea || "";
   const lunes = formatDate(getStartOfWeek(new Date(state.currentWeekStart)));
   const fc = (f) => f.split("-").reverse().slice(0, 2).join("/");
@@ -21721,7 +21731,17 @@ window.borradorPintarFranja = function () {
     // En la compu va en la barra de arriba, al lado de la fecha (no empuja la grilla); en el celular, arriba de la grilla
     const nav = document.getElementById("dateNavigationContainer");
     const host = document.getElementById("seccionHorarios");
-    if (nav && window.innerWidth > 768) { fr.classList.add("bf-nav"); nav.insertBefore(fr, nav.querySelector(".date-nav")); }
+    if (nav && window.innerWidth > 768) {
+      fr.classList.add("bf-nav"); document.body.appendChild(fr);
+      // Se despliega al pasar el mouse por "Adicionales" y se cierra al salir
+      const ab = document.querySelector('#modoToggle button[data-m="adic"]');
+      let t = null;
+      const abrir = () => { clearTimeout(t); const r = ab.getBoundingClientRect(); fr.style.left = r.left + "px"; fr.style.top = r.bottom + 4 + "px"; fr.classList.add("abierto"); };
+      const cerrar = () => { clearTimeout(t); t = setTimeout(() => fr.classList.remove("abierto"), 250); };
+      if (ab) { ab.addEventListener("mouseenter", abrir); ab.addEventListener("mouseleave", cerrar); }
+      fr.addEventListener("mouseenter", () => clearTimeout(t)); fr.addEventListener("mouseleave", cerrar);
+      fr.addEventListener("click", () => fr.classList.remove("abierto"));
+    }
     else if (host) { fr.classList.add("bf-arriba"); host.insertBefore(fr, host.firstChild); } else document.body.appendChild(fr);
     const inp = fr.querySelector("#borradorNombre");
     inp.value = borrador.nombre || "";
