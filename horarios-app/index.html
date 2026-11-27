@@ -4019,7 +4019,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: var(--t-94a3b8, #94a3b8); text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.173
+            Versión: v1.7.174
           </div>
         </div>
       </div>
@@ -5385,7 +5385,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.173";
+  const APP_VERSION = "v1.7.174";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -8826,8 +8826,37 @@ function braTramo(salida, regreso) {
   return { s, e: e >= s ? e : e + 1440 };
 }
 
+// El tope del descanso sale de la jornada que hizo ese día (con adicionales incluidas), no del contrato.
+// Si hizo cortado, cuenta solo el tramo en que tomó el descanso. Más de 6 h en ese tramo = norma de jornada
+// completa (la de 48 h); si no, la de jornada parcial. Si no hay horario cargado, queda lo que vino en el reporte.
+let braPlanCache = null;
+async function braPlanRango(desde, hasta) {
+  if (braPlanCache && braPlanCache.desde <= desde && braPlanCache.hasta >= hasta && Date.now() - braPlanCache.t < 60000) return braPlanCache.plan;
+  let plan = { ...(state.planning || {}) };
+  try { const r = await covTraerPeriodo(desde, hasta); plan = r.planning || plan; } catch (e) { /* queda lo que hay */ }
+  braPlanCache = { desde, hasta, plan, t: Date.now() };
+  return plan;
+}
+function braNormaDia(plan, legajo, fechaId, salidaMin) {
+  if (!plan || !legajo || !fechaId) return null;
+  const c = (state.collaborators || []).find((x) => String(x.id) === String(legajo));
+  const o = plan[`${c ? c.id : legajo}_${fechaId}`];
+  const slot = o == null ? "" : typeof o === "string" ? o : o.slot || "";
+  const p = slot ? parseShift(String(slot).replace("*", "").trim()) : null;
+  if (!p || p.type !== "work") return null;
+  const tr = (p.isCortado && p.tramos ? p.tramos : [p]).map((t) => ({ s: t.start * 60, e: (t.end <= t.start ? 24 : t.end) * 60 }));
+  if (!tr.length) return null;
+  let t = salidaMin != null ? tr.find((x) => salidaMin >= x.s - 30 && salidaMin <= x.e + 30) : null;
+  if (!t) t = tr.reduce((a, b) => (b.e - b.s > a.e - a.s ? b : a));
+  const horas = (t.e - t.s) / 60;
+  const cfg = window.breakConfig || {};
+  const cs = cfg.contratos || {};
+  const norma = horas > 6 + 1e-9 ? cs["192"] || { legal: 30, sindicato: 5 } : cs["120"] || { legal: 15, sindicato: 5 };
+  const tol = (cfg.trasladoMinutos || 3.5) * 2;
+  return { legal: norma.legal, sindicato: norma.sindicato, tope: norma.legal + norma.sindicato + tol, horas, cortado: tr.length > 1, slot };
+}
 // Descansos con al menos una marca (R25 o TAW); la duración usa R25 y, si falta, TAW
-function braProcesar(filas, area) {
+function braProcesar(filas, area, fechaId, plan) {
   const delArea = filas.filter((f) => (f.area || "Linea de Cajas") === area);
   return (delArea.length ? delArea : filas)
     .map((f) => {
@@ -8839,6 +8868,12 @@ function braProcesar(filas, area) {
         dur: principal ? principal.e - principal.s : 0, tope: f.topePermitido || 0, semaforo: f.semaforo || "ok",
         aviso: f.aviso || "",
       };
+    })
+    .map((x) => {
+      const n = x.principal ? braNormaDia(plan, x.legajo, fechaId, x.principal.s) : null;
+      if (!n) return x;
+      const semaforo = x.dur > n.tope + 1e-9 ? "exceso" : x.dur > n.legal + n.sindicato + 1e-9 ? "limite" : "ok";
+      return { ...x, tope: Math.round(n.tope), semaforo, jornada: n.horas, cortado: n.cortado, slotDia: n.slot };
     })
     .filter((p) => p.principal)
     .sort((a, b) => a.principal.s - b.principal.s);
@@ -8858,10 +8893,10 @@ window.renderAnalisisDescansos = async function (container, fechaId, opciones = 
   const area = state.currentArea || "Linea de Cajas";
   const lunes = getStartOfWeek(new Date(fechaId + "T00:00:00"));
   const semana = Array.from({ length: 7 }, (_, i) => formatDate(addDays(lunes, i)));
-  const filasSemana = await Promise.all(semana.map(braLeerDia));
+  const [filasSemana, planSem] = await Promise.all([Promise.all(semana.map(braLeerDia)), braPlanRango(semana[0], semana[6])]);
   if (container.dataset.fecha !== fechaId) return; // Se pidió otro día mientras cargaba
 
-  const dia = braProcesar(filasSemana[semana.indexOf(fechaId)] || [], area);
+  const dia = braProcesar(filasSemana[semana.indexOf(fechaId)] || [], area, fechaId, planSem);
   const fecha = new Date(fechaId + "T00:00:00");
   const diasLargos = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
   const diasCortos = ["D", "L", "M", "X", "J", "V", "S"];
@@ -8870,8 +8905,8 @@ window.renderAnalisisDescansos = async function (container, fechaId, opciones = 
   else html += `<div class="cmv-title" style="margin-bottom: 8px;">${diasLargos[fecha.getDay()].charAt(0).toUpperCase() + diasLargos[fecha.getDay()].slice(1)} ${fecha.getDate()}/${fecha.getMonth() + 1}</div>`;
 
   // Volumen de la semana (minutos totales por día, excesos arriba); tocar un día lo selecciona
-  const volumen = filasSemana.map((filas) => {
-    const p = braProcesar(filas, area);
+  const volumen = filasSemana.map((filas, i) => {
+    const p = braProcesar(filas, area, semana[i], planSem);
     return { min: p.reduce((acc, x) => acc + x.dur, 0), excesos: p.filter((x) => x.semaforo === "exceso").length, n: p.length };
   });
   const maxMin = Math.max(1, ...volumen.map((v) => v.min));
@@ -8962,7 +8997,7 @@ window.renderAnalisisDescansos = async function (container, fechaId, opciones = 
     const detalle = [
       p.r25 ? `R25 ${braHora(p.r25.s)}–${braHora(p.r25.e)} (${p.r25.e - p.r25.s}')` : "R25 sin marca",
       p.taw ? `TAW ${braHora(p.taw.s)}–${braHora(p.taw.e)} (${p.taw.e - p.taw.s}')` : "TAW sin marca",
-      p.tope ? `tope ${p.tope}'` : "",
+      p.tope ? `tope ${p.tope}'${p.jornada ? ` (${String(Math.round(p.jornada * 10) / 10).replace(".", ",")} h${p.cortado ? ", tramo del cortado" : ""} · ${p.slotDia})` : ""}` : "",
       p.ventaAlta ? "en horario de venta alta" : (p.esRoller ? "roller (exceptuado)" : ""),
       p.aviso,
     ].filter(Boolean).join(" · ");
@@ -9011,12 +9046,12 @@ async function braResumen(box, fechaId) {
   box.innerHTML = cab + `<p class="cdv-empty" style="padding:8px 0">Calculando…</p>`;
   const enlazar = () => box.querySelectorAll(".brr-tog button").forEach((b) => b.addEventListener("click", () => { braResumenModo = b.dataset.m; braResumen(box, fechaId); }));
   enlazar();
-  const filasPorDia = await Promise.all(dias.map(braLeerDia));
+  const [filasPorDia, planR] = await Promise.all([Promise.all(dias.map(braLeerDia)), dias.length ? braPlanRango(dias[0], dias[dias.length - 1]) : {}]);
   if (box.dataset.fecha !== fechaId || !box.isConnected) return;
   const gente = new Map();
   let tot = 0, cumple = 0, sinReloj = 0, sin25 = 0, exceso = 0, minExceso = 0, diasConDatos = 0;
-  filasPorDia.forEach((filas) => {
-    const p = braProcesar(filas, area);
+  filasPorDia.forEach((filas, i) => {
+    const p = braProcesar(filas, area, dias[i], planR);
     if (p.length) diasConDatos++;
     p.forEach((x) => {
       const k = x.legajo || x.nombre;
