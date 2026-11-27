@@ -1671,6 +1671,15 @@
     .cdv-toggle { display: none; flex-shrink: 0; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; height: 22px; }
     .cdv-toggle button { background: transparent; border: none; color: var(--text-muted); font: inherit; font-size: 0.75rem; font-weight: 600; padding: 0 9px; cursor: pointer; }
     .cdv-toggle button.active { background: var(--primary); color: #fff; }
+    /* En la compu se ve solo la vista elegida; las demás se despliegan al pasar el mouse */
+    @media (min-width: 769px) {
+      #cajasVistaToggle button:not(.active) { display: none !important; }
+      #cajasVistaToggle button.active::after { content: " ▾"; font-size: 0.6rem; opacity: 0.85; }
+    }
+    #vistaMenu { position: fixed; z-index: 99995; display: none; flex-direction: column; gap: 2px; padding: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18); min-width: 90px; }
+    #vistaMenu.abierto { display: flex; }
+    #vistaMenu button { border: none; background: transparent; color: var(--text); font: inherit; font-size: 0.8rem; font-weight: 600; padding: 6px 10px; text-align: left; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+    #vistaMenu button:hover { background: var(--surface-hover); }
     .cdv { display: none; flex: 1; min-height: 0; overflow: auto; padding: 16px 24px 32px; color: var(--text); background: var(--bg); }
     .cdv-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
     .cdv-title { font-size: 1.2rem; font-weight: 700; }
@@ -4022,7 +4031,7 @@
           <button id="logoutBtn" class="nav-dropdown-item danger-item" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Salir</button>
           
           <div id="uiVersionDisplay" style="font-size: 0.75rem; font-weight: 600; color: var(--t-94a3b8, #94a3b8); text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.3px;">
-            Versión: v1.7.175
+            Versión: v1.7.176
           </div>
         </div>
       </div>
@@ -5388,7 +5397,7 @@ window.appInitialized = false;
 
 // Mostrar versión inmediata sin esperar al fetch
 function updateUIVersionBadge() {
-  const APP_VERSION = "v1.7.175";
+  const APP_VERSION = "v1.7.176";
   const versionDisplay = document.getElementById("uiVersionDisplay") || document.querySelector(".menu-version");
   if (versionDisplay) {
     versionDisplay.textContent = `Versión: ${APP_VERSION}`;
@@ -8096,8 +8105,8 @@ state.cajasVista = (function () {
 state.dispVista = (function () {
   try {
     const guardado = localStorage.getItem("crew_disp_vista");
-    return ["1", "2", "3", "4"].includes(guardado) ? guardado : "4";
-  } catch (e) { return "4"; }
+    return ["1", "2", "3", "4"].includes(guardado) ? guardado : "1";
+  } catch (e) { return "1"; }
 })();
 const esAreaCajas = () => (state.currentArea || "") === "Linea de Cajas";
 // Semanas que muestra la grilla en el sector actual ("1".."4", o "dia" en Cajas)
@@ -8115,6 +8124,32 @@ window.setCajasVista = function (modo) {
   try { localStorage.setItem("crew_cajas_vista", modo); } catch (e) {}
   window.switchTab("horarios");
 };
+// Menú de vistas: al pasar el mouse por la vista elegida, aparecen las demás
+(function () {
+  let menu = null, t = null;
+  const tog = () => document.getElementById("cajasVistaToggle");
+  const cerrar = () => { clearTimeout(t); t = setTimeout(() => menu && menu.classList.remove("abierto"), 250); };
+  const abrir = () => {
+    const tg = tog();
+    if (!tg || window.innerWidth <= 768) return;
+    clearTimeout(t);
+    if (!menu) {
+      menu = document.createElement("div"); menu.id = "vistaMenu"; document.body.appendChild(menu);
+      menu.addEventListener("mouseenter", () => clearTimeout(t)); menu.addEventListener("mouseleave", cerrar);
+    }
+    const ops = [...tg.querySelectorAll("button")].filter((b) => !b.classList.contains("active") && b.style.display !== "none");
+    menu.innerHTML = ops.map((b) => `<button type="button" data-modo="${b.dataset.modo}" title="${b.title || ""}">${b.textContent.trim()}</button>`).join("");
+    menu.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { menu.classList.remove("abierto"); window.setCajasVista(b.dataset.modo); }));
+    const r = tg.getBoundingClientRect();
+    menu.style.left = r.left + "px"; menu.style.top = r.bottom + 4 + "px";
+    menu.classList.add("abierto");
+  };
+  document.addEventListener("mouseover", (e) => { if (e.target.closest && e.target.closest("#cajasVistaToggle")) abrir(); });
+  document.addEventListener("mouseout", (e) => {
+    const tg = e.target.closest && e.target.closest("#cajasVistaToggle");
+    if (tg && !(e.relatedTarget && (tg.contains(e.relatedTarget) || (menu && menu.contains(e.relatedTarget))))) cerrar();
+  });
+})();
 window.setDispVista = function (modo) { state.dispVista = modo; try { localStorage.setItem("crew_disp_vista", modo); } catch (e) {} };
 
 // Clases para ocultar las columnas que quedan fuera del rango de semanas elegido
